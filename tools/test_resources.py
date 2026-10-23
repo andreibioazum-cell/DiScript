@@ -126,6 +126,7 @@ def check_assets() -> None:
     required = (
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",
+        ROOT / "assets" / "audio" / "azum_vs_astra.wav",
         ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
         ROOT / "assets" / "shaders" / "sprite.vert",
         ROOT / "assets" / "shaders" / "solid.frag",
@@ -145,6 +146,16 @@ def check_assets() -> None:
             assert audio.getnchannels() == 2 and audio.getsampwidth() == 2, f"Неверный формат музыки: {name}"
             duration = audio.getnframes() / audio.getframerate()
             assert abs(duration - expected) < 0.001, f"Неверная длительность {name}: {duration}"
+
+    with wave.open(str(ROOT / "assets" / "audio" / "azum_vs_astra.wav"), "rb") as seraphim:
+        assert seraphim.getnchannels() == 2 and seraphim.getsampwidth() == 2, "Неверный формат azum_vs_astra.wav"
+        rate = seraphim.getframerate()
+        assert seraphim.getnframes() / rate >= 30.0, "azum_vs_astra.wav слишком короткий"
+        head = seraphim.readframes(rate * 5)
+        import struct, math
+        samples = struct.unpack("<" + "h" * (len(head) // 2), head)
+        rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
+        assert rms5 >= 4000.0, f"azum_vs_astra.wav слишком тихий в начале боя (RMS={rms5:.1f})"
 
 
 def check_port_layout() -> None:

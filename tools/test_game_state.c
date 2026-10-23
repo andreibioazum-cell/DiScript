@@ -283,8 +283,12 @@ static double stub_gdy[4];
 double net_slot(void) {
     return stub_net_slot;
 }
+static double stub_class[4];
 double net_player_online(double slot) {
     return stub_online[(int)slot];
+}
+double net_player_class(double slot) {
+    return stub_class[(int)slot];
 }
 double net_player_level(double slot) {
     return stub_level[(int)slot];
@@ -444,6 +448,8 @@ int snd_play(const char *name) {
     }
     return 1;
 }
+static int seraphim_playing = 0;
+static double seraphim_vol = 0;
 int snd_loop(const char *name) {
     if (name && LOBBY_MUSIC && strcmp(name, LOBBY_MUSIC) == 0) {
         lobby_playing = 1;
@@ -452,6 +458,9 @@ int snd_loop(const char *name) {
         winter_playing = 1;
         winter_loop_calls++;
     }
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0) {
+        seraphim_playing = 1;
+    }
     return 1;
 }
 int snd_playing(const char *name) {
@@ -459,6 +468,8 @@ int snd_playing(const char *name) {
         return lobby_playing;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         return winter_playing;
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
+        return seraphim_playing;
     return 0;
 }
 void snd_stop(const char *name) {
@@ -466,10 +477,12 @@ void snd_stop(const char *name) {
         lobby_playing = 0;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         winter_playing = 0;
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
+        seraphim_playing = 0;
 }
 void snd_volume(const char *name, double volume) {
-    (void)name;
-    (void)volume;
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
+        seraphim_vol = volume;
 }
 
 int tex_ready(const char *name) {
@@ -2692,6 +2705,42 @@ int main(void) {
     winter_theme = 0;
     update_newyear_jingle();
     assert(winter_playing == 0);
+    /* Azum vs Astra battle music: starts immediately in Solo and Online, cuts
+     * lobby music cleanly, reaches battle volume, and stops outside the matchup. */
+    seraphim_ok = 0;
+    seraphim_playing = 0;
+    seraphim_vol = 0;
+    lobby_playing = 1;
+    game_state = ST_SOLO;
+    player_class = CLASS_AZUM;
+    enemy_class = CLASS_ASTRA;
+    assert(seraphim_should_play() == 1);
+    update_seraphim_music();
+    assert(seraphim_ok == 1 && seraphim_playing == 1 && lobby_playing == 0 && seraphim_vol > 0.2);
+    for (int f = 0; f < 20; f++)
+        update_seraphim_music();
+    assert(seraphim_vol > 0.8);
+    player_class = CLASS_ASTRA;
+    enemy_class = CLASS_AZUM;
+    assert(seraphim_should_play() == 1);
+    enemy_class = CLASS_ORDINARY;
+    assert(seraphim_should_play() == 0);
+    for (int f = 0; f < 80; f++)
+        update_seraphim_music();
+    assert(seraphim_playing == 0);
+    game_state = ST_ONLINE;
+    player_class = CLASS_AZUM;
+    arr_set(remotes, 1 * remote_fields, 1);
+    arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
+    assert(seraphim_should_play() == 1);
+    update_seraphim_music();
+    assert(seraphim_playing == 1);
+    arr_set(remotes, 1 * remote_fields, 0);
+    arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
+    game_state = ST_LOBBY;
+    for (int f = 0; f < 80; f++)
+        update_seraphim_music();
+    assert(seraphim_playing == 0);
     winter_theme = 1;
     warn_open = 0;
 

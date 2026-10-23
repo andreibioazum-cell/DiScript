@@ -27,31 +27,40 @@ static void start_music(void) {
 
 /* Azum vs Astra battle music: original And_The_Seraphim_Wept style but royalty-free.
  * Plays only when one side is Azum and the other is Astra (both directions). */
+static int seraphim_is_astra(double cls) {
+    return class_is_astra(cls) == 1 || cls == 5;
+}
+
 static int seraphim_should_play(void) {
     if (game_state != ST_SOLO && game_state != ST_ONLINE) {
         return 0;
     }
     if (game_state == ST_SOLO) {
-        if ((player_class == CLASS_AZUM && enemy_class == CLASS_ASTRA) ||
-            (player_class == CLASS_ASTRA && enemy_class == CLASS_AZUM)) {
+        if ((player_class == CLASS_AZUM && seraphim_is_astra(enemy_class)) ||
+            (seraphim_is_astra(player_class) && enemy_class == CLASS_AZUM)) {
             return 1;
         }
         return 0;
     }
     /* Online: check if room contains at least one Azum and at least one Astra
-     * (local player or any remote). This triggers for both participants and
-     * spectators when the matchup is present. */
+     * (local player or any remote). Check both live net slots and snapped
+     * remotes so the matchup triggers immediately for players and spectators. */
     {
         int has_azum = 0;
         int has_astra = 0;
         if (player_class == CLASS_AZUM) has_azum = 1;
-        if (player_class == CLASS_ASTRA) has_astra = 1;
+        if (seraphim_is_astra(player_class)) has_astra = 1;
         double s = 0;
         while (s < max_players) {
             if (net_player_online(s) == 1) {
                 double c = net_player_class(s);
                 if (c == CLASS_AZUM) has_azum = 1;
-                if (c == CLASS_ASTRA) has_astra = 1;
+                if (seraphim_is_astra(c)) has_astra = 1;
+            }
+            if (arr_get(remotes, s * remote_fields) == 1) {
+                double rc = arr_get(remotes, s * remote_fields + 10);
+                if (rc == CLASS_AZUM) has_azum = 1;
+                if (seraphim_is_astra(rc)) has_astra = 1;
             }
             s = s + 1;
         }
@@ -61,18 +70,28 @@ static int seraphim_should_play(void) {
 }
 
 static void update_seraphim_music(void) {
-    if (seraphim_ok == 0) return;
+    double target_vol = clamp(music_volume / 100 * 1.65, 0, 1);
     if (seraphim_should_play() == 1) {
+        if (seraphim_ok == 0) {
+            seraphim_ok = snd_load(SERAPHIM_MUSIC);
+            if (seraphim_ok == 0) return;
+        }
+        if (snd_playing(LOBBY_MUSIC) == 1) {
+            snd_stop(LOBBY_MUSIC);
+            music_level = 0;
+        }
         if (snd_playing(SERAPHIM_MUSIC) == 0) {
-            seraphim_level = 0;
+            seraphim_level = 0.25;
+            snd_volume(SERAPHIM_MUSIC, target_vol * seraphim_level);
             snd_loop(SERAPHIM_MUSIC);
         }
         seraphim_level = clamp(seraphim_level + dt / seraphim_fade_in, 0, 1);
-        snd_volume(SERAPHIM_MUSIC, music_volume / 100 * seraphim_level);
+        snd_volume(SERAPHIM_MUSIC, target_vol * seraphim_level);
         return;
     }
+    if (seraphim_ok == 0) return;
     seraphim_level = clamp(seraphim_level - dt / seraphim_fade_out, 0, 1);
-    snd_volume(SERAPHIM_MUSIC, music_volume / 100 * seraphim_level);
+    snd_volume(SERAPHIM_MUSIC, target_vol * seraphim_level);
     if (seraphim_level <= 0 && snd_playing(SERAPHIM_MUSIC) == 1) {
         snd_stop(SERAPHIM_MUSIC);
     }
