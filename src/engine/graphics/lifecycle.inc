@@ -133,8 +133,7 @@ static Texture *load_png(const char *req) {
             t->opaque = 0;
     }
     stbi_image_free(dec);
-    /* Textures decoded while the black-and-white filter is active enter the
-     * world desaturated, with their colors kept for the restore. */
+    /* Apply grayscale filter if active. */
     texture_gray_apply(t);
     ds_vk_pending_texture(t);
     ds_log("texture loaded: %s (%dx%d)", n, t->w, t->h);
@@ -243,9 +242,7 @@ int tex_ready(const char *name) {
     if (t->gpu.uploaded)
         return 1;
     ds_vk_pending_texture(t);
-    /* Pending is not drawable yet. Returning ready here allowed a fighter to
-     * select a texture whose Vulkan descriptor did not exist, making the cube
-     * disappear for one or more frames during upload/recreation. */
+    /* Wait until GPU upload completes before marking drawable. */
     return 0;
 }
 
@@ -362,9 +359,8 @@ void text_scaled(const char *s, float x, float y, uint32_t c, float sc) {
 
     p->v.tt.s = strdup_safe(s);
     if (!p->v.tt.s) {
-                /* A half-written label is not worth restarting the game: take the command
-                 * back and draw the frame without it. */
-        ds_log_err("renderer: no memory to copy text");
+                /* Drop text command on allocation failure. */
+                ds_log_err("renderer: no memory to copy text");
         cmd_n = cmd_n - 1;
         return;
     }

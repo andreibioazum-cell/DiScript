@@ -2,9 +2,7 @@ static double newyear_active(void) {
     return winter_theme_on() == 1;
 }
 
-/* Snow runs on the lobby-family screens for as long as winter is on. The
- * startup notice and transitions do not pause it: the draw passes at the end
- * of this file decide what is visible, and the animation clock never stops. */
+/* Return 1 when winter snow animation is active on menu screens. */
 static double newyear_menu_active(void) {
     if (newyear_active() == 0) {
         return 0;
@@ -77,8 +75,7 @@ static void draw_newyear_snow(void) {
         }
         double spin = spin_dir * (0.9 + 1.4 * hr);
         double ang = (hr + newyear_snow_t * spin) * 2 * pi;
-        /* The bundled flake texture is light blue; tinting it white keeps the
-         * snow white in every theme instead of showing blue blobs. */
+        /* Tint snowflake sprite pure white across all themes. */
         tex_tint(x - hw, y - hw, SNOWFLAKE_TEX, ang, s, 0xFFFFFFFF);
         i = i + 1;
     }
@@ -109,10 +106,7 @@ static void update_newyear_jingle(void) {
         return;
     }
     if (newyear_music_active() == 1) {
-        /* The lobby loop used to keep this branch waiting, which left the
-         * winter theme with ordinary music during the startup notice. Switch
-         * tracks decisively; the regular track fades back in when winter is
-         * disabled or gameplay begins. */
+        /* Stop standard lobby music when switching to winter track. */
         if (snd_playing(LOBBY_MUSIC) == 1) {
             snd_stop(LOBBY_MUSIC);
         }
@@ -133,24 +127,12 @@ static void update_newyear(void) {
     update_newyear_jingle();
 }
 
-/* Snowflakes are drawn around the lobby notices. The black transition curtain
- * must never be painted over flakes, and the epilepsy warning must never be
- * painted under them either - it is a solid black panel with the legal text on
- * it. So:
- *   - the under-pass runs as part of the screen backdrop (screen_fill), below
- *     every button, the dialogue and the notices: flakes fall across the
- *     whole width, and while the warning panel is fully opaque nothing shows
- *     through it anyway; as it fades the lobby - with its snow - is revealed
- *     underneath;
- *   - the over-pass only lifts flakes above the studio splash, which has no
- *     text to protect, and is skipped while the curtain is up (t_fade > 0).
- * Neither pass pauses the animation clock. */
+/* Return 1 when backdrop snow pass should render behind UI and fading notices. */
 static double newyear_snow_under_notice_active(void) {
     if (newyear_menu_active() == 0 || studio_open == 1) {
         return 0;
     }
-    /* Under a fully opaque warning panel the flakes would be invisible: the
-     * pass waits for the panel to start fading before drawing them. */
+    /* Skip snow draw while warning modal is fully opaque. */
     if (warn_open == 1 && warn_a >= 1) {
         return 0;
     }

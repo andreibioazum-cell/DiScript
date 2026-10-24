@@ -1,5 +1,4 @@
-/* A candy appears by alpha only: it stands at its place at full size from the
- * start, only the alpha changes - no growth and no fly-in. */
+/* Draw arena candies with alpha fade-in. */
 static void draw_candies(void) {
     if (candies_on() == 0) {
         return;
@@ -41,8 +40,7 @@ static void draw_status_aura(double x, double y, double size, double rgb, double
     }
     double half = size + 14;
     circle(x, y, half, (((unsigned)(int)fill) << 24) | ((unsigned)(int)rgb));
-    /* pack_c() maps alpha 0 to opaque, so a ring whose alpha has faded to
-     * zero must be skipped instead of flashing opaque for a frame. */
+    /* Skip ring draw when alpha reaches 0 since pack_c() treats 0 as opaque. */
     double ring_a = floor(a * 255 * 0.7);
     if (ring_a >= 1) {
         ring(x, y, half, 2, (((unsigned)(int)ring_a) << 24) | ((unsigned)(int)rim));
@@ -89,8 +87,7 @@ static void finish_game(double result) {
     enemy_super_windup = 0;
     enemy_super_kind = 0;
     enemy_grab_clear();
-    /* A projectile still in the air would freeze on the result screen: the fight is
-     * over, so it bursts where it is and does nothing. */
+    /* Clear active projectiles when battle ends. */
     ball_clear_after_finish();
     turret_heal_t = 0;
     universe_active = 0;
@@ -122,10 +119,7 @@ static void finish_game(double result) {
     }
 }
 
-/* Battle payout. If any admin panel switch was on at least once during this
- * fight, the fight changes nothing in the wallet: a win pays no cups (and no
- * win achievements), a loss takes none. With all panel switches off, wins and
- * losses change cups normally even for an admin. */
+/* Apply battle cup payout and win achievements unless an admin cheat was used. */
 static void award_battle_result(double result) {
     if (result == 1) {
         if (admin_cups_allowed() == 0) {
@@ -141,8 +135,7 @@ static void award_battle_result(double result) {
         }
         save_progress();
         grant_achievement(ACH_FIRST_WIN);
-        /* Flawless win: keep full health and take no hits during the battle.
-         * player_was_hit includes damage intercepted by ebuC's turrets. */
+        /* Unlock flawless-win achievement when full HP and unhit (including turret shields). */
         if (player->hp >= player->max_hp && player_was_hit == 0) {
             grant_achievement(ACH_LAST_HP);
         }
@@ -196,7 +189,7 @@ static void draw_guard(double x, double y, double angle, double on, double scale
     if (on <= 0) {
         return;
     }
-        /* Block is just a blue circle on the player itself, nothing else. */
+        /* Draw circular guard ring around fighter. */
     double r = 25 * cube_scale * scale * 1.75;
     circle(x, y, r, 0x2E4FC3F7);
     ring(x, y, r, clamp(r * 0.13, 3, 5), 0xCC4FC3F7);
@@ -282,17 +275,12 @@ static void draw_enemy_body(void) {
     draw_purple_guard(enemy->x, enemy->y, class_is_astra(enemy_class) == 1 && egrab_parry_t > 0, enemy_scale);
 }
 
-/* A combat pad answers a press the way a menu button does: it shrinks a
- * little and darkens, so a punch that goes off on the touch still reads as a
- * press and not as a misfire. */
-/* Battle button radius: it was 55, made noticeably bigger on request, so a
- * finger cannot miss. */
+/* Combat pad radius. */
 static double battle_pad_r(void) {
     return 60;
 }
 static void draw_pad(double cx, double cy, double r, uint32_t col, const char *label, double scale) {
-    /* The squeeze is claimed by the circle itself - the same circle the
-     * touch handler fires on - not by its square bounding box. */
+    /* Apply circular press squeeze animation. */
     double p = button_press_k_round(cx - r, cy - r, r * 2, r * 2, r);
     double s = 1 - PRESS_SQUEEZE * p;
     double rr = r * s;
@@ -304,11 +292,8 @@ static void draw_pad(double cx, double cy, double r, uint32_t col, const char *l
 static void draw_controls(void) {
     ring(joy.x, joy.y, joy.r, 4, 0x000000);
     circle(joy.x + joy.ox, joy.y + joy.oy, 34, 0x000000);
-        /* All three battle buttons are the same size and much bigger than before:
-         * block is no smaller than punch and super. */
     draw_pad(atk_x, atk_y, battle_pad_r(), 0xE94560, tr_punch(), 0.55);
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
-                /* Block sits between punch and super, to the left of both. */
         draw_pad(blk_x, blk_y, battle_pad_r(), player_block == 1 ? 0x2E6FBF : 0x3A5A8C, tr_block(), 0.55);
     }
     if (class_has_super(player_class) == 1 && (game_state == ST_SOLO || game_state == ST_ONLINE)) {
@@ -351,11 +336,8 @@ static void draw_controls(void) {
     draw_battle_back();
 }
 
-/* Battle result screen: purple in the new theme, pink in the old one (in its
- * button style), for a win and for a loss. The fill matches the window face:
- * dark purple or dark pink. */
+/* Result overlay curtain colors for new and classic themes. */
 #define RESULT_CURTAIN 0xCC1A1A2E
-/* Dark pink fill of the old theme under its pink defeat window. */
 #define RESULT_ROSE_CURTAIN 0xCC3A1530
 
 static void draw_result(const char *title) {
@@ -414,9 +396,8 @@ static void draw_game(void) {
     draw_status_aura(enemy->x, enemy->y, enemy->size, poison_rgb, poison_rim, poison_a);
     draw_status_aura(enemy->x, enemy->y, enemy->size, stun_rgb, stun_rim, stun_a);
     draw_snow();
-        /* Colour correction and vignette cover the fight, not the interface: the
-         * health bars and buttons stay clean. */
-    draw_screen_fx();
+        /* Draw arena vignette before HUD elements. */
+        draw_screen_fx();
     double w = screen_w / 4;
     hud_bar(20, 20, w, 28, player->hp, player->max_hp, 0x7ED321, 0);
     hud_bar(screen_w - w - 20, 20, w, 28, enemy->hp, enemy->max_hp, 0xE94560, 1);

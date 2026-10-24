@@ -40,6 +40,7 @@ void net_logout(void) {
     ach_revives = 0;
     ds_mutex_unlock(ach_lock);
     achievements_write(0, 0);
+    promo_reset_local();
     if (lg.path[0])
         snprintf(path, sizeof(path), "%s/%s", lg.path, SESSION_FILE);
     else

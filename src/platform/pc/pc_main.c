@@ -1,8 +1,4 @@
-/* Cubic Battle 4 on the desktop: the very same game translation unit as on
- * Android (game.c + runtime.c + the engine includes at the bottom of this
- * file), driven by a Win32 window and rendered by the CPU rasterizer from
- * platform/pc/pc_record.inc. No --headless runs the harness that CI drives:
- * fixed 16 ms steps, scripted touches, BMP dumps. */
+/* Desktop and headless entry point for Cubic Battle 4. */
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif
@@ -275,8 +271,7 @@ static void pc_exe_dir(char *out, size_t cap) {
 #endif
 }
 
-/* Saves live next to the exe unless --data says otherwise. The harness build
- * can bake a default (PC_DATA_PATH) so CI points it at a scratch folder. */
+/* Resolve save directory next to executable unless overridden by --data or PC_DATA_PATH. */
 static void pc_data_dir(const char *dir, char *out, size_t cap) {
     const char *fallback =
 #ifdef PC_DATA_PATH
@@ -300,9 +295,7 @@ static void pc_data_dir(const char *dir, char *out, size_t cap) {
 #endif
 }
 
-/* The exe ships next to an "assets" folder; a plain relative path only wins
- * when the user really runs from a directory that has one (CI passes
- * --assets explicitly). */
+/* Resolve asset directory from working directory or executable folder. */
 static void pc_resolve_assets(const char *given, char *out, size_t cap) {
     FILE *probe;
     char exe_dir[1024];
@@ -315,9 +308,6 @@ static void pc_resolve_assets(const char *given, char *out, size_t cap) {
         snprintf(out, cap, "%s", given);
         return;
     }
-    /* A relative folder is only taken as-is when it really looks like the
-     * asset root; otherwise it is resolved next to the executable, so a
-     * shortcut with a foreign working directory still finds the game data. */
     snprintf(marker, sizeof(marker), "%s/grass.png", given);
     probe = fopen(marker, "rb");
     if (probe) {
@@ -329,10 +319,7 @@ static void pc_resolve_assets(const char *given, char *out, size_t cap) {
     snprintf(out, cap, "%s/%s", exe_dir, given);
 }
 
-/* Android seeds rand() in android_main(); the desktop entry points have to do
- * the same, otherwise every launch replays one and the same pseudo-random
- * stream (same enemy class, same spawn point, same loot). The headless harness
- * keeps the seed fixed so CI replays exactly the same fight. */
+/* Seed PRNG deterministically in headless mode or from clock/PID in window mode. */
 static void pc_seed_random(int fixed) {
     if (fixed) {
         srand(1);

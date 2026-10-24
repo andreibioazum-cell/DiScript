@@ -5,9 +5,8 @@ static void start_transition(double target) {
     classes_swipe_reset();
     ach_scroll_reset();
     t_target = target;
-        /* The button fires and squashes, and the screen starts to fade in the same
-         * frame - so the press is invisible. Let the button squash first, fade after. */
-    t_hold = transition_hold;
+        /* Hold briefly before fade-out so button squeeze remains visible. */
+        t_hold = transition_hold;
     t_dir = 1;
 }
 
@@ -52,8 +51,7 @@ static double enter_screen(double state) {
         return 1;
     }
     if (state == ST_CLASSES) {
-        /* Every visit to the shop re-reads AzumBuff and FlashSale from
-         * Firebase; prices must not come from a stale periodic poll. */
+        /* Refresh live server flags on shop entry. */
         net_live_flags_refresh();
         return 1;
     }

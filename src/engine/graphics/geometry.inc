@@ -14,7 +14,7 @@ static size_t geo_in, geo_icap;
 
 static int geo_push_vert(float x, float y, float u, float v, uint32_t c) {
 
-    /* Screen shake drifts every vertex together: the image rattles as one. */
+    /* Apply screen-shake offset. */
     x += gfx_shake_dx; y += gfx_shake_dy;
     if (geo_vn >= 65535)
         return 0;
@@ -332,11 +332,7 @@ static int geo_tex(float x, float y, float ang, float sc, float tw, float th_, u
     return geo_quad(q);
 }
 
-/* Same silhouette as geo_roundrect (a center strip, two side strips and four
- * corner fans), but every vertex also carries a UV computed from its
- * position within the (x, y, w, h) box, so the shape samples a texture
- * instead of a flat color - this is how textured renders get rounded
- * corners without needing a fragment-shader change. */
+/* Emit rounded-rectangle geometry with UV coordinates for textured rendering. */
 static int geo_tex_round(float x, float y, float sc, float tw, float th_, float rad, uint32_t c) {
     if (!isfinite(x + y + sc) || sc <= 0 || tw <= 0 || th_ <= 0)
         return 1;

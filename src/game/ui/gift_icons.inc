@@ -1,13 +1,4 @@
-/* Sticker pictures ship as PNG sprites (assets/textures/gift_*.png, drawn by
- * tools/gen_gift_textures.py), so the shop shows real artwork instead of
- * shapes assembled from rects and circles. Every sprite is 192x192 with a
- * transparent background and is drawn at the size of the card slot.
- *
- * Rarity gives each sticker a colour for its lettering:
- *   0 common    white
- *   1 rare      light blue
- *   2 epic      violet
- *   3 exclusive rainbow (every glyph takes the next hue step) */
+/* Gift sticker sprite rendering, rarity colors, and emerald hue shimmer. */
 
 #define GIFT_TEX_PX 192.0
 
@@ -60,9 +51,7 @@ static uint32_t gift_hue_color(double hue) {
     return 0xFF000000u | ((uint32_t)(r * 255) << 16) | ((uint32_t)(g * 255) << 8) | (uint32_t)(b * 255);
 }
 
-/* The emerald: the white stone plus a shimmering layer of the hue, so the
- * colour flows over it and drifts with time. The tint reads only on a white
- * base - on a coloured sprite the hue would just turn to mud. */
+/* Draw sticker sprite; overlay animated hue tint for emerald. */
 static void gift_icon(double id, double x, double y, double s) {
     if (s <= 0) return;
     double sc = s / GIFT_TEX_PX;
@@ -99,9 +88,7 @@ static const char *gift_rarity_name(double id) {
     return "COMMON";
 }
 
-/* White, light blue and violet; the exclusive emerald is signed white as
- * well - its colour lives on the stone itself, which drifts through the hue
- * wheel, not in the lettering. */
+/* Return rarity label color for sticker `id`. */
 static uint32_t gift_rarity_color(double id) {
     double r = gift_rarity(id);
     if (r == 1) return 0xFF5CC8FF;
@@ -109,10 +96,7 @@ static uint32_t gift_rarity_color(double id) {
     return 0xFFFFFFFF;
 }
 
-/* Centred rarity-coloured lettering inside a box, with the same baseline the
- * other card labels use (text_in_box). The exclusive emerald is signed in
- * plain white: the colour belongs to the stone itself, which drifts through
- * the hue wheel on its own. */
+/* Draw centered rarity-colored sticker text inside box. */
 static void gift_text_rarity(const char *s, double x, double y, double w, double h, double id, double sc) {
     double tw = text_ink_width(s) * sc;
     double th = text_ink_height(s) * sc;

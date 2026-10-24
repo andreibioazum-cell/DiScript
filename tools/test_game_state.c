@@ -325,6 +325,25 @@ double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
 double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
 double net_player_brick_dx(double slot) { return stub_bkdx[(int)slot]; }
 double net_player_brick_dy(double slot) { return stub_bkdy[(int)slot]; }
+static double stub_universe[4], stub_ux[4], stub_uy[4];
+static double stub_snow[4], stub_dash[4], stub_thud[4], stub_cc_super[4];
+static double stub_rx[4], stub_ry[4], stub_ra[4], stub_ralive[4], stub_rpunch[4], stub_rskin[4];
+double net_player_universe(double slot) { return stub_universe[(int)slot]; }
+double net_player_universe_x(double slot) { return stub_ux[(int)slot]; }
+double net_player_universe_y(double slot) { return stub_uy[(int)slot]; }
+double net_player_snow(double slot) { return stub_snow[(int)slot]; }
+double net_player_dash(double slot) { return stub_dash[(int)slot]; }
+double net_player_thud(double slot) { return stub_thud[(int)slot]; }
+double net_player_x(double slot) { return stub_rx[(int)slot]; }
+double net_player_y(double slot) { return stub_ry[(int)slot]; }
+double net_player_angle(double slot) { return stub_ra[(int)slot]; }
+double net_player_alive(double slot) { return stub_ralive[(int)slot]; }
+double net_player_punch(double slot) { return stub_rpunch[(int)slot]; }
+double net_player_skin(double slot) { return stub_rskin[(int)slot]; }
+double net_player_punch_x(double slot) { return stub_rx[(int)slot]; }
+double net_player_punch_y(double slot) { return stub_ry[(int)slot]; }
+double net_player_punch_dx(double slot) { (void)slot; return 1; }
+double net_player_punch_dy(double slot) { (void)slot; return 0; }
 void net_mark_achievement_flag(double flag) {
     (void)flag;
 }
@@ -432,6 +451,7 @@ void tex_tint(float x, float y, const char *name, float angle, float scale, uint
     }
 }
 void net_mark_progress_synced(void) {}
+void net_progress_flush(void) {}
 double stub_last_bp = -1;
 void net_save_progress_all(double a, double b, double c, double d, double e, double f, double g, double h, double i,
                            double j, double k, double l, double m, double n, double o, double p, double q, double r) {
@@ -1260,16 +1280,16 @@ static void test_gifts_page(void) {
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
         assert(admin_playing() == 1);
         cups = 0;
-        acct_gift_choice = 2; /* мишка, 250 кубков */
+        acct_gift_choice = 2; /* teddy, 250 cups */
         acct_gift_is_owned = 0;
         acct_gift_buy();
         assert(acct_gift_busy == 1 && acct_gift_busy_mode == 2);
-        stub_gift_cups = 55; /* в базе по-прежнему 55: цена не списана */
+        stub_gift_cups = 55; /* server balance unchanged */
         stub_gift_status = 2;
         acct_poll_gifts();
         assert(acct_gift_busy == 0 && cups == 55);
         acct_msg = "";
-        net_gift_count_add(2, -1); /* откатить мишку из кэша коллекции */
+        net_gift_count_add(2, -1); /* revert cached teddy count */
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
     }
 
@@ -1322,7 +1342,7 @@ static void test_gifts_page(void) {
     acct_gift_choice = 3;
     acct_gift_is_owned = 0;
     acct_gift_buy();
-    acct_gift_choice = 0; /* игрок успел ткнуть другую карточку */
+    acct_gift_choice = 0; /* selection changed while request in flight */
     stub_gift_cups = 640;
     stub_gift_status = 2;
     acct_poll_gifts();
@@ -1350,7 +1370,7 @@ static void test_gifts_page(void) {
     double moved = acct_gift_scroll - before;
         /* One tick moves no faster than the speed cap: a flick does not fly away. */
     assert(moved > 0 && moved <= 22 * dt + 1e-9);
-    assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6); /* не выровнено по строке */
+    assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6); /* fractional offset */
         /* Scrolling never leaves the list. */
     acct_gift_scroll = 0;
     acct_gift_vel = -500;
@@ -1976,7 +1996,7 @@ static void test_battle_events(void) {
     assert(plates_thrown == 0);
     for (int i = 0; i < 40; i++) tick_plates_event();
     assert(plates_thrown > 0);
-    draw_event_plates(); /* плит в режиме 3 нет */
+    draw_event_plates(); /* no plates drawn in mode 3 */
     draw_event_candies();
     draw_event_santa();
     draw_plates_hud();
@@ -2061,7 +2081,7 @@ static void test_eax229_and_rooms(void) {
     assert(strcmp(bp_reward_text(4), "Skin: Elf ebuC") == 0);
     language = 1;
 
-    /* Gift from буК: granted in an online Ded Moroz event as Santa, unlocks Elf буК. */
+    /* ACH_BUK_GIFT: granted in an online Ded Moroz event as Santa, unlocks Elf ebuC. */
     achievement_mask = 0;
     bp_claimed = 0;
     assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
@@ -2108,9 +2128,7 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 1.12) < 1e-9);
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.12) < 1e-9);
 
-    /* Ball bounce scaling of ebuC (буК): 0 bounces barely scratches (0.5 dmg),
-     * the 1st bounce adds +1.5 dmg, each next bounce adds +13% more than the
-     * previous bounce, and every bounce accelerates speed by +4% (x1.04). */
+    /* ebuC ball bounce scaling: 0.5 base dmg, +1.5 on first bounce, x1.13 gain and x1.04 speed per bounce. */
     assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
     for (int b = 0; b < 10; b++) {
         assert(ball_damage_for(b + 1) > ball_damage_for(b));
@@ -2164,9 +2182,7 @@ static void test_eax229_and_rooms(void) {
         ball_tick();
         assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
 
-        /* Explosion radius is ~15% larger than super_radius (150 vs 130), and
-         * when the projectile bursts on expiry ("в пустую") it still hurts an
-         * enemy caught inside BALL_BOOM_RADIUS (while leaving a far enemy unharmed). */
+        /* Expiry burst damages enemies inside BALL_BOOM_RADIUS (150) while sparing distant ones. */
         assert(fabs(BALL_BOOM_RADIUS - 150.0) < 1e-6 && BALL_BOOM_RADIUS > super_radius * 1.14);
         ball_reset();
         ball.active = 1;
@@ -2414,7 +2430,7 @@ double net_leaderboard_status(void) { return 0; }
 double net_leaderboard_count(void) { return 0; }
 const char *net_leaderboard_nick(double idx) { (void)idx; return ""; }
 double net_leaderboard_cups(double idx) { (void)idx; return 0; }
-double net_player_codecracker_super(double slot) { (void)slot; return 0; }
+double net_player_codecracker_super(double slot) { return stub_cc_super[(int)slot]; }
 double net_player_block(double slot) { (void)slot; return 0; }
 const char *net_banner_text(void) { return ""; }
 const char *net_banner_color(void) { return "white"; }
@@ -2589,10 +2605,7 @@ int main(void) {
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
     assert(class_has_super(CLASS_ASTRA) == 1 && player_max_hp_for(CLASS_ASTRA) == astra_hp * round_hp_mult());
-    /* Long-fight balance: every pool doubled (ordinary/santa 20, azum 13,
-     * astra 18, ebuc 24) and the ability numbers scaled with them, while the
-     * basic attacks kept their old damage - that is what makes fights last.
-     * Azum then got a 2% nerf: 13 -> 12.74. */
+    /* Base HP pools: Ordinary/Santa 20, Azum 12.74, Astra 18, ebuC 24. */
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 12.74) < 1e-9 && astra_hp == 18 && ebuc_hp == 24 && enemy_base_hp == 20);
@@ -3082,8 +3095,7 @@ int main(void) {
         assert(player->hp == player->max_hp);
         assert(has_achievement(ACH_LAST_HP) == 0);
 
-                /* ebuc's turret shield leaves player HP untouched, but the blocked
-         * hit still disqualifies the achievement. */
+        /* ebuC's turret shield absorbs damage, which still disqualifies ACH_LAST_HP. */
         finished = 0;
         cups_awarded = 0;
         achievement_mask = 0;
@@ -3992,14 +4004,13 @@ int main(void) {
     }
     cups = 0;
 
-    /* Cheat 6 ("Отскоки буКа" / "ebuC bounces") draws all bounce segments, and
-     * any segment touching an enemy turns red (0xFF2D2D). */
+    /* Cheat 6 (ebuC's bounces) draws predicted bounce segments. */
     {
         int calls_off, calls_on, red_hit = 0, red_miss = 0;
         language = 1;
         assert(strcmp(admin_cheat_label(6), "Отскоки буКа") == 0);
         language = 0;
-        assert(strcmp(admin_cheat_label(6), "ebuC bounces") == 0);
+        assert(strcmp(admin_cheat_label(6), "ebuC's bounces") == 0);
         language = 1;
         game_state = ST_SOLO;
         finished = 0;
@@ -4669,6 +4680,112 @@ int main(void) {
         uint32_t c2 = gift_hue_color(gift_emerald_phase());
         assert(c0 != c1 && c1 != c2 && c0 != c2);
         stub_frame_seconds = 0;
+    }
+
+    /* Combat & UI regressions: single-collapse remote Universe, join baselining,
+     * try_revive debuff clear + tiny-screen guard, revive_prot guards, and rooms_open reset. */
+    {
+        /* 1) Remote Universe collapses once per cast counter increment (no infinite loop). */
+        screen_w = 1280;
+        screen_h = 720;
+        dt = 0.1;
+        finished = 0;
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        stub_online[2] = 1;
+        stub_level[2] = 0;
+        stub_universe[2] = 1;
+        stub_ux[2] = 0.5;
+        stub_uy[2] = 0.5;
+        player_class = CLASS_ORDINARY;
+        player->max_hp = 100;
+        player->hp = 100;
+        player_block = 0;
+        revive_prot = 0;
+        arr_set(remote_universe, 2 * universe_fields, 0);
+        arr_set(remote_universe, 2 * universe_fields + 1, 0);
+        for (int f = 0; f < 40; f++)
+            update_remote_universe();
+        double hp_after_one = player->hp;
+        assert(hp_after_one < 100.0 && hp_after_one > 0.0);
+        for (int f = 0; f < 40; f++)
+            update_remote_universe();
+        assert(fabs(player->hp - hp_after_one) < 1e-9);
+
+        /* 2) Joining mid-match baselines remote counters so pre-join abilities do not replay. */
+        stub_universe[3] = 7;
+        stub_brick[3] = 4;
+        stub_online[3] = 1;
+        stub_ralive[3] = 1;
+        stub_hp[3] = 20;
+        stub_class[3] = CLASS_EBUC;
+        arr_set(remotes, 3 * remote_fields, 0);
+        remote_bricks_reset();
+        read_remotes();
+        remote_bricks_tick();
+        assert(rb_on[3] == 0);
+        for (int f = 0; f < 40; f++)
+            update_remote_universe();
+        assert(fabs(player->hp - hp_after_one) < 1e-9);
+        stub_online[2] = 0;
+        stub_online[3] = 0;
+
+        /* 3) rb_burst and online CodeCracker bite respect revive_prot invulnerability. */
+        player->x = 400;
+        player->y = 300;
+        player->hp = 20;
+        player->max_hp = 20;
+        revive_prot = 1.0;
+        rb_bounces[1] = 3;
+        rb_burst(1, 400, 300);
+        assert(fabs(player->hp - 20.0) < 1e-9);
+
+        stub_online[1] = 1;
+        stub_ralive[1] = 1;
+        stub_hp[1] = 12;
+        stub_class[1] = CLASS_CODECRACKER;
+        stub_cc_super[1] = 1;
+        stub_rx[1] = 400.0 / screen_w;
+        stub_ry[1] = 300.0 / screen_h;
+        arr_set(remotes, 1 * remote_fields, 0);
+        read_remotes();
+        arr_set(codecracker_touch_cds, max_players + 1, 0);
+        codecracker_tick_online();
+        assert(fabs(player->hp - 20.0) < 1e-9);
+        stub_online[1] = 0;
+        stub_cc_super[1] = 0;
+        revive_prot = 0;
+
+        /* 4) try_revive clears stun/freeze/poison and handles tiny screens safely. */
+        game_state = ST_SOLO;
+        player_class = CLASS_AZUM;
+        azum_revived = 0;
+        player->max_hp = 20;
+        player->hp = 0;
+        player_stun = 1.5;
+        player_freeze = 2.0;
+        player_poison = 3.0;
+        screen_w = 120;
+        screen_h = 100;
+        player->x = 60;
+        player->y = 50;
+        assert(try_revive() == 1);
+        assert(fabs(player->hp - 20.0) < 1e-9);
+        assert(player_stun == 0 && player_freeze == 0 && player_poison == 0);
+        assert(player->x >= 0 && player->x <= screen_w && player->y >= 0 && player->y <= screen_h);
+        screen_w = 1280;
+        screen_h = 720;
+
+        /* 5) rooms_open clears stale create/join input buffers. */
+        snprintf(rooms_name_buf, sizeof(rooms_name_buf), "%s", "stale-room");
+        snprintf(rooms_pass_buf, sizeof(rooms_pass_buf), "%s", "stale-pass");
+        rooms_name = rooms_name_buf;
+        rooms_pass = rooms_pass_buf;
+        rooms_open();
+        assert(rooms_name_buf[0] == 0 && rooms_pass_buf[0] == 0);
+        assert(str_len(rooms_name) == 0 && str_len(rooms_pass) == 0);
+        game_state = ST_LOBBY;
+        dt = 1.0 / 60.0;
     }
 
     state_destroy();

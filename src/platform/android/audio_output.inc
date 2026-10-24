@@ -2,8 +2,7 @@
 #include <jni.h>
 #include <pthread.h>
 
-/* Small streaming blocks keep button feedback close to the touch event. The
- * old 1024-frame writes plus a 4x buffer could queue noticeable silence. */
+/* Low-latency AudioTrack block size (frames). */
 #define AT_FRAMES 256
 #define AT_REFILL 1
 
@@ -248,9 +247,7 @@ void ds_sound_pause(void) {
     snd_backend_pause();
 }
 void ds_sound_resume(void) {
-    /* Suspend destroys AudioTrack. Recreate it on resume instead of silently
-     * calling play on a null track, which previously left UI clicks dead after
-     * an app switch or screen interruption. */
+    /* Recreate AudioTrack when destroyed during suspend. */
     if (!snd_at_track) {
         snd_backend_start();
         return;

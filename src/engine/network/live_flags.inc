@@ -1,14 +1,4 @@
-/* Live operator flags at the database root: AzumBuff and FlashSale.
- * Account-independent global events: read by every client, logged in or
- * not; the rules make the two nodes publicly readable (admins keep the
- * only write access). Temporary: never persisted to the profile or disk.
- * Each flag is enabled only by a fresh successful read of its own node
- * (number 1; true and "1" are also accepted, since those are what the
- * Firebase console tends to store). One failed read no longer kills a flag
- * that was on: the last good value survives until its TTL runs out, so a
- * single dropped request cannot switch the Azum buff off mid-fight or make
- * shop prices flicker. A hung request cannot wedge a flag either: after
- * LIVE_FLAG_FETCH_TIMEOUT_MS its reply is ignored and a new fetch starts. */
+/* Poll global server flags (AzumBuff, FlashSale) with TTL retention and timeout recovery. */
 #define LIVE_FLAG_POLL_MS 3000
 #define LIVE_FLAG_TTL_MS 30000
 #define LIVE_FLAG_FETCH_TIMEOUT_MS 10000
@@ -24,8 +14,7 @@ static struct {
     DSMutex lock;
     LiveFlag azum;
     LiveFlag sale;
-/* Every field is listed on purpose: clang -Wmissing-field-initializers
- * (in -Wextra, promoted by -Werror in CI) rejects partial initializers. */
+/* Initialize all fields explicitly to satisfy -Wmissing-field-initializers. */
 } live_flags = {.lock = DS_MUTEX_INIT,
                 .azum = {"/AzumBuff.json", 0, 0, 0, 0, 0, 0, 0},
                 .sale = {"/FlashSale.json", 0, 0, 0, 0, 0, 0, 0}};
@@ -42,7 +31,7 @@ static int live_flag_value(const char *json) {
     if (!strcmp(json, "false") || !strcmp(json, "\"false\"") || !strcmp(json, "null"))
         return 0;
     if (*json == '{') {
-        /* Tolerate {"FlashSale":1}-shaped values some consoles produce. */
+        /* Accept single-field object wrappers around scalar flag values. */
         json = strchr(json, ':');
         if (!json)
             return 0;
@@ -110,15 +99,10 @@ static void live_flag_poll(LiveFlag *flag, long long now, int force) {
 static double live_flag_get(LiveFlag *flag, int force) {
     long long now = now_ms();
     double active;
-    /* Deliberately NOT gated on login: these are global event flags, and
-     * gating them on the session made them silently vanish for guests and
-     * for accounts whose session was not (yet) in NET_LOGIN_OK state -
-     * while admins, who can read the whole database root, always saw
-     * them. The Firebase nodes are publicly readable for the same reason;
-     * only writing them stays admin-only. */
+    /* Read publicly accessible root flags regardless of login state. */
     ds_mutex_lock(live_flags.lock);
     if (force)
-        flag->valid_until = 0; /* only the fresh reply may re-enable it */
+        flag->valid_until = 0;
     live_flag_poll(flag, now, force);
     active = flag->enabled && now < flag->valid_until;
     ds_mutex_unlock(live_flags.lock);
@@ -129,10 +113,7 @@ double net_azum_buff(void) { return live_flag_get(&live_flags.azum, 0); }
 
 double net_flash_sale(void) { return live_flag_get(&live_flags.sale, 0); }
 
-/* Entering the shop: re-read both flags from Firebase right now instead of
- * trusting whatever the periodic poll last saw, AzumBuff included. The
- * getters keep returning 0 until the fresh replies land, so a price shown
- * or charged in the shop always comes from this visit's read. */
+/* Invalidate cached flags and trigger immediate server refresh. */
 void net_live_flags_refresh(void) {
     (void)live_flag_get(&live_flags.azum, 1);
     (void)live_flag_get(&live_flags.sale, 1);

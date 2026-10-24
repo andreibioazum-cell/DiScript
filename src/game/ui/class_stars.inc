@@ -1,9 +1,4 @@
-/* A filled five-point star rasterized into short horizontal strokes. This
- * keeps the shop icon crisp and recognizable without a texture or glyph.
- * The scanline step is sub-pixel on purpose: the old r/10 step (never below
- * a full pixel, with matching line thickness) left visible horizontal bands
- * - the "pixelated" look. Many thin, slightly overlapping strokes give a
- * smooth silhouette instead, since the renderer's lines are smooth. */
+/* Draw five-point star using sub-pixel horizontal scanline strokes. */
 static void draw_star(double cx, double cy, double r, uint32_t c) {
     double px[10], py[10], xs[10];
     double step = r / 48;

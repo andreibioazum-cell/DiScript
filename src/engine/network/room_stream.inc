@@ -1,11 +1,4 @@
-/* ---- Firebase REST streaming (SSE) for the players node ----
- * One long-lived GET (Accept: text/event-stream) replaces the 60 ms
- * polling of players.json: the server pushes `put` (full snapshot) and
- * `patch` (changed slots only) events. Patches are merged into a cached
- * snapshot with json_object_merge(), then the same read_players() runs,
- * so the streaming and polling paths share every line of game logic.
- * If the stream dies, stream_live_at goes stale and the reader thread
- * falls back to polling until the stream thread reconnects. */
+/* Firebase REST SSE stream for room player slots with polling fallback. */
 static char stream_players_cache[RESP];
 static unsigned stream_gen;
 
@@ -31,9 +24,7 @@ static int stream_is_live(void) {
     at = net.stream_live_at;
     active = net.stream_active;
     unlock();
-    /* Firebase sends keep-alive events on an idle stream; between them
-     * the connection is still the fastest path, polling is only the
-     * fallback for a stream that has actually died (flag cleared). */
+    /* Treat SSE stream as live until keep-alive timeout expires. */
     return active && at && now_ms() - at < 75000;
 }
 
@@ -76,7 +67,7 @@ static void sse_dispatch_players(void) {
                 snprintf(stream_players_cache, sizeof(stream_players_cache), "%s", "{}");
         }
     } else {
-        /* {"path":"/2","data":{...}} -> patch {"2":{...}} (or delete). */
+        /* Convert SSE slot path/data payload into an object patch. */
         char patch[RESP];
         const char *slot = path + 1;
         int w = snprintf(patch, sizeof(patch), "{\"%s\":", slot);

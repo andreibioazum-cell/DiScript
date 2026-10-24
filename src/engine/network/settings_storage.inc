@@ -5,7 +5,7 @@ typedef struct {
     int loaded, has_file;
     int language, hitboxes, musicvol, winter, theme;
     int legal;
-    int pdc, pdv; /* согласие на обработку ПД: когда дано и на какую редакцию */
+    int pdc, pdv; /* Personal data consent timestamp and revision. */
 } Settings;
 static Settings st = {.lock = DS_MUTEX_INIT};
 
@@ -16,7 +16,7 @@ static void st_unlock(void) {
     ds_mutex_unlock(st.lock);
 }
 
-static char sys_lang[8]; /* язык телефона ("ru", "en", ...), задаёт платформа */
+static char sys_lang[8]; /* Device ISO 639-1 language code. */
 
 void net_set_system_language(const char *code) {
     st_lock();
@@ -24,9 +24,7 @@ void net_set_system_language(const char *code) {
     st_unlock();
 }
 
-/* A fresh install takes its language from the phone: a Russian phone gets the
- * Russian game, any other the English one. If the language is unknown Russian
- * stays (168-FZ: Russian players must get Russian text). */
+/* Default language on fresh install: Russian for "ru" or unknown locale, English otherwise. */
 static int system_language_default(void) {
     int ru;
     st_lock();
@@ -202,8 +200,7 @@ void net_save_winter_theme(double on) {
     settings_push_to_cloud();
 }
 
-/* The menu theme stays on this device: it is a matter of taste per screen,
- * not part of the cloud profile. */
+/* Return local menu theme flag. */
 double net_load_new_theme(void) {
     double v;
     settings_read();
@@ -287,8 +284,7 @@ double settings_legal_ts(void) {
     return v;
 }
 
-/* Personal data consent (152-FZ, art. 9). Stored on the device: when it was
- * given and for which revision of the documents. version 0 means withdrawn. */
+/* Record personal data consent version and timestamp locally (0 = withdrawn). */
 void settings_set_pd_consent(double version) {
     settings_read();
     st_lock();
@@ -308,9 +304,7 @@ double settings_pd_consent_version(void) {
     return v;
 }
 
-/* A copy of the consent mark in the player profile: the operator must be able to
- * prove consent was obtained (art. 9 part 3). A separate request, so that saving
- * progress does not suffer if the database rules do not know these fields yet. */
+/* Upload personal data consent version and timestamp to cloud profile. */
 void net_pd_consent_upload(void) {
     char nick[LOGIN_NICK_MAX + 1] = "", url[URL], body[BODY];
     int pdc, pdv;

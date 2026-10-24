@@ -1,6 +1,4 @@
-/* A bubble keeps its own copy of the text: a string from the network or from the
- * frame pool lives shorter than the bubble above the player. The copy is cleaned
- * by the chat filter right away. */
+/* Overhead chat bubble buffers filtered at receive time. */
 static char bubble_buf[4][CF_OUT_MAX];
 
 static void bubble_set(double s, const char *raw) {
@@ -118,10 +116,7 @@ static void chat_bubbles_watch(void) {
         chat_bubble_show(net_chat_uid(m), net_chat_text(m));
         m = m + 1;
     }
-    /* Copy, never store the pointer: net_chat_key() reuses one static
-     * buffer for every call, so chat_seen_key = lastkey aliased the NEXT
-     * key too and made every later check "already seen" - bubbles above
-     * players almost never appeared. */
+    /* Copy key characters instead of aliasing net_chat_key()'s shared static buffer. */
     double ki = 0;
     while (lastkey[(int)ki] != 0 && ki < (double)(sizeof(chat_seen_key_buf) - 1)) {
         chat_seen_key_buf[(int)ki] = lastkey[(int)ki];
@@ -135,8 +130,7 @@ static void draw_chat_bubble_at(double x, double y, const char *msg, double t) {
     if (t <= 0 || str_len(msg) == 0 || chat_is_sticker_msg(msg) == 1) {
         return;
     }
-    /* Soft pop-in and a smooth fade-out: the bubble rises a few pixels as it
-     * appears instead of snapping onto the player. */
+    /* Ease bubble rise and opacity over lifetime. */
     double age = chat_bubble_time - t;
     double kin = clamp(age / 0.18, 0, 1);
     kin = kin * kin * (3 - 2 * kin);

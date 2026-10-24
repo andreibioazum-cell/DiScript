@@ -342,8 +342,7 @@ double GRAB_DY;
 double GRAB_T;
 double GRAB_CAUGHT;
 double GRAB_HITS;
-/* Cached Astra ability bit of a remote attacker, resolved once per grab from the
- * synced class ID (or the legacy Astra/skin pair). */
+/* Cached Astra kit flag for a remote grab attacker. */
 double GRAB_ASTRA_KIT;
 double grab_fields;
 double grab_slot_bot;
@@ -415,13 +414,9 @@ const char *LOBBY_MUSIC;
 const char *SERAPHIM_MUSIC;
 const char *BUTTON_CLICK_SOUND;
 double button_click_ok;
-/* 1 = the new look (purple, gradients, centred menu, NPC cube),
- * 0 = the old one (rose, flat, left-aligned, no NPC). */
+/* Active UI theme: 1 = new purple gradient, 0 = classic flat rose. */
 double new_theme;
-/* Transition counter: grows on every screen change (transition start, the state
- * swap itself, a forced return) and on a page change in a list. A press remembers
- * it, so a press pulse never jumps to another screen where a button happens to
- * sit at the same coordinates. */
+/* Navigation generation counter used to scope button press pulses to one screen. */
 double ui_nav_gen;
 const char *CUBE_NPC_TEX;
 double cube_npc_tex_ok;

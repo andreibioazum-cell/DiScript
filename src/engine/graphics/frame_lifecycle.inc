@@ -20,8 +20,7 @@ int ds_graphics_begin_frame(Buffer *b) {
         oh = 1;
     if (!ds_vk_begin_frame_backend((uint32_t)b->width, (uint32_t)b->height, ow, oh))
         return 0;
-    /* Screen shake decays with the game clock and picks a fresh random offset
-     * every frame while it lasts, easing out to a standstill. */
+    /* Decay screen shake and sample a new offset each frame. */
     if (gfx_shake_left > 0) {
         gfx_shake_left -= (float)dt;
         if (gfx_shake_left < 0)
@@ -34,9 +33,7 @@ int ds_graphics_begin_frame(Buffer *b) {
         gfx_shake_dx = 0;
         gfx_shake_dy = 0;
     }
-    /* Upload assets queued by the update step before game code resolves
-     * fighter appearances. Delaying this until geometry construction caused
-     * one-frame fallback cubes and pose/skin flicker. */
+    /* Upload pending textures before draw code queries texture readiness. */
     ds_vk_process_pending_uploads();
     discard_commands();
     cur_buf = b;
@@ -48,7 +45,7 @@ void ds_graphics_end_frame(void) {
         return;
     ds_vk_end_frame_backend();
     ds_vk_pace_frame();
-    /* Frees DS_CMD_TEXT strings as well; a bare count reset leaked them. */
+    /* Release queued text buffers and reset command count. */
     discard_commands();
     frame_open = 0;
     cur_buf = NULL;

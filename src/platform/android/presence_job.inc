@@ -1,6 +1,4 @@
-/* JNI entry for com.cb4.PresenceJobService. It runs on the job's worker thread,
- * which may start in a fresh process where android_main() never ran, so it
- * sets up the VM and the data path itself. Returns net_presence_check() codes. */
+/* JNI entry point for PresenceJobService background room check. */
 JNIEXPORT jint JNICALL Java_com_cb4_PresenceJobService_nativePresence(JNIEnv *env, jclass cls, jstring data_dir) {
     JavaVM *vm = NULL;
     const char *dir;

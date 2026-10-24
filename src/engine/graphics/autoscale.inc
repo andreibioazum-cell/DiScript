@@ -1,13 +1,4 @@
-/* Internal resolution is fixed at 1/1: the game is drawn at the panel's own
- * size, always.
- *
- * There used to be a dynamic scaler here that dropped the render target to as
- * little as 1/6 of the screen whenever frames ran long. It kept the frame
- * time up, but the picture broke into fat blocks - the game then looked
- * broken rather than fast, and once it had coarsened it often stayed coarse
- * for the rest of the session. Budgeting belongs in the draw calls, not in
- * the resolution, so the scaler is gone and only the frame-time report stays:
- * a slow device is still visible in the log, it just no longer costs pixels. */
+/* Native 1:1 render scale and periodic frame-time logging. */
 static int gfx_auto_scale = 1;
 
 int ds_graphics_pixel_scale(void) { return gfx_auto_scale; }
@@ -26,7 +17,7 @@ static void gfx_autoscale_new_window(void) {
 static void gfx_autoscale_reset(void) { gfx_autoscale_new_window(); }
 
 void ds_graphics_report_frame_interval(double sec) {
-    /* Only sane intervals: a pause or a resume reports whole seconds. */
+    /* Ignore paused or invalid frame intervals. */
     if (!(sec > 0.0) || sec > 0.25)
         return;
     gfx_report_acc += sec;

@@ -74,11 +74,7 @@ static void protected_game_bye(void *userdata) {
     (void)userdata;
     game_bye();
 }
-/* Farewell on exit. Hooked to activity stop only: one trip to the background
- * gives Android exactly one stop (a pause before it, a destroy after), so no
- * guard flag is needed and the farewell cannot get stuck and stop coming. The
- * swipe up, the back button and unloading from recents all go through that same
- * stop. */
+/* Invoke game shutdown hook on activity stop. */
 static void say_goodbye(void) {
     if (!game_active) {
         return;
@@ -389,8 +385,7 @@ void android_main(struct android_app *app) {
             continue;
         restart_game_if_due();
         uint64_t frame_start = monotonic_ns();
-                /* The string pool lives one frame: clean it before the game hooks so it
-                 * does not grow to an out-of-memory in the middle of a fight. */
+        /* Reclaim per-frame pooled strings before running game hooks. */
         ds_string_pool_tick();
 
         if (prev_loop_ns && frame_start >= prev_loop_ns) {

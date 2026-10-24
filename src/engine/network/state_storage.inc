@@ -83,8 +83,7 @@ typedef struct {
     double thud;
     double block;
     double ccu;
-    /* The buK brick: where it was thrown from, where it goes, and the shot
-     * number that makes the throw unique. */
+    /* ebuC's projectile origin, velocity, and shot counter. */
     double brick_x, brick_y, brick_dx, brick_dy, brick;
     double cls, level, skin;
     int online;
@@ -185,8 +184,7 @@ typedef struct {
 
     int astra, astra_level, astra_levels_unlocked;
 
-    /* CodeCracker has ownership and a level track of its own: it is a separate
-     * class, not the ordinary cube under another name. */
+    /* CodeCracker ownership and level state. */
     int codecracker, codecracker_level, codecracker_levels_unlocked;
 } Progress;
 static Progress pg = {.lock = DS_MUTEX_INIT};
@@ -233,7 +231,7 @@ static void normalize_level_pair(int *level, int *unlocked) {
     *unlocked = clamp_levels_unlocked(*unlocked);
     *level = clamp_level_value(*level);
     if (*level > *unlocked)
-        *level = 0;
+        *unlocked = *level;
 }
 
 static void file_write_atomic(const char *path, const char *text) {
@@ -259,18 +257,21 @@ static void progress_write(int cups, int candies, int cls, int azum, int santa, 
                            int astra_levels_unlocked, int bp_xp, int codecracker_level,
                            int codecracker_levels_unlocked, int codecracker);
 static void progress_read(void);
+static void achievements_read(void);
 int codecracker_merge_local(int local_owned, int local_level, int local_unlocked);
 
 typedef struct {
     char plain[URL];
     char url[FB_URL_MAX];
-    char body[BODY * 2];
+    char body[BODY * 3];
     int progress;
 } HttpJob;
 static int fb_enabled(void);
 static void fb_url(char *dst, size_t cap, const char *url);
 static int fb_ensure_token(void);
 static int fb_refresh_token_now(void);
+static int fb_http(const char *method, const char *url, const char *body, char *out, size_t cap);
+static int num_int(const char *json, const char *path, int fb_value);
 static int net_log_ok(void);
 static int http(const char *method, const char *url, const char *body, char *out, size_t cap);
 static void *http_delete_job(void *arg);

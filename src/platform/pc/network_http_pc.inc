@@ -1,8 +1,4 @@
-/* PC transport for the Firebase REST layer: the same http_ex()/http_stream()
- * contract as the Android JNI backend (status code result, 0 on transport
- * failure, PATCH mapped to POST + X-HTTP-Method-Override, ETag harvested from
- * responses, fast polling timeout honored). Windows uses WinHTTP; the Linux
- * test harness uses POSIX sockets over plain http against fake_firebase. */
+/* PC Firebase HTTP/SSE transport wrapper (WinHTTP on Windows, POSIX sockets on Linux). */
 typedef int (*DSStreamChunkFn)(void *ctx, const char *data, size_t len);
 
 typedef struct {

@@ -53,8 +53,7 @@
   .hide{display:none}
   label.chk{display:flex;gap:7px;align-items:center;font-size:13px}
   .sp{flex:1}
-  /* Плашка «панель не запустилась»: раньше любая ошибка скрипта оставляла
-     страницу молча мёртвой - кнопки были, но не нажимались. */
+  /* Sticky error banner for uncaught script or handler failures. */
   .fatal{position:sticky;top:0;z-index:99;margin:0;padding:12px 18px;background:#5c1414;
          color:#fff;border-bottom:2px solid var(--red);font:13px/1.5 ui-monospace,Consolas,monospace;
          white-space:pre-wrap}
@@ -246,15 +245,7 @@
 </main>
 
 <script>
-/* Страховка от «на сайте ничего не нажимается».
- *
- * Раньше одна опечатка в скрипте (например, «rooms/&#42;/chat» внутри блочного
- * комментария - звёздочка со слэшем закрывали комментарий раньше времени)
- * роняла весь скрипт на этапе загрузки, и страница выглядела живой, но ни одна
- * кнопка не работала. Теперь:
- *   1) этот скрипт грузится первым и ловит любые ошибки страницы;
- *   2) ошибка показывается красной плашкой сверху, а не прячется в консоль;
- *   3) кнопка «Самопроверка» перечисляет все кнопки и их обработчики. */
+/* Global error and unhandled-rejection listener displayed in the top banner. */
 (function () {
   "use strict";
   function show(text) {
@@ -285,10 +276,7 @@
 const $ = s => document.querySelector(s);
 const $$ = s => [...document.querySelectorAll(s)];
 
-/* ---------- страховка: привязка обработчиков ---------- */
-/* Каждый обработчик регистрируется через on()/onAll(): если элемента с таким
- * id в странице нет, это не молчаливая смерть кнопки, а запись в MISSING и
- * ошибка в журнале. Так «не нажимается» больше не может остаться незамеченным. */
+/* Register DOM event handlers and record missing selectors. */
 const MISSING = [];
 const BOUND = [];
 function on(sel, fn, name){
@@ -313,8 +301,7 @@ function onChange(sel, fn){
   BOUND.push({sel, name: sel, kind: "change/input"});
   return el;
 }
-/* Любая ошибка обработчика попадает в журнал и в красную плашку: кнопка
- * «нажалась», но что-то пошло не так - это видно сразу. */
+/* Run event handler and report synchronous or async errors to the log and banner. */
 function run(fn, ev, el){
   try{
     const out = fn(ev, el);
@@ -329,7 +316,7 @@ function report(e){
   console.error(e);
 }
 
-/* ---------- стоп-слова: взломы, спам, реклама ---------- */
+/* Default spam, cheat, and ad filter keywords. */
 const DEFAULT_WORDS = [
  "взлом","взломан","взломал","взламыв","хак","hack","hacked","cheat","чит","читы",
  "чiт","мод","mod menu","aimbot","aim bot","wallhack","script","скрипт","инжект","inject",
@@ -339,36 +326,29 @@ const DEFAULT_WORDS = [
  "админ дай","dayn","give admin","sql","<script","drop table","null null","test test"
 ].join(", ");
 
-/* ---------- схема базы: ровно то, что пускает firebase.rules.json ---------- */
-/* Это сердце панели: всё, чего нет в схеме, предлагается удалить. Поэтому
- * схема обязана совпадать с правилами - иначе панель предлагает снести живой
- * прогресс (так уже было: подарки, bpx, playtime, pd_consent_ts и секрет записи
- * «w» правила пускают, а старая схема считала мусором).
- * Сверяет их tools/test_admin_panel.py, он же падает в CI при расхождении. */
+/* Database schema matching firebase.rules.json (validated by tools/test_admin_panel.py). */
 const num  = (lo, hi) => ({t:"num", lo, hi});
 const flag = ()      => ({t:"num", lo:0, hi:1});
 const str  = (min, max) => ({t:"str", min, max});
 const secret = ()    => ({t:"str", min:1, max:64, note:"секрет записи «w»"});
 
-/* Корневые узлы игры. AzumBuff и FlashSale читает live_flags.inc, event и
- * banner - room_control.inc/room_stream.inc, bans - moderation.inc. */
+/* Allowed root database keys and per-node fallback targets. */
 const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale"];
-/* Узлы, которые читаются по отдельности, если корень закрыт правилами. */
 const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale"];
 
 const USER_REQ  = ["nick","cups","candies","cls","azum","santa","level","levels"];
-/* Подарки - отдельный узел users/<ник>/gifts со своими счётчиками. */
+/* Per-user gift inventory counters under users/<nick>/gifts. */
 const GIFT_FIELDS = {
   poop: num(0,999), cake: num(0,999), bear: num(0,999), rocket: num(0,999),
   emerald: num(0,999), rose: num(0,999),
-  /* Оттенок изумруда выбирает админ (gifts.inc → gifts/emerald_hue). */
+  /* Admin-assigned emerald hue (0..7). */
   emerald_hue: num(0,7)
 };
 const USER_FIELDS = {
   nick: str(1,16),
-  /* Секрет записи: правила требуют именно строку, значение проверяет база. */
+  /* Write secret field validated by RTDB rules. */
   w: secret(),
-  /* Пароль в базе запрещён правилами (".validate": false) - это мусор. */
+  /* Plaintext password storage is forbidden by RTDB rules. */
   pass: {t:"forbidden", why:"пароль в базе - так больше нельзя"},
   cups: num(0,10000000), candies: num(0,10000000),
   cls: num(0,6), azum: flag(), santa: flag(), ebuc: flag(), astra: flag(), codecracker: flag(),
@@ -378,7 +358,6 @@ const USER_FIELDS = {
   santa_level: num(0,3), santa_levels: num(0,3),
   ebuc_level: num(0,3), ebuc_levels: num(0,3),
   astra_level: num(0,3), astra_levels: num(0,3),
-  /* У CodeCracker своя ветка уровней (codecracker_level/…_levels, 0..3). */
   codecracker_level: num(0,3), codecracker_levels: num(0,3),
   bp: num(0,7), bpx: num(0,1000000), azum_skin: num(0,3),
   ach_flags: num(0,255), ach_revives: num(0,10000),
@@ -421,13 +400,13 @@ const CHAT_REQ   = ["uid","nick","text"];
 const CHAT_FIELDS = {uid: str(8,24), nick: str(1,16), text: str(1,96), w: secret()};
 
 const BANNER_FIELDS = {ts: num(0,9000000000000), text: str(1,96), color: str(1,16)};
-const EVENT_MAX = 4;              /* 0 выкл, 1 диско, 2 плиты, 3 Дед Мороз, 4 кубик */
+const EVENT_MAX = 4;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube */
 const EVENT_NAMES = ["выкл","диско","плиты","Дед Мороз","кубик"];
 const NICK_RE   = /^[A-Za-z0-9_]{1,16}$/;
 const PROD_DB_RE = /firebaseio\.com|googleapis\.com/i;
 
 let TOKEN = null, REFRESH = null, EMAIL = "", EXP = 0, SNAP = null, FOUND = [];
-let SCOPED = false; /* корень закрыт правилами: снимок собран по игровым узлам */
+let SCOPED = false; /* true when root read is denied and snapshot is assembled per node */
 
 function log(msg, cls){
   const box = $("#log");
@@ -441,10 +420,7 @@ function log(msg, cls){
 }
 const dbUrl = () => ($("#dbUrl").value || "").trim().replace(/\/+$/,"");
 const key   = () => ($("#apiKey").value || "").trim();
-/* Тестовый прогон (test/fake_firebase.py) ходит за auth туда же, куда и за
- * данными - ровно как fb_auth_endpoint() в net.c. Боевой адрес узнаётся по
- * домену Firebase, поэтому тестовая база работает и по http, и по https
- * (например, когда панель открыта через прокси предпросмотра). */
+/* Route auth endpoints to dbUrl() when connected to fake_firebase.py. */
 const isTest = () => !!dbUrl() && !PROD_DB_RE.test(dbUrl());
 const authHost  = () => isTest() ? dbUrl() : "https://identitytoolkit.googleapis.com";
 const tokenHost = () => isTest() ? dbUrl() : "https://securetoken.googleapis.com";
@@ -463,7 +439,7 @@ function updateMode(){
   suffixWarn();
 }
 
-/* ---------- настройки: помним между визитами ---------- */
+/* Persist panel settings in localStorage. */
 const LS = "cb4.admin.v2";
 function cfg(){ try{ return JSON.parse(localStorage.getItem(LS) || "{}") || {}; }catch(e){ return {}; } }
 function saveCfg(p){ try{ localStorage.setItem(LS, JSON.stringify({...cfg(), ...p})); }catch(e){} }
@@ -494,9 +470,7 @@ function emailHint(){
   suffixWarn();
 }
 
-/* Хвост пароля ротирован (rotate_db_secret.py): сейчас это 32 символа
- * [A-Za-z0-9]. Старый «|cb4v1» в поле - почти наверняка не то, что ждёт
- * боевая база, поэтому говорим об этом заранее, а не после трех отказов. */
+/* Check whether password suffix matches current 32-char alphanumeric format. */
 function suffixLooksCurrent(s){
   return /^[A-Za-z0-9]{32}$/.test(s || "");
 }
@@ -525,13 +499,8 @@ function suffixWarn(){
   box.className = "muted warn";
 }
 
-/* ---------- auth ---------- */
+/* Firebase Auth helpers and legacy password suffix fallbacks. */
 const ADMINS = ["dimasi4ek229@cb4.game", "sanch@cb4.game"];
-/* Сюда - исторические ступени хвоста пароля: по ним входили аккаунты,
- * созданные раньше. Текущий хвост - 32 случайных символа из NET_PASS_SECRET_*
- * (src/engine/network.h), он в панель НЕ вшит: страница лежит в открытом
- * репозитории. Текущий хвост вставляется в поле «суффикс» из вывода
- * `python3 tools/rotate_db_secret.py --show`. */
 const KNOWN_SUFFIXES = ["|cb4v1", "#cb4", ""];
 
 const AUTH_ERR = {
@@ -585,7 +554,7 @@ async function idp(method, body){
   }
   return j;
 }
-/* idToken живёт час: обновляем его по refreshToken, чтобы панель не отваливалась. */
+/* Refresh short-lived Firebase ID token using stored refreshToken. */
 async function refreshToken(){
   if(!REFRESH) throw new Error("нет refresh-токена - нужно войти заново");
   const r = await fetch(`${tokenHost()}/v1/token?key=${encodeURIComponent(key())}`,
@@ -602,8 +571,8 @@ async function refreshToken(){
 function suffixVariants(){
   const out = [], push = s => { if(s != null && !out.includes(s)) out.push(s); };
   const c = cfg();
-  if(typeof c.lastSuffix === "string") push(c.lastSuffix);          // то, на что пустило в прошлый раз
-  push($("#passSuffix").checked ? $("#suffix").value : "");          // то, что стоит в настройках
+  if(typeof c.lastSuffix === "string") push(c.lastSuffix);          // last working suffix
+  push($("#passSuffix").checked ? $("#suffix").value : "");          // configured suffix
   for(const s of KNOWN_SUFFIXES) push(s);
   return out;
 }
@@ -632,21 +601,11 @@ async function doLogin(){
       }catch(e){
         last = e;
         tried.push((sfx ? "«" + sfx + "»" : "без суффикса") + " → " + e.message);
-        if(!RETRYABLE.test(e.message)) break;   // ключ заблокирован, лимит попыток и т.п. - дальше пробовать бессмысленно
+        if(!RETRYABLE.test(e.message)) break;   // stop on non-credential errors (rate limit, bad key, etc.)
       }
     }
     if(!ok){
-      /* Ни один вариант хвоста не подошёл. При включённой защите от перебора
-       * Firebase отвечает одинаково на «нет аккаунта» и «неверный пароль»,
-       * поэтому разницу узнаём так же, как fb_sign_in() в net_auth_flow.inc:
-       * пробуем signUp. Аккаунта нет - он создаётся; аккаунт есть - Firebase
-       * ответит EMAIL_EXISTS, то есть дело в пароле или в хвосте.
-       *
-       * На боевой базе панель аккаунты НЕ создаёт: созданный отсюда аккаунт
-       * получит хвост из поля, а игра при входе переберёт свой текущий хвост и
-       * «|cb4v1» - и не подойдёт ни один, игрок окажется заперт. Поэтому на
-       * боевой базе предлагаем правильный путь (зайти один раз в игру), а
-       * signUp оставляем только тестовой базе, где это безопасно. */
+      /* Auto-create test accounts only on fake_firebase.py; never signUp against production. */
       if(isTest()){
         const sfx = $("#passSuffix").checked ? $("#suffix").value : "";
         try{
@@ -704,10 +663,7 @@ async function doLogin(){
   }
 }
 
-/* ---------- REST к базе ---------- */
-/* Удаление идёт параллельным пулом запросов, и несколько из них могут
- * одновременно обнаружить протухший токен - держим одно общее обновление,
- * а не десяток одинаковых. */
+/* Firebase RTDB REST client with shared token refresh lock. */
 let tokenBusy = null;
 function ensureToken(){
   if(!REFRESH || Date.now() <= EXP) return Promise.resolve();
@@ -750,12 +706,7 @@ async function rtdb(path, method = "GET", body, retried){
   catch(e){ throw new Error(`${method} /${path || "(корень)"} → ответ не JSON: ${txt.slice(0,120)}`); }
 }
 
-/* ---------- сканирование ---------- */
-/* Полный снимок читается с корня - это умеют админы (firebase.rules.json:
- * ".read" на корне для админов). Если корень закрыт (не-админ или старые
- * правила), читаем известные игровые узлы по отдельности - так панель
- * продолжает работать и под обычным аккаунтом (чат/слоты), просто без
- * корневого мусора. */
+/* Read full root snapshot for admins, or fall back to individual game nodes. */
 async function takeSnapshot(){
   try{ return {data: (await rtdb("")) || {}, scoped: false}; }
   catch(e){
@@ -766,7 +717,7 @@ async function takeSnapshot(){
       try{
         const v = await rtdb(p);
         if(v !== null && typeof v === "object") out[p] = v;
-        else if(v !== null && typeof v !== "object") out[p] = v;   // event/AzumBuff/FlashSale - числа
+        else if(v !== null && typeof v !== "object") out[p] = v;   // scalar flags (event, AzumBuff, FlashSale)
       }catch(e2){ firstErr = firstErr || e2; }
     }
     if(Object.keys(out).length) return {data: out, scoped: true};
@@ -802,7 +753,7 @@ function spamHit(text){
   return null;
 }
 
-/* ---------- проверка значения по схеме ---------- */
+/* Validate field value against schema descriptor. */
 function badValue(spec, v){
   if(!spec) return null;
   if(spec.t === "forbidden") return spec.why || "поле запрещено правилами";
@@ -830,12 +781,12 @@ function analyze(){
                 sel: kind !== "bans" && kind !== "chat_all" && kind !== "stale" && kind !== "meta"});
   const d = SNAP || {};
 
-  /* корень */
+  /* Root keys */
   for(const k of Object.keys(d))
     if(!ROOT_OK.includes(k))
       add("unknown_root", k, "корневого узла нет в игре (спам/мусор)", JSON.stringify(d[k]).slice(0,120));
 
-  /* event / флаги / баннер */
+  /* Event, live flags, and banner */
   if("event" in d){
     const bad = badValue(num(0, EVENT_MAX), d.event);
     if(bad) add("unknown_field", "event", "значение ивента вне 0.." + EVENT_MAX + ": " + bad, JSON.stringify(d.event));
@@ -909,8 +860,7 @@ function analyze(){
       if(!ROOM_OK.includes(k))
         add("unknown_field", `rooms/${rn}/${k}`, "в комнате нет такого узла", JSON.stringify(room[k]).slice(0,100));
 
-    /* meta: владелец, пароль комнаты и секрет записи. Узел необязательный
-     * (общая комната «main» живёт без него), поэтому находки не выделены. */
+    /* Optional room metadata node (owner, password hash, write secret). */
     if("meta" in room){
       const m = room.meta;
       if(typeof m !== "object" || m === null)
@@ -944,10 +894,7 @@ function analyze(){
         const bad = badValue(spec, v);
         if(bad) add("unknown_field", `${base}/${f}`, bad, JSON.stringify(v).slice(0,60));
       }
-      /* Заявка на слот без движения: игра пишет нули при захвате слота
-       * (room_sync.inc). seq - это счётчик, а не время, поэтому «старость»
-       * по нему не определить: такие слоты показываются отдельно и по
-       * умолчанию НЕ выделены - вдруг бой прямо сейчас начинается. */
+      /* Zeroed placeholder slot written on initial room claim; left unselected by default. */
       if(p.seq === 0 && p.hp === 0 && p.alive === 0 && p.x === 0 && p.y === 0)
         add("stale", base, "нулевой слот-заглушка (заявка без движения)", p.nick || "");
     }
@@ -1041,12 +988,7 @@ function selInfo(){
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
 
-/* ---------- удаление ---------- */
-/* Минимальный набор DELETE для выбранных узлов. REST Firebase не умеет
- * батч-удаление, поэтому схлопываем: если ВСЕ дети узла (по снимку SNAP)
- * выбраны, вылетает целиком родителем одним запросом. Считаем именно по
- * снимку, поэтому лишнего задеть невозможно. Корень целиком удалить нельзя
- * (RTDB это запрещает) - его расширяем до детей. */
+/* Collapse selected paths into minimal parent DELETE requests (excluding root). */
 function wipePlan(paths){
   if(!SNAP) return [...new Set(paths)];
   const sel = new Set(paths);
@@ -1081,9 +1023,7 @@ function wipePlan(paths){
   return plan;
 }
 
-/* Удаление узла с запасным путём: если правила не пускают удалить контейнер
- * целиком (rooms/<комната>/chat, rooms/<комната>/players и т.п.), удаляем по
- * одному ребёнку - каждый ребёнок правилами пишется, и эффект тот же. */
+/* Delete node directly, falling back to per-child DELETEs on HTTP 403. */
 async function wipeNode(p){
   try{ await rtdb(p, "DELETE"); return; }
   catch(e){
@@ -1100,9 +1040,7 @@ async function wipeNode(p){
   }
 }
 
-/* Firebase REST не умеет батч-удаление - поэтому ускоряем двумя приёмами:
- * схлопыванием (wipePlan) и параллельным пулом запросов. 10 одновременно -
- * компромисс между скоростью и лимитами Firebase. */
+/* Concurrent DELETE worker pool size. */
 const WIPE_CONC = 10;
 async function wipe(){
   const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
@@ -1133,7 +1071,7 @@ async function wipe(){
   await scan();
 }
 
-/* ---------- точечное ---------- */
+/* Targeted moderation and maintenance helpers. */
 async function safe(fn, name){
   if(window.cb4FatalClear) window.cb4FatalClear();
   try{ await fn(); log(name + " - ок", "good"); await scan(); }
@@ -1150,10 +1088,7 @@ const nickOf = sel => {
 };
 const roomName = () => ($("#room").value || "").trim() || "main";
 
-/* ---------- самопроверка ---------- */
-/* Показывает, что страница действительно живая: сколько кнопок найдено,
- * сколько привязано, и чего не хватает. Именно этой диагностики не хватало,
- * когда «Войти» молча не нажималась. */
+/* Report bound controls, missing selectors, and connection status. */
 function selfTest(){
   const buttons = $$("button");
   const inputs = $$("input,select,textarea");
@@ -1173,14 +1108,14 @@ function selfTest(){
                         : "\n\nВсе кнопки привязаны к обработчикам."));
 }
 
-/* ---------- события страницы ---------- */
+/* Wire DOM event listeners and initialize panel state. */
 function boot(){
   $("#words").value = DEFAULT_WORDS;
   loadCfg();
   emailHint();
   updateMode();
 
-  /* вход */
+  /* Authentication */
   on("#login", doLogin, "Войти");
   $("#pass").addEventListener("keydown", e => { if(e.key === "Enter") run(doLogin); });
   $("#nick").addEventListener("keydown", e => { if(e.key === "Enter") $("#pass").focus(); });
@@ -1246,7 +1181,7 @@ function boot(){
   on("#selftest", selfTest, "Самопроверка");
   on("#clearLog", () => { $("#log").innerHTML = ""; }, "Очистить журнал");
 
-  /* снимок и уборка */
+  /* Snapshot and cleanup */
   on("#scan", scan, "Сканировать базу");
   $$(".flt").forEach(c => c.addEventListener("change", render));
   $("#words").addEventListener("input", () => { if(SNAP) analyze(); });
@@ -1257,18 +1192,18 @@ function boot(){
                         FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=!f.sel; }); render(); }, "Инвертировать");
   on("#wipe", wipe, "Удалить выбранное");
 
-  /* ивенты 0..4 */
+  /* Live events 0..4 */
   onAll("[data-ev]", (ev, b) => {
     const v = +b.dataset.ev;
     if(v < 0 || v > EVENT_MAX) throw new Error("ивент должен быть 0.." + EVENT_MAX);
     return safe(() => rtdb("event", "PUT", v), "смена ивента на " + v + " (" + EVENT_NAMES[v] + ")");
   }, "Ивент");
 
-  /* флаги магазина */
+  /* Shop flags */
   onAll("[data-flag]", (ev, b) =>
     safe(() => rtdb(b.dataset.flag, "PUT", +b.dataset.v), b.dataset.flag + " = " + b.dataset.v), "Флаги");
 
-  /* баннер */
+  /* Lobby banner */
   on("#setBanner", () => {
     const text = $("#bannerText").value.trim();
     const color = $("#bannerColor").value || "white";
@@ -1281,13 +1216,13 @@ function boot(){
     return safe(() => rtdb("banner", "DELETE"), "снятие баннера");
   }, "Снять баннер");
 
-  /* баны */
+  /* Bans */
   on("#ban", () => { const n = nickOf("#banNick");
     if(n) return safe(() => rtdb("bans/" + n, "PUT", true), "бан " + n); }, "Забанить");
   on("#unban", () => { const n = nickOf("#banNick");
     if(n) return safe(() => rtdb("bans/" + n, "DELETE"), "разбан " + n); }, "Разбанить");
 
-  /* оттенок изумруда (правила пускают только админа) */
+  /* Emerald hue (admin-only in RTDB rules) */
   on("#setHue", () => {
     const n = nickOf("#hueNick");
     if(!n) return;
@@ -1296,7 +1231,7 @@ function boot(){
     return safe(() => rtdb(`users/${n}/gifts/emerald_hue`, "PUT", v), "оттенок изумруда " + n + " = " + v);
   }, "Оттенок изумруда");
 
-  /* комната */
+  /* Room maintenance */
   on("#clearChat", () => { const r = roomName();
     if(confirm("Стереть весь чат комнаты " + r + "?"))
       return safe(() => wipeNode(`rooms/${r}/chat`), "очистка чата"); }, "Очистить чат");
@@ -1344,7 +1279,7 @@ function boot(){
     rd.readAsText(f);
   });
 
-  /* стартовая диагностика: всё ли на странице нашлось */
+  /* Startup missing-element check */
   if(MISSING.length){
     log("ВНИМАНИЕ: на странице не найдены элементы " + MISSING.join(", ") +
         " - соответствующие кнопки работать не будут", "err");

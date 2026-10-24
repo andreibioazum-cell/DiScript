@@ -5,8 +5,7 @@ static void plates_event_reset(void) {
     }
     plates_save_cd = 0;
     plates_phase = 0;
-    /* Each activation of the candy event starts a fresh round; while the
-     * event stays on, plates_finished keeps the round from repeating. */
+    /* Reset completion guard for a fresh plates round. */
     plates_finished = 0;
     plates_t = 0;
     plate_a_lit = 0;
@@ -230,16 +229,12 @@ static void tick_event_santa(void) {
     }
 }
 
-/* Both candy rounds run on this state: event 2 is the plates one, event 3 is
- * the standalone Ded Moroz round (Santa appears at once, no plates). */
+/* Return 1 when plates (2) or standalone Santa (3) candy round is active. */
 static double plates_round_on(void) {
     return event_mode == 2 || event_mode == 3 ? 1 : 0;
 }
 
-/* A finished round is re-armed only while the event is OFF: turning the event
- * off and on again starts a new round, but leaving it on never replays it.
- * The old check looked at event 3 (a real event now), so the plates round
- * could quietly re-arm underneath a running dice event. */
+/* Re-arm candy round only after event mode turns off. */
 static void plates_watch_cloud(void) {
     if (plates_round_on() == 1 || net_status() != net_st_playing) {
         plates_off_t = 0;

@@ -5,8 +5,7 @@ static const char *tr_top(void) {
     return "Top";
 }
 
-/* Three farewells on exit. The third is built from two parts with the player nick
- * in between: "Bye, Dima, good luck!". */
+/* Exit notification strings. */
 static const char *tr_bye_sorry(void) {
     if (language == 1) {
         return "Нам жаль что вы вышли, удачи!";
@@ -35,9 +34,7 @@ static const char *tr_bye_nick_post(void) {
     return ", good luck!";
 }
 
-/* Admin panel tabs and the Players actions. */
-/* The panel calls itself a content-creator tool, and the orb wears the
- * short version of the same name. */
+/* Admin panel titles. */
 static const char *tr_admin_title(void) {
     return "CONTENT CREATOR PANEL";
 }

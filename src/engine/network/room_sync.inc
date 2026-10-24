@@ -54,10 +54,8 @@ static int push_state(void) {
 }
 static char state_etag[96];
 
-/* Polling fallback for the players node (used while the SSE stream is
- * down). Conditional GET: once we hold an ETag, unchanged state costs a
- * tiny 304 instead of the full snapshot. Returns 1 = new data in resp,
- * 2 = unchanged (304), 0 = failure. */
+/* Poll players.json with conditional ETag GET when SSE stream is inactive.
+ * Returns 1 on new snapshot, 2 on 304 Not Modified, 0 on error. */
 static int pull_state(char *resp, size_t cap) {
     char url[URL], fresh[96];
     snprintf(url, sizeof(url), "%s/rooms/%s/players.json", net.base, net.room);
@@ -87,9 +85,7 @@ static void parse_and_store_banner(const char *json, unsigned gen) {
     char text[CHAT_TEXT_MAX], color[BANNER_COLOR_MAX];
     long long ts;
     if (!json || !*json || !strncmp(json, "null", 4)) {
-        /* The banner was cleared by its author: propagate the disappearance so
-         * every client drops it at the same time instead of each one keeping
-         * its own local countdown running. */
+        /* Clear local banner state when deleted on server. */
         lock();
         if (net_gen_ok(gen)) {
             net.banner_ts = 0;

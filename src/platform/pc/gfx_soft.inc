@@ -1,8 +1,4 @@
-/* PC software backend: stands in for vulkan_backend.inc. The shared layers
- * (lifecycle, fx_filters, autoscale, frame_lifecycle) keep calling the same
- * ds_vk_* hooks; here they feed a CPU framebuffer instead of a GPU. Textures
- * never leave RAM, so "upload" just marks them ready and the rasterizer in
- * pc_record.inc samples t->pixels directly. */
+/* CPU framebuffer graphics backend implementing shared ds_vk_* hooks. */
 
 static uint32_t *pc_fb;
 static int pc_fb_w, pc_fb_h;
@@ -63,8 +59,7 @@ static int ds_vk_begin_frame_backend(uint32_t w, uint32_t h, uint32_t ow, uint32
     return 1;
 }
 
-/* Font: the same atlas the Vulkan path built from ds_font_alpha - white with the
- * glyph alpha, RGBA8, so the image pipeline (v_col * tex) tints the text. */
+/* Build RGBA8 white+alpha font atlas for software text rendering. */
 static void pc_build_font_atlas(void) {
     const uint8_t *alpha;
     int aw, ah;
@@ -117,8 +112,7 @@ static void ds_vk_shutdown_backend(void) {
     vk_pending_font = 0;
 }
 
-/* "Upload" of a texture: the pixels are already in RAM, mark it ready at once.
- * desc is just a marker (the texture address itself), as the shared code asks. */
+/* Mark RAM-resident texture ready for software sampling. */
 static void ds_vk_pending_texture(Texture *t) {
     if (!t)
         return;
@@ -148,9 +142,7 @@ static void ds_vk_font_gpu_release(void) {
     vk_font_desc = 0;
 }
 
-/* Screen for the failure reason (fallback_screen.inc draws into an
- * ANativeWindow, which the PC does not have): pc_main shows the text itself,
- * here only the reason string. */
+/* Return last software renderer failure message. */
 const char *ds_graphics_failure(void) { return pc_gfx_fail[0] ? pc_gfx_fail : "unknown renderer failure"; }
 
 int ds_graphics_show_failure(ANativeWindow *window, int attempts) {

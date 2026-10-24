@@ -57,9 +57,7 @@ static int ds_vk_create_pipeline(VkShaderModule frag, VkPipelineLayout layout, i
     cb.srcColorBlendFactor = VK_BLEND_FACTOR_SRC_ALPHA;
     cb.dstColorBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     cb.colorBlendOp = VK_BLEND_OP_ADD;
-    /* RGB uses straight-alpha blending. Alpha itself must not be multiplied by
-     * source alpha a second time, otherwise overlapping translucent cubes
-     * progressively punch holes into the offscreen target. */
+    /* Straight-alpha RGB blend; preserve destination alpha. */
     cb.srcAlphaBlendFactor = VK_BLEND_FACTOR_ONE;
     cb.dstAlphaBlendFactor = VK_BLEND_FACTOR_ONE_MINUS_SRC_ALPHA;
     cb.alphaBlendOp = VK_BLEND_OP_ADD;

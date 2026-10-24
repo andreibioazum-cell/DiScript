@@ -9,11 +9,7 @@ import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.os.Build;
 
-/**
- * The "come online" call, posted by PresenceJobService when another player is in
- * the online room. Permission, the system toggle and a cooldown are checked here,
- * so the call never repeats more often than COOLDOWN_MS.
- */
+/** Notification helper for online presence alerts and exit messages. */
 final class GameNotifier {
     private static final String CHANNEL_ID = "online_call";
     private static final int NOTIFICATION_ID = 4201;
@@ -86,12 +82,7 @@ final class GameNotifier {
                 .apply();
     }
 
-    /**
-     * The farewell the game says when the player leaves it. The line itself is
-     * chosen in C; here it only becomes a notification. Stays silent when the
-     * system toggle is off or the permission was never granted - a goodbye is
-     * not worth a permission prompt.
-     */
+    /** Post exit notification when permissions and system settings allow it. */
     static void postBye(Context context, String text) {
         if (text == null || text.length() == 0) return;
         if (Build.VERSION.SDK_INT >= 33

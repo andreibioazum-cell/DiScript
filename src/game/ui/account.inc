@@ -3,19 +3,19 @@
 #define ACCT_DELETE 3
 #define ACCT_GIFTS 4
 #define ACCT_BUF 64
-static double acct_gift_choice = -1; /* выбранный магазинный стикер, -1 - никакой */
-static double acct_gift_is_owned = 0; /* 1 - выбран стикер из коллекции */
-static double acct_gift_own_row = -1; /* какая строка коллекции выбрана */
+static double acct_gift_choice = -1;
+static double acct_gift_is_owned = 0;
+static double acct_gift_own_row = -1;
 static double acct_gift_scroll = 0;
 static double acct_gift_vel = 0;
 static double acct_gift_drag = -1;
 static double acct_gift_drag_y = 0;
 static double acct_gift_drag_move = 0;
-static double acct_gift_drag_row = -1; /* as which card the drag started */
+static double acct_gift_drag_row = -1;
 static double acct_gift_busy = 0;
 static double acct_gift_busy_mode = 0;
-static double acct_gift_acted = -1; /* стикер, о котором идёт запрос */
-static double acct_gift_view_open = 0; /* 1 - осмотр стикера в полное разрешение */
+static double acct_gift_acted = -1;
+static double acct_gift_view_open = 0;
 static double acct_gift_footer_top(void);
 static double hit_acct_gift_any(double x, double y);
 static double hit_acct_gift_buy(double x, double y);
@@ -31,16 +31,16 @@ static void draw_acct_gifts(void);
 static void draw_acct_gift_viewer(void);
 static void acct_poll_gifts(void);
 static void acct_gift_scroll_tick(void);
-static double acct_entry; /* режим, с которого открыли: «назад» возвращает туда */
-static double acct_field; /* поле ввода в фокусе */
+static double acct_entry;
+static double acct_field;
 static char acct_buf[3][ACCT_BUF];
 static char acct_mask_buf[3][ACCT_BUF + 4];
-static double acct_busy; /* 1 - идёт удаление, 2 - идёт смена пароля */
-static double acct_done; /* 1 - аккаунт удалён */
-static double acct_knob;     /* положение ползунка удаления, 0..1 */
-static double acct_drag = -1; /* палец, который тащит ползунок */
-static double acct_pending;  /* 1 - открыть аккаунт в конце перехода */
-static double acct_grab;     /* где палец взялся за ползунок */
+static double acct_busy;
+static double acct_done;
+static double acct_knob;
+static double acct_drag = -1;
+static double acct_pending;
+static double acct_grab;
 static const char *acct_tr(const char *ru, const char *en) { return language == 1 ? ru : en; }
 static const char *tr_acct_title(void) { return acct_tr("Аккаунт: ", "Account: "); }
 static const char *tr_acct_change(void) { return acct_tr("Сменить пароль", "Change password"); }
@@ -83,7 +83,6 @@ static void acct_go(double mode) {
     acct_gift_view_open = 0;
     acct_clear_fields();
     ui_nav_gen = ui_nav_gen + 1;
-    /* The panel takes the finger; the game below must not keep it. */
     press_pulses_clear();
 }
 static void acct_show(double mode) {
@@ -101,8 +100,7 @@ static void acct_close(void) {
     press_pulses_clear();
 }
 static void acct_back(void) {
-        /* The viewer closes first: back does not leave the page while the view
-         * window is open. */
+    /* Close sticker preview modal before leaving gifts page. */
     if (acct_gift_view_open == 1) {
         acct_gift_view_open = 0;
         return;
@@ -245,17 +243,15 @@ static void touch_acct_menu(double x, double y) {
     }
 }
 static void touch_account(double x, double y, double action, double id) {
-        /* An open viewer takes everything: any new press closes it, and the finger
-         * lift that opened it does nothing. */
-    if (acct_gift_view_open == 1) {
+        /* Dismiss sticker preview modal on any press. */
+        if (acct_gift_view_open == 1) {
         if (action == 0) {
             acct_gift_view_open = 0;
             press_points_clear();
         }
         return;
     }
-    /* The collection scrolls with its own down/move/up machine, so it gets
-     * the move and up events before the usual press handling below. */
+    /* Route move/release events to collection scroll handler first. */
     if (action != 0 && touch_acct_gift_list(x, y, action, id) == 1) return;
     if (action == 2) {
         if (id == acct_drag) {
@@ -316,7 +312,7 @@ static void acct_poll_delete(void) {
         acct_busy = 0;
         acct_done = 1;
         acct_msg_set(tr_delete_done());
-        progress_from_storage(); /* забыть стёртый прогресс, чтобы он не вернулся */
+        progress_from_storage(); /* Reload wiped local progress. */
     } else if (st >= 3) {
         acct_busy = 0;
         acct_msg_set(st == 4 ? tr_acct_wrong() : tr_acct_failed());

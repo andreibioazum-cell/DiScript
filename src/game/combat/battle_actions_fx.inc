@@ -72,6 +72,9 @@ static void tick_santa_follow(void) {
     if (finished != 0 || player_class != 2) {
         return;
     }
+    if (player_stun > 0 || player_block == 1 || player_grabbed() == 1 || plates_lock_me == 1) {
+        return;
+    }
     if (super_windup > 0 || gift->active == 1 || universe_active == 1 || boom_t > 0) {
         return;
     }
@@ -87,7 +90,7 @@ static void start_dash_now(void) {
     dash_x0 = player->x;
     dash_y0 = player->y;
     dash_travel = 0;
-    dash_cd = azum_dash_cd;
+    dash_cd = admin_cheat_nocd() == 1 ? 0 : azum_dash_cd;
     dash_seq = dash_seq + 1;
     dash_pub = 0;
     dash_snd();
@@ -154,9 +157,8 @@ static void fire_super(void) {
         queued_super = 0;
         codecracker_super_t = codecracker_super_time;
         ability_snd(OVERCLOCK_SOUND);
-                /* The cooldown does NOT start here: it starts when the dash (overclock)
-                 * ends - see codecracker_tick_super_timer(). */
-        return;
+                /* Overclock cooldown starts when the dash expires. */
+                return;
     }
     if (player_class != 2 && player_class != 3) {
         return;
@@ -185,7 +187,9 @@ static void fire_super(void) {
     punch->active = 0;
     punch->hit = 0;
     ability_snd(player_class == CLASS_SANTA ? GIFT_SOUND : STATION_SOUND);
-    if (player_class == CLASS_EBUC) {
+    if (admin_cheat_nocd() == 1) {
+        super_cd = 0;
+    } else if (player_class == CLASS_EBUC) {
         super_cd = ebuc_station_cd;
     } else {
         super_cd = super_cd_time;

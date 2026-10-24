@@ -1,17 +1,14 @@
-/* ebuC (буК) has two ults, picked by the small button above the pad: dispenser
- * and magic blue projectile. Pressing the ult pad in projectile mode fires the
- * ball immediately in the direction ebuC is currently facing (no manual aiming
- * or countdown), bouncing off the walls up to ten times before bursting. */
+/* ebuC's dual-mode ultimate: dispenser turret or bouncing projectile. */
 
-#define BALL_SPEED 620.0              /* initial px per second */
-#define BALL_BOUNCE_ACCEL 1.04        /* +4% speed on every wall bounce */
+#define BALL_SPEED 620.0
+#define BALL_BOUNCE_ACCEL 1.04
 #define BALL_RADIUS 24.0
-#define BALL_BOOM_RADIUS 150.0        /* ~15% wider explosion than super_radius (130) */
-#define BALL_BASE_DAMAGE 0.5          /* 0 bounces: barely scratches the target */
-#define BALL_BOUNCE_DAMAGE 1.5        /* damage gained on the 1st wall bounce */
-#define BALL_BOUNCE_DAMAGE_GROW 1.13  /* +13% bounce damage on every wall bounce */
+#define BALL_BOOM_RADIUS 150.0
+#define BALL_BASE_DAMAGE 0.5
+#define BALL_BOUNCE_DAMAGE 1.5
+#define BALL_BOUNCE_DAMAGE_GROW 1.13
 #define BALL_MAX_BOUNCES 10.0
-#define BALL_MAX_TIME 8.0             /* safety net: the ball always goes away */
+#define BALL_MAX_TIME 8.0
 #define BALL_TRAIL 12
 
 typedef struct {
@@ -24,10 +21,7 @@ typedef struct {
 
 static UltBall ball;
 
-/* The ult mode of a class that has two of them. ebuC (буК, genitive "буКа")
- * can throw either his dispenser or this magic blue projectile, and the small
- * button above the pad switches between them: 0 - dispenser (blue),
- * 1 - projectile (yellow indicator). */
+/* Ultimate mode toggle button geometry (0 = dispenser, 1 = projectile). */
 static double ult_mode_r(void) { return 26; }
 static double ult_mode_x(void) { return atk2_x; }
 static double ult_mode_y(void) { return atk2_y - battle_pad_r() - ult_mode_r() - 10; }
@@ -43,9 +37,7 @@ static void ult_mode_toggle(void) {
     play_button_click();
 }
 
-/* Shown only where both modes exist, so the pad keeps its meaning everywhere
- * else. No text - just color: yellow = magic blue projectile, blue = dispenser.
- * Only black outline, no white. */
+/* Draw ebuC's ultimate mode toggle button. */
 static void draw_ult_mode(void) {
     double x = ult_mode_x();
     double y = ult_mode_y();
@@ -88,8 +80,7 @@ static void ball_trail_push(double x, double y) {
         ball.trail_a[(int)i] = ball.trail_a[(int)(i - 1)];
         i = i - 1;
     }
-    /* Sparks spray a little to the sides, otherwise the ball hides its own
-     * tail while it flies: at 620 px/s the trail sits inside the ball. */
+    /* Offset trail sparks slightly so projectile does not occlude its own trail. */
     ball.trail_x[0] = x + (rand() % 21 - 10);
     ball.trail_y[0] = y + (rand() % 21 - 10);
     ball.trail_a[0] = 1;
@@ -115,11 +106,10 @@ static void ball_fire(void) {
     ball.active = 1;
     ball.shot = ball.shot + 1;
     if (game_state == ST_ONLINE) {
-        /* Online the throw is published, not simulated for the others: every
-         * client runs the same flight from the origin and the direction. */
+        /* Publish projectile launch parameters for remote clients. */
         net_publish_brick(player->x / screen_w, player->y / screen_h, dx, dy, ball.shot);
     }
-    super_cd = super_cd_time;
+    super_cd = admin_cheat_nocd() == 1 ? 0 : super_cd_time;
     ability_snd(STATION_SOUND);
     ds_log("magic projectile thrown");
 }
@@ -156,8 +146,7 @@ static void ball_tick(void) {
     }
     ball.t = ball.t + dt;
     ball.spin = ball.spin + dt * 6;
-    /* The move is split into small pieces: on a slow frame the ball would
-     * otherwise fly straight through the enemy without ever touching it. */
+    /* Substep projectile motion to prevent tunneling on slow frames. */
     left = 1;
     while (left > 0 && ball.active == 1) {
         piece = left < 0.2 ? left : 0.2;
@@ -187,8 +176,8 @@ static void ball_tick(void) {
             ball.bounces = ball.bounces + 1;
         }
         if (ball.bounces > BALL_MAX_BOUNCES || ball.t > BALL_MAX_TIME) {
-            /* Out of bounces or time: bursts with BALL_BOOM_RADIUS, hurting any enemy caught in the blast. */
-            ds_log("charged ult: projectile used up after %g bounces", ball.bounces);
+    /* Detonate projectile when bounces or lifetime expire. */
+    ds_log("charged ult: projectile used up after %g bounces", ball.bounces);
             ball_burst();
             return;
         }
@@ -221,8 +210,7 @@ static void draw_ball(void) {
         i = i + 1;
     }
     if (ball.active == 1) {
-        /* Pure ball + particles only: no outline, no hitbox ring. */
-        circle(ball.x, ball.y, BALL_RADIUS, 0xFF3A8BFFu);
+    circle(ball.x, ball.y, BALL_RADIUS, 0xFF3A8BFFu);
     }
     if (ball.boom_t > 0) {
         draw_boom_at_r(ball.boom_x, ball.boom_y, ball.boom_t, BALL_BOOM_RADIUS);
@@ -232,8 +220,7 @@ static void draw_ball(void) {
     }
 }
 
-/* Trail fade runs even between launches, so the dots left by the last ball do
- * not stay on screen forever. */
+/* Fade projectile trail particles between casts. */
 static void ball_fade_tick(void) {
     double i = 0;
     if (ball.boom_t > 0) {

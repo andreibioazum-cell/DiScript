@@ -1,10 +1,4 @@
-/* Room directory: online play is no longer a single shared room. Clients
- * list rooms (GET /rooms.json?shallow=true), create rooms and join them,
- * optionally protected by a password. A room's password itself is never
- * stored: rooms/<name>/meta holds {owner, ph, w}, where ph is a short hash
- * of the password (empty = open room). Writing meta needs the write secret
- * and, in the rules, is limited to the owner, so rooms cannot be hijacked
- * by re-creating them. All jobs are asynchronous with a status code. */
+/* Room directory listing, creation, and FNV-1a password verification. */
 #define ROOM_NAME_MAX 24
 #define ROOM_LIST_MAX 16
 
@@ -35,8 +29,7 @@ static int room_name_valid(const char *name) {
     return 1;
 }
 
-/* FNV-1a, hex. Not cryptography - it only keeps plain passwords out of the
- * database; room passwords are a courtesy lock, not account security. */
+/* Hash room password as lowercase FNV-1a hex. */
 static void room_pass_hash(const char *pass, char *out, size_t cap) {
     unsigned h = 2166136261u;
     const unsigned char *p = (const unsigned char *)(pass ? pass : "");
@@ -168,9 +161,7 @@ static void room_prep_set(int status) {
     ds_mutex_unlock(room_prep.lock);
 }
 
-/* The room this client is actually connected to ("" when offline). The
- * chat header shows this, so it always matches the room the messages
- * belong to - including after creating a brand-new room. */
+/* Return connected room name, or empty string when offline. */
 const char *net_current_room(void) {
     static char ret[ROOM_NAME_MAX + 1];
     lock();

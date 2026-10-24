@@ -1,7 +1,6 @@
 static void play_button_click(void) {
     if (button_click_ok == 1) {
-        /* The sample is preloaded and starts at frame zero, so touch feedback
-         * never waits for file decoding or for the finger to be released. */
+        /* Play preloaded UI click sound on press. */
         snd_play(BUTTON_CLICK_SOUND);
     }
 }
@@ -25,8 +24,7 @@ static void start_music(void) {
     }
 }
 
-/* Azum vs Astra battle music: original And_The_Seraphim_Wept style but royalty-free.
- * Plays only when one side is Azum and the other is Astra (both directions). */
+/* Azum vs Astra matchup music helpers. */
 static int seraphim_is_astra(double cls) {
     return class_is_astra(cls) == 1 || cls == 5;
 }
@@ -42,9 +40,7 @@ static int seraphim_should_play(void) {
         }
         return 0;
     }
-    /* Online: check if room contains at least one Azum and at least one Astra
-     * (local player or any remote). Check both live net slots and snapped
-     * remotes so the matchup triggers immediately for players and spectators. */
+    /* Check local and remote slots for an Azum-vs-Astra online matchup. */
     {
         int has_azum = 0;
         int has_astra = 0;
@@ -219,7 +215,6 @@ static void draw_screen(void) {
 }
 
 static void logic_draw(void) {
-    /* The outgoing screen stays alive through the press hold and fade. */
     draw_screen();
     if (warn_open == 1) {
         draw_warning();
@@ -227,10 +222,9 @@ static void logic_draw(void) {
     if (studio_open == 1) {
         draw_studio();
     }
-    /* Snow above the studio splash, but never above the epilepsy warning. */
+    /* Draw winter snow above studio splash but below epilepsy warning. */
     draw_newyear_over_notices();
-    /* The documents window covers everything but the admin orb: it opens
-     * over the epilepsy warning and over the login screen alike. */
+    /* Draw legal documents modal above notices and screens. */
     if (docs_open == 1) {
         draw_docs();
     }
@@ -238,24 +232,17 @@ static void logic_draw(void) {
         draw_account();
     }
     draw_achievement_toast();
-    /* Account, documents, notices and toast fade together with their screen. */
     if (t_fade > 0) {
         double a = t_fade * t_fade * (3 - 2 * t_fade);
         rect(0, 0, screen_w, screen_h, (1 + floor(a * 254)) * 0x1000000);
     }
-    /* Last of all: the admin orb and its panel are never covered, not by the
-     * transition curtain, not by the epilepsy warning or the splash. */
+    /* Draw admin orb and panel above all screens and transition curtains. */
     admin_draw();
-    /* The press pulses were offered to every control drawn this frame; a touch
-     * that landed where there is no control must not wait for a later frame
-     * and squeeze something there. */
+    /* Clear unclaimed touch-press points at end of frame. */
     press_points_clear();
 }
 
-/* Saying goodbye when the game is left: half of the exits stay silent, the rest
- * post one of the three lines into the notification tray. Called from game_bye()
- * when the activity stops: back button, swipe-up, swipe out of recents. The
- * nick line needs an account, otherwise the two fixed lines are used. */
+/* Post an exit notification on half of app exits. */
 static void bye_notice_roll(void) {
     const char *nick;
     double pick;
@@ -279,8 +266,7 @@ static void bye_notice_roll(void) {
 }
 
 static double logic_back(void) {
-    /* The admin panel is on top of everything, so it also gets the back key
-     * first: the epilepsy warning and the splash never hide it. */
+    /* Route back key to admin panel first when open. */
     if (admin_panel_open == 1) {
         admin_panel_close();
         return 1;
@@ -340,28 +326,20 @@ static double logic_back(void) {
         start_transition(ST_LOBBY);
         return 1;
     }
-    /* Back in the lobby closes the game; the farewell is said when the
-     * activity actually stops, so every way of leaving is covered. */
+    /* Close app when back is pressed in lobby. */
     return 0;
 }
 
 static void logic_touch(double x, double y, double action, double id) {
-    /* Track every touching pointer before anything can consume or reject the
-     * event: 0 = down, 1 = up, 2 = move, 3 = cancel. Each finger keeps its own
-     * point in the queue, so the control drawn under it takes the squeeze:
-     * holding the stick and tapping two pads at once squeezes all three. */
+    /* Queue per-pointer touch coordinates for button press animations. */
     if (action == 0 || action == 2) {
         press_points_add(x, y, id);
     } else if (action == 1) {
         press_points_drop(id);
     } else if (action == 3) {
-        /* The gesture was taken away: no press feedback for that finger, the
-         * other fingers keep theirs. */
         press_points_drop(id);
     }
-    /* The admin orb and its panel sit above every screen - including the
-     * transition curtain and the epilepsy warning - and consume their own
-     * touches before anything else, so they never disappear mid-transition. */
+    /* Route touch to admin orb and panel first. */
     if (admin_touch(x, y, action, id) == 1) {
         if (action == 0) {
             press_points_drop(id);
@@ -369,8 +347,6 @@ static void logic_touch(double x, double y, double action, double id) {
         return;
     }
     if (t_dir != 0) {
-        /* A touch that lands mid-transition is ignored, so it may not squeeze
-         * anything either, and a finger that lifts there leaves the queue. */
         press_points_drop(id);
         classes_swipe_reset();
         ach_scroll_reset();
@@ -398,14 +374,8 @@ static void logic_touch(double x, double y, double action, double id) {
         press_points_drop(id);
         return;
     }
-    /* Battles keep raw touches - the joysticks and the block pad must react
-     * while held - and the shop keeps its own down/move/up machine so a swipe
-     * can page cards. Everywhere else a press is the whole gesture: the click,
-     * the squeeze and the action all happen on touch down, and the control
-     * springs back on its own, so nothing has to be held or released gently. */
+    /* Forward full touch gestures to combat and shop; fire other menus on press. */
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
-        /* The in-battle back button, the results tap and the chat controls
-         * all give their feedback on the touch. */
         if (action == 0 && menu_button_hit(x, y) == 1) {
             play_button_click();
         }
@@ -423,11 +393,9 @@ static void logic_touch(double x, double y, double action, double id) {
     if (action != 0) {
         return;
     }
-    /* An open dialogue consumes the press as its skip action, so the menu
-     * rows behind it never fire. */
+    /* Advance active lobby NPC dialogue without triggering underlying menu rows. */
     double dialog_skip = game_state == ST_LOBBY && new_theme == 1 && cube_npc_dialogue_active == 1;
     if (dialog_skip == 1) {
-        /* The dialogue took the press: no row behind it may squeeze. */
         press_points_drop(id);
     }
     if (menu_button_hit(x, y) == 1 && dialog_skip == 0) {

@@ -1,10 +1,4 @@
-/* Online rooms: instead of one shared "main" room for everyone, players
- * pick a room from the list, create their own, and may protect it with a
- * password (rooms/<name>/meta in Firebase; the password itself is never
- * stored, only its hash - net_room_prepare checks it). Modes:
- * 0 = list, 1 = create form (name + optional password), 2 = password form
- * for the selected room. Joining hands the name over through ROOM, which
- * init_online() passes to net_connect(). */
+/* Online room browser, creation/join modal, and password prompt. */
 #define ROOMS_MODE_LIST 0
 #define ROOMS_MODE_CREATE 1
 #define ROOMS_MODE_PASS 2
@@ -66,6 +60,8 @@ static void rooms_open(void) {
     rooms_mode = ROOMS_MODE_LIST;
     rooms_field = 1;
     rooms_waiting = 0;
+    rooms_name_buf[0] = 0;
+    rooms_pass_buf[0] = 0;
     rooms_name = "";
     rooms_pass = "";
     rooms_selected[0] = 0;
@@ -120,7 +116,7 @@ static void update_rooms(void) {
     if (keyboard_visible() == 1) {
         rooms_sync_field();
     }
-    if (keyboard_enter_pressed() == 1) {
+    if (keyboard_enter_pressed() == 1 && rooms_waiting == 0) {
         if (rooms_mode == ROOMS_MODE_CREATE) {
             if (rooms_field == 1) {
                 rooms_focus(2);

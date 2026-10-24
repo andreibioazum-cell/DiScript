@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Checks of firebase.rules.json that already cost an event once.
-
-The client writes event = 0..4 (0 off, 1 disco, 2 plates, 3 Santa, 4 cube). The old
-rule allowed only 0..3: the cube write was rejected, the poller returned the
-previous event, and plates turned on instead of the cube. The same file checks
-that gifts are listed one sticker at a time and foreign keys stay closed.
-"""
+"""Validation checks for firebase.rules.json event bounds, gift keys, and unknown fields."""
 import json
 import sys
 from pathlib import Path

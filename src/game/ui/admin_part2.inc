@@ -1,7 +1,4 @@
-/* Admin panel input and chrome: hit-testing, the touch handler, the "CCP" orb,
- * the panel frame and the cheats grid. Every button here is drawn by
- * admin_btn() from admin.inc, so they all share one flat black-and-white look.
-  * The panel has no tabs any more - only the cheat grid. */
+/* Admin panel input handling, orb rendering, and continuous cheat ticks. */
 
 static double admin_handle(const char *msg) {
     if (is_admin() == 0) {
@@ -99,10 +96,7 @@ static double admin_handle(const char *msg) {
     return 0;
 }
 
-/* The panel owns a text field (gift recipient), so closing it any way -
- * the X, a tap outside, the back button - must also drop the soft
- * keyboard. Otherwise the keyboard stayed on screen over the lobby and
- * swallowed touches after the panel was gone. */
+/* Hide soft keyboard when closing admin panel. */
 static void admin_keyboard_drop(void) {
     if (keyboard_visible() == 1) {
         keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
@@ -197,16 +191,14 @@ static double admin_touch(double x, double y, double action, double id) {
     if (is_admin() == 0) {
         return 0;
     }
-    /* The panel is modal: every touch while it is open goes to it, on top of
-     * every screen, the transition curtain and the epilepsy warning. */
+    /* Consume all touches while admin panel is open. */
     if (admin_panel_open == 1) {
         if (action == 0) {
             admin_panel_press(x, y);
         }
         return 1;
     }
-    /* The ball belongs to the finger that grabbed it: a second finger can
-     * tap the panel while the first one drags. */
+    /* Ignore secondary pointers while dragging admin orb. */
     if (admin_ball_grab == 1 && id != admin_ball_id) {
         return 1;
     }
@@ -240,7 +232,7 @@ static double admin_touch(double x, double y, double action, double id) {
     return 0;
 }
 
-/* Black disc with a white rim and the short panel name - flat, no gradients. */
+/* Draw opaque monochrome admin orb. */
 static void admin_draw_ball(void) {
     const char *lab = admin_orb_label();
     double r = admin_ball_r();
@@ -249,8 +241,7 @@ static void admin_draw_ball(void) {
     double iw = text_ink_width(lab);
     double ih = text_ink_height(lab);
     double sc = 0.5;
-    /* Flat black halo instead of a soft shadow: the orb is a button too, and
-     * every button in this panel is fully opaque. */
+    /* Draw opaque outer border around orb. */
     circle(cx, cy, r + 3, admin_off());
     circle(cx, cy, r, admin_body());
     ring(cx, cy, r, clamp(r * 0.11, 2, 3), admin_frame());
@@ -370,16 +361,13 @@ static void admin_draw_panel(void) {
     double hh = admin_header_h();
     const char *title = tr_admin_title();
     double title_w = pw - hh * 1.9 - 16;
-    /* The full-screen scrim is the only translucent thing in the panel; every
-     * shape of the panel itself is flat and fully opaque. */
+    /* Draw translucent backdrop scrim; panel controls remain opaque. */
     rect(0, 0, screen_w, screen_h, admin_a(0x000000, 0.55));
     roundrect(px, py, pw, ph, 14, admin_body());
     roundrect_outline(px, py, pw, ph, 14, 3, admin_frame());
-    /* Header: black band, the full panel name, the close button. */
     roundrect(px, py, pw, hh, 14, admin_header());
     rect(px, py + hh / 2, pw, hh / 2, admin_header());
     line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_frame());
-    /* Left-aligned in the header, as asked, instead of centred in the band. */
     text_in_field(title, px + 16, py, hh, admin_frame(), fit_text_scale(title, title_w, hh / 58.0));
     double cxx = px + pw - hh * 0.55;
     double cr = hh * 0.3;
@@ -404,8 +392,7 @@ static void admin_draw(void) {
     admin_draw_ball();
 }
 
-/* Continuous cheats: ticked from logic_update so anti-stun, the frozen enemy
- * and the zeroed cooldowns survive every re-application the fight makes. */
+/* Tick active continuous cheats and admin gift actions. */
 static void admin_tick(void) {
     admin_ball_t = admin_ball_t + dt;
     if (is_admin() == 1 && admin_panel_open == 1 && admin_tab == 1) {
@@ -419,7 +406,6 @@ static void admin_tick(void) {
         return;
     }
     if (cheat_nocd == 1) {
-        /* Everything ability-related refills instantly, solo and online. */
         punch_cd = 0;
         super_cd = 0;
         dash_cd = 0;
@@ -434,8 +420,6 @@ static void admin_tick(void) {
         if (enemy->stun < 0.25) {
             enemy->stun = 0.25;
         }
-                /* This state comes from the panel, so no ring is drawn for it - even if
-                 * the cheat is off and its state has not expired yet. */
         cheat_estun_mark = 1;
     }
 }

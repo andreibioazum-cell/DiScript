@@ -1,21 +1,9 @@
-/* Chat and nick filter.
- *
-  * The game is 12+ (436-FZ), so swearing, abusive words, pornography and links
-  * (ads, including banned ones, and links to other sites) never reach the chat:
-  * such a word becomes "***". The filter runs on send and on display, so
-  * messages from older versions are cleaned too. A nick with swearing is not
-  * allowed into the game.
- *
-  * A word is reduced to lowercase Cyrillic: latin letters are read by look
-  * (x, y, c, k and so on map to their Cyrillic twins) and by sound (huy,
-  * blyad), digit stand-ins too (3, 0, 6), symbols inside a word are dropped
-  * (dots between letters), repeated letters collapse. */
+/* Profanity, transliteration, lookalike, and URL filter for chat and nicknames. */
 
 #define CF_WORD_MAX 64
 #define CF_OUT_MAX 512
 
-/* Folds a Unicode code point to lowercase: A-Z and the Cyrillic range
- * (yo counts as ye). */
+/* Fold ASCII and Cyrillic codepoints to lowercase (mapping yo to ye). */
 static unsigned cf_lower(unsigned c) {
     if (c >= 'A' && c <= 'Z')
         return c + 32;
@@ -109,8 +97,7 @@ static void cf_norm(const unsigned *w, int n, int phonetic, char *out, size_t ca
         else
             c = phonetic ? cf_phonetic(w[i]) : cf_visual(w[i]);
         if (!c && ((w[i] >= 'a' && w[i] <= 'z'))) {
-                        /* A latin letter with no Cyrillic twin breaks the match:
-                         * "web" must not read as the "eb" root. */
+            /* Insert separator for unmapped Latin characters to prevent false root matches. */
             if (o + 2 >= cap)
                 break;
             out[o++] = '#';
@@ -156,8 +143,7 @@ static int cf_has_hu(const char *w) {
     return 0;
 }
 
-/* The "eb" root at the start of a word, after a prefix too. Words like
- * "sebe", "veb", "hleb" and "nebo" do not match. */
+/* Match "eb" root at word start or after known Russian prefixes. */
 static int cf_has_eb(const char *w) {
     static const char *const pre[] = {"", "за", "на", "по", "вы", "съ", "у", "от", "ото", "отъ", "до", "раз", "разъ",
                                       "рас", "про", "из", "изъ", "при", "пере", "недо", "въ", "вз", "взъ", "долбо",
@@ -175,8 +161,7 @@ static int cf_bad_cyr(const char *w, int skip_eb) {
     static const char *const roots[] = {"пизд", "пезд", "залуп", "мудак", "мудил", "пидор", "пидар", "пидрил",
                                         "пидрас", "гандон", "гондон", "шлюх", "дроч", "бляд", "долбоеб",
                                         "долбаеб", "уебок", "уебан", "уебищ", "мандав", "сукабл", 0};
-        /* These roots count only at the start of a word: "upotreblyat" and
-         * "uporny" are clean. */
+    /* Prefix-only roots to avoid false positives inside longer words. */
     static const char *const heads[] = {"блят", "порн", 0};
     static const char *const words[] = {"бля", "сука", "суки", "суке", "суку", "сукой", "сучка", "сучку", "сучки",
                                         "сучара", "сукин", "манда", "манды", 0};
@@ -232,8 +217,7 @@ static int cf_is_link(const char *raw) {
     return 0;
 }
 
-/* Latin words starting with "eb": eBay, ebook and the old latin class name
- * ebuc (ebuC), so the old name is not hidden in the chat. */
+/* Allowed Latin words starting with "eb" (eBay, ebook, ebuC). */
 static int cf_latin_eb_ok(const char *raw) {
     static const char *const ok[] = {"ebuc", "ebay", "ebook", 0};
     const char *const *k;

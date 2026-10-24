@@ -1,16 +1,5 @@
 #!/usr/bin/env python3
-"""Checks of the PC build: it compiles and plays without a window.
-
-Builds the Linux harness (gcc) from the same sources as the .exe and runs the real
-game with fixed frames: the warning screen -> lobby -> Play -> Solo -> battle, the
-stick and a punch through the same layer the PC keyboard uses. A separate run
-checks signing in against the fake database in test/fake_firebase.py over real
-HTTP (the only way to see the whole network path: WinHTTP cannot run in the
-sandbox, and the POSIX transport in the harness behaves like it).
-
-Run: python3 tools/test_pc.py            (needs gcc + g++)
-     python3 tools/test_pc.py --no-build (harness already built)
-"""
+"""Headless PC build, rendering, input, combat, and network integration tests."""
 
 from __future__ import annotations
 
@@ -146,14 +135,14 @@ def test_menu_and_battle(assets: Path) -> None:
         SCRATCH / "play",
         [
             "--frames", "700",
-            "--touch", "220:360:686:0", "--touch", "223:360:686:1",   # «Понимаю и принимаю»
-            "--touch", "400:270:336:0", "--touch", "403:270:336:1",   # «Играть»
-            "--touch", "460:270:404:0", "--touch", "463:270:404:1",   # «Соло»
+            "--touch", "220:360:686:0", "--touch", "223:360:686:1",   # accept warning
+            "--touch", "400:270:336:0", "--touch", "403:270:336:1",   # Play
+            "--touch", "460:270:404:0", "--touch", "463:270:404:1",   # Solo
             "--report", "236",
             "--report", "430",
             "--report", "590",
-            "--stick", "600:0:-1",                                    # клавиша W
-            "--atk", "620:1", "--atk", "640:0",                       # пробел
+            "--stick", "600:0:-1",                                    # W key
+            "--atk", "620:1", "--atk", "640:0",                       # attack
             "--report", "650",
             "--dump", f"690:{shot}",
             "--report", "699",
@@ -293,13 +282,8 @@ def harness_async(assets: Path, data: Path, args: list[str], progress: str = "")
 
 
 def test_brick_online(assets: Path) -> None:
-    """Two clients in one room, and the ebuC projectile flies over the network.
-
-    In an online fight ("CCP") the thrower switches the ult to ebuC's ball,
-    turns diagonally and fires immediately without aiming countdown; the other
-    client sees the ball in flight and loses health.
-    """
-    print("\n== 3j. The ebuC brick in an online fight ==")
+    """Online fight: ebuC's projectile syncs and damages the opponent."""
+    print("\n== 3j. ebuC's brick in an online fight ==")
     room = f"brk{int(time.time()) % 100000}"
     nick = f"brk{int(time.time()) % 100000}"
     taps = [
@@ -537,13 +521,8 @@ def test_multitouch(assets: Path) -> None:
 
 
 def test_ball(assets: Path) -> None:
-    """The ebuC ball ult: pressing ult fires immediately along facing direction.
-
-    There is no aiming phase or 3-2-1 countdown: the ball launches on the press
-    itself in the direction the cube is facing, bounces off walls and expires
-    on its own.
-    """
-    print("\n== 3f. The instant ebuC ball ult ==")
+    """ebuC's ball ult launches immediately along the facing direction."""
+    print("\n== 3f. Instant ebuC's ball ult ==")
     switch = ["--touch", "880:408:533:0:5", "--touch", "892:408:533:1:5"]
     with fake_server():
         def fight(name: str, events: list[str]) -> dict[int, dict[str, str]]:
@@ -590,7 +569,7 @@ def test_ult_mode_switch(assets: Path) -> None:
     usual super at once, however long the finger stays. Switching the button
     over to the ball makes the next press immediately launch the ball.
     """
-    print("\n== 3g. The ebuC ult switch ==\n")
+    print("\n== 3g. ebuC's ult switch ==\n")
     with fake_server():
         result = harness(
             assets,
@@ -642,8 +621,7 @@ def test_longer_fights(assets: Path) -> None:
         frame = parse_reports(result.stdout).get(815, {})
         hp = float(frame.get("hp", "0"))
         foe = float(frame.get("foe", "0"))
-        # Raw pools: ordinary 20, azum 12.74, santa 20, ebuc 24, astra 18,
-        # codecracker 12. The pools are back to these class values.
+        # Base HP pools: Ordinary 20, Azum 12.74, Santa 20, ebuC 24, Astra 18, CodeCracker 12.
         raw = {"0": 20.0, "1": 12.74, "2": 20.0, "3": 24.0, "4": 18.0, "6": 12.0}
         cls = frame.get("cls", "0")
         base = raw.get(cls, 20.0)
@@ -732,7 +710,7 @@ def main() -> int:
     args = parser.parse_args()
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
-    fake_url = f"http://127.0.0.1:{FAKE_PORT}"  # порт фиксирован: см. test_login
+    fake_url = f"http://127.0.0.1:{FAKE_PORT}"  # fixed port baked into harness build
     if not args.no_build or not BINARY.is_file():
         build(fake_url)
     assets = stage_assets()

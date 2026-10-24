@@ -10,6 +10,7 @@ static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, do
 static void ball_online_tick(void);
 static void draw_remote_bricks(void);
 static void remote_bricks_reset(void);
+static void baseline_remote_slot(double s);
 static void ball_clear_after_finish(void);
 #ifdef CB_PC
 static double remote_bricks_live(void);

@@ -1,25 +1,5 @@
 #!/usr/bin/env python3
-"""Builds the PC version of Cubic Battle 4 (the Windows .exe and the Linux harness).
-
-The PC game is the very same sources as on Android: game.c, the runtime, network,
-audio. The platform layer lives in src/platform/pc: a Win32 window, mouse and
-keyboard as touches, the software rasterizer (instead of Vulkan) and WinHTTP
-(instead of HttpURLConnection). So exactly four translation units get built, and
-the game is not rewritten.
-
-    python3 tools/build_pc.py                 # current OS
-    python3 tools/build_pc.py --windows       # x86_64 .exe (needs zig)
-    python3 tools/build_pc.py --linux         # headless harness (needs gcc)
-    python3 tools/build_pc.py --check         # build and run a smoke test
-
-The compiler is found like this:
-  * Windows: zig cc -target x86_64-windows (zig comes from the `ziglang` pip
-    package or from PATH; MSVC is not needed);
-  * Linux: gcc or clang.
-
-Assets are staged by the existing stage_assets.py (textures/, fonts/, sounds/),
-exactly the ones packed into the APK.
-"""
+"""Build script for Windows .exe and Linux headless harness targets."""
 
 from __future__ import annotations
 

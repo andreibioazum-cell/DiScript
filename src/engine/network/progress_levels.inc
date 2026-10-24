@@ -1,7 +1,4 @@
-/* Level branches of the individual classes. The ordinary cube, Azum, Santa and
- * ebuc live in the shared progress file, while Astra and CodeCracker have their
- * own "level / unlocked levels" pairs: CodeCracker gets its own branch, it is a
- * separate class, not the ordinary cube under another name. */
+/* Per-class level state accessors and CodeCracker level persistence. */
 
 double net_load_astra(void) {
     double v;
@@ -36,10 +33,11 @@ void net_save_astra(double owned, double level, double levels_unlocked) {
     pg_lock();
     if (pg.astra == 1)
         own = 1;
-    if (pg.astra_levels_unlocked > lu)
+    if (pg.astra_levels_unlocked > lu) {
+        if (pg.astra_level > lv)
+            lv = pg.astra_level;
         lu = pg.astra_levels_unlocked;
-    if (pg.astra_level > lv)
-        lv = pg.astra_level;
+    }
     normalize_level_pair(&lv, &lu);
     pg.astra = own;
     pg.astra_level = lv;
@@ -84,7 +82,7 @@ void net_save_astra(double owned, double level, double levels_unlocked) {
                    (int)net_load_bp_xp(), ccl, ccu, cc);
 }
 
-/* CodeCracker ownership and level branch: its own, not shared with the ordinary cube. */
+/* CodeCracker ownership and level accessors. */
 
 double net_load_codecracker(void) {
     double v;
@@ -113,8 +111,7 @@ double net_load_codecracker_levels_unlocked(void) {
     return v;
 }
 
-/* Saves CodeCracker ownership and its level branch. As with the other classes
- * neither ownership nor bought levels roll back. */
+/* Save CodeCracker ownership and level state without rolling back unlocked tiers. */
 void net_save_codecracker(double owned, double level, double levels_unlocked) {
     int own = owned ? 1 : 0, lv = (int)level, lu = (int)levels_unlocked;
     int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu;
@@ -123,10 +120,11 @@ void net_save_codecracker(double owned, double level, double levels_unlocked) {
     pg_lock();
     if (pg.codecracker == 1)
         own = 1;
-    if (pg.codecracker_levels_unlocked > lu)
+    if (pg.codecracker_levels_unlocked > lu) {
+        if (pg.codecracker_level > lv)
+            lv = pg.codecracker_level;
         lu = pg.codecracker_levels_unlocked;
-    if (pg.codecracker_level > lv)
-        lv = pg.codecracker_level;
+    }
     normalize_level_pair(&lv, &lu);
     pg.codecracker = own;
     pg.codecracker_level = lv;
@@ -171,9 +169,7 @@ void net_save_codecracker(double owned, double level, double levels_unlocked) {
                    (int)net_load_bp_xp(), lv, lu, own);
 }
 
-/* CodeCracker ownership and levels bought locally are not lost when the cloud
- * profile arrives: ownership and the greater level number stay. Called under
- * the pg lock, returns 1 if the cloud was corrected. */
+/* Merge local CodeCracker ownership and unlocked levels under pg lock. */
 int codecracker_merge_local(int local_owned, int local_level, int local_unlocked) {
     int changed = 0;
     if (local_owned == 1 && pg.codecracker == 0) {

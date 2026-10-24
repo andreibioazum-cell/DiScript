@@ -220,12 +220,7 @@ public final class GameActivity extends NativeActivity {
                 });
     }
 
-    /**
-     * The farewell on the way out: C has already decided what to say, or to stay
-     * silent. Posted straight away instead of through runOnUiThread - the game
-     * may be killed from recents a moment later, and a queued runnable would
-     * then never run. NotificationManager is safe to call from any thread.
-     */
+    /** Post exit notification immediately without queuing on UI thread. */
     public void showByeNotice(final String text) {
         try {
             GameNotifier.postBye(getApplicationContext(), text);

@@ -1,14 +1,4 @@
-/* PC software rasterizer: mirrors ds_vk_build_geometry() from
- * vulkan_record.inc - the same commands tessellate into the same geo_*
- * vertex/index buffers - but instead of GPU batches every command's triangle
- * range is filled straight into the CPU framebuffer. Pipelines match the
- * fragment shaders: 0 solid (vertex color), 1 image (color * texture),
- * 2 tint (texture alpha only). Blending and nearest sampling match too.
- *
- * The inner loop walks scanlines with incremental barycentrics (three edge
- * functions step by a constant per pixel), and opaque pixels take a direct
- * store: at 540x960 the picture is a few hundred thousand samples per frame,
- * so per-pixel multiplies for edges and a blend for every pixel showed. */
+/* Software triangle rasterizer matching Vulkan solid, image, and tint pipelines. */
 
 static void pc_blend_pixel(uint32_t *dst, unsigned sr, unsigned sg, unsigned sb, unsigned sa) {
     unsigned dr, da, ia, oa;
@@ -71,8 +61,7 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
     if (minx > maxx || miny > maxy)
         return;
 
-    /* Edge functions per unit step; w2 = area - w0 - w1, so only two of the
-     * three weights are tracked. */
+    /* Incremental barycentric step deltas (w2 = 1 - w0 - w1). */
     dw0dx = -(double)(c.y - b.y) * inv;
     dw0dy = (double)(c.x - b.x) * inv;
     dw1dx = -(double)(a.y - c.y) * inv;
@@ -170,10 +159,7 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
                         sa = sa * ta / 255;
                         pc_blend_pixel(&row[x], sr, sg, sb, sa);
                     } else {
-                        /* Pipeline 2, the tint shader: its GLSL is
-                         * out_color = vec4(v_col.rgb, tex.a * v_col.a) - the
-                         * vertex colour REPLACES the texel colour, the texel
-                         * only carries alpha. Keep this identical. */
+                        /* Pipeline 2 tint shader: vertex RGB modulated by texel alpha. */
                         sa = sa * ta / 255;
                         pc_blend_pixel(&row[x], sr, sg, sb, sa);
                     }

@@ -1,14 +1,4 @@
-/* NPC cube in the lobby - typewriter dialogue system (new theme only).
- *
- * The typewriter reveals whole UTF-8 characters: slicing by raw bytes used to
- * land inside a Cyrillic letter, and the orphan byte fell back to the "?"
- * glyph at the end of the line. The panel slides up and fades in - and fades
- * out again with its text still in place, so closing never pops to an empty
- * box. Long lines word-wrap at full size instead of shrinking to fit.
- *
- * The draw path copies slices into small static scratch buffers: it runs
- * every lobby frame, and per-frame str_sub() garbage would pile up in the
- * session string pool until the next game restart. */
+/* Lobby NPC cube and UTF-8 typewriter dialogue panel. */
 
 static const char *cube_npc_dialogue_text(void) {
     if (cube_npc_dialogue_line == 0) return cube_npc_d0;
@@ -19,8 +9,7 @@ static const char *cube_npc_dialogue_text(void) {
     return "";
 }
 
-/* UTF-8 helpers for the typewriter. The dialogue is Russian, so the reveal has
- * to step over whole 2-byte characters and never cut a letter in half. */
+/* Count UTF-8 codepoints in string. */
 static double utf8_len(const char *s) {
     double n = 0;
     while (*s != 0) {
@@ -47,8 +36,7 @@ static const char *utf8_prefix(const char *s, double chars) {
         n = n + 1;
         if ((c & 0xC0) != 0x80) {
             seen = seen + 1;
-            /* Swallow the continuation bytes of this character so the cut
-             * always lands on a codepoint boundary. */
+            /* Include trailing UTF-8 continuation bytes in current codepoint. */
             while (((unsigned char)*p & 0xC0) == 0x80) {
                 p = p + 1;
                 n = n + 1;
@@ -63,8 +51,7 @@ static const char *utf8_prefix(const char *s, double chars) {
     return buf;
 }
 
-/* Byte slice of a string into scratch, for measuring and drawing one line at
- * a time without allocating. */
+/* Copy substring byte slice into static scratch buffer. */
 static const char *dial_slice(const char *s, double off, double len) {
     static char buf[512];
     size_t total = strlen(s);
@@ -112,9 +99,7 @@ static void cube_npc_tap(void) {
     }
     double next = cube_npc_dialogue_line + 1;
     if (next >= cube_npc_dialogue_lines) {
-        /* Keep the last line on screen while the panel fades out - clearing
-         * the text here would pop the body empty mid-animation. The rewind
-         * happens in cube_npc_tick() once the panel is fully gone. */
+        /* Preserve last line during fade-out; cube_npc_tick() rewinds after close. */
         cube_npc_dialogue_active = 0;
         return;
     }
@@ -147,9 +132,7 @@ static void cube_npc_tick(void) {
     }
 }
 
-/* Greedy word wrap. Cuts happen only just before a word, i.e. right after an
- * ASCII space - a UTF-8 safe byte boundary - so line slices never split a
- * Cyrillic letter. */
+/* Wrap text on ASCII space boundaries into up to `max_lines` spans. */
 static double dial_wrap(const char *vis, double max_w, double sc, double *starts, double *lens,
                         double max_lines) {
     double total = str_len(vis);

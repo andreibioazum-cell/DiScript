@@ -1,5 +1,4 @@
-/* PC shim: the engine only passes ANativeWindow pointers around; the PC
- * backend owns its framebuffer and never dereferences the window here. */
+/* PC shim for opaque ANativeWindow pointer types. */
 #ifndef PC_SHIM_ANDROID_NATIVE_WINDOW_H
 #define PC_SHIM_ANDROID_NATIVE_WINDOW_H
 #include <stdint.h>

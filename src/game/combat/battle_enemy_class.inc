@@ -57,8 +57,7 @@ static void enemy_pick_random_class(void) {
     } else if (roll < ebuc_to) {
         enemy_class = CLASS_EBUC;
     } else if (roll < santa_to) {
-        /* Santa is developer-only for now, so the bot does not roll him
-         * for anyone else either. */
+        /* Restrict bot Santa spawns to developer accounts. */
         enemy_class = dev_access() == 1 ? CLASS_SANTA : CLASS_ORDINARY;
     } else if (roll < astra_to) {
         enemy_class = CLASS_ASTRA;
@@ -79,7 +78,7 @@ static void enemy_pick_random_class(void) {
     ds_log("enemy class %g hp %g", enemy_class, enemy->max_hp);
 }
 
-/* The enemy's guard is directional too: only frontal strikes hit the shield. */
+/* Return 1 when enemy guard faces the incoming damage source. */
 static double enemy_block_covers(void) {
     if (dmg_from_k == 0) {
         return 1;
@@ -100,7 +99,7 @@ static double enemy_apply_damage(double dmg) {
         dmg_from_k = 0;
         return 1;
     }
-    /* Damage x5 from the admin panel multiplies everything the enemy takes. */
+    /* Apply admin damage multiplier. */
     dmg = dmg * admin_cheat_damage_mult();
     if (enemy_revive_prot > 0) {
         dmg_from_k = 0;
@@ -113,7 +112,7 @@ static double enemy_apply_damage(double dmg) {
         }
         return 0;
     }
-    /* A raised guard eats part of any frontal ability, like the player's. */
+    /* Reduce frontal damage while enemy is blocking. */
     if (enemy_block_left > 0 && enemy_block_covers() == 1) {
         dmg = dmg * block_guard;
     }
@@ -124,8 +123,8 @@ static double enemy_apply_damage(double dmg) {
     if (dmg > 0) {
         enemy_hurt_a = 1;
         damage_taken_shake(dmg);
-        /* Humans flinch into a guard after eating a hit - sometimes. */
-        if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
+    /* Chance to raise guard after taking a hit. */
+    if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
             rand() % 100 < 18) {
             enemy_block_left = 0.5 + (rand() % 100) / 100.0 * 0.4;
         }

@@ -1,13 +1,4 @@
-/* Event 4: the Cube. A big cube in the middle of the arena throws out
- * other cubes - character cubes, not dice: every class in the game is
- * in the pool for everyone (Santa and CodeCracker are NOT admin-only
- * here - the event is a lottery, not the shop). A thrown cube flies to
- * a random spot and lies there; whoever walks over it collects its
- * candy prize:
-  *   Ordinary 2, Azum 5, Astra 9, ebuC 15, Santa 30, CodeCracker 60,
- *   Legendary Azum 95 - the best cube, chance 0.08%.
- * Chances are rolled in 0.001% units (roll 0..99999). The event replaces
- * the old infection event on the same admin command, event 4. */
+/* Event 4 (Cube): central cube spawns collectible character cubes worth candies. */
 
 #define DICE_CUBE_ORDINARY 0
 #define DICE_CUBE_AZUM 1
@@ -140,9 +131,7 @@ static void dice_throw_cube(void) {
            dice_prize_of(arr_get(dice_cubes, b + 1)));
 }
 
-/* How long the round survives with the event turned off. A poll that still
- * sees the previous event while the admin's write is in flight used to wipe
- * every cube in one frame; a blink shorter than this keeps the round. */
+/* Grace period before clearing active cubes when event mode drops off. */
 #define DICE_OFF_GRACE 1.0
 
 static void update_dice_event(void) {
@@ -210,8 +199,7 @@ static void draw_dice_event(void) {
     if (event_mode != 4) {
         return;
     }
-    /* The thrower: a big cube in the centre, at least the size of a
-     * normal player cube, slowly turning as it throws. */
+    /* Draw rotating central thrower cube. */
     double cx = screen_w / 2;
     double cy = screen_h / 2;
     double sc = plates_santa_size / 50;

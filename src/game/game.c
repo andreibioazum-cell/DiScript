@@ -1,4 +1,4 @@
-/* All of the Cubic Battle 4 game logic in C. */
+/* Cubic Battle 4 game logic. */
 #include "game/game.h"
 #include "engine/runtime.h"
 #include "engine/network.h"
@@ -82,6 +82,6 @@
 #include "lifecycle.inc"
 
 #ifdef CB_PC
-/* Bridge for the keyboard and mouse: see platform/pc/pc_main.c. */
+/* PC keyboard/mouse input bridge. */
 #include "pc_pads.inc"
 #endif

@@ -1,7 +1,6 @@
 static void draw_menu_button(double row, const char *label) {
     double w = menu_btn_w();
-    /* Use the native lobby label scale for every action. Do not fit the font
-     * independently per label: short labels were appearing much larger. */
+    /* Draw lobby button at uniform text scale. */
     button(label, menu_x(), menu_row(row), w, btn_h);
 }
 
@@ -53,8 +52,6 @@ static void draw_lobby(void) {
     draw_menu_button(2, tr_settings());
     draw_menu_button(3, tr_account());
     draw_menu_button(4, tr_achievements());
-    /* The battle pass sits in the bottom-right corner, out of the column.
-     * It is admin-only: nobody else even sees the button. */
     if (is_admin() == 1) {
         button(language == 1 ? "Баттл-пасс" : "Battle Pass", bpass_corner_x(), bpass_corner_y(),
                bpass_corner_w(), btn_h);
@@ -62,7 +59,7 @@ static void draw_lobby(void) {
     draw_lobby_nick();
     draw_lobby_money();
     if (new_theme == 1) {
-        draw_lobby_npc_cube(); /* the NPC cube belongs to the new theme */
+        draw_lobby_npc_cube();
     }
     if (str_len(banned_msg) > 0) {
         ctext(banned_msg, lobby_msg_y(), text_color);
@@ -105,15 +102,7 @@ static void draw_card_look(double look, double x, double y, double scale) {
     rect(x, y, side, side, fighter_fallback_rgb);
 }
 
-/* Draws the shop/lobby render for a class+skin combo into a target_px square
- * at (x, y), the same box the old tiny battle sprite used to occupy. Prefers
- * the high-resolution card art; while it hasn't finished uploading (or is
- * missing) it falls back to the familiar small pixel sprite scaled to fill
- * the same box, so the shop never shows a blank hole.
- *
- * The card art itself is a plain square PNG - tex_round() rounds its corners
- * at draw time (same silhouette the card background panel already uses),
- * so the source art can stay a simple square image. */
+/* Draw rounded class portrait, falling back to battle sprite until card art uploads. */
 static void draw_class_render(double cls, double skin, double x, double y, double target_px) {
     if (class_card_render_ready(cls, skin) == 1) {
         tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX, target_px * card_render_radius_frac);
@@ -122,10 +111,7 @@ static void draw_class_render(double cls, double skin, double x, double y, doubl
     draw_card_look(card_look(cls, skin), x, y, target_px / 50);
 }
 
-/* The shop card is one control: wherever the finger lands - on the art, on
- * the name or on the price pill - the whole card squeezes and darkens as a
- * piece. It is the card that is pressed, not the pill inside it, and the pill
- * keeps its old job of showing the price or the pick label. */
+/* Draw shop class card with unified press squeeze. */
 static void draw_class_card(double vi) {
     double cls = visible_class_at(vi);
     double x = classes_card_x(vi);
@@ -143,9 +129,7 @@ static void draw_class_card(double vi) {
     card_state(bx, squeeze_y(top, top, class_card_h, s), bw, class_card_h * s, selected, 0, 1 - PRESS_SHADE * p);
     double sprite = class_render_px() * s;
     double sx = bx + (bw - sprite) / 2;
-    /* The shop card always shows the class's base look, regardless of which
-     * skin is currently equipped - picking a skin in the Skins screen should
-     * not change what the character looks like in the class list. */
+    /* Render base class appearance in shop regardless of equipped skin. */
     draw_class_render(cls, SKIN_NORMAL, sx, squeeze_y(class_sprite_y(), top, class_card_h, s), sprite);
     centered_text(class_name_of(cls), bx, bw, squeeze_y(class_title_y(), top, class_card_h, s),
                   cls == CLASS_AZUM && azum_buff_active == 1 ? shade(0xFFFF3030, 1 - PRESS_SHADE * p) : tc,
@@ -189,8 +173,7 @@ static void draw_classes(void) {
         vi = vi + 1;
     }
     if (classes_scroll_needed() == 1) {
-        /* A slim scrollbar, shown only while the strip actually overflows:
-         * the thumb's share of the track is the visible share of the strip. */
+        /* Draw proportional horizontal scrollbar when strip overflows viewport. */
         double track_x = screen_margin;
         double track_w = classes_viewport_w();
         double track_y = classes_top() - 14;

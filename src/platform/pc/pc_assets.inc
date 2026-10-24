@@ -1,6 +1,4 @@
-/* PC asset manager and log: plain files under a root folder, plain stderr
- * output. Included once by pc_main.c; other translation units see the
- * declarations from the shim headers under platform/pc/shim/android. */
+/* PC AAssetManager file loader and log sink. */
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -93,9 +91,7 @@ int AAsset_close(AAsset *asset) {
     return 0;
 }
 
-/* The log goes to stderr (visible in the console and in harness output) and to a
- * file next to the exe: built as a GUI app the binary has no console, and sorting
- * out complaints without a log is impossible. */
+/* Mirror log output to cb4.log alongside stderr. */
 static FILE *pc_log_file = NULL;
 static int pc_log_tried = 0;
 

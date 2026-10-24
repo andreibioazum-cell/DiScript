@@ -1,18 +1,9 @@
-/* Legal information: a documents window over any screen (the start-up warning,
- * the login screen, the settings), personal data consent, the way into account
- * deletion, and the 12+ badge.
- *
-  * It is an overlay, not a screen: it opens from the warning, which itself sits
-  * over everything, and from the login screen, where the typed nick must not be
-  * lost. It is drawn last (under the admin orb) and takes touches and the back
-  * button first. */
+/* Legal documents overlay, personal data consent flow, and startup warning. */
 
 static double docs_page;
-/* 1 - the window asks consent from a player who is already signed in (the
- * account was created before consent existed, or the documents changed). */
+/* 1 when requesting personal data consent from an already signed-in player. */
 static double docs_ask;
 static double docs_asked;
-/* The consent checkbox on the login screen. */
 static double login_consent;
 
 static double consent_ok(void) { return settings_pd_consent_version() >= LEGAL_DOCS_VERSION ? 1 : 0; }
@@ -183,17 +174,13 @@ static void touch_docs(double x, double y, double action) {
         return;
     }
     if (hit_docs_refuse(x, y) == 1) {
-                /* Without consent processing stops: the player signs out and keeps
-                 * playing without the cloud. Data can be deleted on page 7. */
+        /* Sign out to offline mode when personal data consent is declined. */
         start_action_transition(docs_refuse);
     }
 }
 
-/* --- frame ------------------------------------------------------------- */
-
 static void docs_tick(void) {
-        /* An account signed in before consent existed is asked once per launch,
-         * while the player is calmly sitting in the lobby. */
+    /* Prompt signed-in accounts once per launch when consent version is outdated. */
     if (docs_open == 0 && acct_open == 0 && docs_asked == 0 && warn_open == 0 && studio_open == 0 &&
         t_dir == 0 &&
         game_state == ST_LOBBY && net_login_status() == 2 && consent_ok() == 0) {
@@ -242,10 +229,7 @@ static void draw_login_consent(void) {
                   fit_text_scale(tr_consent_more(), login_more_w() - 24, 0.5));
 }
 
-/* --- start-up warning --------------------------------------------------- */
-
-/* The Russian block comes first, the English copy below it (168-FZ). The
- * language may not be picked yet, so both texts are always shown. */
+/* Bilingual startup epilepsy and terms warning text. */
 static const char *const warn_ru[] = {"ВНИМАНИЕ", "В игре есть яркие вспышки и быстрая",
                                       "смена цветов (диско-режим в онлайне).", "При эпилепсии или чувствительности",
                                       "к свету играйте осторожно.", "Нажимая кнопку согласия, вы принимаете",
@@ -276,9 +260,7 @@ static void warn_block(const char *const *lines, double y, uint32_t body) {
     }
 }
 
-/* The warning button reacts to a press like any other. The screen under the
- * warning is drawn earlier, so it does not take this press (press_overlay), and
- * only these buttons get it. */
+/* Draw startup warning button using overlay press channel. */
 static void warn_button(const char *label, double bx, double bw) {
     double by = warn_btn_y();
     double scale = fit_text_scale(label, bw - 24, 0.8);
@@ -311,11 +293,7 @@ static void draw_warning(void) {
     warn_button(label, warn_btn_x(), warn_btn_w());
 }
 
-/* Launch gate, called once from logic_init(). Only the epilepsy warning
- * opens now: the old "tap to start" curtain between the warning and the
- * lobby was removed, so the game goes straight from the warning into the
- * menu. The acceptance is still stored via settings_mark_legal(); the
- * warning itself stays on every launch, as the operator asked. */
+/* Open startup epilepsy warning on launch. */
 static void start_gate_init(void) {
     warn_open = 1;
     warn_a = 1;

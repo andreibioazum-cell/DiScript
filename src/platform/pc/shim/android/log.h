@@ -1,5 +1,4 @@
-/* PC shim: Android logging becomes plain stderr output (a console window on
- * Windows, the terminal in the Linux test harness). */
+/* PC shim routing Android log calls to stderr. */
 #ifndef PC_SHIM_ANDROID_LOG_H
 #define PC_SHIM_ANDROID_LOG_H
 #include <stdarg.h>

@@ -1,9 +1,6 @@
-/* Battle frame post-processing: vignette, red tint on damage and motion blur.
- * Kept apart so battle_render.inc does not grow. */
+/* Battle screen FX: edge vignette, damage flash, and motion-blur tracking. */
 
-/* Blurred band: the same convolution as the shadow - the centre, a ring of six
- * closer offsets and a farther ring. The edge of the band comes out soft, so
- * there are no steps and no hard corners. */
+/* Draw soft-edged rectangular band using multi-tap blur offsets. */
 static void vignette_band(double x, double y, double w, double h, double a, double blur) {
     const double kw[3] = {0.25, 0.09, 0.06};
     const double kr[3] = {0.0, 0.55, 1.0};
@@ -28,9 +25,7 @@ static void vignette_band(double x, double y, double w, double h, double a, doub
     }
 }
 
-/* Ult: the vignette darkens the edges of the screen. The bands run around the
- * perimeter, each blurred by that convolution, so it is a smooth fade into the
- * dark, not a stack of frames. */
+/* Draw dark edge vignette during active ultimates. */
 static void draw_vignette(void) {
     int steps = 8;
     double sx = screen_w * 0.08 / steps;
@@ -55,9 +50,7 @@ static void draw_vignette(void) {
     }
 }
 
-/* Damage taken: the screen turns very slightly red, in a muted tone, not a
- * neon one. Alpha 0 means "fully opaque" in the engine, so an empty tint is
- * never drawn. */
+/* Peak red damage-flash opacity; skip zero alpha since engine treats 0 as opaque. */
 #define HURT_FLASH_ALPHA 0.07
 #define HURT_FLASH_RGB 0xB04848
 
@@ -69,13 +62,12 @@ static void draw_hurt_flash(void) {
     rect(0, 0, screen_w, screen_h, (((uint32_t)a) << 24) | HURT_FLASH_RGB);
 }
 
-/* Frame post-processing before the interface: the vignette at the edges. */
+/* Draw pre-HUD screen FX. */
 static void draw_screen_fx(void) {
     draw_vignette();
 }
 
-/* Motion blur comes from the actual per-frame offset: a dash leaves a long
- * trail, a calm walk a short one. */
+/* Record per-frame fighter displacement for motion-blur trails. */
 static void motion_blur_track(void) {
     if (mb_ok == 0) {
         mb_px = player->x;

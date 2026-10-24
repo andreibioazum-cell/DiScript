@@ -89,7 +89,7 @@ static void enemy_tick_block(void) {
         enemy_block_left = enemy_block_left - dt;
         if (enemy_block_left <= 0) {
             enemy_block_left = 0;
-            /* A guard is not held forever: drop it and rest a beat. */
+            /* Release guard and start block cooldown. */
             enemy_block_cd = 1.1 + (rand() % 100) / 100.0 * 1.4;
         }
     } else if (enemy_block_cd > 0) {
@@ -158,7 +158,7 @@ static void update_enemy(void) {
     double pr = player_half();
     double reach = punch_forward_offset + enemy_punch_reach + pr;
     if (enemy_block_left > 0) {
-        /* Guarding: planted feet, shield up, eyes on the player. */
+        /* Face player while guarding. */
         enemy_face_player();
         return;
     }
@@ -275,8 +275,7 @@ static void update_enemy(void) {
             if (rand() % 100 < enemy_human_dodge_fail * 100) {
                 ds_log("enemy dodge fail (human)");
             } else if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 100 < 45) {
-                /* Humans do not always side-step: sometimes they plant their
-                 * feet and take the swing on a raised guard instead. */
+                /* Raise guard against incoming attack instead of side-stepping. */
                 enemy_block_left = 0.55 + (rand() % 100) / 100.0 * 0.5;
                 enemy->react =
                     enemy_human_react_min + (rand() % 100) / 100.0 * (enemy_human_react_max - enemy_human_react_min);
@@ -343,8 +342,7 @@ static void update_enemy(void) {
         enemy->flank = enemy_flank_time;
     }
     if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 1000 < 5) {
-        /* Occasionally turtle up out of nowhere - reads like a cautious human
-         * catching their breath between exchanges. */
+        /* Randomly raise guard during neutral spacing. */
         enemy_block_left = 0.5 + (rand() % 100) / 100.0 * 0.7;
         return;
     }

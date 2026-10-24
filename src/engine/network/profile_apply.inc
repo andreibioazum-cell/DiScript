@@ -33,6 +33,7 @@ static void apply_user_json(const char *resp) {
         cups = 0;
     if (candies < 0)
         candies = 0;
+    int raw_cls = cls == 5 ? 4 : cls;
     if (cls == 5)
         cls = 4;
     if (cls != 0 && cls != 1 && cls != 2 && cls != 3 && cls != 4 && cls != 6)
@@ -54,6 +55,46 @@ static void apply_user_json(const char *resp) {
         cls = 0;
     if (cls == 6 && !codecracker)
         cls = 0;
+    /* Inherit top-level level/levels for the active class in legacy or partial records. */
+    if (legacy_astra_class || (raw_cls == cls && (cls == 0 || cls == 1 || cls == 2 || cls == 3 || cls == 4 || cls == 6))) {
+        int *alv = &ordinary_level, *alu = &ordinary_levels_unlocked;
+        if (legacy_astra_class || cls == 4) {
+            alv = &astra_level;
+            alu = &astra_levels_unlocked;
+        } else if (cls == 1) {
+            alv = &azum_level;
+            alu = &azum_levels_unlocked;
+        } else if (cls == 2) {
+            alv = &santa_level;
+            alu = &santa_levels_unlocked;
+        } else if (cls == 3) {
+            alv = &ebuc_level;
+            alu = &ebuc_levels_unlocked;
+        } else if (cls == 6) {
+            alv = &codecracker_level;
+            alu = &codecracker_levels_unlocked;
+        }
+        if (*alu < levels_unlocked)
+            *alu = levels_unlocked;
+        if (*alv < 0 || (*alv == 0 && level > 0 && level <= *alu))
+            *alv = level;
+    }
+    if (ordinary_level < 0)
+        ordinary_level = 0;
+    if (ordinary_levels_unlocked < 0)
+        ordinary_levels_unlocked = ordinary_level;
+    if (azum_level < 0)
+        azum_level = 0;
+    if (azum_levels_unlocked < 0)
+        azum_levels_unlocked = azum_level;
+    if (santa_level < 0)
+        santa_level = 0;
+    if (santa_levels_unlocked < 0)
+        santa_levels_unlocked = santa_level;
+    if (ebuc_level < 0)
+        ebuc_level = 0;
+    if (ebuc_levels_unlocked < 0)
+        ebuc_levels_unlocked = ebuc_level;
     if (astra_level < 0)
         astra_level = 0;
     if (astra_levels_unlocked < 0)
@@ -62,52 +103,6 @@ static void apply_user_json(const char *resp) {
         codecracker_level = 0;
     if (codecracker_levels_unlocked < 0)
         codecracker_levels_unlocked = codecracker_level;
-    if (ordinary_level < 0 && ordinary_levels_unlocked < 0 && azum_level < 0 && azum_levels_unlocked < 0 &&
-        santa_level < 0 && santa_levels_unlocked < 0 && ebuc_level < 0 && ebuc_levels_unlocked < 0) {
-        ordinary_level = ordinary_levels_unlocked = 0;
-        azum_level = azum_levels_unlocked = 0;
-        santa_level = santa_levels_unlocked = 0;
-        ebuc_level = ebuc_levels_unlocked = 0;
-        if (legacy_astra_class) {
-            astra_level = level;
-            astra_levels_unlocked = levels_unlocked;
-        } else if (cls == 1 && azum) {
-            azum_level = level;
-            azum_levels_unlocked = levels_unlocked;
-        } else if (cls == 2 && santa) {
-            santa_level = level;
-            santa_levels_unlocked = levels_unlocked;
-        } else if (cls == 3 && ebuc) {
-            ebuc_level = level;
-            ebuc_levels_unlocked = levels_unlocked;
-        } else if (cls == 4 && astra) {
-            astra_level = level;
-            astra_levels_unlocked = levels_unlocked;
-        } else if (cls == 6 && codecracker) {
-            codecracker_level = level;
-            codecracker_levels_unlocked = levels_unlocked;
-        } else {
-            ordinary_level = level;
-            ordinary_levels_unlocked = levels_unlocked;
-        }
-    } else {
-        if (ordinary_level < 0)
-            ordinary_level = 0;
-        if (ordinary_levels_unlocked < 0)
-            ordinary_levels_unlocked = ordinary_level;
-        if (azum_level < 0)
-            azum_level = 0;
-        if (azum_levels_unlocked < 0)
-            azum_levels_unlocked = azum_level;
-        if (santa_level < 0)
-            santa_level = 0;
-        if (santa_levels_unlocked < 0)
-            santa_levels_unlocked = santa_level;
-        if (ebuc_level < 0)
-            ebuc_level = 0;
-        if (ebuc_levels_unlocked < 0)
-            ebuc_levels_unlocked = ebuc_level;
-    }
     normalize_level_pair(&level, &levels_unlocked);
     normalize_level_pair(&ordinary_level, &ordinary_levels_unlocked);
     normalize_level_pair(&azum_level, &azum_levels_unlocked);
@@ -189,6 +184,7 @@ static void apply_user_json(const char *resp) {
     int cloud_ach_flags = num_int(resp, "ach_flags", -1);
     int cloud_ach_revives = num_int(resp, "ach_revives", -1);
     if (cloud_ach_flags >= 0) {
+        achievements_read();
         ds_mutex_lock(ach_lock);
 
         unsigned int local_f = ach_flags;
@@ -211,6 +207,7 @@ static void apply_user_json(const char *resp) {
         }
     }
 
+    promo_sync_from_cloud(resp);
     settings_sync_with_cloud(resp);
 }
 

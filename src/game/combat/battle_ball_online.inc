@@ -1,7 +1,4 @@
-/* Projectiles thrown by other players in an online fight, plus the admin bounce
- * trajectory preview shared by solo and online. Every client flies remote
- * projectiles from the published origin and direction, so the bounces happen in
- * the same places on every screen, and the hit lands where the local player stands. */
+/* Remote ebuC's projectile simulation and admin bounce-path preview. */
 #define REMOTE_BRICKS 4
 
 static double rb_on[REMOTE_BRICKS], rb_shot[REMOTE_BRICKS];
@@ -58,7 +55,7 @@ static double ball_seg_hits_target(double x, double y, double nx, double ny, dou
     return 0;
 }
 
-/* Admin toggle: draws all remaining bounce directions; any segment touching an enemy turns red. */
+/* Draw predicted bounce segments; highlight enemy-intersecting segments in red. */
 static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, double bounces0, double t0,
                                 uint32_t rgb, double check_foe) {
     double min_x = BALL_RADIUS, max_x = screen_w - BALL_RADIUS;
@@ -147,7 +144,7 @@ static void remote_bricks_reset(void) {
     int i = 0, k;
     while (i < REMOTE_BRICKS) {
         rb_on[i] = 0;
-        rb_shot[i] = -1;
+        rb_shot[i] = 0;
         rb_boom_x[i] = 0;
         rb_boom_y[i] = 0;
         rb_boom_t[i] = 0;
@@ -155,6 +152,17 @@ static void remote_bricks_reset(void) {
             rb_trail_a[i][k] = 0;
         }
         i = i + 1;
+    }
+}
+
+static void baseline_remote_slot(double s) {
+    int idx = (int)s;
+    arr_set(remote_snow, s * snow_fields, net_player_snow(s));
+    arr_set(remote_universe, s * universe_fields, net_player_universe(s));
+    remote_dash_set(s, DASH_GEN, net_player_dash(s));
+    arr_set(remote_thuds, s, net_player_thud(s));
+    if (idx >= 0 && idx < REMOTE_BRICKS) {
+        rb_shot[idx] = net_player_brick(s);
     }
 }
 
@@ -177,7 +185,7 @@ static void rb_burst(int s, double x, double y) {
     rb_boom_x[s] = x;
     rb_boom_y[s] = y;
     rb_boom_t[s] = boom_time;
-    if (circle_hits_player(x, y, BALL_BOOM_RADIUS) == 1) {
+    if (finished == 0 && revive_prot <= 0 && circle_hits_player(x, y, BALL_BOOM_RADIUS) == 1) {
         take_damage_at(ball_damage_for(b), x, y);
     }
 }
@@ -191,7 +199,7 @@ static void remote_bricks_tick(void) {
         double shot = net_player_brick(s);
         if (net_player_online(s) != 1 || s == net_slot()) {
             rb_on[(int)s] = 0;
-            rb_shot[(int)s] = -1;
+            rb_shot[(int)s] = 0;
             rb_boom_t[(int)s] = 0;
             s = s + 1;
             continue;
@@ -301,7 +309,7 @@ static void draw_remote_bricks(void) {
 }
 
 #ifdef CB_PC
-/* How many bricks of other players are in the air right now (harness only). */
+/* Count active remote projectiles (test helper). */
 static double remote_bricks_live(void) {
     double s = 0, n = 0;
     while (s < REMOTE_BRICKS) {
@@ -314,15 +322,14 @@ static double remote_bricks_live(void) {
 }
 #endif
 
-/* The round is over: the projectile goes away and so do the ones in the air. */
+/* Clear local and remote projectiles after match finish. */
 static void ball_clear_after_finish(void) {
     ball.active = 0;
     ball.boom_t = 0;
     remote_bricks_reset();
 }
 
-/* Everything the projectile needs per frame in an online fight: the local flight
- * plus the projectiles of the others. */
+/* Tick local and remote projectiles during an online match. */
 static void ball_online_tick(void) {
     ball_tick();
     ball_fade_tick();

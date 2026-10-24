@@ -1,7 +1,4 @@
-/* Remote fighters arrive in coarse network snapshots. Rather than only chasing
- * the last snapshot, track how each remote is moving and glide a short distance
- * ahead, so online opponents keep moving through network pauses instead of
- * rubber-banding - the fight reads as much less laggy. */
+/* Extrapolate and smooth remote fighter positions between network snapshots. */
 
 static double rpred_vx[8], rpred_vy[8];
 static double rpred_lx[8], rpred_ly[8], rpred_dt[8];
@@ -38,8 +35,7 @@ static void smooth_remotes(void) {
             }
             double ex = nx + rpred_vx[si] * 0.12;
             double ey = ny + rpred_vy[si] * 0.12;
-            /* Never extrapolate past the snap distance: stale speed must not
-             * fling the fighter across the arena. */
+            /* Clamp extrapolated position within remote_snap radius. */
             if (dist(nx, ny, ex, ey) > remote_snap) {
                 ex = nx;
                 ey = ny;

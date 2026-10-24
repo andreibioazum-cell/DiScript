@@ -1,8 +1,6 @@
-/* Glyph-accurate lettering built straight into the vertex stream: the plain
- * text run and the rainbow run share the same placement rules (the painter
- * stores strings, the batch builder turns them into quads here). */
+/* Build glyph quads for solid and rainbow text runs. */
 
-/* Classic hue wheel: 0 red, 1/3 green, 2/3 blue, wrapping at 1. */
+/* Map hue in [0, 1) to packed RGB. */
 static uint32_t rainbow_rgb(float hue) {
     hue = hue - floorf(hue);
     float r = fabsf(hue * 6.0f - 3.0f) - 1.0f;

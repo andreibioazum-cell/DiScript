@@ -1,21 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesises the ability sound effects into assets/audio/*.wav.
-
-The files are committed ready to use; this script is their source: to change a
-sound, edit the synthesis here and regenerate instead of hunting for whatever cut
-the wav. Standard library only (wave + math + random).
-
-All sounds are short mono 22050 Hz 16 bit:
-  punch.wav         hit: a short click plus a low chirp push 200 -> 60 Hz;
-  dash.wav          Azum dash: a noise whistle up and down;
-  grab.wav          Astra grab: an electronic zoom down;
-  gift.wav          Santa gift: three bell notes;
-  station.wav       ebuc station: a metal clang plus a beep;
-  overclock.wav     codecracker overclock: a sine sweeping up;
-  zombie_punch.wav  zombie Azum punch: the same push plus a low growl
-                    (a 105 -> 50 Hz saw with tremolo) and a bit of crunch;
-  zombie_dash.wav   zombie Azum dash: a moaning whistle down.
-"""
+"""Synthesize ability WAV sound effects into assets/audio/."""
 
 from __future__ import annotations
 
@@ -99,7 +83,7 @@ def main() -> int:
         return v
     save("gift.wav", synth(0.55, gift))
 
-        # ebuc station: a clang (a pair of inharmonic partials) plus a short beep.
+    # ebuC's station: metal clang plus a short beep.
     def station(t: float, i: int) -> float:
         clang = math.exp(-t * 16) * (0.4 * math.sin(2 * math.pi * 620 * t) +
                                      0.3 * math.sin(2 * math.pi * 935 * t) +

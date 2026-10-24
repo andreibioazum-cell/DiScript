@@ -1,9 +1,4 @@
-/* PC audio output: the mixer (decode_mixer.inc + playback.inc) is platform
- * code's job to pull from, exactly like the Android AudioTrack thread did.
- * On Windows the thread writes into waveOut with two rotating headers; on
- * other hosts (the Linux test harness) it mixes into a sink buffer at the
- * same rate, so sound lifetimes - and anything gated on snd_playing() -
- * still advance. Same public wrappers as the Android backend. */
+/* PC audio output thread: Windows waveOut and headless POSIX mixer sink. */
 #include <pthread.h>
 
 #define AT_FRAMES 256

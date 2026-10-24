@@ -128,8 +128,7 @@ static void tick_enemy_grab(void) {
     }
     if (egrab_t >= astra_ability_final_time_for(kit)) {
         enemy_grab_swing();
-        /* enemy_grab_stop() clears the grab immediately, so explicitly pulse
-         * the final damage zone and let the normal fade-out render it. */
+        /* Keep final hit zone visible for fade-out after release. */
         egrab_box_a = 1;
         double dead =
             take_damage_at(astra_final_damage(player->max_hp) * enemy_damage_mult_for(enemy_class), enemy->x, enemy->y);

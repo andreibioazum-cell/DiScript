@@ -16,9 +16,7 @@ static void touch_classes(double x, double y, double action, double id) {
         return;
     }
     if (action == 2) {
-        /* Dragging the strip scrolls it under the finger - but only when the
-         * cards do not all fit (classes_scroll_by() clamps to 0 otherwise,
-         * so on a wide screen a drag simply does nothing). */
+        /* Scroll shop strip on horizontal drag when cards overflow viewport. */
         if (classes_swipe_id != id || classes_swipe_id == -1) {
             return;
         }
@@ -32,8 +30,7 @@ static void touch_classes(double x, double y, double action, double id) {
         return;
     }
     if (action == 1) {
-        /* The card body picks when the finger lifts on it: a drag that
-         * scrolled the strip must not also buy the class under the finger. */
+        /* Select card on release only when touch did not scroll the strip. */
         double vi = classes_swipe_card;
         double moved = classes_swipe_moved;
         classes_swipe_reset();
@@ -59,12 +56,10 @@ static void touch_classes(double x, double y, double action, double id) {
     while (vi < last) {
         if (hit_class_card(x, y, vi) == 1) {
             if (hit_class_pill(x, y, vi) == 1) {
-                /* The pill is a button: it buys or picks there and then. */
                 play_button_click();
                 pick_class(visible_class_at(vi));
             } else {
-                /* The rest of the card only takes the press as feedback; the
-                 * pick waits for the release so a drag can still scroll. */
+                /* Defer card selection to release so horizontal drags can scroll. */
                 play_button_click();
                 classes_swipe_id = id;
                 classes_swipe_start_x = x;
@@ -91,9 +86,7 @@ static void touch_classes(double x, double y, double action, double id) {
 static double menu_button_hit(double x, double y) {
     double i = 0;
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
-        /* Battles: only real buttons click - the intro card dismiss, the
-         * joysticks and the attack pads stay silent, while the back button,
-         * the chat controls and the results tap give feedback. */
+        /* Play UI click sound only on battle UI buttons, not joysticks or combat pads. */
         if (finished != 0) {
             return finish_t >= alert_hold;
         }
@@ -110,8 +103,6 @@ static double menu_button_hit(double x, double y) {
         return is_admin() == 1 ? hit_bpass_corner(x, y) : 0;
     }
     if (game_state == ST_MODES) {
-        /* Rows 0..4 and the promo button in the corner; the winter row is
-         * dead (not even a click) while it is developer-only. */
         while (i <= 3) {
             if (hit_modes_row(x, y, i) == 1) return 1;
             i = i + 1;
@@ -120,8 +111,6 @@ static double menu_button_hit(double x, double y) {
         return hit_promo_corner(x, y);
     }
     if (game_state == ST_SETTINGS) {
-        /* Only the six rows that are drawn (0..5) click; a row below the list
-         * used to click on empty space. */
         while (i <= 5) {
             if (hit_settings_row(x, y, i) == 1) return 1;
             i = i + 1;

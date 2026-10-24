@@ -54,8 +54,7 @@ struct Texture {
 
     int upload_tries;
     uint32_t *pixels;
-    /* Pre-grayscale copy of pixels while the black-and-white filter is on, so
-     * the original colors can be restored when it switches off. */
+    /* Original pixels saved while grayscale filter is active. */
     uint32_t *gray_backup;
     TexGpu gpu;
 };
@@ -120,7 +119,7 @@ typedef struct {
             float x, y, sc;
             uint32_t c;
         } tt;
-        /* Rainbow lettering: each glyph walks the hue wheel from `hue`. */
+        /* Rainbow text command payload. */
         struct {
             char *s;
             float x, y, sc, hue;
@@ -128,8 +127,7 @@ typedef struct {
     } v;
 } DSCmd;
 
-/* Black-and-white filter and screen shake state shared by the command color
- * packer, the geometry layer and the frame loop (one translation unit). */
+/* Shared grayscale filter and screen-shake state. */
 static int gfx_gray_on;
 static float gfx_shake_dx, gfx_shake_dy;
 static float gfx_shake_amp, gfx_shake_left, gfx_shake_dur;
@@ -139,7 +137,7 @@ static uint32_t pack_c(uint32_t c) {
     if (!a)
         a = 255;
     if (gfx_gray_on) {
-        /* Classic luma weights; keeps the same perceived brightness. */
+        /* Rec. 601 luma weights. */
         uint32_t y = (299 * r + 587 * g + 114 * b) / 1000;
         r = g = b = y;
     }

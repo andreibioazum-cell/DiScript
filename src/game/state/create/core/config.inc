@@ -40,9 +40,7 @@ screen_margin = 40;
 class_action_gap = 40;
 class_count = 6;
 class_gap = 14;
-/* 5% taller and 10% narrower than the original 272/150/260 so the shop
- * cards read a bit more portrait and leave more breathing room around the
- * (now smaller) character render - see class_render_px() in layout.inc. */
+/* Shop card layout dimensions. */
 class_card_h = 286;
 class_card_min_w = 135;
 class_card_max_w = 234;
@@ -162,8 +160,6 @@ grass_tex_ok = 0;
 snow_tex_ok = 0;
 snow_t = 0;
 candy_tex_ok = 0;
-/* The normal (grass) theme is the default; winter starts off for everyone
- * and is only ever switched on explicitly (and, for now, only by developers). */
 winter_theme = 0;
 show_hitboxes = 1;
 hitbox_rgb = 0x00000000;
@@ -190,10 +186,7 @@ max_players = 4;
 pi = 3.1415926535;
 azum_second_life_damage_reduction = 0.10;
 azum_speed_bonus = 0.03;
-/* Balance rule: the HP pools doubled (20/13/18/24 instead of 10/6.5/9/12),
- * so every ability number that used to be a share of the old pools - burst
- * damage, damage-over-time, heals - doubled with them. Basic punches keep
- * their old damage on purpose: that is what makes fights last longer. */
+/* Combat ability damage and healing parameters. */
 azum_attack_heal = 0.20;
 ordinary_damage_bonus = 0.05;
 ordinary_speed_bonus = 0.02;
@@ -309,18 +302,15 @@ azum_dash_time = 0.45;
 azum_dash_speed = 850;
 azum_dash_damage = 3.0;
 azum_dash_stun = 0.45;
-azum_hp = 12.74; /* 13 - 2%: a small durability nerf */
-astra_hp = 18;
-/* CodeCracker (admin-only): an ordinary cube with only 12 HP; its ultimate is a
- * 7-second overclock: x3 speed, half incoming damage absorbed, biting touches. */
+azum_hp = 12.74; astra_hp = 18;
+/* CodeCracker HP and overclock tuning. */
 codecracker_hp = 12;
 codecracker_speed_mult = 3;
 codecracker_super_time = 7;
 codecracker_super_cd = 4;
 codecracker_super_absorb = 0.5;
 codecracker_super_t = 0;
-/* Ult bite: 1.6 - 3% = 1.55 damage; self-heal 0.75 : 1.2 = 0.63, nerfed by 16%
- * to 0.529 so the overclock no longer out-heals the damage it takes. */
+/* CodeCracker overclock contact damage and self-heal. */
 codecracker_touch_damage = 1.55;
 codecracker_touch_heal = 0.529;
 codecracker_touch_cd = 0.35;

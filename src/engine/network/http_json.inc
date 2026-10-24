@@ -144,10 +144,7 @@ static int member_span(const char *o, const char *key, const char **vs, const ch
     return 0;
 }
 
-/* Merge patch members into the JSON object in dst (in place, bounded):
- * existing keys are replaced, null deletes, new keys are appended.
- * Used to apply Firebase streaming "patch" events to a cached object
- * without re-downloading it. Returns 1 on success. */
+/* Merge patch members into dst JSON object in place; null deletes keys. */
 static int json_object_merge(char *dst, size_t cap, const char *patch) {
     const char *p = skip_ws(patch);
     if (!dst || !cap || !p || *p != '{' || !dst[0])
@@ -202,7 +199,7 @@ static int json_object_merge(char *dst, size_t cap, const char *patch) {
             int empty = (*q == '}');
             if (total + add + (empty ? 0 : 1) >= cap)
                 return 0;
-            char *ins = dst + total - 1; /* the closing brace */
+            char *ins = dst + total - 1;
             if (!empty) {
                 memmove(ins + 1, ins, 2);
                 *ins++ = ',';
@@ -282,9 +279,7 @@ static void json_escape(const char *src, char *dst, size_t cap) {
 
 #define FB_EMAIL_DOMAIN "@cb4.game"
 
-/* The account password suffix is no longer a constant: net_pass_suffix() builds it
- * at runtime from engine/network.h (NET_PASS_SECRET_*). It used to be the string
- * "|cb4v1" here - people guessed it and broke the database. */
+/* Cached Firebase Auth token state. */
 typedef struct {
     DSMutex lock;
     char key[128];

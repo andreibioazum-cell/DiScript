@@ -87,9 +87,7 @@ static const char *tr_level_unlock_cost(double cost) {
 
 static const char *tr_class_level_effect(double cls, double n) {
     if (cls == CLASS_CODECRACKER) {
-        /* His levels are his own, not the ordinary cube's: a bite that hits
-         * harder, an overclock that comes back sooner and thicker overclock
-         * armour. */
+        /* CodeCracker level descriptions. */
         if (n == 1) {
             return language == 1 ? "Укус: урон +10%" : "Bite: damage +10%";
         }
@@ -308,8 +306,7 @@ static const char *tr_cups_reward(double amount) {
     return out;
 }
 
-/* Shown instead of the reward line when the battle was played with any cheat
- * switched on, even if it was switched straight back off. */
+/* Result label shown when a battle win had admin cheats enabled. */
 static const char *tr_cups_cheated(void) {
     if (language == 1) {
         return "Читы: кубки не начисляются";
@@ -317,8 +314,7 @@ static const char *tr_cups_cheated(void) {
     return "Cheats used: no Cups";
 }
 
-/* Shown instead of the deduction line when a lost battle was played with any
- * admin panel switch enabled: cups are neither awarded nor taken away. */
+/* Result label shown when a battle loss had admin cheats enabled. */
 static const char *tr_cups_admin(void) {
     if (language == 1) {
         return "Читы: кубки не снимаются";

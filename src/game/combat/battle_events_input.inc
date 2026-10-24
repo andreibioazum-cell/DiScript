@@ -34,7 +34,7 @@ static void update_event(void) {
     }
     tick_plates_event();
     update_dice_event();
-    /* New achievement: be at Ded Moroz event (3) as Santa online – gives elf skin of буКа (genitive буКа). */
+    /* Unlock ebuC's gift achievement when playing Santa online during event 3. */
     if (game_state == ST_ONLINE && event_mode == 3 && player_class == CLASS_SANTA && online_ready == 1) {
         if (has_achievement(ACH_BUK_GIFT) == 0) {
             grant_achievement(ACH_BUK_GIFT);
@@ -83,9 +83,7 @@ static void update_banner(void) {
     }
     double ts = net_banner_ts();
     if (ts <= 0) {
-        /* The author's countdown ended and the banner was cleared on the
-         * server: drop it here at the same moment, so it disappears for
-         * everyone at once - and late joiners never linger on a dead banner. */
+        /* Hide banner immediately when cleared on server. */
         banner_t = 0;
         return;
     }
@@ -97,8 +95,7 @@ static void update_banner(void) {
         double before = banner_t;
         banner_t = tick_down(banner_t);
         if (before > 0 && banner_t <= 0) {
-            /* The fade-out has completed; remove the transient command value
-             * from Firebase so new players do not inherit an old banner. */
+            /* Clear server banner node once fade-out completes. */
             net_banner_clear();
         }
     }
@@ -311,8 +308,7 @@ static void joy_touch(double x, double y, double action, double id) {
         joy.oy = 0;
     }
     if (d > joy.r * 0.15) {
-        /* Use a unit direction once outside the deadzone; speed is constant
-         * whether the stick is near its center or at the rim. */
+        /* Normalize stick direction outside deadzone. */
         joy.dx = dx / d;
         joy.dy = dy / d;
     } else {
@@ -345,28 +341,19 @@ static void touch_game(double x, double y, double action, double id) {
             return;
         }
     }
-    /* The in-battle back button acts on the press, like the menu buttons: the
-     * touch itself leaves the fight, there is nothing to hold or aim. */
+    /* Exit battle on back button press. */
     if (action == 0 && battle_back_hit(x, y) == 1) {
         start_transition(0);
         return;
     }
-    /* ebuC (буК) keeps two ults and switches between them with his own button:
-     * the color on it shows what the next tap throws. */
+    /* Toggle ebuC's ultimate mode on mode-button press. */
     if (player_class == CLASS_EBUC && (game_state == ST_SOLO || game_state == ST_ONLINE) && action == 0 &&
         ult_mode_hit(x, y) == 1) {
         ult_mode_toggle();
         return;
     }
-    /* The three combat buttons sit close together, so the nearest one wins the
-     * press. Punch and super go off the moment the finger lands - a hit that
-     * waits for the release is a hit that feels late - while the block pad
-     * stays a hold (finger down guards, finger up drops) and the stick keeps
-     * following the finger. */
+    /* Dispatch combat pad touches: punch/super on press, block while held. */
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
-        /* A pad fires exactly where it is drawn: inside its circle, the same
-         * one that squeezes on the press. The old 96 px reach was wider than
-         * the 60 px pad, so a touch beside it fired with no squeeze at all. */
         double pr = battle_pad_r();
         double dp = dist(x, y, atk_x, atk_y);
         double dsu = class_has_super(player_class) == 1 ? dist(x, y, atk2_x, atk2_y) : 1e9;

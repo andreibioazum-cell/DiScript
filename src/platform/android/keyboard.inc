@@ -167,10 +167,7 @@ void keyboard_hide(void) {
         ANativeActivity_hideSoftInput(kb_activity, ANATIVEACTIVITY_HIDE_SOFT_INPUT_IMPLICIT_ONLY);
 }
 
-/* Keyboard text goes into the caller's own buffer: the chat field, login,
- * password and promo code keep it longer than one frame, and each keeps its own.
- * One shared buffer cannot work here: while typing a password it would quietly
- * overwrite the login, and the other way round. */
+/* Copy active IME text into caller-owned buffer. */
 void keyboard_get_text_to(char *dst, size_t cap) {
     if (!dst || cap == 0) {
         return;

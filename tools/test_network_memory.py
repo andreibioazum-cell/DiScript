@@ -149,31 +149,29 @@ static void check_progress(void) {
 }
 static void check_unescape(void) {
     char out[64];
-    /* Firebase отдаёт кириллицу как \uXXXX: раньше такие строки попадали на
-     * экран буквально ("u043f"), и чат/ники/баннер были мусором. */
+    /* Decode JSON \uXXXX escapes into UTF-8 Cyrillic. */
     strv("{\"nick\":\"\\u0414\\u0438\\u043c\\u0430\"}", "nick", out, sizeof(out));
     assert(strcmp(out, "Дима") == 0);
     strv("{\"text\":\"\\u043f\\u0440\\u0438\\u0432\\u0435\\u0442\"}", "text", out, sizeof(out));
     assert(strcmp(out, "привет") == 0);
-    /* Обычные escape-последовательности. */
+    /* Decode standard backslash escapes. */
     strv("{\"s\":\"a\\\"b\\\\c\\/d\\ne\\tf\"}", "s", out, sizeof(out));
     assert(strcmp(out, "a\"b\\c/d\ne\tf") == 0);
-    /* Суррогатная пара - один символ UTF-8 (эмодзи). */
+    /* Decode UTF-16 surrogate pair into 4-byte UTF-8. */
     strv("{\"s\":\"\\ud83d\\ude00\"}", "s", out, sizeof(out));
     assert(strcmp(out, "\xf0\x9f\x98\x80") == 0);
-    /* Одиночный суррогат и битый escape не ломают разбор. */
+    /* Handle lone surrogates and invalid hex digits safely. */
     strv("{\"s\":\"\\ud83d!\"}", "s", out, sizeof(out));
     assert(strcmp(out, "\xef\xbf\xbd!") == 0);
     strv("{\"s\":\"\\uZZZZ\"}", "s", out, sizeof(out));
     assert(strcmp(out, "uZZZZ") == 0);
-    /* Усечение по размеру буфера не выходит за границу. */
+    /* Respect output buffer capacity on multi-byte characters. */
     memset(out, 'x', sizeof(out));
     strv("{\"s\":\"\\u0414\\u0414\\u0414\\u0414\"}", "s", out, sizeof(out));
     assert(strlen(out) + 1 <= sizeof(out));
 }
 static void check_broken_chat(void) {
-    /* Сообщение без текста (битая запись) в ленту не попадает: раньше на
-     * экране оставался голый ник строкой «Broken». */
+    /* Skip malformed chat entries missing text field. */
     ChatMsg chats[4];
     const char *json = "{\"-1\":{\"nick\":\"Broken\"},"
                        "\"-2\":{\"uid\":\"u\",\"nick\":\"Bob\",\"text\":\"hi\"}}";

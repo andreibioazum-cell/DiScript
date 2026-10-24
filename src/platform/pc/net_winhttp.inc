@@ -1,6 +1,4 @@
-/* WinHTTP transport for the PC build: real https against Firebase, keep-alive
- * through one shared session, status codes and the ETag header surfaced the
- * same way the Android backend does. */
+/* WinHTTP HTTPS/HTTP transport with shared keep-alive session for Windows builds. */
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -152,9 +150,10 @@ static int pc_http_request(const char *method, PcUrl *u, const char *body, char 
             DWORD got = 0;
             if (!WinHttpReadData(req, buf, sizeof(buf), &got) || got == 0)
                 break;
-            if (out && cap && total + (size_t)got < cap) {
-                memcpy(out + total, buf, (size_t)got);
-                total += (size_t)got;
+            if (out && cap && total + 1 < cap) {
+                size_t take = (total + (size_t)got < cap) ? (size_t)got : (cap - 1 - total);
+                memcpy(out + total, buf, take);
+                total += take;
                 out[total] = '\0';
             }
             ok = 1;

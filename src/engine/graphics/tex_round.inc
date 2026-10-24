@@ -1,6 +1,4 @@
-/* Draws an (unrotated) texture clipped to a rounded-rectangle silhouette, so
- * square card art can get soft corners without having to bake them into the
- * PNG itself. radius is in the same on-screen pixel units as x/y/scale. */
+/* Queue unrotated texture clipped to a rounded rectangle. */
 void tex_round(float x, float y, const char *name, float s, float r) {
     if (!frame_open)
         return;
@@ -17,9 +15,7 @@ void tex_round(float x, float y, const char *name, float s, float r) {
     p->v.txr.tx = t;
 }
 
-/* Texture drawn with a plain transparency: the picture keeps its own colours
- * (the vertex colour is white), only the alpha is scaled. Used where something
- * has to appear gradually instead of growing out of nothing. */
+/* Queue texture with alpha modulation. */
 void tex_alpha(float x, float y, const char *name, float a, float s, double alpha) {
     if (!frame_open)
         return;

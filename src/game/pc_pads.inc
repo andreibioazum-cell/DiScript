@@ -1,7 +1,4 @@
-/* PC input bridge: the Android build receives every touch straight from the
- * panel, so the pads are invisible to the outside. A keyboard and a mouse
- * need their artwork's coordinates, though, and those live in this
- * translation unit - hence this small read-only window into it. */
+/* Read-only UI geometry and test hooks for PC controls and headless runs. */
 
 double game_pc_state(void) { return game_state; }
 
@@ -87,9 +84,7 @@ double game_pc_remote_bricks(void) { return remote_bricks_live(); }
 double game_pc_class(void) { return player_class; }
 double game_pc_block(void) { return player_block; }
 
-/* Harness only: pick a class the same way the shop card does, so a test can
- * start a fight as a class with a super. Not owned means refused, as in the
- * menu - this is not a way to unlock anything. */
+    /* Select owned class for headless tests. */
 void game_pc_pick_class(double cls) { pick_class(cls); }
 double game_pc_charge(void) { return 0; }
 void game_pc_wheel(float steps) {
@@ -98,8 +93,7 @@ void game_pc_wheel(float steps) {
     }
 }
 
-/* The consent checkbox on the login screen is part of the form: a PC player
- * clicks it like any other control. */
+/* Return login consent checkbox bounds for PC mouse input. */
 void game_pc_login_consent(float *x, float *y, float *size) {
     if (x)
         *x = (float)(login_consent_x() + login_box_sz() * 0.5);
@@ -113,10 +107,7 @@ double game_pc_login_status(void) { return login_status; }
 
 const char *game_pc_login_nick(void) { return login_nick; }
 
-/* Harness only: enter a named online room the way the room screen does, so a
- * headless run can stage a real fight between two clients. The handshake is
- * the same one update_rooms() polls: prepare, wait for the base to accept,
- * then hand the name over and switch screens. */
+/* Join or create a named online room from the headless test harness. */
 static char pc_room_name[25];
 static double pc_room_waiting;
 

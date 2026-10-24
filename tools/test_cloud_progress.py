@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 import json
 import os
@@ -6,6 +7,8 @@ import shlex
 import subprocess
 import sys
 import tempfile
+import threading
+from urllib.parse import parse_qs, urlparse
 
 ROOT = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(ROOT / "tools"))
@@ -22,6 +25,7 @@ int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
     return 0;
 }
 void ds_console_log(int is_error, const char *format, ...) { (void)is_error; (void)format; }
+void ds_log_err(const char *format, ...) { (void)format; }
 
 static const char *CLOUD_NO_EBUC =
     "{\"nick\":\"tester\",\"cups\":100,\"candies\":200,\"cls\":0,\"azum\":1,\"santa\":0,"
@@ -85,9 +89,7 @@ static int run_offline_buy(const char *dir) {
     return 0;
 }
 
-/* Выход из аккаунта обнуляет профиль на устройстве и сохраняет его без
- * сессии. Раньше такая запись помечала профиль "неотправленным", и
- * следующий вход вливала нули в облако: кубки исчезали. */
+/* Sign-out saves a zeroed local profile without marking it cloud-dirty. */
 static int run_signout(const char *dir) {
     net_set_data_path(dir);
     net_save_progress_all(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -100,8 +102,7 @@ static int run_signout(const char *dir) {
     return 0;
 }
 
-/* Даже если на диске остался старый маркер "не отправлено", пустой профиль
- * не имеет права перебить облако. */
+/* Even with a leftover dirty marker, an empty local profile adopts the cloud profile. */
 static int run_stale_dirty(const char *dir) {
     net_set_data_path(dir);
     net_save_progress_all(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -115,8 +116,7 @@ static int run_stale_dirty(const char *dir) {
     return 0;
 }
 
-/* Настоящий офлайн-прогресс сливается, но устаревшие кубки не тянут счёт
- * вниз: тратятся они только через магазин, который пишет баланс сам. */
+/* Offline merge never lowers cloud cup balance; shop purchases update cloud directly. */
 static int run_lower_cups(const char *dir) {
     net_set_data_path(dir);
     net_save_progress_all(100, 20, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -300,8 +300,107 @@ static int run_rooms_parse(const char *dir) {
     return 0;
 }
 
+static int run_reinstall_levels(const char *dir) {
+    char canonical[24] = "";
+    LeaderboardEntry top[10];
+    char big_lb[4096];
+    size_t off = 0;
+    int i;
+    net_set_data_path(dir);
+
+    /* Selecting a lower unlocked level persists while keeping unlocked count. */
+    net_save_astra(1, 3, 3);
+    net_save_codecracker(1, 3, 3);
+    net_save_progress_all(500, 80, 1, 1, 0, 1, 3, 3, 2, 2, 3, 3, 0, 0, 3, 3, 4, 2);
+    net_save_progress_all(500, 80, 1, 1, 0, 1, 1, 3, 1, 2, 1, 3, 0, 0, 2, 3, 4, 2);
+    net_save_astra(1, 1, 3);
+    net_save_codecracker(1, 2, 3);
+    assert(net_load_azum_level() == 1 && net_load_azum_levels_unlocked() == 3);
+    assert(net_load_ordinary_level() == 1 && net_load_ordinary_levels_unlocked() == 2);
+    assert(net_load_ebuc_level() == 2 && net_load_ebuc_levels_unlocked() == 3);
+    assert(net_load_astra_level() == 1 && net_load_astra_levels_unlocked() == 3);
+    assert(net_load_codecracker_level() == 2 && net_load_codecracker_levels_unlocked() == 3);
+
+    /* Guest Ordinary levels, Battle Pass, and skin bitmask merge without dirty flag. */
+    cloud_dirty_set(0);
+    net_set_bp_xp(120);
+    assert(apply_user_json_keep_local(
+        "{\"nick\":\"tester\",\"cups\":600,\"candies\":90,\"cls\":0,\"azum\":1,\"santa\":0,"
+        "\"ebuc\":0,\"level\":0,\"levels\":0,\"ordinary_level\":0,\"ordinary_levels\":0,"
+        "\"bp\":1,\"bpx\":20,\"azum_skin\":1}") == 1);
+    assert(net_load_ordinary_levels_unlocked() == 2);
+    assert(net_load_bp_level() == 4 && net_load_bp_xp() == 120);
+    assert(net_load_azum_skin() == 3);
+
+    /* Partial cloud profile with top-level levels restores active Astra/CodeCracker branch. */
+    apply_user_json(
+        "{\"nick\":\"tester\",\"cups\":200,\"candies\":10,\"cls\":4,\"azum\":0,\"santa\":0,"
+        "\"ebuc\":0,\"astra\":1,\"ordinary_level\":0,\"ordinary_levels\":0,\"level\":2,\"levels\":3}");
+    assert(net_load_astra_level() == 2 && net_load_astra_levels_unlocked() == 3);
+
+    /* Promo 2027 syncs from cloud and resets locally on sign-out. */
+    assert(net_promo_2027_used() == 0);
+    apply_user_json("{\"nick\":\"tester\",\"cups\":50,\"candies\":5,\"promo_used\":1}");
+    assert(net_promo_2027_used() == 1);
+    net_logout();
+    assert(net_promo_2027_used() == 0);
+
+    /* Case-variant nick resolution on reinstall. */
+    assert(parse_shallow_user_nick("{\"Andrei\":true,\"Bob\":true}", "andrei", canonical, sizeof(canonical)) == 1);
+    assert(strcmp(canonical, "Andrei") == 0);
+
+    /* Leaderboard scans beyond 64 alphabetical entries. */
+    off += (size_t)snprintf(big_lb + off, sizeof(big_lb) - off, "{");
+    for (i = 0; i < 75; i++) {
+        off += (size_t)snprintf(big_lb + off, sizeof(big_lb) - off,
+                                "%s\"u%03d\":{\"nick\":\"u%03d\",\"cups\":%d}",
+                                i ? "," : "", i, i, i == 74 ? 9999 : i);
+    }
+    snprintf(big_lb + off, sizeof(big_lb) - off, "}");
+    assert(parse_leaderboard(big_lb, top, 10) == 10);
+    assert(top[0].cups == 9999 && strcmp(top[0].nick, "u074") == 0);
+    puts("reinstall levels: lower-level select, guest merge, promo sync, canonical nick, >64 leaderboard OK");
+    return 0;
+}
+
+#ifdef CB_PC
+static int run_http_guards(const char *dir, const char *base_url) {
+    char url[URL], resp[RESP];
+    net_set_data_path(dir);
+
+    /* HTTP 500 or empty HTTP 200 on login GET must return NET_ERROR without PUT wipe. */
+    net.base[0] = 0;
+    net_set_firebase_key("");
+    assert((int)net_auth(base_url, "Victim500", "pass1234") == NET_ERROR);
+    assert((int)net_auth(base_url, "VictimEmpty", "pass1234") == NET_ERROR);
+    assert((int)net_auth(base_url, "FreshUser", "pass1234") == NET_LOGIN_OK);
+    net_logout();
+
+    /* Dead id_token on HTTP 401 when refresh fails clears id_token and retries GET unauthenticated. */
+    snprintf(net.base, sizeof(net.base), "%s", base_url);
+    net_set_firebase_key("test_key");
+    fb_store_tokens("dead_token", "", 3600);
+    snprintf(url, sizeof(url), "%s/public_probe.json", base_url);
+    assert(fb_http("GET", url, NULL, resp, sizeof(resp)) == 200);
+    assert(fb.id_token[0] == 0);
+    assert(num_int(resp, "ok", 0) == 1);
+
+    /* +1000 balance stepping succeeds against strict per-write growth cap. */
+    net_set_firebase_key("");
+    snprintf(url, sizeof(url), "%s/users/StepUser.json", base_url);
+    cloud_dirty_set(1);
+    queue_progress_patch(url, "{\"cups\":2500,\"candies\":1250}");
+    net_progress_flush();
+    assert(cloud_dirty_get() == 0);
+    assert(http("GET", url, NULL, resp, sizeof(resp)) == 200);
+    assert(num_int(resp, "cups", 0) == 2500 && num_int(resp, "candies", 0) == 1250);
+    puts("http guards: no PUT wipe on 500/empty, 401 dead-token GET fallback, +1000 balance stepping OK");
+    return 0;
+}
+#endif
+
 int main(int argc, char **argv) {
-    if (argc < 3) { fprintf(stderr, "usage: test <mode> <dir>\n"); return 2; }
+    if (argc < 3) { fprintf(stderr, "usage: test <mode> <dir> [url]\n"); return 2; }
     if (strcmp(argv[1], "first-save") == 0) return run_first_save(argv[2]);
     if (strcmp(argv[1], "offline-buy") == 0) return run_offline_buy(argv[2]);
     if (strcmp(argv[1], "signout") == 0) return run_signout(argv[2]);
@@ -315,6 +414,10 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "admin-ban-guard") == 0) return run_admin_ban_guard(argv[2]);
     if (strcmp(argv[1], "text-cmd") == 0) return run_text_cmd(argv[2]);
     if (strcmp(argv[1], "rooms-parse") == 0) return run_rooms_parse(argv[2]);
+    if (strcmp(argv[1], "reinstall-levels") == 0) return run_reinstall_levels(argv[2]);
+#ifdef CB_PC
+    if (strcmp(argv[1], "http-guards") == 0 && argc >= 4) return run_http_guards(argv[2], argv[3]);
+#endif
     fprintf(stderr, "unknown mode '%s'\n", argv[1]);
     return 2;
 }
@@ -436,6 +539,97 @@ def main():
         roomsdir = temp / "roomsdir"
         roomsdir.mkdir()
         subprocess.run([*run, "rooms-parse", str(roomsdir)], check=True)
+
+        reinstall = temp / "reinstall"
+        reinstall.mkdir()
+        subprocess.run([*run, "reinstall-levels", str(reinstall)], check=True)
+
+        put_paths = []
+        step_state = {"cups": 100, "candies": 10}
+
+        class GuardHandler(BaseHTTPRequestHandler):
+            def log_message(self, fmt, *args):
+                pass
+
+            def _send(self, code, body):
+                raw = body.encode("utf-8")
+                self.send_response(code)
+                self.send_header("Content-Type", "application/json")
+                self.send_header("Content-Length", str(len(raw)))
+                self.end_headers()
+                self.wfile.write(raw)
+
+            def do_GET(self):
+                parsed = urlparse(self.path)
+                qs = parse_qs(parsed.query)
+                if parsed.path == "/users/Victim500.json":
+                    self._send(500, '{"error":"internal"}')
+                elif parsed.path == "/users/VictimEmpty.json":
+                    self._send(200, "")
+                elif parsed.path == "/users/FreshUser.json":
+                    self._send(200, "null")
+                elif parsed.path == "/public_probe.json":
+                    if "auth" in qs:
+                        self._send(401, '{"error":"Auth token is expired"}')
+                    else:
+                        self._send(200, '{"ok":1}')
+                elif parsed.path == "/users/StepUser.json":
+                    self._send(200, json.dumps(step_state))
+                else:
+                    self._send(404, "null")
+
+            def do_PUT(self):
+                parsed = urlparse(self.path)
+                n = int(self.headers.get("Content-Length", "0"))
+                _ = self.rfile.read(n) if n > 0 else b""
+                put_paths.append(parsed.path)
+                self._send(200, "{}")
+
+            def do_POST(self):
+                if self.headers.get("X-HTTP-Method-Override") == "PATCH":
+                    self.do_PATCH()
+                else:
+                    n = int(self.headers.get("Content-Length", "0"))
+                    _ = self.rfile.read(n) if n > 0 else b""
+                    self._send(400, '{"error":"invalid_grant"}')
+
+            def do_PATCH(self):
+                parsed = urlparse(self.path)
+                n = int(self.headers.get("Content-Length", "0"))
+                raw = self.rfile.read(n).decode("utf-8") if n > 0 else "{}"
+                data = json.loads(raw)
+                if parsed.path == "/users/StepUser.json":
+                    nc = data.get("cups", step_state["cups"])
+                    ncd = data.get("candies", step_state["candies"])
+                    if nc > step_state["cups"] + 1000 or ncd > step_state["candies"] + 1000:
+                        self._send(400, '{"error":"Permission denied"}')
+                        return
+                    step_state["cups"] = nc
+                    step_state["candies"] = ncd
+                self._send(200, json.dumps(step_state))
+
+        subprocess.run([
+            *shlex.split(os.environ.get("CC", "clang")), "-std=gnu99", "-O0",
+            "-D_POSIX_C_SOURCE=200809L", "-DCB_PC",
+            "-Werror=implicit-function-declaration",
+            "-I", str(ROOT / "src" / "platform" / "pc" / "shim"),
+            "-I", str(ROOT / "src"), "-I", str(ROOT),
+            str(temp / "test.c"), "-lm", "-lpthread", "-o", str(temp / "test_pc_net"),
+        ], check=True)
+        srv = HTTPServer(("127.0.0.1", 0), GuardHandler)
+        t = threading.Thread(target=srv.serve_forever, daemon=True)
+        t.start()
+        try:
+            http_dir = temp / "http-guards"
+            http_dir.mkdir()
+            base_url = f"http://127.0.0.1:{srv.server_address[1]}"
+            subprocess.run([str(temp / "test_pc_net"), "http-guards", str(http_dir), base_url], check=True)
+            assert "/users/Victim500.json" not in put_paths, put_paths
+            assert "/users/VictimEmpty.json" not in put_paths, put_paths
+            assert "/users/FreshUser.json" in put_paths, put_paths
+        finally:
+            srv.shutdown()
+            srv.server_close()
     return 0
 
 if __name__ == "__main__":

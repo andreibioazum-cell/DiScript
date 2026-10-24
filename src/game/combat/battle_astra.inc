@@ -148,9 +148,7 @@ static void grab_cancel_actions(void) {
 }
 
 static void start_grab_now(void) {
-    /* Arms Astra's short forward step and captures the grab origin at its end:
-     * the body then glides onto that origin while the hitbox and published zone
-     * are already there. */
+    /* Start forward lunge and lock grab origin at its endpoint. */
     astra_parry_t = 0;
     astra_parry_blocked = 0;
     astra_grab_ready_t = 0;
@@ -167,8 +165,7 @@ static void start_grab_now(void) {
     astra_seq = astra_seq + 1;
     astra_pub = 0;
     queued_super = 0;
-    /* Astra waits to show a punch until the lunge has completed and a real
-     * beat is due. */
+    /* Trigger punch pose immediately only when lunge duration is zero. */
     if (astra_ability_lunge_time_for(astra_ability_local()) == 0) {
         astra_swing_now();
     } else {
@@ -402,9 +399,7 @@ static void tick_astra(void) {
     }
     if (astra_t >= astra_ability_final_time_for(kit)) {
         astra_swing_now();
-        /* astra_release() clears the active state in this frame. Keep the
-         * final damage zone visible while it fades so the finishing hit has
-         * the same hitbox feedback as the preceding beats. */
+        /* Keep final hit zone visible for fade-out after release. */
         astra_box_a = 1;
         astra_final_solo();
         astra_release(1);

@@ -1,8 +1,4 @@
-/* Win32 window and input for the desktop build: a plain GDI window whose
- * client area IS the framebuffer (the software rasterizer fills it), mouse
- * as a real touch pointer, and the keyboard translated into what a phone
- * gives the game - a virtual stick plus taps on the combat pads drawn by
- * battle_render.inc. */
+/* Win32 GDI window, mouse pointer/combat input, and keyboard event loop. */
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -22,11 +18,7 @@ static int pc_conv_w = 0, pc_conv_h = 0;
 
 static int pc_key_down(int vk) { return pc_keys[vk & 0xff] != 0; }
 
-/* In an active fight the mouse is a weapon, not a pointer: the left button is
- * the punch anywhere on screen, so the cursor's raw touch is muted - it would
- * otherwise grab the joystick or quit the fight from the back button corner
- * mid-swing. Menus, the results tap ("tap to return") and the battle chat
- * keep clicking. */
+/* Return 1 when active battle maps left mouse clicks to punch attacks. */
 static int pc_mouse_combat(void) {
     return game_pc_in_battle() && game_pc_finished() == 0.0 && !keyboard_visible();
 }
@@ -89,8 +81,7 @@ static void pc_blit(void) {
         bi.bmiHeader.biPlanes = 1;
         bi.bmiHeader.biBitCount = 32;
         bi.bmiHeader.biCompression = BI_RGB;
-        /* COLORONCOLOR is the nearest-neighbour stretch: the window shows the
-         * frame as drawn, with no blurred pixels. */
+        /* Nearest-neighbor stretch blit to preserve sharp framebuffer pixels. */
         SetStretchBltMode(dc, COLORONCOLOR);
         StretchDIBits(dc, 0, 0, cw, ch, 0, 0, pc_conv_w, pc_conv_h, pc_conv, &bi, DIB_RGB_COLORS, SRCCOPY);
     }
@@ -102,8 +93,7 @@ static void pc_utf8_from_wchar(WCHAR wc, char *out, size_t cap) {
     int n;
     if (cap < 8)
         return;
-    /* Surrogates arrive as two WM_CHAR calls; the game only needs ASCII names
-     * plus Cyrillic, so lone surrogates are dropped. */
+    /* Ignore UTF-16 surrogates; input requires only BMP characters. */
     if (wc >= 0xD800 && wc <= 0xDFFF) {
         out[0] = '\0';
         return;
@@ -140,8 +130,7 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
     case WM_LBUTTONDOWN:
         SetCapture(hwnd);
         pc_mouse_down = 1;
-        /* In a fight the left button IS the punch; the raw cursor touch is
-         * kept only for the chat controls (chat button, open chat panel). */
+        /* Route clicks outside battle chat controls to punch attacks during combat. */
         pc_mouse_punch = pc_mouse_combat() &&
                          game_pc_battle_mouse_ui((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp)) == 0;
         if (!pc_mouse_punch)

@@ -41,9 +41,8 @@ static void read_remotes(void) {
                 arr_set(remotes, b + 8, y);
                 arr_set(remotes, b + 9, a);
                 arr_set(remotes, b + 6, net_player_punch(s));
-                /* Class and skin cannot change during a battle. Snapshot them
-                 * together when the remote joins instead of reading partially
-                 * updated network fields every render frame. */
+                baseline_remote_slot(s);
+                /* Snapshot class and skin on join. */
                 double rcls = finite_or(net_player_class(s), CLASS_ORDINARY);
                 double rskin = finite_or(net_player_skin(s), SKIN_NORMAL);
                 if (rcls < CLASS_ORDINARY || rcls > CLASS_CODECRACKER) {
@@ -108,8 +107,7 @@ static void update_remote_punches(void) {
                                                      punch_reach, punch_width);
                 if (target == 0 || (target >= 1 && target <= turret_max)) {
                     double rcls = arr_get(remotes, s * remote_fields + 10);
-                    /* Apply the attacker's class kit from the same snapshot
-                     * used for its appearance. */
+                    /* Compute remote punch damage from synced class, level, and skin. */
                     double rdmg = astra_ability_punch_damage_net(rcls, net_player_level(s),
                                                             arr_get(remotes, s * remote_fields + 11));
                     double rlevel = net_player_level(s);
@@ -273,8 +271,7 @@ static void check_online_finish(void) {
         return;
     }
     if (count_online_remotes() > 0 && match_seen_foe == 1) {
-        /* Opponents are still in the room but all dead: the match is
-         * really over, finish as before. */
+        /* Finish match when all connected opponents are eliminated. */
         alone_t = 0;
         foes_gone_t = foes_gone_t + dt;
         if (foes_gone_t >= foes_dead_min) {
@@ -282,9 +279,7 @@ static void check_online_finish(void) {
         }
         return;
     }
-    /* Nobody else to fight in this room. Do not kick instantly: give
-     * other players alone_wait_time seconds to join (the countdown is
-     * drawn by draw_alone_wait), and only then leave to the room list. */
+    /* Wait alone_wait_time seconds for opponents before returning to room list. */
     foes_gone_t = 0;
     alone_t = alone_t + dt;
     if (alone_t >= alone_wait_time) {
@@ -390,7 +385,7 @@ static void update_online(void) {
     tick_hurt_fades();
     tick_remote_punches();
     update_aim();
-    ball_online_tick(); /* буК magic projectile */
+    ball_online_tick(); /* Tick ebuC's projectiles. */
     if (finished != 0) {
         return;
     }

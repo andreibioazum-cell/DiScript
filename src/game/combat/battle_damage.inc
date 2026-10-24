@@ -1,5 +1,4 @@
-/* The screen shakes on every damage event that lands, not on ability casts:
- * punches, supers, poison ticks - if health drops, the camera taps. */
+/* Trigger camera shake proportional to landed damage. */
 static void damage_taken_shake(double dmg) {
     double amp = 3 + dmg * 1.2;
     if (amp > 7) {
@@ -8,8 +7,7 @@ static void damage_taken_shake(double dmg) {
     ds_gfx_shake(amp, 0.12);
 }
 
-/* Does the raised shield cover this hit? Only strikes from the front do;
- * sources behind the fighter punch through the guard at full force. */
+/* Return 1 when raised shield faces the incoming damage source. */
 static double block_covers(void) {
     if (dmg_from_k == 0) {
         return 1;
@@ -33,24 +31,23 @@ static double take_damage(double dmg) {
         }
         return 0;
     }
-    /* God mode from the admin panel: the hit never lands at all. */
+    /* Ignore damage when admin god mode is active. */
     if (admin_cheat_god() == 1) {
         dmg_from_k = 0;
         return 0;
     }
-        /* Track the hit before ebuC's turrets absorb it: shielded damage still
-     * disqualifies the no-damage victory achievement. */
+    /* Record incoming hit before turret shields for flawless-win tracking. */
     if (dmg > 0) {
         player_was_hit = 1;
     }
     double real = dmg;
-    /* Held guard cuts every ability that reaches it from the front. */
+    /* Reduce frontal damage while blocking. */
     if (player_block == 1 && block_covers() == 1) {
         real = real * block_guard;
     }
     dmg_from_k = 0;
     if (player_class == CLASS_CODECRACKER && codecracker_super_t > 0) {
-        /* The running overclock absorbs half of everything that lands. */
+        /* Apply CodeCracker overclock damage reduction. */
         real = real * (1 - codecracker_absorb_for(player_level));
     }
     if (player_class == CLASS_EBUC) {
@@ -74,8 +71,7 @@ static double take_damage(double dmg) {
     return 0;
 }
 
-/* Same as take_damage but remembers where the strike came from, so the shield
- * can tell a frontal hit from a backstab. */
+/* Apply damage from a directional source position for frontal block checks. */
 static double take_damage_at(double dmg, double sx, double sy) {
     dmg_from_x = sx;
     dmg_from_y = sy;
@@ -99,9 +95,8 @@ static void stun_enemy(double t) {
     if (t > enemy->stun) {
         enemy->stun = t;
     }
-        /* A real stun from the game: the admin stun mark is dropped and the ring
-         * shows the battle stun again. */
-    cheat_estun_mark = 0;
+        /* Clear admin stun flag so combat stun ring renders. */
+        cheat_estun_mark = 0;
     if (enemy->state >= 1 && enemy->state <= 3) {
         enemy->state = 0;
         enemy->state_time = 0;
@@ -134,16 +129,18 @@ static double try_revive(void) {
     azum_revived = azum_revived + 1;
     player->hp = player->max_hp;
     revive_prot = 1.2;
+    player_stun = 0;
+    player_freeze = 0;
+    player_poison = 0;
     double k = 0;
-    while (k < 50) {
-        double rx = 70 + rand() % (screen_w - 140);
-        double ry = 70 + rand() % (screen_h - 140);
+    while (k < 50 && screen_w > 140 && screen_h > 140) {
+        double rx = 70 + rand() % (int)(screen_w - 140);
+        double ry = 70 + rand() % (int)(screen_h - 140);
         if (dist(rx, ry, enemy->x, enemy->y) > 200) {
             k = 50;
             player->x = rx;
             player->y = ry;
-                        /* Revival moves the cube: the old momentum must not carry it away
-                         * from the new spot. */
+            /* Clear momentum after relocating. */
             player_vel_reset();
         } else {
             k = k + 1;

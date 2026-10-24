@@ -1,29 +1,13 @@
-/* Account password change (Account -> Change password).
- *
-  * Runs on its own thread:
-  *   1. the current password must match the session password;
-  *   2. a fresh sign-in with the current password: Firebase changes a password
-  *      only after a recent login, and the server checks the password again;
-  *   3. accounts:update sets the new password (with the same secret suffix as at
-  *      login) and hands out new tokens;
-  *   4. the session and the session file move to the new password, so auto login
-  *      keeps working. Other devices have to sign in again.
-  * In the old mode without Firebase the password sits in the profile: the pass
-  * field changes.
-  * Status: 0 - idle, 1 - running, 2 - changed, 3 - network or server error,
-  * 4 - wrong current password, 5 - the new password is not accepted, 6 - not
-  * signed in. */
+/* Asynchronous account password change.
+ * Status: 0 idle, 1 running, 2 changed, 3 error, 4 wrong password, 5 invalid new password, 6 signed out. */
 
 static volatile int s_pass_chg_status = 0;
 static char s_pass_chg_old[64], s_pass_chg_new[64];
 
 static int pass_change_firebase(const char *nick, const char *old_pass, const char *new_pass) {
-    char url[FB_URL_MAX], body[512], resp[2048], email[96], epass[192], idt[FB_ID_MAX], rt[FB_REFRESH_MAX];
+    char url[FB_URL_MAX], body[512], resp[2048], epass[192], idt[FB_ID_MAX], rt[FB_REFRESH_MAX];
     int code, r;
-    fb_email_of(nick, email, sizeof(email));
-    snprintf(epass, sizeof(epass), "%s%s", old_pass, net_pass_suffix());
-    r = fb_try_sign_in(email, epass, NULL);
-    memset(epass, 0, sizeof(epass));
+    r = fb_verify_current_pass(nick, old_pass);
     if (r != 0)
         return r == 1 ? 4 : 3;
     fb_id_token(idt, sizeof(idt));
@@ -122,7 +106,7 @@ void net_change_password(const char *old_pass, const char *new_pass) {
     s_pass_chg_status = 3;
 }
 
-/* Read the status; a finished result (2 and up) is returned once. */
+/* Poll password-change status; terminal results (>= 2) reset to idle. */
 double net_change_password_status(void) {
     int s = s_pass_chg_status;
     if (s >= 2)
@@ -130,12 +114,8 @@ double net_change_password_status(void) {
     return (double)s;
 }
 
-/* ---- Admin reset of another player's password ----
- * The client sends the admin's own Firebase ID token to the
- * adminResetPassword Cloud Function; only the function (Admin SDK) can
- * change another account's password. Statuses: 0 idle, 1 running,
- * 2 changed, 3 error or function not deployed, 4 bad new password,
- * 5 bad target nick (result is handed out once). */
+/* Admin password reset via the adminResetPassword Cloud Function.
+ * Status: 0 idle, 1 running, 2 changed, 3 error, 4 invalid password, 5 invalid nick. */
 static volatile int s_admin_reset_status = 0;
 static char s_admin_reset_nick[24], s_admin_reset_new[64];
 
@@ -154,8 +134,8 @@ static void *admin_reset_job(void *arg) {
     snprintf(bearer, sizeof(bearer), "Bearer %s", idt);
     json_escape(nick, enick, sizeof(enick));
     json_escape(new_pass, epass, sizeof(epass));
-    /* Callable-function protocol: {"data": {...}} + caller ID token. */
-    snprintf(body, sizeof(body), "{\"data\":{\"nick\":\"%s\",\"password\":\"%s\"}}", enick, epass);
+        /* Build Firebase callable-function request payload. */
+        snprintf(body, sizeof(body), "{\"data\":{\"nick\":\"%s\",\"password\":\"%s\"}}", enick, epass);
     code = http_ex("POST", NET_ADMIN_RESET_URL, body, resp, sizeof(resp), "Authorization", bearer, NULL, 0);
     memset(body, 0, sizeof(body));
     memset(bearer, 0, sizeof(bearer));

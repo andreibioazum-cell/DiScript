@@ -1,8 +1,4 @@
-/* Parsing of JSON string values: \uXXXX escapes, surrogate pairs and the
- * control escapes \n \t \r \b \f. Kept apart because the JSON structure parser
- * lives in http_json.inc and string decoding does not.
- * Length of a \uXXXX escape (backslash not counted) as a UTF-16 code unit;
- * 0xFFFFFFFF if this is not \u. */
+/* Decode JSON string escapes (\uXXXX, UTF-16 surrogate pairs, control escapes). */
 static unsigned long json_hex4(const char *p) {
     unsigned long v = 0;
     int k;
@@ -45,10 +41,7 @@ static void json_put_utf8(char *out, size_t cap, size_t *i, unsigned long cp) {
         out[(*i)++] = u[k];
 }
 
-/* Parse a JSON string value. Escapes are decoded: "\\u043f" used to reach the
- * screen literally ("u043f"), so Cyrillic from the database (names, chat
- * messages, the banner) turned into garbage - Firebase sends non-ASCII as
- * \uXXXX when the answer comes in ASCII mode. */
+/* Extract and unescape JSON string value into UTF-8 output buffer. */
 static void strv(const char *json, const char *path, char *out, size_t cap) {
     const char *v;
     size_t i = 0;
@@ -83,13 +76,13 @@ static void strv(const char *json, const char *path, char *out, size_t cap) {
         case 'u': {
             unsigned long cp = json_hex4(v - 1);
             if (cp == 0xFFFFFFFFul) {
-                                /* Not hex: leave it as is without eating the next char. */
+                                /* Preserve literal 'u' on malformed hex escape. */
                 out[i++] = 'u';
                 break;
             }
             v += 4;
-                        /* Surrogate pair: two UTF-16 code units are one character. */
-            if (cp >= 0xD800 && cp <= 0xDBFF) {
+                /* Combine UTF-16 surrogate pair into one code point. */
+                if (cp >= 0xD800 && cp <= 0xDBFF) {
                 unsigned long lo = json_hex4(v + 1);
                 if (lo != 0xFFFFFFFFul && lo >= 0xDC00 && lo <= 0xDFFF) {
                     cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
@@ -102,7 +95,7 @@ static void strv(const char *json, const char *path, char *out, size_t cap) {
             break;
         }
         default:
-            out[i++] = *v; /* \" \\ \/ и неизвестное - сам символ */
+            out[i++] = *v;
             break;
         }
     }

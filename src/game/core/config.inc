@@ -30,9 +30,7 @@ static double admin_slot(const char *nick) {
     return 0;
 }
 
-/* Admin by the nick of the signed-in account. Shop classes, levels and
- * stickers are bought without spending cups (the engine keeps the same list in
- * gifts.inc); battle win/loss cups follow admin_cups_allowed() instead. */
+/* Return 1 when signed-in player has admin privileges. */
 static double admin_playing(void) {
     if (net_login_status() != 2) {
         return 0;

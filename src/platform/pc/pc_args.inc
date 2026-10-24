@@ -1,32 +1,9 @@
-/* Command line shared by the window and the headless harness:
- *   --size 540x960     framebuffer size (window default 540x960, harness too)
- *   --assets DIR       folder with textures/, audio/, fonts/ (default assets)
- *   --data DIR         folder for local saves (default cb4_data)
- *   --frames N         harness: how many steps to run
- *   --headless         force the harness even when a window can be opened
- *   --touch F:X:Y:A[:ID]   harness: inject a touch (A: 0 down, 1 up, 2 move)
- *   --goto F:STATE         harness: start_transition(STATE) at frame F
- *   --type F:TEXT          harness: type text into the open field at frame F
- *   --enter F / --back F   harness: press Enter / Back at frame F
- *   --dump F:PATH          harness: write a BMP of the frame F picture
- *   --report F             harness: print state/hp after frame F
- *   --stick F:DX:DY        harness: hold the virtual stick (0..1, y down)
- *   --atk F:0|1            harness: press/release the punch pad
- *   --blk F:0|1            harness: press/release the block pad
- *   --super F:0|1          harness: press/release the super pad
- *   --class F:N            harness: pick an owned class at frame F
- * Script events are kept as raw strings and interpreted by pc_headless.inc. */
+/* Command-line parser for PC window and headless harness builds. */
 #ifndef PC_ARGS_H
 #define PC_ARGS_H
 
-/* Room for every event of a long run: a --report per frame in a two-second
- * stretch already needs dozens, and a dropped event is invisible in the log. */
 #define PC_MAX_EVENTS 192
 #define PC_EVENT_LEN 200
-/* Paths are copied out of the command line: the parser tokenizes into its own
- * stack buffer, so keeping a pointer there would dangle the moment parsing
- * returns (the assets folder then read as garbage and the game failed to
- * start - on Windows only when the stack happened to be reused). */
 #define PC_PATH_LEN 1024
 
 typedef struct {
@@ -58,11 +35,7 @@ static void pc_args_push_event(PcArgs *a, const char *name, const char *value) {
     a->eventc++;
 }
 
-/* Splits on spaces, honours "double quotes"; the first token (the program
- * itself) is skipped. */
-/* The token table has to hold the whole command line: with a 128-slot table a
- * long harness run (a --report per frame) silently lost every event past the
- * cutoff, so the log just stopped in the middle. 1024 pointers are cheap. */
+/* Tokenize command line on whitespace, respecting double quotes. */
 #define PC_MAX_TOKENS 1024
 
 static void pc_args_parse(const char *cmdline, PcArgs *a) {
@@ -139,10 +112,7 @@ static void pc_args_parse(const char *cmdline, PcArgs *a) {
 
 #endif
 
-/* Joins argv into one string for pc_args_parse. strncat counts the terminator out
- * of its limit, so the old "- 2" left no room for the separator and a long command
- * line (many --touch) ran past the end of the buffer. An argument is added only if
- * it fits together with the space. */
+/* Join argv into space-separated command string within `cap` bytes. */
 static void pc_args_join(int argc, char **argv, char *dst, size_t cap) {
     size_t used = 0;
     int i;

@@ -67,8 +67,7 @@ static void check_buk_elf_achievement(void) {
     grant_achievement(ACH_BUK_GIFT);
 }
 
-/* mov eax, 0x229: be in one online room with Dimasi4ek229. Dimasi4ek229
- * himself cannot earn the achievement for meeting himself. */
+/* Award ACH_EAX229 when sharing an online room with Dimasi4ek229. */
 static void check_meet_eax229(void) {
     if (nick_is_dimasi229(net_login_nick()) == 1) {
         return;
@@ -123,8 +122,7 @@ static void progress_push_to_net(void) {
 static void progress_normalize(void) {
     astra_ability_refresh();
     codecracker_refresh();
-    /* ID 5 was the removed Astra variant in older saves. Fold it into the
-     * ordinary Astra class before validating the selected class. */
+    /* Map legacy Astra variant ID 5 to CLASS_ASTRA. */
     if (player_class == 5) {
         player_class = CLASS_ASTRA;
     }
@@ -149,8 +147,7 @@ static void progress_normalize(void) {
         order = order + 1;
     }
     if (player_class == CLASS_SANTA && dev_access() == 0 && (is_admin() == 0 || bp_claimed < 7)) {
-        /* Santa is developer-only until the admin battle-pass tier 7 is claimed;
-         * the ownership itself is kept either way. */
+        /* Restrict Santa selection unless developer access or tier 7 is active. */
         player_class = CLASS_ORDINARY;
     }
     if (class_id_valid(player_class) == 0 || class_owned_of(player_class) == 0) {
@@ -203,12 +200,7 @@ static void progress_from_storage(void) {
     check_achievements();
 }
 
-/* Sign-out wipes the local progress back to a fresh guest: cups, candies,
- * bought classes, levels, skins and achievements all go to zero, and the
- * zeroed state is saved on the device so a restart does not resurrect the
- * previous account's numbers. The cloud profile is NOT touched: callers
- * run this after net_logout(), when save_progress() can only write the
- * local file, and logging back in restores the account from the cloud. */
+/* Reset local progress to default guest state after sign-out. */
 static void progress_reset_on_signout(void) {
     bp_xp = 0;
     bp_claimed = 0;
@@ -249,8 +241,6 @@ static void progress_reset_on_signout(void) {
 static void settings_from_storage(void) {
     language = net_load_language();
     show_hitboxes = net_load_hitboxes();
-    /* There is no music toggle any more: the lobby music always plays at
-     * the fixed default volume (music_volume in the state defaults). */
     winter_theme = net_load_winter_theme();
     new_theme = net_load_new_theme();
     apply_theme();

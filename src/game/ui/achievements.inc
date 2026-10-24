@@ -1,11 +1,4 @@
-/* Achievements screen and vertical scroll.
- *
- * Every player except Dimasi4ek229 himself has "mov eax, 0x229" in their
- * achievements list (locked "???" until earned, open afterwards): whenever
- * that achievement is in the list (6 cards total), vertical scrolling and the
- * scrollbar are active regardless of whether it has been unlocked yet.
- * For Dimasi4ek229 himself, the "meet Dimasi4ek229" achievement is absent from
- * the list (5 cards total), so the list fits on one static screen with no scroll. */
+/* Achievements list screen and vertical scroll handling. */
 
 static double ach_scroll;
 static double ach_vel;

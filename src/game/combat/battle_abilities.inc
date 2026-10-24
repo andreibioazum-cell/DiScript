@@ -118,7 +118,6 @@ static void update_remote_universe(void) {
                     double ux = arr_get(remote_universe, b + 2);
                     double uy = arr_get(remote_universe, b + 3);
                     arr_set(remote_universe, b + 1, 0);
-                    arr_set(remote_universe, b, 0);
                     double rlevel = net_player_level(s);
                     universe_collapse_remote(ebuc_universe_damage_for(rlevel), ux, uy);
                     if (finished != 0) {

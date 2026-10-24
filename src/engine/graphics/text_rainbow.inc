@@ -1,5 +1,4 @@
-/* Rainbow lettering: the painter stores the string and the starting hue,
- * the batch builder spreads the hue over the glyphs (text.inc). */
+/* Queue rainbow text draw command. */
 
 void text_rainbow(const char *s, float x, float y, float sc, float hue) {
     if (!frame_open || !s || !ensure_font())

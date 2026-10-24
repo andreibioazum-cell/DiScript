@@ -159,9 +159,7 @@ static void *reader_thread(void *arg) {
                 if (ev > 4)
                     ev = 4;
                 lock();
-                /* An event this client just switched is still being written;
-                 * overwriting it with the server's previous value here made
-                 * the switch flicker off again. */
+                /* Preserve local event selection while server write is in flight. */
                 if (now_ms() >= event_local_until_ms)
                     net.event = ev;
                 unlock();
@@ -257,9 +255,7 @@ void net_connect(const char *url, const char *room) {
     net.rthread = ds_thread_start(reader_thread, (void *)(uintptr_t)gen);
     net.sthread = ds_thread_start(stream_thread, (void *)(uintptr_t)gen);
 }
-/* Streaming reader: keeps one SSE connection on players.json open and
- * reconnects when it drops. While it is live the polling reader skips
- * pull_state(), so state arrives pushed, not polled. */
+/* Maintain SSE stream on players.json and reconnect on drop. */
 static void *stream_thread(void *arg) {
     unsigned gen = (unsigned)(uintptr_t)arg;
     char url[URL];

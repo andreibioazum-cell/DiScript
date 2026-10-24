@@ -46,11 +46,8 @@ static void tick_status_fades(void) {
     if (enemy_grab_quiet > 0) {
         estun = 0;
     }
-        /* A stun from the admin panel is no reason to hang an orange ring on the
-         * enemy: the enemy stands still and the highlight only gets in the way. The
-         * mark stays after the cheat is off, otherwise the ring would flicker through
-         * the leftover stun and its fade. */
-    if (cheat_estun == 1 || cheat_estun_mark == 1) {
+        /* Suppress orange stun ring while admin stun cheat or its residue is active. */
+        if (cheat_estun == 1 || cheat_estun_mark == 1) {
         estun = 0;
     }
     if (player_grab_quiet > 0) {

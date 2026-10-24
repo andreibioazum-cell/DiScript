@@ -31,11 +31,14 @@ int game_back(void) {
     return logic_back() != 0;
 }
 
-/* Farewell when leaving the game. Every way out lands here: the back button, the
- * swipe up (home or recents) and unloading the app from the list - in all of them
- * the activity stops first, and Android sends pause/stop before the process is
- * killed. */
+/* Flush pending progress and roll exit notification on app stop. */
 void game_bye(void) {
+    if (state_ready) {
+        if (game_state == ST_SOLO || game_state == ST_ONLINE) {
+            save_progress();
+        }
+        net_progress_flush();
+    }
     bye_notice_roll();
 }
 

@@ -1,26 +1,13 @@
-/* Ability sounds. Every ability has its own short effect, the files live in
- * assets/audio and are synthesised by tools/gen_ability_sounds.py:
- *   punch            punch.wav
- *   Azum dash        dash.wav
- *   Astra grab       grab.wav
- *   Santa gift       gift.wav
- *   ebuC station     station.wav
- *   overclock        overclock.wav
- * The Azum zombie skin has its own: the punch growls, the dash moans
- * (zombie_punch.wav / zombie_dash.wav). Called from the ability start points
- * (start_punch_now, start_dash_now, start_grab_now, fire_super), so an online
- * opponent does not voice their abilities - only the local player is heard. */
+/* Local player ability sound effects. */
 
-/* Play an ability effect. Loading is lazy and cached by snd_load itself: a
- * missing file simply stays silent (snd_play is not called). */
+/* Play preloaded ability sound if available. */
 static void ability_snd(const char *name) {
     if (snd_load(name) == 1) {
         snd_play(name);
     }
 }
 
-/* Preload at start, a bit quieter than the interface music, so the first punch
- * of a fight does not hit the disk and the ears. */
+/* Preload ability sound samples at startup. */
 static void ability_sounds_init(void) {
     const char *names[] = {PUNCH_SOUND, DASH_SOUND, GRAB_SOUND, GIFT_SOUND,
                            STATION_SOUND, OVERCLOCK_SOUND, ZOMBIE_PUNCH_SOUND, ZOMBIE_DASH_SOUND};

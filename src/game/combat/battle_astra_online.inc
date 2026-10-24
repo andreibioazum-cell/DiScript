@@ -40,8 +40,7 @@ static void remote_grab_begin(double slot) {
     remote_grab_set(slot, GRAB_Y, net_player_grab_y(slot) * screen_h);
     remote_grab_set(slot, GRAB_DX, net_player_grab_dx(slot));
     remote_grab_set(slot, GRAB_DY, net_player_grab_dy(slot));
-    /* Resolve the Astra ability bit once from the class snapshot; later
-     * frames read the cached value instead of the network. */
+    /* Cache Astra kit flag from remote class snapshot. */
     remote_grab_set(slot, GRAB_ASTRA_KIT, astra_ability_of_slot(slot));
 }
 
@@ -104,8 +103,7 @@ static double update_remote_grab(double slot) {
     }
     if (t >= astra_ability_final_time_for(kit)) {
         remote_grab_swing(slot);
-        /* remote_grab_stop() clears the grab immediately, so explicitly pulse
-         * the final damage zone and let the normal fade-out render it. */
+        /* Keep final hit zone visible for fade-out after release. */
         arr_set(rgrab_box_a, slot, 1);
         double dead = take_damage_at(astra_final_damage(player->max_hp), arr_get(remotes, slot * remote_fields + 1),
                                      arr_get(remotes, slot * remote_fields + 2));

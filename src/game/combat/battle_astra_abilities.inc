@@ -1,5 +1,4 @@
-/* Astra's current ability tuning. These values describe its grab ultimate
- * in solo and online battles. */
+/* Astra grab ultimate tuning and lunge motion. */
 
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
@@ -9,7 +8,7 @@ static const double astra_ability_throw_factor = 1.10;
 static const double astra_ability_lunge_dist = 37.4;
 static const double astra_ability_lunge_time = 0.16;
 static const double astra_ability_catch_buffer = 0.06;
-/* The normal Astra class always uses this kit, including remote players. */
+/* Return 1 when class uses Astra's grab kit. */
 static double astra_ability_of(double cls, double skin) {
     (void)skin;
     return cls == CLASS_ASTRA;
@@ -20,9 +19,7 @@ static double astra_ability_of_slot(double slot) {
     return astra_ability_of(arr_get(remotes, b + 10), arr_get(remotes, b + 11));
 }
 
-/* Dev rights belong to the profile, not the password (see is_admin in
- * ui/chat.inc): the nick of the signed-in account decides, a password change
- * changes nothing. */
+/* Check whether signed-in account has developer access. */
 static double astra_ability_is_dev(void) {
     if (net_login_status() != 2) {
         return 0;
@@ -30,23 +27,17 @@ static double astra_ability_is_dev(void) {
     return admin_slot(net_login_nick()) != 0 ? 1 : 0;
 }
 
-/* Cached permission bit. Refreshed when the account changes (login, profile
- * load, battle start), never while drawing or ticking, so the dev check does
- * not run a single time per frame. */
+/* Refresh cached developer-access flag on account or battle changes. */
 static void astra_ability_refresh(void) { astra_ability_ok = astra_ability_is_dev(); }
 
 static double astra_ability_allowed(void) { return astra_ability_ok; }
 
-/* Developer-only features: for now the winter theme, Santa and candies are
- * available only to the administrator account (Dimasi4ek229).
- * Everyone else sees the winter button greyed out, no Santa in the shop and
- * no candies anywhere; when the features open for all, this one function is
- * the only switch to flip. */
+/* Gate developer-restricted seasonal content (winter theme, Santa, candies). */
 static double dev_access(void) { return astra_ability_allowed(); }
 
 static double candies_on(void) { return candy_enabled == 1 && dev_access() == 1; }
 
-/* Astra is an ordinary purchasable class now, so its kit is not developer-gated. */
+/* Return 1 when local player is Astra. */
 static double astra_ability_on(void) { return player_class == CLASS_ASTRA; }
 
 static double astra_ability_local(void) { return astra_ability_on(); }
@@ -65,9 +56,7 @@ static double astra_ability_lunge_time_for(double kit) {
     return 0;
 }
 
-/* Keep a short catch window after the body completes its lunge. This stops the
- * initial zone from grabbing someone during the visual dash while still giving
- * online clients 0.10 s to register the catch. */
+/* Return catch window duration after lunge completion. */
 static double astra_ability_catch_time_for(double kit) {
     if (kit == 1) {
         return astra_ability_lunge_time_for(kit) + astra_ability_catch_buffer;
@@ -155,8 +144,7 @@ static double astra_ability_punch_damage_for(double cls, double lv, double kit) 
     return d;
 }
 
-/* Punch damage of a fighter as the receiving client must apply it: cls + skin
- * come from the same synced snapshot the rest of the fight is built on. */
+/* Compute punch damage from synced class, level, and skin snapshot. */
 static double astra_ability_punch_damage_net(double cls, double lv, double skin) {
     return astra_ability_punch_damage_for(cls, lv, astra_ability_of(cls, skin));
 }
@@ -165,16 +153,7 @@ static double astra_ability_self_damage(void) {
     return astra_ability_punch_damage_for(player_class, player_level, astra_ability_local());
 }
 
-/* The forward step Astra takes when the ultimate is pressed.
- *
- * It is short and smooth: the body bursts off and glides to the target over
- * astra_ability_lunge_time with an ease-out instead of jumping there in one
- * frame. On the move the step is lengthened by the ground the walk would
- * have covered, so it always reads as a dash. The grab origin - the hitbox
- * and the zone published to the other clients - is the end of the step,
- * captured at cast time, so the grab stays identical for everyone and no
- * extra network write is needed. The glide itself is ordinary local movement
- * (a few pixels per frame, movement is locked during the grab anyway). */
+/* Start Astra's forward lunge toward the grab origin. */
 static void astra_ability_lunge_start(void) {
     astra_ability_lunge_t = 0;
     astra_ability_lunge_fx = player->x;
@@ -186,11 +165,7 @@ static void astra_ability_lunge_start(void) {
     }
     double dx = cos(player->angle);
     double dy = sin(player->angle);
-    /* On the move the step has to beat the walk, or it is no dash at all:
-     * 37 px in 0.16 s is just about walking pace, so a walking Astra used to
-     * simply stop and ease forward. The ground the walk would have covered
-     * in that time is added on top, so the lunge always carries her
-     * astra_ability_lunge_dist further than walking would. */
+    /* Add walking distance over lunge duration so moving casts still dash ahead. */
     double dist = astra_ability_lunge_dist;
     if (sqrt(joy.dx * joy.dx + joy.dy * joy.dy) > 0.15) {
         dist = dist + player_walk_speed() * astra_ability_lunge_time;
@@ -213,9 +188,7 @@ static void astra_ability_lunge_tick(void) {
         player->y = astra_ability_lunge_ty;
         return;
     }
-    /* Ease-out: the lunge bursts off at three times its average speed and
-     * settles onto the grab origin. The old smoothstep started from a dead
-     * stop, which on the move read as braking rather than a dash. */
+    /* Cubic ease-out interpolation to lunge target. */
     double p = 1 - astra_ability_lunge_t / astra_ability_lunge_time;
     p = 1 - p * p * p;
     player->x = astra_ability_lunge_fx + (astra_ability_lunge_tx - astra_ability_lunge_fx) * p;

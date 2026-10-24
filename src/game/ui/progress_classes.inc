@@ -1,5 +1,4 @@
-/* Every class has its own level branch, CodeCracker too: it is a separate class,
- * not the ordinary cube under another name. */
+/* Per-class ownership, level progress, flash sale pricing, and shop scrolling. */
 static double class_level_of(double cls) { return arr_get(class_level_tbl, cls); }
 
 static double class_unlocked_of(double cls) { return arr_get(class_unlocked_tbl, cls); }
@@ -25,12 +24,7 @@ static void set_class_progress(double cls, double lv, double un) {
     arr_set(class_unlocked_tbl, cls, un);
 }
 
-/* Flash sale: while the live Firebase FlashSale flag is 1, EVERY price
- * (classes and level unlocks) drops by 10%. The discounted price is
- * rounded to the nearest whole unit: 65 -> 59, 100 -> 90, 30 -> 27.
- * The flag is only ever read (GET) by the client: it is never created in
- * Firebase by the game, and without a fresh successful read (offline,
- * node missing, value not 1) prices stay at their normal values. */
+/* Apply 10% shop discount while live Firebase FlashSale flag is active. */
 #define FLASH_SALE_FRACTION 0.10
 
 static void update_flash_sale(void) {
@@ -165,7 +159,7 @@ static double skin_unlocked_for(double cls, double skin) {
         return 1;
     }
     if (cls == CLASS_EBUC) {
-        /* Elf ebuC (буК, genitive буКа): achievement "Подарок буКа" – be at the Ded Moroz event online as Santa, or admin battle-pass tier 4. */
+        /* Unlock Elf ebuC via ACH_BUK_GIFT or admin battle pass tier 4. */
         if ((is_admin() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
             return 1;
         }
@@ -257,9 +251,7 @@ static double classes_page_size(void) {
     return clamp(floor((available + class_gap) / (class_card_min_w + class_gap)), 1, class_count);
 }
 
-/* The shop is one horizontal strip, not pages. It scrolls only when the
- * cards genuinely do not fit the viewport: classes_scroll_max() is 0 then,
- * the strip stays centred and no drag or scrollbar can move it. */
+/* Horizontal shop strip width and scroll limits. */
 static double classes_viewport_w(void) { return screen_w - 2 * screen_margin; }
 
 static double classes_strip_w(void) {

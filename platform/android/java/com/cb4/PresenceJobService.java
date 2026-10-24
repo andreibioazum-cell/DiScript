@@ -8,11 +8,7 @@ import android.content.ComponentName;
 import android.content.Context;
 import android.util.Log;
 
-/**
- * Background check that runs while the app is closed: when another player is in
- * the online room, it posts GameNotifier's call. The check is native
- * (net_presence_check), so it reuses the game's Firebase code and the saved login.
- */
+/** Periodic background JobService that checks online room presence via JNI. */
 public final class PresenceJobService extends JobService {
     private static final String TAG = "CB4Presence";
     private static final int JOB_ID = 4201;
@@ -29,7 +25,7 @@ public final class PresenceJobService extends JobService {
         }
     }
 
-    /** 1 = another player is online, 2 = this account is online, 0 = nobody, below 0 = no check. */
+    /** 1 = other player online, 2 = own account online, 0 = empty, <0 = skipped/error. */
     private static native int nativePresence(String dataDir);
 
     /** Idempotent: a job with the same id replaces the one already scheduled. */
