@@ -279,7 +279,7 @@ static const char *tr_skin_elf(void) {
 
 static const char *tr_skin_elf_hint(void) {
     if (language == 1) {
-        return "подарок буКа";
+        return "Подарок буКа";
     }
     return "ebuC's gift";
 }

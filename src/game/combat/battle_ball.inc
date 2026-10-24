@@ -104,8 +104,8 @@ static void ball_trail_push(double x, double y) {
     ball.trail_a[0] = 1;
 }
 
-/* The pad was pressed in projectile mode: start the countdown. The finger that
- * started it owns the aim, so a second finger cannot drag the throw away. */
+/* The pad was pressed in projectile mode: start the countdown, steered by the
+ * joystick (or dragged aim when the stick is neutral). */
 static void ball_aim_start(double id) {
     if (ball.aim_on == 1 || ball.active == 1) {
         return;
@@ -119,8 +119,14 @@ static void ball_aim_start(double id) {
     ball.aim_on = 1;
     ball.aim_id = id;
     ball.aim_t = BALL_COUNT_FROM * BALL_COUNT_STEP;
-    ball.aim_dx = cos(player->angle);
-    ball.aim_dy = sin(player->angle);
+    if (joy.dx != 0 || joy.dy != 0) {
+        double jl = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
+        ball.aim_dx = joy.dx / jl;
+        ball.aim_dy = joy.dy / jl;
+    } else {
+        ball.aim_dx = cos(player->angle);
+        ball.aim_dy = sin(player->angle);
+    }
 }
 
 /* The digit the countdown shows right now: 3, 2 or 1. */
@@ -135,20 +141,22 @@ static double ball_aim_digit(void) {
     return d;
 }
 
-static double ball_aim_near(double x, double y) {
-    double d = dist(x, y, player->x, player->y);
-    return d >= 14 && d <= 180 ? 1 : 0;
+/* Steering the joystick turns the projectile aim directly in 360 degrees. */
+static void ball_aim_joy(double dx, double dy) {
+    double len = sqrt(dx * dx + dy * dy);
+    if (ball.aim_on == 0 || len <= 0.0001) {
+        return;
+    }
+    ball.aim_dx = dx / len;
+    ball.aim_dy = dy / len;
 }
 
-/* The finger moved: the projectile goes where it points, from the cube outwards.
- * Only touches directly around the player count – not any empty area without
- * buttons. A touch right on the cube means nothing yet. Hitbox direction is
- * shown when hitboxes are enabled. */
+/* Dragging from the ult pad out into the arena also aims when the joystick is idle. */
 static void ball_aim_point(double x, double y) {
     double dx = x - player->x;
     double dy = y - player->y;
     double len = sqrt(dx * dx + dy * dy);
-    if (ball.aim_on == 0 || len < 14 || len > 180) {
+    if (ball.aim_on == 0 || len < 14) {
         return;
     }
     ball.aim_dx = dx / len;
@@ -161,8 +169,8 @@ static void ball_aim_cancel(void) {
     ball.aim_t = 0;
 }
 
-/* The countdown is over: the magic projectile is thrown. Lifting the finger early does
- * not stop it, the aim is already chosen. */
+/* The countdown is over: the magic projectile is thrown. Lifting the stick early
+ * keeps the last aimed direction. */
 static void ball_aim_tick(void) {
     if (ball.aim_on == 0) {
         return;
@@ -170,6 +178,9 @@ static void ball_aim_tick(void) {
     if (finished != 0 || player_block == 1 || player_grabbed() == 1 || player_stun > 0 || player_freeze > 0) {
         ball_aim_cancel();
         return;
+    }
+    if (joy.dx != 0 || joy.dy != 0) {
+        ball_aim_joy(joy.dx, joy.dy);
     }
     ball.aim_t = ball.aim_t - dt;
     if (ball.aim_t > 0) {
@@ -282,7 +293,7 @@ static void ball_tick(void) {
     ball_trail_push(ball.x, ball.y);
 }
 
-/* Aim preview: dashed line + hitbox direction when hitboxes are shown. */
+/* Aim preview: yellow dots only, no hitbox circle near the cube. */
 static void draw_ball_aim(void) {
     double i = 1;
     double len = punch_reach * 2.4;
@@ -294,11 +305,6 @@ static void draw_ball_aim(void) {
         circle(player->x + ball.aim_dx * len * k, player->y + ball.aim_dy * len * k, 3 + 4 * (1 - k),
                ((unsigned)(int)(150 + 90 * k) << 24) | 0x00FFD54F);
         i = i + 1;
-    }
-    if (show_hitboxes == 1) {
-        double hx = player->x + ball.aim_dx * 48;
-        double hy = player->y + ball.aim_dy * 48;
-        draw_hit_circle(hx, hy, BALL_RADIUS, 0.85);
     }
 }
 
@@ -322,7 +328,7 @@ static void draw_ball(void) {
     draw_ult_mode();
     draw_ball_aim();
     if (ball.aim_on == 1) {
-        /* Armed: the countdown runs, the finger can still pull the aim. */
+        /* Armed: the countdown runs, the joystick steers the aim. */
         ring(atk2_x, atk2_y, battle_pad_r() + 9, 5, 0xFFFFD54F);
     }
     while (i < BALL_TRAIL) {
@@ -334,12 +340,8 @@ static void draw_ball(void) {
         i = i + 1;
     }
     if (ball.active == 1) {
-        /* Magic blue projectile: blue stretched square, slightly rounded, no ring. */
-        double hw = 26, hh = 16;
-        roundrect(ball.x - hw, ball.y - hh, hw * 2, hh * 2, 6, 0xFF3A8BFFu);
-        if (show_hitboxes == 1) {
-            draw_hit_circle(ball.x, ball.y, BALL_RADIUS, 1);
-        }
+        /* Pure ball + particles only: no outline, no hitbox ring. */
+        circle(ball.x, ball.y, BALL_RADIUS, 0xFF3A8BFFu);
     }
 }
 

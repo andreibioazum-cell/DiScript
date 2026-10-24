@@ -628,8 +628,8 @@ def test_multitouch(assets: Path) -> None:
                 "--touch", "1020:282:726:1:1",
                 "--touch", "1040:408:533:0:5", "--touch", "1052:408:533:1:5",
                 # the ult pad with the stick still held: countdown, then a dragged aim
-                "--touch", "1080:408:630:0:3", "--touch", "1110:270:200:2:3",
-                "--touch", "1120:270:200:1:3",
+                "--touch", "1080:408:630:0:3", "--touch", "1110:510:560:2:3",
+                "--touch", "1120:510:560:1:3",
                 "--report", "1140", "--report", "1300", "--report", "1450",
             ],
         )
@@ -690,11 +690,18 @@ def test_ball(assets: Path) -> None:
             "--touch", "1000:410:480:1:7",
             "--report", "1066", "--report", "1250", "--report", "1700",
         ])
+        joy_wall = fight("brick_joy", [
+            "--stick", "910:0:-1", "--stick", "920:0:0",  # face up before pressing ult
+            "--touch", "930:408:630:0:7", "--touch", "935:408:630:1:7",
+            "--stick", "960:1:0", "--stick", "975:0:0",   # steer right with joystick during countdown
+            "--report", "1250",
+        ])
     base = aimed.get(860, {})
     counting = aimed.get(960, {})
     flying = wall.get(1066, {})
     landed = aimed.get(1500, {})
     bounced = wall.get(1250, {})
+    joy_bounced = joy_wall.get(1250, {})
     spent = wall.get(1700, {})
     check("нажатие запускает отсчёт 3-2-1", counting.get("charge") == "1", str(counting))
     check("пока идёт отсчёт, кирпич не летит", counting.get("ball") == "0", str(counting))
@@ -705,6 +712,7 @@ def test_ball(assets: Path) -> None:
         f"до {base.get('foe')}, после {landed.get('foe')}",
     )
     check("кирпич отскакивает от стен", float(bounced.get("bounces", "0")) >= 2, str(bounced))
+    check("джойстик направляет выстрел шара", float(joy_bounced.get("bounces", "0")) >= 2, str(joy_bounced))
     check("кирпич исчезает сам", spent.get("ball") == "0", str(spent))
 
 

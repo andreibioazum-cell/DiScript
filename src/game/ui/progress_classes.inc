@@ -165,7 +165,7 @@ static double skin_unlocked_for(double cls, double skin) {
         return 1;
     }
     if (cls == CLASS_EBUC) {
-        /* Elf ebuC (буК, genitive буКа): achievement "подарок буКа" – be at the Ded Moroz event online as Santa, or admin battle-pass tier 4. */
+        /* Elf ebuC (буК, genitive буКа): achievement "Подарок буКа" – be at the Ded Moroz event online as Santa, or admin battle-pass tier 4. */
         if ((is_admin() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
             return 1;
         }

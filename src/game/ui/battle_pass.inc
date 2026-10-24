@@ -124,16 +124,16 @@ static double bp_row_w(void) { return fit_w(620); }
 
 static const char *bp_status_text(double t) {
     if (t <= bp_claimed) {
-        return language == 1 ? "получено" : "claimed";
+        return language == 1 ? "Получено" : "Claimed";
     }
     if (bp_xp < bp_xp_req(t)) {
-        return ds_concat(ds_concat(language == 1 ? "нужно " : "needs ", ds_num_to_string(bp_xp_req(t))), " XP");
+        return ds_concat(ds_concat(language == 1 ? "Нужно " : "Needs ", ds_num_to_string(bp_xp_req(t))), " XP");
     }
     if (t > bp_claimed + 1) {
-        return language == 1 ? "сначала прошлый" : "previous first";
+        return language == 1 ? "Сначала прошлый" : "Previous first";
     }
     return ds_concat(ds_concat(ds_num_to_string(bp_cost(t)), ds_concat(" ", tr_candies_unit())),
-                     language == 1 ? " · открыть" : " · open");
+                     language == 1 ? " · Открыть" : " · Open");
 }
 
 /* One tier as a normal button: "3. +30 cups, 35 candies, unlock". The

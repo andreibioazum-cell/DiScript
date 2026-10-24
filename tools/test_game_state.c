@@ -2046,8 +2046,9 @@ static void test_eax229_and_rooms(void) {
     assert(strcmp(tr_achievement_eax229_desc(), "???") == 0);
     language = 1;
     assert(strcmp(tr_class_ebuc(), "буК") == 0);
-    assert(strcmp(tr_achievement_buk(), "подарок буКа") == 0);
-    assert(strcmp(tr_skin_elf_hint(), "подарок буКа") == 0);
+    assert(strcmp(tr_achievement_buk(), "Подарок буКа") == 0);
+    assert(strcmp(tr_skin_elf_hint(), "Подарок буКа") == 0);
+    assert(strcmp(tr_skins_note_for(CLASS_EBUC), "Скин «Эльф»: достижение «Подарок буКа»") == 0);
     assert(strcmp(bp_reward_text(4), "Скин: Эльф-буК") == 0);
     language = 0;
     assert(strcmp(tr_class_ebuc(), "ebuC") == 0);
@@ -2072,19 +2073,27 @@ static void test_eax229_and_rooms(void) {
     player_class = CLASS_ORDINARY;
     game_state = ST_LOBBY;
 
-    /* Aiming the magic projectile only updates within 180 px around the player. */
+    /* Aiming the magic ball follows the joystick directly and keeps direction on release. */
     player->x = 400;
     player->y = 360;
     player->angle = 0;
+    joy.x = 130;
+    joy.y = 570;
+    joy.r = 70;
+    drop_joy();
     super_cd = 0;
     finished = 0;
     player_block = 0;
     ball_reset();
     ball_aim_start(7);
     assert(ball.aim_on == 1 && fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
-    ball_aim_point(400, 100); /* 260 px away: ignored */
-    assert(fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
-    ball_aim_point(400, 240); /* 120 px away: aims straight up */
+    joy_touch(130, 520, 0, 1); /* stick pushed straight up */
+    assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
+    joy_touch(130 - 30, 570 + 40, 2, 1); /* diagonal (-0.6, +0.8) */
+    assert(fabs(ball.aim_dx + 0.6) < 1e-6 && fabs(ball.aim_dy - 0.8) < 1e-6);
+    joy_touch(130, 570, 1, 1); /* release stick: aimed direction stays */
+    assert(fabs(ball.aim_dx + 0.6) < 1e-6 && fabs(ball.aim_dy - 0.8) < 1e-6);
+    ball_aim_point(400, 100); /* dragged aim also works anywhere outside 14 px */
     assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
     ball_aim_cancel();
 

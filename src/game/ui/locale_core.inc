@@ -188,7 +188,7 @@ static const char *tr_achievement_eax229_desc(void) { return "???"; }
 
 static const char *tr_achievement_buk(void) {
     if (language == 1) {
-        return "подарок буКа";
+        return "Подарок буКа";
     }
     return "ebuC's gift";
 }

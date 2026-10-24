@@ -6,14 +6,32 @@
 static double rb_on[REMOTE_BRICKS], rb_shot[REMOTE_BRICKS];
 static double rb_x[REMOTE_BRICKS], rb_y[REMOTE_BRICKS], rb_vx[REMOTE_BRICKS], rb_vy[REMOTE_BRICKS];
 static double rb_bounces[REMOTE_BRICKS], rb_t[REMOTE_BRICKS], rb_spin[REMOTE_BRICKS];
+static double rb_trail_x[REMOTE_BRICKS][BALL_TRAIL], rb_trail_y[REMOTE_BRICKS][BALL_TRAIL];
+static double rb_trail_a[REMOTE_BRICKS][BALL_TRAIL];
 
 static void remote_bricks_reset(void) {
-    double i = 0;
+    int i = 0, k;
     while (i < REMOTE_BRICKS) {
-        rb_on[(int)i] = 0;
-        rb_shot[(int)i] = -1;
+        rb_on[i] = 0;
+        rb_shot[i] = -1;
+        for (k = 0; k < BALL_TRAIL; k++) {
+            rb_trail_a[i][k] = 0;
+        }
         i = i + 1;
     }
+}
+
+static void rb_trail_push(int s, double x, double y) {
+    int k = BALL_TRAIL - 1;
+    while (k > 0) {
+        rb_trail_x[s][k] = rb_trail_x[s][k - 1];
+        rb_trail_y[s][k] = rb_trail_y[s][k - 1];
+        rb_trail_a[s][k] = rb_trail_a[s][k - 1];
+        k = k - 1;
+    }
+    rb_trail_x[s][0] = x + (rand() % 21 - 10);
+    rb_trail_y[s][0] = y + (rand() % 21 - 10);
+    rb_trail_a[s][0] = 1;
 }
 
 static void remote_bricks_tick(void) {
@@ -85,20 +103,38 @@ static void remote_bricks_tick(void) {
                     rb_on[(int)s] = 0;
                 }
             }
+            if (rb_on[(int)s] == 1) {
+                rb_trail_push((int)s, rb_x[(int)s], rb_y[(int)s]);
+            }
+        }
+        {
+            int k = 0;
+            while (k < BALL_TRAIL) {
+                if (rb_trail_a[(int)s][k] > 0) {
+                    rb_trail_a[(int)s][k] = rb_trail_a[(int)s][k] - dt / 0.45;
+                    if (rb_trail_a[(int)s][k] < 0) {
+                        rb_trail_a[(int)s][k] = 0;
+                    }
+                }
+                k = k + 1;
+            }
         }
         s = s + 1;
     }
 }
 
 static void draw_remote_bricks(void) {
-    double s = 0;
+    int s = 0, k;
     while (s < REMOTE_BRICKS) {
-        if (rb_on[(int)s] == 1) {
-            double hw = 26, hh = 16;
-            roundrect(rb_x[(int)s] - hw, rb_y[(int)s] - hh, hw * 2, hh * 2, 6, 0xFF3A8BFFu);
-            if (show_hitboxes == 1) {
-                draw_hit_circle(rb_x[(int)s], rb_y[(int)s], BALL_RADIUS, 1);
+        for (k = 0; k < BALL_TRAIL; k++) {
+            if (rb_trail_a[s][k] > 0) {
+                double a = rb_trail_a[s][k];
+                circle(rb_trail_x[s][k], rb_trail_y[s][k], BALL_RADIUS * (0.12 + 0.45 * a),
+                       ((unsigned)(int)(a * 170) << 24) | 0x003A8BFF);
             }
+        }
+        if (rb_on[s] == 1) {
+            circle(rb_x[s], rb_y[s], BALL_RADIUS, 0xFF3A8BFFu);
         }
         s = s + 1;
     }

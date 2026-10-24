@@ -308,6 +308,9 @@ static void joy_touch(double x, double y, double action, double id) {
         joy.ox = 0;
         joy.oy = 0;
     }
+    if (d > 6) {
+        ball_aim_joy(dx, dy);
+    }
     if (d > joy.r * 0.15) {
         /* Use a unit direction once outside the deadzone; speed is constant
          * whether the stick is near its center or at the rim. */
@@ -358,12 +361,13 @@ static void touch_game(double x, double y, double action, double id) {
         ult_mode_toggle();
         return;
     }
-    /* Aiming the magic projectile: the finger that tapped the pad may drag only
-     * around the player (not anywhere), and the throw follows it. Lifting the
-     * finger keeps the aim, the countdown runs to zero on its own. */
+    /* Aiming the magic projectile: the joystick steers the shot directly; if
+     * the joystick is idle, dragging the ult finger out of its pad aims too. */
     if (ball.aim_on == 1 && id == ball.aim_id) {
         if (action == 2) {
-            ball_aim_point(x, y);
+            if (joy.dx == 0 && joy.dy == 0 && dist(x, y, atk2_x, atk2_y) > battle_pad_r() + 8) {
+                ball_aim_point(x, y);
+            }
             return;
         }
         if (action == 1 || action == 3) {
@@ -428,12 +432,6 @@ static void touch_game(double x, double y, double action, double id) {
             }
             return;
         }
-    }
-    if (ball.aim_on == 1 && ball.aim_id == -1 && action == 0 &&
-        (joy_id != -1 || dist(x, y, joy.x, joy.y) > 150) && ball_aim_near(x, y) == 1) {
-        ball.aim_id = id;
-        ball_aim_point(x, y);
-        return;
     }
     joy_touch(x, y, action, id);
 }
