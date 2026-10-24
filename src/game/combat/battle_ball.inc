@@ -1,20 +1,21 @@
-/* Ebuc (буК) has two ults, picked by the small button above the pad: dispenser
+/* ebuC (буК) has two ults, picked by the small button above the pad: dispenser
  * and magic blue projectile (renamed from brick). The projectile is aimed by
  * hand - the tap starts a 3-2-1 countdown over the cube, a dragged finger
  * points the throw (only when touching near the cube), and the projectile
  * leaves that way when the count hits zero and bounces off the walls (ten
- * bounces, then it just bursts). Lifting the finger early keeps the aim. Ebuc
+ * bounces, then it just bursts). Lifting the finger early keeps the aim. ebuC
  * only, and nothing in the game charges by holding. */
 
-#define BALL_COUNT_FROM 3.0      /* countdown digits: 3, 2, 1 */
-#define BALL_COUNT_STEP 0.7      /* seconds per digit */
-#define BALL_SPEED 620.0         /* initial px per second */
-#define BALL_BOUNCE_ACCEL 1.04   /* +4% speed on every wall bounce */
+#define BALL_COUNT_FROM 3.0           /* countdown digits: 3, 2, 1 */
+#define BALL_COUNT_STEP 0.7           /* seconds per digit */
+#define BALL_SPEED 620.0              /* initial px per second */
+#define BALL_BOUNCE_ACCEL 1.04        /* +4% speed on every wall bounce */
 #define BALL_RADIUS 24.0
-#define BALL_BASE_DAMAGE 0.5     /* 0 bounces: barely scratches the target */
-#define BALL_BOUNCE_DAMAGE 1.5   /* extra damage gained per wall bounce */
+#define BALL_BASE_DAMAGE 0.5          /* 0 bounces: barely scratches the target */
+#define BALL_BOUNCE_DAMAGE 1.5        /* damage gained on the 1st wall bounce */
+#define BALL_BOUNCE_DAMAGE_GROW 1.13  /* +13% bounce damage on every wall bounce */
 #define BALL_MAX_BOUNCES 10.0
-#define BALL_MAX_TIME 8.0        /* safety net: the ball always goes away */
+#define BALL_MAX_TIME 8.0             /* safety net: the ball always goes away */
 #define BALL_TRAIL 12
 
 typedef struct {
@@ -28,9 +29,9 @@ typedef struct {
 
 static UltBall ball;
 
-/* The ult mode of a class that has two of them. Ebuc (the cube called "буК",
- * genitive "буКа") can throw either his dispenser or this magic blue projectile,
- * and the small button above the pad switches between them: 0 - dispenser (blue),
+/* The ult mode of a class that has two of them. ebuC (буК, genitive "буКа")
+ * can throw either his dispenser or this magic blue projectile, and the small
+ * button above the pad switches between them: 0 - dispenser (blue),
  * 1 - projectile (yellow indicator). */
 static double ball_mode;
 
@@ -205,8 +206,16 @@ static void ball_fire(void) {
 }
 
 static double ball_damage_for(double bounces) {
-    double b = bounces < 0 ? 0 : bounces;
-    return BALL_BASE_DAMAGE + b * BALL_BOUNCE_DAMAGE;
+    double n = bounces < 0 ? 0 : floor(bounces);
+    double dmg = BALL_BASE_DAMAGE;
+    double step = BALL_BOUNCE_DAMAGE;
+    double i = 0;
+    while (i < n) {
+        dmg = dmg + step;
+        step = step * BALL_BOUNCE_DAMAGE_GROW;
+        i = i + 1;
+    }
+    return dmg;
 }
 
 static void ball_burst(double damage) {

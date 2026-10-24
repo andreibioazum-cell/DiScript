@@ -350,8 +350,8 @@ static void touch_game(double x, double y, double action, double id) {
         start_transition(0);
         return;
     }
-    /* Ebuc keeps two ults and switches between them with his own button: the
-     * letter on it is what the next tap throws. */
+    /* ebuC (буК) keeps two ults and switches between them with his own button:
+     * the color on it shows what the next tap throws. */
     if (player_class == CLASS_EBUC && (game_state == ST_SOLO || game_state == ST_ONLINE) && action == 0 &&
         ult_mode_hit(x, y) == 1) {
         ball_aim_cancel();

@@ -2088,15 +2088,22 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
     ball_aim_cancel();
 
-    /* Ball bounce scaling: 0 bounces barely scratches (0.5 dmg), each bounce
-     * increases damage and accelerates the ball by +4% (x1.04). */
+    /* Ball bounce scaling of ebuC (буК): 0 bounces barely scratches (0.5 dmg),
+     * the 1st bounce adds +1.5 dmg, each next bounce adds +13% more than the
+     * previous bounce, and every bounce accelerates speed by +4% (x1.04). */
     assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
     for (int b = 0; b < 10; b++) {
         assert(ball_damage_for(b + 1) > ball_damage_for(b));
     }
     assert(fabs(ball_damage_for(1) - 2.0) < 1e-9);
-    assert(fabs(ball_damage_for(4) - 6.5) < 1e-9);
-    assert(fabs(ball_damage_for(10) - 15.5) < 1e-9);
+    assert(fabs(ball_damage_for(2) - 3.695) < 1e-9);
+    for (int b = 1; b < 10; b++) {
+        double prev_gain = ball_damage_for(b) - ball_damage_for(b - 1);
+        double next_gain = ball_damage_for(b + 1) - ball_damage_for(b);
+        assert(fabs(next_gain - prev_gain * 1.13) < 1e-9);
+    }
+    assert(fabs(ball_damage_for(4) - 7.7746955) < 1e-9);
+    assert(fabs(ball_damage_for(10) - (0.5 + 1.5 * (pow(1.13, 10) - 1.0) / 0.13)) < 1e-9);
     {
         game_state = ST_SOLO;
         finished = 0;

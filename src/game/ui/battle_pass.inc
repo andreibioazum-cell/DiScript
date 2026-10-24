@@ -4,7 +4,7 @@
  *   1:  10 XP,  12 candies -> +10 cups
  *   2:  30 XP,  20 candies -> +20 cups
  *   3:  60 XP,  35 candies -> +30 cups
-  *   4: 100 XP,  50 candies -> Elf ebuc skin
+  *   4: 100 XP,  50 candies -> Elf ebuC skin
  *   5: 150 XP,  70 candies -> +60 cups
  *   6: 220 XP,  95 candies -> +120 candies
   *   7: 300 XP, 120 candies -> Santa class
@@ -75,7 +75,7 @@ static void bp_grant(double t) {
     } else if (t == 7) {
         set_class_owned(CLASS_SANTA, 1);
     }
-        /* tier 4 is the Elf ebuc skin itself: skin_unlocked_for() opens it
+        /* tier 4 is the Elf ebuC skin itself: skin_unlocked_for() opens it
      * once bp_claimed reaches 4, nothing else to grant. */
 }
 

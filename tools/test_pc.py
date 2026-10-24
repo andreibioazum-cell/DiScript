@@ -415,13 +415,13 @@ def test_chaos_online(assets: Path) -> None:
 
 
 def test_brick_online(assets: Path) -> None:
-    """Two clients in one room, and the buK brick flies over the network.
+    """Two clients in one room, and the ebuC projectile flies over the network.
 
     The complaint that started this: in an online fight ("CCP") nothing of the
     brick could be seen. Here the thrower switches the ult to the brick, aims it
     by hand, and the other client has to see the brick and lose health.
     """
-    print("\n== 3j. The buK brick in an online fight ==")
+    print("\n== 3j. The ebuC brick in an online fight ==")
     room = f"brk{int(time.time()) % 100000}"
     nick = f"brk{int(time.time()) % 100000}"
     taps = [
@@ -715,7 +715,7 @@ def test_ult_mode_switch(assets: Path) -> None:
     usual super at once, however long the finger stays. Switching the button
     over to the brick makes the next press start the countdown instead.
     """
-    print("\n== 3g. The buK ult switch ==\n")
+    print("\n== 3g. The ebuC ult switch ==\n")
     with fake_server():
         result = harness(
             assets,

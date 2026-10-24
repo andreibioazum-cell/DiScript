@@ -4,7 +4,7 @@
  *   Azum dash        dash.wav
  *   Astra grab       grab.wav
  *   Santa gift       gift.wav
- *   ebuc station     station.wav
+ *   ebuC station     station.wav
  *   overclock        overclock.wav
  * The Azum zombie skin has its own: the punch growls, the dash moans
  * (zombie_punch.wav / zombie_dash.wav). Called from the ability start points

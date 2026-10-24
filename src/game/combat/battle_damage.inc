@@ -31,7 +31,7 @@ static double take_damage(double dmg) {
         dmg_from_k = 0;
         return 0;
     }
-        /* Track the hit before ebuc's turrets absorb it: shielded damage still
+        /* Track the hit before ebuC's turrets absorb it: shielded damage still
      * disqualifies the no-damage victory achievement. */
     if (dmg > 0) {
         player_was_hit = 1;

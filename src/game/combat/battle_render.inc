@@ -142,7 +142,7 @@ static void award_battle_result(double result) {
         save_progress();
         grant_achievement(ACH_FIRST_WIN);
         /* Flawless win: keep full health and take no hits during the battle.
-         * player_was_hit includes damage intercepted by ebuc's turrets. */
+         * player_was_hit includes damage intercepted by ebuC's turrets. */
         if (player->hp >= player->max_hp && player_was_hit == 0) {
             grant_achievement(ACH_LAST_HP);
         }

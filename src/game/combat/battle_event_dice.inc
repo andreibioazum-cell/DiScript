@@ -4,7 +4,7 @@
  * here - the event is a lottery, not the shop). A thrown cube flies to
  * a random spot and lies there; whoever walks over it collects its
  * candy prize:
-  *   Ordinary 2, Azum 5, Astra 9, ebuc 15, Santa 30, CodeCracker 60,
+  *   Ordinary 2, Azum 5, Astra 9, ebuC 15, Santa 30, CodeCracker 60,
  *   Legendary Azum 95 - the best cube, chance 0.08%.
  * Chances are rolled in 0.001% units (roll 0..99999). The event replaces
  * the old infection event on the same admin command, event 4. */
