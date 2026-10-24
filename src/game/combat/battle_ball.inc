@@ -8,11 +8,13 @@
 
 #define BALL_COUNT_FROM 3.0      /* countdown digits: 3, 2, 1 */
 #define BALL_COUNT_STEP 0.7      /* seconds per digit */
-#define BALL_SPEED 620.0       /* px per second */
+#define BALL_SPEED 620.0         /* initial px per second */
+#define BALL_BOUNCE_ACCEL 1.04   /* +4% speed on every wall bounce */
 #define BALL_RADIUS 24.0
-#define BALL_DAMAGE 10.0
+#define BALL_BASE_DAMAGE 0.5     /* 0 bounces: barely scratches the target */
+#define BALL_BOUNCE_DAMAGE 1.5   /* extra damage gained per wall bounce */
 #define BALL_MAX_BOUNCES 10.0
-#define BALL_MAX_TIME 8.0      /* safety net: the ball always goes away */
+#define BALL_MAX_TIME 8.0        /* safety net: the ball always goes away */
 #define BALL_TRAIL 12
 
 typedef struct {
@@ -202,6 +204,11 @@ static void ball_fire(void) {
     ds_log("magic projectile thrown");
 }
 
+static double ball_damage_for(double bounces) {
+    double b = bounces < 0 ? 0 : bounces;
+    return BALL_BASE_DAMAGE + b * BALL_BOUNCE_DAMAGE;
+}
+
 static void ball_burst(double damage) {
     ball.active = 0;
     boom_x = ball.x;
@@ -211,7 +218,7 @@ static void ball_burst(double damage) {
         return;
     }
     if (enemy_revive_prot <= 0) {
-        enemy_apply_damage_at(BALL_DAMAGE, ball.x, ball.y);
+        enemy_apply_damage_at(ball_damage_for(ball.bounces), ball.x, ball.y);
     }
 }
 
@@ -232,20 +239,24 @@ static void ball_tick(void) {
         ball.y = ball.y + ball.vy * dt * piece;
         if (ball.x < BALL_RADIUS) {
             ball.x = BALL_RADIUS;
-            ball.vx = 0 - ball.vx;
+            ball.vx = (0 - ball.vx) * BALL_BOUNCE_ACCEL;
+            ball.vy = ball.vy * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         } else if (ball.x > screen_w - BALL_RADIUS) {
             ball.x = screen_w - BALL_RADIUS;
-            ball.vx = 0 - ball.vx;
+            ball.vx = (0 - ball.vx) * BALL_BOUNCE_ACCEL;
+            ball.vy = ball.vy * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         }
         if (ball.y < BALL_RADIUS) {
             ball.y = BALL_RADIUS;
-            ball.vy = 0 - ball.vy;
+            ball.vx = ball.vx * BALL_BOUNCE_ACCEL;
+            ball.vy = (0 - ball.vy) * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         } else if (ball.y > screen_h - BALL_RADIUS) {
             ball.y = screen_h - BALL_RADIUS;
-            ball.vy = 0 - ball.vy;
+            ball.vx = ball.vx * BALL_BOUNCE_ACCEL;
+            ball.vy = (0 - ball.vy) * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         }
         if (ball.bounces > BALL_MAX_BOUNCES || ball.t > BALL_MAX_TIME) {

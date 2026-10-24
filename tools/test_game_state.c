@@ -308,6 +308,19 @@ double net_player_grab_dx(double slot) {
 double net_player_grab_dy(double slot) {
     return stub_gdy[(int)slot];
 }
+static double stub_brick[4], stub_bkx[4], stub_bky[4], stub_bkdx[4], stub_bkdy[4];
+void net_publish_brick(double x, double y, double dx, double dy, double shot) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)shot;
+}
+double net_player_brick(double slot) { return stub_brick[(int)slot]; }
+double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
+double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
+double net_player_brick_dx(double slot) { return stub_bkdx[(int)slot]; }
+double net_player_brick_dy(double slot) { return stub_bkdy[(int)slot]; }
 void net_mark_achievement_flag(double flag) {
     (void)flag;
 }
@@ -2074,6 +2087,89 @@ static void test_eax229_and_rooms(void) {
     ball_aim_point(400, 240); /* 120 px away: aims straight up */
     assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
     ball_aim_cancel();
+
+    /* Ball bounce scaling: 0 bounces barely scratches (0.5 dmg), each bounce
+     * increases damage and accelerates the ball by +4% (x1.04). */
+    assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
+    for (int b = 0; b < 10; b++) {
+        assert(ball_damage_for(b + 1) > ball_damage_for(b));
+    }
+    assert(fabs(ball_damage_for(1) - 2.0) < 1e-9);
+    assert(fabs(ball_damage_for(4) - 6.5) < 1e-9);
+    assert(fabs(ball_damage_for(10) - 15.5) < 1e-9);
+    {
+        game_state = ST_SOLO;
+        finished = 0;
+        enemy_class = CLASS_ORDINARY;
+        enemy->max_hp = 20;
+        enemy->hp = 20;
+        enemy->size = 25;
+        enemy->x = 460;
+        enemy->y = 360;
+        enemy_revive_prot = 0;
+        player->x = 400;
+        player->y = 360;
+        super_cd = 0;
+        ball_reset();
+        ball.aim_dx = 1;
+        ball.aim_dy = 0;
+        ball_fire();
+        for (int f = 0; f < 30 && ball.active == 1; f++)
+            ball_tick();
+        assert(ball.active == 0 && ball.bounces == 0);
+        assert(fabs(enemy->hp - 19.5) < 1e-6);
+
+        /* Wall bounce: speed multiplies by 1.04 on each bounce, damage grows. */
+        enemy->x = 900;
+        enemy->y = 600;
+        enemy->hp = 20;
+        player->x = 80;
+        player->y = 80;
+        super_cd = 0;
+        ball_reset();
+        ball.aim_dx = -0.8;
+        ball.aim_dy = -0.6;
+        ball_fire();
+        for (int f = 0; f < 120 && ball.bounces < 2; f++)
+            ball_tick();
+        assert(ball.bounces == 2);
+        assert(fabs(hypot(ball.vx, ball.vy) - BALL_SPEED * 1.04 * 1.04) < 1e-6);
+        enemy->x = ball.x;
+        enemy->y = ball.y;
+        ball_tick();
+        assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+
+        /* Online remote brick: same +4% speed per bounce and bounce damage. */
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        stub_online[1] = 1;
+        player_class = CLASS_ORDINARY;
+        player->max_hp = 20;
+        player->hp = 20;
+        player->size = 25;
+        player->x = 900;
+        player->y = 600;
+        player_block = 0;
+        revive_prot = 0;
+        remote_bricks_reset();
+        stub_bkx[1] = 80.0 / screen_w;
+        stub_bky[1] = 80.0 / screen_h;
+        stub_bkdx[1] = -0.8;
+        stub_bkdy[1] = -0.6;
+        stub_brick[1] = 1;
+        for (int f = 0; f < 120 && rb_bounces[1] < 2; f++)
+            remote_bricks_tick();
+        assert(rb_bounces[1] == 2);
+        assert(fabs(hypot(rb_vx[1], rb_vy[1]) - BALL_SPEED * 1.04 * 1.04) < 1e-6);
+        player->x = rb_x[1];
+        player->y = rb_y[1];
+        remote_bricks_tick();
+        assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+        stub_online[1] = 0;
+        stub_brick[1] = 0;
+        game_state = ST_LOBBY;
+        ball_reset();
+    }
 
     /* Dimasi4ek229 himself: granted automatically (case-insensitive). */
     achievement_mask = 0;

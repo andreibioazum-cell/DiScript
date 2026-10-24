@@ -43,30 +43,47 @@ static void remote_bricks_tick(void) {
             }
         }
         if (rb_on[(int)s] == 1) {
-            double x = rb_x[(int)s], y = rb_y[(int)s], vx = rb_vx[(int)s], vy = rb_vy[(int)s];
+            double left = 1;
             rb_t[(int)s] = rb_t[(int)s] + dt;
             rb_spin[(int)s] = rb_spin[(int)s] + dt * 6;
-            x = x + vx * dt;
-            y = y + vy * dt;
-            if (x < BALL_RADIUS || x > screen_w - BALL_RADIUS) {
-                vx = 0 - vx;
-                x = clamp(x, BALL_RADIUS, screen_w - BALL_RADIUS);
-                rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
-            }
-            if (y < BALL_RADIUS || y > screen_h - BALL_RADIUS) {
-                vy = 0 - vy;
-                y = clamp(y, BALL_RADIUS, screen_h - BALL_RADIUS);
-                rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
-            }
-            rb_x[(int)s] = x;
-            rb_y[(int)s] = y;
-            rb_vx[(int)s] = vx;
-            rb_vy[(int)s] = vy;
-            if (circle_hits_player(x, y, BALL_RADIUS) == 1) {
-                take_damage_at(BALL_DAMAGE, x, y);
-                rb_on[(int)s] = 0;
-            } else if (rb_bounces[(int)s] > BALL_MAX_BOUNCES || rb_t[(int)s] > BALL_MAX_TIME) {
-                rb_on[(int)s] = 0;
+            while (left > 0 && rb_on[(int)s] == 1) {
+                double piece = left < 0.2 ? left : 0.2;
+                double x = rb_x[(int)s] + rb_vx[(int)s] * dt * piece;
+                double y = rb_y[(int)s] + rb_vy[(int)s] * dt * piece;
+                double vx = rb_vx[(int)s], vy = rb_vy[(int)s];
+                left = left - piece;
+                if (x < BALL_RADIUS) {
+                    x = BALL_RADIUS;
+                    vx = (0 - vx) * BALL_BOUNCE_ACCEL;
+                    vy = vy * BALL_BOUNCE_ACCEL;
+                    rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
+                } else if (x > screen_w - BALL_RADIUS) {
+                    x = screen_w - BALL_RADIUS;
+                    vx = (0 - vx) * BALL_BOUNCE_ACCEL;
+                    vy = vy * BALL_BOUNCE_ACCEL;
+                    rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
+                }
+                if (y < BALL_RADIUS) {
+                    y = BALL_RADIUS;
+                    vx = vx * BALL_BOUNCE_ACCEL;
+                    vy = (0 - vy) * BALL_BOUNCE_ACCEL;
+                    rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
+                } else if (y > screen_h - BALL_RADIUS) {
+                    y = screen_h - BALL_RADIUS;
+                    vx = vx * BALL_BOUNCE_ACCEL;
+                    vy = (0 - vy) * BALL_BOUNCE_ACCEL;
+                    rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
+                }
+                rb_x[(int)s] = x;
+                rb_y[(int)s] = y;
+                rb_vx[(int)s] = vx;
+                rb_vy[(int)s] = vy;
+                if (rb_bounces[(int)s] > BALL_MAX_BOUNCES || rb_t[(int)s] > BALL_MAX_TIME) {
+                    rb_on[(int)s] = 0;
+                } else if (circle_hits_player(x, y, BALL_RADIUS) == 1) {
+                    take_damage_at(ball_damage_for(rb_bounces[(int)s]), x, y);
+                    rb_on[(int)s] = 0;
+                }
             }
         }
         s = s + 1;
