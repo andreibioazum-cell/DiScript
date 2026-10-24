@@ -153,6 +153,7 @@ static void logic_update(void) {
     update_seraphim_music();
     reload_textures();
     tick_achievement_toast();
+    gift_shimmer_tick();
     update_button_press();
     admin_tick();
     if (game_state == ST_LOBBY) {

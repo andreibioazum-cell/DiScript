@@ -4635,6 +4635,42 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
+    /* Sanch yellow nick + CCP panel access, and shimmering Emerald cycling
+     * across the rainbow over time instead of freezing on red. */
+    {
+        assert(admin_slot("Sanch") == 2 && admin_slot("sanch") == 2 && admin_slot("SANCH") == 2);
+        assert(strcmp(admin_nick_of(2), "Sanch") == 0);
+        assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
+        assert((uint32_t)admin_color_of("sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
+        assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFDD33u);
+        assert((uint32_t)admin_color_of("Dimasi4ek229", 0xFFFFFFFF) == 0xFFFF4444u);
+        assert((uint32_t)admin_color_of("Player2", 0xFFFFFFFF) == 0xFFFFFFFFu);
+
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
+        assert(is_admin() == 1 && admin_playing() == 1);
+        assert(strcmp(admin_actor_nick(), "Sanch") == 0);
+        assert(ach_scroll_allowed() == 1); /* Sanch still has mov eax, 0x229 in list */
+        adm_reset_log();
+        game_state = ST_LOBBY;
+        admin_panel_open = 0;
+        admin_draw();
+        assert(adm_has_text("CCP") == 1);
+
+        stub_gift_hue = 0;
+        stub_frame_seconds = 0.05;
+        gift_shimmer_t = 0;
+        uint32_t c0 = gift_hue_color(gift_emerald_phase());
+        for (int f = 0; f < 16; f++)
+            gift_shimmer_tick();
+        uint32_t c1 = gift_hue_color(gift_emerald_phase());
+        for (int f = 0; f < 16; f++)
+            gift_shimmer_tick();
+        uint32_t c2 = gift_hue_color(gift_emerald_phase());
+        assert(c0 != c1 && c1 != c2 && c0 != c2);
+        stub_frame_seconds = 0;
+    }
+
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

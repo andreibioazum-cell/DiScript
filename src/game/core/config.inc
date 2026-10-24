@@ -24,6 +24,9 @@ static double admin_slot(const char *nick) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return 1;
     }
+    if (admin_nick_equal(nick, SANCH_NICK) == 1) {
+        return 2;
+    }
     return 0;
 }
 
@@ -38,7 +41,9 @@ static double admin_playing(void) {
 }
 
 static const char *admin_nick_of(double slot) {
-    (void)slot;
+    if (slot == 2) {
+        return SANCH_NICK;
+    }
     return ADMIN_NICK;
 }
 
@@ -46,12 +51,18 @@ static double admin_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return admin_color;
     }
+    if (admin_nick_equal(nick, SANCH_NICK) == 1) {
+        return sanch_color;
+    }
     return base;
 }
 
 static double admin_head_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return admin_head_color;
+    }
+    if (admin_nick_equal(nick, SANCH_NICK) == 1) {
+        return sanch_head_color;
     }
     return base;
 }

@@ -347,7 +347,8 @@ static void admin_draw_gifts(void) {
         double sw = admin_hue_swatch_w();
         for (int h = 0; h < ADMIN_HUE_N; ++h) {
             double sx = px + h * (sw + ADMIN_HUE_GAP);
-            roundrect(sx, hy, sw, rh, 8, gift_hue_color((double)h / ADMIN_HUE_N));
+            double sh = h == 0 ? gift_emerald_phase() : (double)h / ADMIN_HUE_N;
+            roundrect(sx, hy, sw, rh, 8, gift_hue_color(sh));
             if ((int)admin_gift_hue == h) {
                 roundrect_outline(sx, hy, sw, rh, 8, 3, admin_frame());
             }

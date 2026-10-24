@@ -1,4 +1,5 @@
 static const char *gift_tex(double id);
+static void gift_shimmer_tick(void);
 static void gift_icon(double id, double x, double y, double s);
 static double gift_rarity(double id);
 static const char *gift_rarity_name(double id);

@@ -19,7 +19,22 @@ static const char *gift_tex(double id) {
     return "gift_poop.png";
 }
 
-/* Emerald hue: 0 is the plain rainbow, 1..7 the one the admin picked. */
+static double gift_shimmer_t;
+
+static void gift_shimmer_tick(void) {
+    double step = ds_frame_seconds();
+    if (!(step > 0) || step > 0.25) {
+        step = dt;
+    }
+    if (step > 0) {
+        gift_shimmer_t = gift_shimmer_t + step;
+        if (gift_shimmer_t >= 10000.0) {
+            gift_shimmer_t = gift_shimmer_t - 10000.0;
+        }
+    }
+}
+
+/* Emerald hue: 0 is the plain rainbow, 1..7 a starting offset on the wheel. */
 static double gift_emerald_base_hue(void) {
     double h = net_gift_hue();
     if (h < 0) h = 0;
@@ -27,9 +42,9 @@ static double gift_emerald_base_hue(void) {
     return h / 8.0;
 }
 
-/* The hue drifts slowly: the emerald shimmers. */
+/* Continuous rainbow shimmer across the full hue wheel over elapsed time. */
 static double gift_emerald_phase(void) {
-    return gift_emerald_base_hue() + ds_frame_seconds() * 0.08;
+    return gift_emerald_base_hue() + gift_shimmer_t * 0.42;
 }
 
 /* The hue colour comes from the same wheel as the rainbow letters. */
@@ -50,13 +65,16 @@ static uint32_t gift_hue_color(double hue) {
  * base - on a coloured sprite the hue would just turn to mud. */
 static void gift_icon(double id, double x, double y, double s) {
     if (s <= 0) return;
-    tex(x, y, gift_tex(id), 0, s / GIFT_TEX_PX);
+    double sc = s / GIFT_TEX_PX;
+    tex(x, y, gift_tex(id), 0, sc);
     if (id >= 4) {
-        double a = 110 + 45 * sin(ds_frame_seconds() * 2.4);
-        if (a < 0) a = 0;
-        if (a > 180) a = 180;
-        uint32_t c = gift_hue_color(gift_emerald_phase());
-        tex_tint(x, y, gift_tex(id), 0, s / GIFT_TEX_PX, (uint32_t)(((unsigned)(int)a) << 24) | (c & 0x00FFFFFFu));
+        double ph = gift_emerald_phase();
+        double a1 = clamp(145 + 35 * sin(gift_shimmer_t * 3.4), 95, 190);
+        double a2 = clamp(85 + 35 * cos(gift_shimmer_t * 4.7), 45, 130);
+        uint32_t c1 = gift_hue_color(ph);
+        uint32_t c2 = gift_hue_color(ph + 0.18);
+        tex_tint(x, y, gift_tex(id), 0, sc, (uint32_t)(((unsigned)(int)a1) << 24) | (c1 & 0x00FFFFFFu));
+        tex_tint(x, y, gift_tex(id), 0, sc, (uint32_t)(((unsigned)(int)a2) << 24) | (c2 & 0x00FFFFFFu));
     }
 }
 

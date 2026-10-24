@@ -346,7 +346,7 @@ void tex_tint(float x, float y, const char *name, float a, float s, uint32_t c) 
 
 static uint32_t text_force_white(uint32_t c) {
 
-    if (c == 0xFFFF4444u || c == 0xFF4FC3F7u || c == 0xFFFF3333u || c == 0xFF33A8FFu)
+    if (c == 0xFFFF4444u || c == 0xFF4FC3F7u || c == 0xFFFF3333u || c == 0xFF33A8FFu || c == 0xFFFFD54Au || c == 0xFFFFDD33u)
         return c;
 
     if ((c & 0x00ffffffu) == 0x00202020u)

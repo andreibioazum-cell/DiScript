@@ -315,7 +315,7 @@ static void draw_lb_row(double i) {
     double tt = text_ink_top(place) * scale;
     double ty = y + (lb_row_h - th) / 2 - tt + 1;
     text_scaled(place, x + card_text_pad, ty, text_color, scale);
-    text_scaled(nick, x + 70, ty, text_color, scale);
+    text_scaled(nick, x + 70, ty, admin_color_of(nick, text_color), scale);
     double cw = text_ink_width(cup_s) * scale;
     text_scaled(cup_s, x + w - card_text_pad - cw, ty, text_color, scale);
 }

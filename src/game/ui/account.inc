@@ -400,7 +400,18 @@ static void draw_account(void) {
                         : acct_open == ACCT_DELETE ? tr_delete_account()
                         : acct_open == ACCT_GIFTS ? (language == 1 ? "Подарки" : "Gifts")
                                                   : ds_concat(tr_acct_title(), net_login_nick());
-    ctext_scaled(title, acct_top(), text_color, fit_text_scale(title, fit_w(screen_w), 0.8));
+    double tscale = fit_text_scale(title, fit_w(screen_w), 0.8);
+    if (acct_open == ACCT_MENU) {
+        const char *pre = tr_acct_title();
+        const char *anick = net_login_nick();
+        double pw = text_ink_width(pre) * tscale;
+        double nw = text_ink_width(anick) * tscale;
+        double tx = (screen_w - (pw + nw)) / 2;
+        text_scaled(pre, tx, acct_top(), text_color, tscale);
+        text_scaled(anick, tx + pw, acct_top(), admin_color_of(anick, text_color), tscale);
+    } else {
+        ctext_scaled(title, acct_top(), text_color, tscale);
+    }
     if (acct_open == ACCT_MENU) {
         const char *rows[5] = {tr_acct_change(), tr_acct_switch(), tr_acct_logout(), tr_delete_account(), language == 1 ? "Подарки" : "Gifts"};
         double i = 0;
