@@ -11,11 +11,60 @@ static double rb_boom_x[REMOTE_BRICKS], rb_boom_y[REMOTE_BRICKS], rb_boom_t[REMO
 static double rb_trail_x[REMOTE_BRICKS][BALL_TRAIL], rb_trail_y[REMOTE_BRICKS][BALL_TRAIL];
 static double rb_trail_a[REMOTE_BRICKS][BALL_TRAIL];
 
-/* Admin toggle: draws all remaining bounce directions of ebuC's (буК) projectile. */
-static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, double bounces0, double t0, uint32_t rgb) {
+/* True when a bounce segment [x,y -> nx,ny] (or its terminal blast) touches a target. */
+static double ball_seg_hits_target(double x, double y, double nx, double ny, double end_r, double check_foe) {
+    double slen = sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y));
+    double ux = slen > 1e-6 ? (nx - x) / slen : 1;
+    double uy = slen > 1e-6 ? (ny - y) / slen : 0;
+    if (finished != 0) {
+        return 0;
+    }
+    if (check_foe == 0) {
+        if (player->hp <= 0) {
+            return 0;
+        }
+        if (slen > 0 && strip_hits_player(x, y, ux, uy, 0, slen, BALL_RADIUS) == 1) {
+            return 1;
+        }
+        return circle_hits_player(x, y, BALL_RADIUS) == 1 || circle_hits_player(nx, ny, end_r) == 1;
+    }
+    if (game_state == ST_SOLO) {
+        if (enemy->hp <= 0) {
+            return 0;
+        }
+        if (slen > 0 && strip_hits_enemy(x, y, ux, uy, 0, slen, BALL_RADIUS) == 1) {
+            return 1;
+        }
+        return circle_hits_enemy(x, y, BALL_RADIUS) == 1 || circle_hits_enemy(nx, ny, end_r) == 1;
+    }
+    if (game_state == ST_ONLINE) {
+        double i = 0;
+        double rh = player_half();
+        while (i < max_players) {
+            double b = i * remote_fields;
+            if (i != net_slot() && arr_get(remotes, b + 5) == 1 && net_player_hp(i) > 0) {
+                double rx = arr_get(remotes, b + 1);
+                double ry = arr_get(remotes, b + 2);
+                double ra = arr_get(remotes, b + 3);
+                if ((slen > 0 && strip_hits_box(x, y, ux, uy, 0, slen, BALL_RADIUS, rx, ry, ra, rh) == 1) ||
+                    circle_hits_box(x, y, BALL_RADIUS, rx, ry, ra, rh) == 1 ||
+                    circle_hits_box(nx, ny, end_r, rx, ry, ra, rh) == 1) {
+                    return 1;
+                }
+            }
+            i = i + 1;
+        }
+    }
+    return 0;
+}
+
+/* Admin toggle: draws all remaining bounce directions; any segment touching an enemy turns red. */
+static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, double bounces0, double t0,
+                                uint32_t rgb, double check_foe) {
     double min_x = BALL_RADIUS, max_x = screen_w - BALL_RADIUS;
     double min_y = BALL_RADIUS, max_y = screen_h - BALL_RADIUS;
     double x, y, vx = vx0, vy = vy0, b = bounces0, t = t0, seg = 0;
+    uint32_t last_rgb = rgb & 0x00FFFFFFu;
     if (max_x <= min_x || max_y <= min_y || (fabs(vx) < 1e-6 && fabs(vy) < 1e-6)) {
         return;
     }
@@ -26,10 +75,10 @@ static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, do
         double ty = vy > 1e-6 ? (max_y - y) / vy : (vy < -1e-6 ? (min_y - y) / vy : 1e9);
         double dt_wall = tx < ty ? tx : ty;
         double dt_rem = BALL_MAX_TIME - t;
-        double dt_seg, nx, ny, slen;
+        double dt_seg, nx, ny, slen, next_b, end_r, hits;
         int hit_cap = 0;
         int alpha = 220 - (int)(seg * 9);
-        uint32_t col;
+        uint32_t seg_rgb, col;
         if (dt_wall < 0) {
             dt_wall = 0;
         }
@@ -40,10 +89,28 @@ static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, do
         }
         nx = clamp(x + vx * dt_seg, min_x, max_x);
         ny = clamp(y + vy * dt_seg, min_y, max_y);
+        next_b = b;
+        if (hit_cap == 0) {
+            if (fabs(dt_wall - tx) <= 1e-6) {
+                next_b = next_b + 1;
+            }
+            if (fabs(dt_wall - ty) <= 1e-6) {
+                next_b = next_b + 1;
+            }
+        }
+        end_r = (hit_cap == 1 || next_b > BALL_MAX_BOUNCES) ? BALL_BOOM_RADIUS : BALL_RADIUS;
+        hits = ball_seg_hits_target(x, y, nx, ny, end_r, check_foe);
         if (alpha < 110) {
             alpha = 110;
         }
-        col = ((uint32_t)alpha << 24) | (rgb & 0x00FFFFFFu);
+        if (hits == 1) {
+            seg_rgb = 0x00FF2D2Du;
+            alpha = 245;
+        } else {
+            seg_rgb = rgb & 0x00FFFFFFu;
+        }
+        last_rgb = seg_rgb;
+        col = ((uint32_t)alpha << 24) | seg_rgb;
         line(x, y, nx, ny, 2.5, col);
         slen = sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y));
         if (slen >= 36) {
@@ -73,7 +140,7 @@ static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, do
             b = b + 1;
         }
     }
-    ring(x, y, 8, 2, (180u << 24) | (rgb & 0x00FFFFFFu));
+    ring(x, y, 8, 2, (190u << 24) | last_rgb);
 }
 
 static void remote_bricks_reset(void) {
@@ -211,7 +278,7 @@ static void draw_remote_bricks(void) {
     int s = 0, k;
     while (s < REMOTE_BRICKS) {
         if (rb_on[s] == 1 && admin_cheat_ball_path() == 1) {
-            draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FF6B6Bu);
+            draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FFD54Fu, 0);
         }
         for (k = 0; k < BALL_TRAIL; k++) {
             if (rb_trail_a[s][k] > 0) {
@@ -251,16 +318,12 @@ static double remote_bricks_live(void) {
 static void ball_clear_after_finish(void) {
     ball.active = 0;
     ball.boom_t = 0;
-    ball.aim_on = 0;
-    ball.aim_id = -1;
-    ball.aim_t = 0;
     remote_bricks_reset();
 }
 
-/* Everything the projectile needs per frame in an online fight: the local aim and
- * flight plus the projectiles of the others. */
+/* Everything the projectile needs per frame in an online fight: the local flight
+ * plus the projectiles of the others. */
 static void ball_online_tick(void) {
-    ball_aim_tick();
     ball_tick();
     ball_fade_tick();
     remote_bricks_tick();

@@ -79,7 +79,8 @@ static void tick_enemy_grab(void) {
     while (egrab_hits < due) {
         egrab_hits = egrab_hits + 1;
         enemy_grab_swing();
-        if (take_damage_at(astra_beat_damage(player->max_hp), enemy->x, enemy->y) == 1) {
+        if (take_damage_at(astra_beat_damage(player->max_hp) * enemy_damage_mult_for(enemy_class), enemy->x,
+                           enemy->y) == 1) {
             enemy_grab_stop(1);
             return;
         }
@@ -93,7 +94,8 @@ static void tick_enemy_grab(void) {
         /* enemy_grab_stop() clears the grab immediately, so explicitly pulse
          * the final damage zone and let the normal fade-out render it. */
         egrab_box_a = 1;
-        double dead = take_damage_at(astra_final_damage(player->max_hp), enemy->x, enemy->y);
+        double dead =
+            take_damage_at(astra_final_damage(player->max_hp) * enemy_damage_mult_for(enemy_class), enemy->x, enemy->y);
         enemy_grab_stop(1);
         if (dead == 1) {
             return;

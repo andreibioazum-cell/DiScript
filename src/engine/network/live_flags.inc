@@ -1,5 +1,4 @@
-/* Live operator flags at the database root: AzumBuff, FlashSale and the joke
- * mode HitboxChaos.
+/* Live operator flags at the database root: AzumBuff and FlashSale.
  * Account-independent global events: read by every client, logged in or
  * not; the rules make the two nodes publicly readable (admins keep the
  * only write access). Temporary: never persisted to the profile or disk.
@@ -25,13 +24,11 @@ static struct {
     DSMutex lock;
     LiveFlag azum;
     LiveFlag sale;
-    LiveFlag chaos;
 /* Every field is listed on purpose: clang -Wmissing-field-initializers
  * (in -Wextra, promoted by -Werror in CI) rejects partial initializers. */
 } live_flags = {.lock = DS_MUTEX_INIT,
                 .azum = {"/AzumBuff.json", 0, 0, 0, 0, 0, 0, 0},
-                .sale = {"/FlashSale.json", 0, 0, 0, 0, 0, 0, 0},
-                .chaos = {"/HitboxChaos.json", 0, 0, 0, 0, 0, 0, 0}};
+                .sale = {"/FlashSale.json", 0, 0, 0, 0, 0, 0, 0}};
 
 static int live_flag_value(const char *json) {
     char *end;
@@ -132,10 +129,6 @@ double net_azum_buff(void) { return live_flag_get(&live_flags.azum, 0); }
 
 double net_flash_sale(void) { return live_flag_get(&live_flags.sale, 0); }
 
-/* Joke mode from the admin panel: the punch hitbox runs away from the enemy.
- * Polled every frame during a battle, so it is the cheap getter. */
-double net_hitbox_chaos(void) { return live_flag_get(&live_flags.chaos, 0); }
-
 /* Entering the shop: re-read both flags from Firebase right now instead of
  * trusting whatever the periodic poll last saw, AzumBuff included. The
  * getters keep returning 0 until the fresh replies land, so a price shown
@@ -143,5 +136,4 @@ double net_hitbox_chaos(void) { return live_flag_get(&live_flags.chaos, 0); }
 void net_live_flags_refresh(void) {
     (void)live_flag_get(&live_flags.azum, 1);
     (void)live_flag_get(&live_flags.sale, 1);
-    (void)live_flag_get(&live_flags.chaos, 1);
 }

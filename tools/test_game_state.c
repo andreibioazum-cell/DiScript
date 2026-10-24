@@ -284,8 +284,12 @@ double net_slot(void) {
     return stub_net_slot;
 }
 static double stub_class[4];
+static double stub_hp[4];
 double net_player_online(double slot) {
     return stub_online[(int)slot];
+}
+double net_player_hp(double slot) {
+    return stub_hp[(int)slot];
 }
 double net_player_class(double slot) {
     return stub_class[(int)slot];
@@ -2084,18 +2088,25 @@ static void test_eax229_and_rooms(void) {
     super_cd = 0;
     finished = 0;
     player_block = 0;
+    game_state = ST_SOLO;
+    player_class = CLASS_EBUC;
+    player->x = 400;
+    player->y = 360;
+    player->angle = atan2(-0.8, 0.6);
     ball_reset();
-    ball_aim_start(7);
-    assert(ball.aim_on == 1 && fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
-    joy_touch(130, 520, 0, 1); /* stick pushed straight up */
-    assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
-    joy_touch(130 - 30, 570 + 40, 2, 1); /* diagonal (-0.6, +0.8) */
-    assert(fabs(ball.aim_dx + 0.6) < 1e-6 && fabs(ball.aim_dy - 0.8) < 1e-6);
-    joy_touch(130, 570, 1, 1); /* release stick: aimed direction stays */
-    assert(fabs(ball.aim_dx + 0.6) < 1e-6 && fabs(ball.aim_dy - 0.8) < 1e-6);
-    ball_aim_point(400, 100); /* dragged aim also works anywhere outside 14 px */
-    assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
-    ball_aim_cancel();
+    ball_mode = 1;
+    ball_fire();
+    assert(ball.active == 1);
+    assert(fabs(ball.vx - 0.6 * BALL_SPEED) < 1e-6 && fabs(ball.vy + 0.8 * BALL_SPEED) < 1e-6);
+    ball_reset();
+
+    /* Enemy Azum dash damage is -10% (5.4 vs 6), while all other Solo enemies deal +12% damage. */
+    assert(fabs(enemy_dash_damage - 5.4) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 1.0) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 1.12) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 1.12) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 1.12) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.12) < 1e-9);
 
     /* Ball bounce scaling of ebuC (буК): 0 bounces barely scratches (0.5 dmg),
      * the 1st bounce adds +1.5 dmg, each next bounce adds +13% more than the
@@ -2125,10 +2136,9 @@ static void test_eax229_and_rooms(void) {
         enemy_revive_prot = 0;
         player->x = 400;
         player->y = 360;
+        player->angle = 0;
         super_cd = 0;
         ball_reset();
-        ball.aim_dx = 1;
-        ball.aim_dy = 0;
         ball_fire();
         for (int f = 0; f < 30 && ball.active == 1; f++)
             ball_tick();
@@ -2141,10 +2151,9 @@ static void test_eax229_and_rooms(void) {
         enemy->hp = 20;
         player->x = 80;
         player->y = 80;
+        player->angle = atan2(-0.6, -0.8);
         super_cd = 0;
         ball_reset();
-        ball.aim_dx = -0.8;
-        ball.aim_dy = -0.6;
         ball_fire();
         for (int f = 0; f < 120 && ball.bounces < 2; f++)
             ball_tick();
@@ -3652,7 +3661,7 @@ int main(void) {
     enemy_start_grab();
     for (int frame = 0; frame < 400 && egrab_state != 0; frame++)
         tick_enemy_grab();
-    assert(fabs(player->hp - 5.5) < 1e-6);
+    assert(fabs(player->hp - (10.0 - 4.5 * ENEMY_OTHER_DAMAGE_MULT)) < 1e-6);
     assert(pthrow_t > 0);
 
     egrab_state = 0;
@@ -3780,8 +3789,8 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and eight cheat labels. */
-    assert(adm_text_n == 13);
+    /* The title, close button, orb, two tabs and seven cheat labels. */
+    assert(adm_text_n == 12);
     assert(adm_has_text(tr_admin_title()) == 1);
     assert(adm_has_text(admin_orb_label()) == 1);
     assert(adm_has_text(language == 1 ? "Читы" : "Cheats") == 1);
@@ -3789,6 +3798,7 @@ int main(void) {
     assert(adm_has_text("ADMIN") == 0);
     assert(adm_has_text(ADMIN_NICK) == 0);
     assert(adm_has_text(": ") == 0);
+    assert(adm_has_text("Шедевро") == 0);
     for (int i = 0; i < ADMIN_CHEATS; i++)
         assert(adm_has_text(admin_cheat_label(i)) == 1);
 
@@ -3921,34 +3931,52 @@ int main(void) {
     }
     cups = 0;
 
-    /* Cheat 7 ("Отскоки буКа" / "ebuC bounces") draws all bounce segments. */
+    /* Cheat 6 ("Отскоки буКа" / "ebuC bounces") draws all bounce segments, and
+     * any segment touching an enemy turns red (0xFF2D2D). */
     {
-        int calls_off, calls_on;
+        int calls_off, calls_on, red_hit = 0, red_miss = 0;
         language = 1;
-        assert(strcmp(admin_cheat_label(7), "Отскоки буКа") == 0);
+        assert(strcmp(admin_cheat_label(6), "Отскоки буКа") == 0);
         language = 0;
-        assert(strcmp(admin_cheat_label(7), "ebuC bounces") == 0);
+        assert(strcmp(admin_cheat_label(6), "ebuC bounces") == 0);
         language = 1;
         game_state = ST_SOLO;
         finished = 0;
         player_class = CLASS_EBUC;
         player->x = 300;
         player->y = 500;
+        player->angle = 0; /* horizontal right */
+        enemy->hp = 20;
+        enemy->x = 700;
+        enemy->y = 100; /* far above the horizontal y=500 bounce line */
         ball_reset();
         ball_mode = 1;
-        ball.aim_on = 1;
-        ball.aim_dx = 0.6;
-        ball.aim_dy = -0.8;
         adm_reset_log();
         draw_ball();
         calls_off = adm_color_n;
-        admin_press_cheat(7);
+        admin_press_cheat(6);
         assert(admin_cheat_ball_path() == 1);
         adm_reset_log();
         draw_ball();
         calls_on = adm_color_n;
         assert(calls_on >= calls_off + 25);
-        admin_press_cheat(7);
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if ((adm_colors[ci] & 0x00FFFFFFu) == 0x00FF2D2Du)
+                red_miss++;
+        }
+        assert(red_miss == 0);
+
+        enemy->x = 700;
+        enemy->y = 500; /* directly on the bounce line -> touching segment turns red */
+        adm_reset_log();
+        draw_ball();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if ((adm_colors[ci] & 0x00FFFFFFu) == 0x00FF2D2Du)
+                red_hit++;
+        }
+        assert(red_hit >= 2);
+
+        admin_press_cheat(6);
         assert(admin_cheat_ball_path() == 0);
         cheat_stain = 0;
         ball_reset();

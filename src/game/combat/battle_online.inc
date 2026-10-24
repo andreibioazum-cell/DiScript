@@ -390,7 +390,6 @@ static void update_online(void) {
     tick_hurt_fades();
     tick_remote_punches();
     update_aim();
-    chaos_tick(); /* joke mode runs online too */
     ball_online_tick(); /* буК magic projectile */
     if (finished != 0) {
         return;

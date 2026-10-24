@@ -38,7 +38,6 @@
 #include "include/prototypes/combat/battle_abilities.inc"
 #include "include/prototypes/combat/battle_online.inc"
 #include "include/prototypes/combat/battle_actions_fx.inc"
-#include "include/prototypes/combat/battle_chaos.inc"
 #include "include/prototypes/combat/battle_ball.inc"
 #include "include/prototypes/combat/battle_super_render.inc"
 #include "include/prototypes/combat/battle_hitboxes.inc"

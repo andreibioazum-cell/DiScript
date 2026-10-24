@@ -102,7 +102,7 @@ static void tick_dash_solo_hit(void) {
                 dash_hit = 1;
                 enemy_damage_turret(ti, azum_dash_damage_for());
                 if (revive_prot <= 0) {
-                    take_damage(turret_counter_damage);
+                    take_damage(turret_counter_damage * enemy_damage_mult_for(enemy_class));
                     ds_log("dash hit enemy turret");
                 }
             }

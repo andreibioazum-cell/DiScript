@@ -200,13 +200,14 @@ static void update_enemy(void) {
             if (target == 0) {
                 enemy->hit = 1;
                 if (revive_prot <= 0) {
-                    take_damage_at(class_punch_damage_for(enemy_class, enemy_level), enemy->x, enemy->y);
+                    take_damage_at(class_punch_damage_for(enemy_class, enemy_level) * enemy_damage_mult_for(enemy_class),
+                                   enemy->x, enemy->y);
                     if (enemy_class == CLASS_SANTA) {
                         if (player_poison <= 0) {
                             player_poison_tick = santa_poison_tick_interval;
                         }
                         player_poison = santa_poison_time_for(enemy_level);
-                        player_poison_damage = santa_poison_damage_for(enemy_level);
+                        player_poison_damage = santa_poison_damage_for(enemy_level) * enemy_damage_mult_for(enemy_class);
                     }
                     ds_log("enemy punch! hp %g", player->hp);
                     if (finished != 0) {
@@ -215,7 +216,8 @@ static void update_enemy(void) {
                 }
             } else if (target >= 1 && target <= turret_max) {
                 enemy->hit = 1;
-                damage_turret(target - 1, class_punch_damage_for(enemy_class, enemy_level));
+                damage_turret(target - 1,
+                              class_punch_damage_for(enemy_class, enemy_level) * enemy_damage_mult_for(enemy_class));
                 if (enemy_apply_damage(turret_counter_damage) == 1) {
                     return;
                 }

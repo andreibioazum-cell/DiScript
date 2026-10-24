@@ -167,7 +167,7 @@
     <code>gifts</code>, уровни всех классов, <code>bp/bpx</code>, <code>playtime</code>,
     <code>pd_consent_*</code> и секрет записи <code>w</code>), живые слоты
     <code>rooms/*/players</code>, <code>event</code>, <code>banner</code>,
-    <code>AzumBuff</code>, <code>FlashSale</code>, <code>HitboxChaos</code>, структура комнат.
+    <code>AzumBuff</code>, <code>FlashSale</code>, структура комнат.
     Список полей сверяется с <code>firebase.rules.json</code> тестом
     <code>tools/test_admin_panel.py</code>.
   </p>
@@ -195,19 +195,6 @@
     <button data-flag="FlashSale" data-v="0">FlashSale: выкл</button>
     <span class="muted" id="flagNow"></span>
   </div>
-
-  <h3>Шедевро-режим</h3>
-  <div class="row">
-    <button data-flag="HitboxChaos" data-v="1">Шедевро-хитбоксы: вкл</button>
-    <button data-flag="HitboxChaos" data-v="0">Шедевро-хитбоксы: выкл</button>
-  </div>
-  <p class="muted" style="margin:8px 0 0">
-    Твой удар больше не бьёт: хитбокс разворачивается от врага и убегает, а если
-    всё-таки попал - улетает от него. По арене летает шедевро-враг: кубик с
-    глазами, который скачет, телепортируется, сыплет искры и болтает ерунду.
-    Работает в любом бою, и в соло, и в онлайне. Жизни, кубки и сеть не
-    трогаются - это шутка, а не чит.
-  </p>
 
   <h3>Баннер в лобби</h3>
   <div class="row">
@@ -363,11 +350,11 @@ const flag = ()      => ({t:"num", lo:0, hi:1});
 const str  = (min, max) => ({t:"str", min, max});
 const secret = ()    => ({t:"str", min:1, max:64, note:"секрет записи «w»"});
 
-/* Корневые узлы игры. AzumBuff, FlashSale и HitboxChaos читает live_flags.inc, event и
+/* Корневые узлы игры. AzumBuff и FlashSale читает live_flags.inc, event и
  * banner - room_control.inc/room_stream.inc, bans - moderation.inc. */
-const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","HitboxChaos"];
+const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale"];
 /* Узлы, которые читаются по отдельности, если корень закрыт правилами. */
-const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","HitboxChaos"];
+const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale"];
 
 const USER_REQ  = ["nick","cups","candies","cls","azum","santa","level","levels"];
 /* Подарки - отдельный узел users/<ник>/gifts со своими счётчиками. */
@@ -853,7 +840,7 @@ function analyze(){
     const bad = badValue(num(0, EVENT_MAX), d.event);
     if(bad) add("unknown_field", "event", "значение ивента вне 0.." + EVENT_MAX + ": " + bad, JSON.stringify(d.event));
   }
-  for(const f of ["AzumBuff","FlashSale","HitboxChaos"])
+  for(const f of ["AzumBuff","FlashSale"])
     if(f in d){
       const bad = badValue(flag(), d[f]);
       if(bad) add("unknown_field", f, "флаг должен быть 0 или 1: " + bad, JSON.stringify(d[f]));
@@ -1019,7 +1006,6 @@ function stats(){
     ["Банов", Object.keys(d.bans||{}).length],
     ["Ивент", (d.event ?? 0) + " · " + (EVENT_NAMES[d.event] || "?")],
     ["AzumBuff / FlashSale", (d.AzumBuff ?? 0) + " / " + (d.FlashSale ?? 0)],
-    ["Шедевро-хитбоксы", (d.HitboxChaos ?? 0)],
     ["Мусора найдено", junk]
   ];
   $("#stats").innerHTML = c.map(([k,v]) =>
@@ -1027,8 +1013,7 @@ function stats(){
   const ev = $("#evNow");
   if(ev) ev.textContent = "сейчас в базе: " + (d.event ?? "?");
   const fl = $("#flagNow");
-  if(fl) fl.textContent = "в базе: AzumBuff=" + (d.AzumBuff ?? "-") + ", FlashSale=" + (d.FlashSale ?? "-") +
-    ", HitboxChaos=" + (d.HitboxChaos ?? "-");
+  if(fl) fl.textContent = "в базе: AzumBuff=" + (d.AzumBuff ?? "-") + ", FlashSale=" + (d.FlashSale ?? "-");
   const bt = $("#bannerText");
   if(bt && d.banner && typeof d.banner === "object" && typeof d.banner.text === "string" && !bt.value)
     bt.value = d.banner.text;

@@ -224,6 +224,12 @@ static double azum_dash_damage_for(void) {
     return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }
 
+#define ENEMY_OTHER_DAMAGE_MULT 1.12
+
+static double enemy_damage_mult_for(double cls) {
+    return cls == CLASS_AZUM ? 1.0 : ENEMY_OTHER_DAMAGE_MULT;
+}
+
 static double enemy_azum_dash_damage_for(void) {
     return enemy_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }

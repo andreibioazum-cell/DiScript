@@ -9,7 +9,6 @@ static void start_punch_now(void) {
     punch_left = punch_time;
     punch_cd = punch_cooldown;
     queued_punch = 0;
-    chaos_punch_escape();
     punch_snd();
 }
 
@@ -159,6 +158,11 @@ static void fire_super(void) {
         return;
     }
     if (player_class != 2 && player_class != 3) {
+        return;
+    }
+    if (player_class == CLASS_EBUC && ball_mode == 1) {
+        queued_super = 0;
+        ball_fire();
         return;
     }
     if (super_cd > 0) {

@@ -341,8 +341,6 @@ static void update_game(void) {
     tick_dash();
     tick_candies();
     follow_punch();
-    chaos_tick();
-    ball_aim_tick();
     ball_tick();
     ball_fade_tick();
     super_cd = tick_down(super_cd);
@@ -358,7 +356,7 @@ static void update_game(void) {
             punch->hit = 1;
             enemy_damage_turret(enemy_turret_target - 1, astra_ability_self_damage());
             if (revive_prot <= 0) {
-                if (take_damage(turret_counter_damage) == 1) {
+                if (take_damage(turret_counter_damage * enemy_damage_mult_for(enemy_class)) == 1) {
                     return;
                 }
             }

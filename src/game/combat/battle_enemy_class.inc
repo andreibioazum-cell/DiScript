@@ -205,7 +205,7 @@ static void enemy_snow_explode(void) {
                 player_freeze = santa_freeze_time_for(enemy_level);
                 player_freeze_slow = super_freeze_slow;
             }
-            take_damage_at(santa_super_damage, enemy_boom_x, enemy_boom_y);
+            take_damage_at(santa_super_damage * enemy_damage_mult_for(enemy_class), enemy_boom_x, enemy_boom_y);
         }
     }
 }

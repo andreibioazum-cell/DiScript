@@ -1,13 +1,8 @@
 /* ebuC (буК) has two ults, picked by the small button above the pad: dispenser
- * and magic blue projectile (renamed from brick). The projectile is aimed by
- * hand - the tap starts a 3-2-1 countdown over the cube, a dragged finger
- * points the throw (only when touching near the cube), and the projectile
- * leaves that way when the count hits zero and bounces off the walls (ten
- * bounces, then it just bursts). Lifting the finger early keeps the aim. ebuC
- * only, and nothing in the game charges by holding. */
+ * and magic blue projectile. Pressing the ult pad in projectile mode fires the
+ * ball immediately in the direction ebuC is currently facing (no manual aiming
+ * or countdown), bouncing off the walls up to ten times before bursting. */
 
-#define BALL_COUNT_FROM 3.0           /* countdown digits: 3, 2, 1 */
-#define BALL_COUNT_STEP 0.7           /* seconds per digit */
 #define BALL_SPEED 620.0              /* initial px per second */
 #define BALL_BOUNCE_ACCEL 1.04        /* +4% speed on every wall bounce */
 #define BALL_RADIUS 24.0
@@ -24,8 +19,6 @@ typedef struct {
     double x, y, vx, vy;
     double bounces, t, spin, shot;
     double boom_x, boom_y, boom_t;
-    /* Aiming: the countdown runs in aim_t, the throw follows aim_dx/aim_dy. */
-    double aim_on, aim_id, aim_t, aim_dx, aim_dy;
     double trail_x[BALL_TRAIL], trail_y[BALL_TRAIL], trail_a[BALL_TRAIL];
 } UltBall;
 
@@ -35,8 +28,6 @@ static UltBall ball;
  * can throw either his dispenser or this magic blue projectile, and the small
  * button above the pad switches between them: 0 - dispenser (blue),
  * 1 - projectile (yellow indicator). */
-static double ball_mode;
-
 static double ult_mode_r(void) { return 26; }
 static double ult_mode_x(void) { return atk2_x; }
 static double ult_mode_y(void) { return atk2_y - battle_pad_r() - ult_mode_r() - 10; }
@@ -53,8 +44,8 @@ static void ult_mode_toggle(void) {
 }
 
 /* Shown only where both modes exist, so the pad keeps its meaning everywhere
- * else. No text – just color: yellow = magic blue projectile (former brick),
- * blue = dispenser. Only black outline, no white. */
+ * else. No text - just color: yellow = magic blue projectile, blue = dispenser.
+ * Only black outline, no white. */
 static void draw_ult_mode(void) {
     double x = ult_mode_x();
     double y = ult_mode_y();
@@ -80,11 +71,6 @@ static void ball_reset(void) {
     ball.boom_x = 0;
     ball.boom_y = 0;
     ball.boom_t = 0;
-    ball.aim_on = 0;
-    ball.aim_id = -1;
-    ball.aim_t = 0;
-    ball.aim_dx = 1;
-    ball.aim_dy = 0;
     ball.shot = 0;
     ball_mode = 0;
     remote_bricks_reset();
@@ -109,103 +95,20 @@ static void ball_trail_push(double x, double y) {
     ball.trail_a[0] = 1;
 }
 
-/* The pad was pressed in projectile mode: start the countdown, steered by the
- * joystick (or dragged aim when the stick is neutral). */
-static void ball_aim_start(double id) {
-    if (ball.aim_on == 1 || ball.active == 1) {
-        return;
-    }
-    if (finished != 0 || player_block == 1 || player_grabbed() == 1) {
-        return;
-    }
-    if (player_stun > 0 || player_freeze > 0 || super_cd > 0) {
-        return;
-    }
-    ball.aim_on = 1;
-    ball.aim_id = id;
-    ball.aim_t = BALL_COUNT_FROM * BALL_COUNT_STEP;
-    if (joy.dx != 0 || joy.dy != 0) {
-        double jl = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
-        ball.aim_dx = joy.dx / jl;
-        ball.aim_dy = joy.dy / jl;
-    } else {
-        ball.aim_dx = cos(player->angle);
-        ball.aim_dy = sin(player->angle);
-    }
-}
-
-/* The digit the countdown shows right now: 3, 2 or 1. */
-static double ball_aim_digit(void) {
-    double d = ceil(ball.aim_t / BALL_COUNT_STEP);
-    if (d < 1) {
-        d = 1;
-    }
-    if (d > BALL_COUNT_FROM) {
-        d = BALL_COUNT_FROM;
-    }
-    return d;
-}
-
-/* Steering the joystick turns the projectile aim directly in 360 degrees. */
-static void ball_aim_joy(double dx, double dy) {
-    double len = sqrt(dx * dx + dy * dy);
-    if (ball.aim_on == 0 || len <= 0.0001) {
-        return;
-    }
-    ball.aim_dx = dx / len;
-    ball.aim_dy = dy / len;
-}
-
-/* Dragging from the ult pad out into the arena also aims when the joystick is idle. */
-static void ball_aim_point(double x, double y) {
-    double dx = x - player->x;
-    double dy = y - player->y;
-    double len = sqrt(dx * dx + dy * dy);
-    if (ball.aim_on == 0 || len < 14) {
-        return;
-    }
-    ball.aim_dx = dx / len;
-    ball.aim_dy = dy / len;
-}
-
-static void ball_aim_cancel(void) {
-    ball.aim_on = 0;
-    ball.aim_id = -1;
-    ball.aim_t = 0;
-}
-
-/* The countdown is over: the magic projectile is thrown. Lifting the stick early
- * keeps the last aimed direction. */
-static void ball_aim_tick(void) {
-    if (ball.aim_on == 0) {
-        return;
-    }
-    if (finished != 0 || player_block == 1 || player_grabbed() == 1 || player_stun > 0 || player_freeze > 0) {
-        ball_aim_cancel();
-        return;
-    }
-    if (joy.dx != 0 || joy.dy != 0) {
-        ball_aim_joy(joy.dx, joy.dy);
-    }
-    ball.aim_t = ball.aim_t - dt;
-    if (ball.aim_t > 0) {
-        return;
-    }
-    ball_aim_cancel();
-    ball_fire();
-}
-
 static void ball_fire(void) {
+    double dx, dy;
     if (finished != 0 || ball.active == 1 || player_block == 1 || player_grabbed() == 1) {
         return;
     }
     if (player_stun > 0 || player_freeze > 0 || super_cd > 0) {
         return;
     }
+    dx = cos(player->angle);
+    dy = sin(player->angle);
     ball.x = player->x;
     ball.y = player->y;
-    ball.vx = ball.aim_dx * BALL_SPEED;
-    ball.vy = ball.aim_dy * BALL_SPEED;
+    ball.vx = dx * BALL_SPEED;
+    ball.vy = dy * BALL_SPEED;
     ball.bounces = 0;
     ball.t = 0;
     ball.spin = 0;
@@ -214,7 +117,7 @@ static void ball_fire(void) {
     if (game_state == ST_ONLINE) {
         /* Online the throw is published, not simulated for the others: every
          * client runs the same flight from the origin and the direction. */
-        net_publish_brick(player->x / screen_w, player->y / screen_h, ball.aim_dx, ball.aim_dy, ball.shot);
+        net_publish_brick(player->x / screen_w, player->y / screen_h, dx, dy, ball.shot);
     }
     super_cd = super_cd_time;
     ability_snd(STATION_SOUND);
@@ -297,60 +200,17 @@ static void ball_tick(void) {
     ball_trail_push(ball.x, ball.y);
 }
 
-/* Aim preview: yellow dots only, no hitbox circle near the cube. */
-static void draw_ball_aim(void) {
-    double i = 1;
-    double len = punch_reach * 2.4;
-    if (ball.aim_on == 0) {
-        return;
-    }
-    while (i <= 5) {
-        double k = i / 6;
-        circle(player->x + ball.aim_dx * len * k, player->y + ball.aim_dy * len * k, 3 + 4 * (1 - k),
-               ((unsigned)(int)(150 + 90 * k) << 24) | 0x00FFD54F);
-        i = i + 1;
-    }
-}
-
-/* The digit of the countdown, drawn with the pads: the fight itself is drawn
- * under the colour correction, and a 3 lost under it is not a warning. */
-static void draw_ball_count(void) {
-    const char *digit;
-    double d = ball_aim_digit();
-    double sc = 1.7;
-    if (ball.aim_on == 0) {
-        return;
-    }
-    digit = d > 2 ? "3" : (d > 1 ? "2" : "1");
-    text_scaled(digit, player->x - text_ink_width(digit) * sc / 2, player->y - 118,
-                (unsigned)0xFFFFD54F, sc);
-}
-
 static void draw_ball(void) {
     double i = 0;
     double a;
     draw_ult_mode();
     if (admin_cheat_ball_path() == 1) {
         if (ball.active == 1) {
-            draw_ball_path_from(ball.x, ball.y, ball.vx, ball.vy, ball.bounces, ball.t, 0x0056CCF2u);
-        } else if (ball.aim_on == 1) {
-            draw_ball_path_from(player->x, player->y, ball.aim_dx * BALL_SPEED, ball.aim_dy * BALL_SPEED, 0, 0,
-                                0x00FFD54Fu);
+            draw_ball_path_from(ball.x, ball.y, ball.vx, ball.vy, ball.bounces, ball.t, 0x0056CCF2u, 1);
         } else if (player_class == CLASS_EBUC && ball_mode == 1 && finished == 0) {
-            double dx = cos(player->angle);
-            double dy = sin(player->angle);
-            if (joy.dx != 0 || joy.dy != 0) {
-                double jl = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
-                dx = joy.dx / jl;
-                dy = joy.dy / jl;
-            }
-            draw_ball_path_from(player->x, player->y, dx * BALL_SPEED, dy * BALL_SPEED, 0, 0, 0x0056CCF2u);
+            draw_ball_path_from(player->x, player->y, cos(player->angle) * BALL_SPEED, sin(player->angle) * BALL_SPEED,
+                                0, 0, 0x0056CCF2u, 1);
         }
-    }
-    draw_ball_aim();
-    if (ball.aim_on == 1) {
-        /* Armed: the countdown runs, the joystick steers the aim. */
-        ring(atk2_x, atk2_y, battle_pad_r() + 9, 5, 0xFFFFD54F);
     }
     while (i < BALL_TRAIL) {
         if (ball.trail_a[(int)i] > 0) {

@@ -64,7 +64,6 @@
 #include "combat/battle_fighter_look.inc"
 #include "combat/battle_screen_fx.inc"
 #include "combat/battle_render.inc"
-#include "combat/battle_chaos.inc"
 #include "combat/battle_ball.inc"
 #include "combat/battle_ball_online.inc"
 #include "combat/battle_event_plates.inc"

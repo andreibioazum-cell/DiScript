@@ -98,7 +98,6 @@ double net_slot(void);
  * fresh successful read of its own Firebase node. */
 double net_azum_buff(void);
 double net_flash_sale(void);
-double net_hitbox_chaos(void);
 /* Force an immediate re-read of both live flags (entering the shop). */
 void net_live_flags_refresh(void);
 double net_event(void);

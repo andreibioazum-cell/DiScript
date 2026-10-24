@@ -196,7 +196,6 @@ static void draw_online(void) {
         }
     }
     draw_ability_hitboxes();
-    chaos_draw();
     draw_ball();
     draw_remote_bricks();
     draw_gift();
@@ -308,9 +307,6 @@ static void joy_touch(double x, double y, double action, double id) {
         joy.ox = 0;
         joy.oy = 0;
     }
-    if (d > 6) {
-        ball_aim_joy(dx, dy);
-    }
     if (d > joy.r * 0.15) {
         /* Use a unit direction once outside the deadzone; speed is constant
          * whether the stick is near its center or at the rim. */
@@ -332,7 +328,6 @@ static void touch_game(double x, double y, double action, double id) {
     if (action == 3) {
         blk_id = -1;
         player_block = 0;
-        ball_aim_cancel();
         drop_joy();
         return;
     }
@@ -357,26 +352,8 @@ static void touch_game(double x, double y, double action, double id) {
      * the color on it shows what the next tap throws. */
     if (player_class == CLASS_EBUC && (game_state == ST_SOLO || game_state == ST_ONLINE) && action == 0 &&
         ult_mode_hit(x, y) == 1) {
-        ball_aim_cancel();
         ult_mode_toggle();
         return;
-    }
-    /* Aiming the magic projectile: the joystick steers the shot directly; if
-     * the joystick is idle, dragging the ult finger out of its pad aims too. */
-    if (ball.aim_on == 1 && id == ball.aim_id) {
-        if (action == 2) {
-            if (joy.dx == 0 && joy.dy == 0 && dist(x, y, atk2_x, atk2_y) > battle_pad_r() + 8) {
-                ball_aim_point(x, y);
-            }
-            return;
-        }
-        if (action == 1 || action == 3) {
-            ball.aim_id = -1;
-            if (action == 3) {
-                ball_aim_cancel();
-            }
-            return;
-        }
     }
     /* The three combat buttons sit close together, so the nearest one wins the
      * press. Punch and super go off the moment the finger lands - a hit that
@@ -394,9 +371,6 @@ static void touch_game(double x, double y, double action, double id) {
         if (action == 0 && db <= pr && db <= dp && db <= dsu) {
             blk_id = id;
             player_block = 1;
-            /* A guard and a throw do not mix: the aim goes away with no
-             * countdown left behind. */
-            ball_aim_cancel();
             return;
         }
         if (id == blk_id) {
@@ -407,13 +381,12 @@ static void touch_game(double x, double y, double action, double id) {
             return;
         }
         if (class_has_super(player_class) == 1) {
-            /* The ult pad belongs to its own finger and fires on the press:
-             * nothing in the game waits for a hold. In projectile mode the press
-             * only starts the countdown, and the throw comes later. */
-            if (action == 0 && dsu <= pr && dsu <= dp && player_block == 0 && ball.aim_on == 0) {
-                if (player_class == CLASS_EBUC && ball_mode == 1 &&
-                    (game_state == ST_SOLO || online_ready == 1)) {
-                    ball_aim_start(id);
+            /* The ult pad belongs to its own finger and fires immediately on press. */
+            if (action == 0 && dsu <= pr && dsu <= dp && player_block == 0) {
+                if (player_class == CLASS_EBUC && ball_mode == 1) {
+                    if (game_state == ST_SOLO || online_ready == 1) {
+                        ball_fire();
+                    }
                     return;
                 }
                 if (game_state == ST_ONLINE) {

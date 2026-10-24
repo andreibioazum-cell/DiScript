@@ -19,8 +19,6 @@ double cheat_speed;
 double cheat_nocd;
 double cheat_cc;
 double cheat_estun;
-/* Joke mode from this panel: masterpiece hitboxes without the web flag. */
-double cheat_chaos;
 /* Trajectory preview: all bounce directions of ebuC's (буК) projectile. */
 double cheat_ball_path;
 /* Mark: the admin panel put this stun on the enemy, not the game. Such a stun

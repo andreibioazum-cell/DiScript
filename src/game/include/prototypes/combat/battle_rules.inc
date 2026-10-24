@@ -21,3 +21,4 @@ static double santa_freeze_time_for(double lv);
 static double azum_dash_damage_for(void);
 static void update_azum_buff(void);
 static double enemy_azum_dash_damage_for(void);
+static double enemy_damage_mult_for(double cls);

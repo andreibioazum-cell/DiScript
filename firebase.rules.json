@@ -9,12 +9,6 @@
       ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
     },
 
-    "HitboxChaos": {
-      ".read": true,
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
-      ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
-    },
-
     "FlashSale": {
       ".read": true,
       ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",

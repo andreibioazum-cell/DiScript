@@ -51,8 +51,8 @@ static double admin_panel_w(void) {
 /* Row height: one cheat button. 20% more than before. */
 static double admin_row_h(void) { return clamp(screen_h * 0.066, 36, 76); }
 
-/* Eight cheats: four rows of two buttons. */
-#define ADMIN_CHEATS 8
+/* Seven cheats: three rows of two and one button on the fourth row. */
+#define ADMIN_CHEATS 7
 static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
@@ -140,9 +140,6 @@ static const char *admin_cheat_label(double idx) {
         if (idx == 5) {
             return "Стан врага";
         }
-        if (idx == 6) {
-            return "Шедевро-хитбоксы";
-        }
         return "Отскоки буКа";
     }
     if (idx == 0) {
@@ -162,9 +159,6 @@ static const char *admin_cheat_label(double idx) {
     }
     if (idx == 5) {
         return "Stun enemy";
-    }
-    if (idx == 6) {
-        return "Masterpiece hitboxes";
     }
     return "ebuC bounces";
 }
@@ -188,9 +182,6 @@ static double admin_cheat_value(double idx) {
     if (idx == 5) {
         return cheat_estun;
     }
-    if (idx == 6) {
-        return cheat_chaos;
-    }
     return cheat_ball_path;
 }
 
@@ -201,7 +192,7 @@ static double admin_any_cheat_on(void) {
         return 0;
     }
     if (cheat_god == 1 || cheat_damage == 1 || cheat_speed == 1 || cheat_nocd == 1 || cheat_cc == 1 ||
-        cheat_estun == 1 || cheat_chaos == 1 || cheat_ball_path == 1) {
+        cheat_estun == 1 || cheat_ball_path == 1) {
         return 1;
     }
     return 0;
@@ -260,12 +251,6 @@ static void admin_press_cheat(double idx) {
         cheat_estun = v;
     }
     if (idx == 6) {
-        cheat_chaos = v;
-        if (v == 1) {
-            ds_log("admin: masterpiece hitboxes on");
-        }
-    }
-    if (idx == 7) {
         cheat_ball_path = v;
         if (v == 1) {
             ds_log("admin: ebuC bounce path on");
@@ -299,11 +284,6 @@ static double admin_cheat_speed_mult(void) {
 
 static double admin_cheat_nocd(void) {
     return is_admin() == 1 && cheat_nocd == 1 ? 1 : 0;
-}
-
-/* Joke mode switched on right here, without the web panel flag. */
-static double admin_cheat_chaos(void) {
-    return is_admin() == 1 && cheat_chaos == 1 ? 1 : 0;
 }
 
 static double admin_cheat_ball_path(void) {

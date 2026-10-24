@@ -8,7 +8,6 @@ static void reset_battle(void) {
         /* A new fight starts with a standing cube: the momentum of the last fight must
          * not carry it out of the centre on the first frame. */
     player_vel_reset();
-    chaos_reset();
     ball_reset();
     player->max_hp = astra_ability_max_hp_for(player_class, astra_ability_local());
     player->hp = player->max_hp;
