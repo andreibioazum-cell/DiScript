@@ -2276,20 +2276,14 @@ static void test_eax229_and_rooms(void) {
         screen_h = saved_h;
     }
 
-    /* Anyone else: hidden & no scrolling until Dimasi4ek229 is met in an online
-     * room; once earned, all 6 cards appear and vertical drag scrolling works. */
+    /* Anyone else: "mov eax, 0x229" IS in their achievements list (locked
+     * before meeting Dimasi4ek229, unlocked after), so all 6 cards and vertical
+     * drag scrolling are present even before unlocking it. */
     achievement_mask = 0;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     game_state = ST_LOBBY;
     check_meet_eax229();
     assert(has_achievement(ACH_EAX229) == 0);
-    assert(ach_visible_count() == 5 && ach_scroll_needed() == 0);
-    game_state = ST_ONLINE;
-    stub_net_slot = 0;
-    stub_online[1] = 1;
-    snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "%s", "Dimasi4ek229");
-    check_meet_eax229();
-    assert(has_achievement(ACH_EAX229) == 1);
     assert(ach_visible_count() == 6);
     {
         int saved_w = screen_w, saved_h = screen_h;
@@ -2304,7 +2298,7 @@ static void test_eax229_and_rooms(void) {
         adm_reset_log();
         draw_achievements();
         assert(adm_has_text("mov eax, 0x229") == 1);
-        /* Drag upward: list scrolls down smoothly and glides with inertia. */
+        /* Drag upward while "mov eax, 0x229" is still locked: scroll works! */
         logic_touch(ach_x() + 80, ach_view_top() + 300, 0, 92);
         logic_touch(ach_x() + 80, ach_view_top() + 240, 2, 92);
         logic_touch(ach_x() + 80, ach_view_top() + 240, 1, 92);
@@ -2320,6 +2314,13 @@ static void test_eax229_and_rooms(void) {
         screen_w = saved_w;
         screen_h = saved_h;
     }
+    game_state = ST_ONLINE;
+    stub_net_slot = 0;
+    stub_online[1] = 1;
+    snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "%s", "Dimasi4ek229");
+    check_meet_eax229();
+    assert(has_achievement(ACH_EAX229) == 1);
+    assert(ach_visible_count() == 6 && ach_scroll_allowed() == 1);
     stub_online[1] = 0;
     stub_nicks[1][0] = 0;
     game_state = ST_LOBBY;

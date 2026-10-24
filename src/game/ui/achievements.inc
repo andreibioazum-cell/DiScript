@@ -1,10 +1,11 @@
 /* Achievements screen and vertical scroll.
  *
- * The secret "mov eax, 0x229" achievement (meeting Dimasi4ek229 in an online
- * room) is hidden until earned, and Dimasi4ek229 himself never has it.
- * Players without "mov eax, 0x229" see only the 5 regular achievements on one
- * static screen with no scrolling; players who have met Dimasi4ek229 see all 6
- * achievements inside a 5-card viewport and can scroll smoothly up and down. */
+ * Every player except Dimasi4ek229 himself has "mov eax, 0x229" in their
+ * achievements list (locked "???" until earned, open afterwards): whenever
+ * that achievement is in the list (6 cards total), vertical scrolling and the
+ * scrollbar are active regardless of whether it has been unlocked yet.
+ * For Dimasi4ek229 himself, the "meet Dimasi4ek229" achievement is absent from
+ * the list (5 cards total), so the list fits on one static screen with no scroll. */
 
 static double ach_scroll;
 static double ach_vel;
@@ -82,7 +83,7 @@ static const char *achievement_desc(double i) {
 }
 
 static double ach_scroll_allowed(void) {
-    return has_achievement(ACH_EAX229) == 1 ? 1 : 0;
+    return nick_is_dimasi229(net_login_nick()) == 1 ? 0 : 1;
 }
 
 static double ach_visible_count(void) {
