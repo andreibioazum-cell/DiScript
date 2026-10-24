@@ -4481,6 +4481,160 @@ int main(void) {
         stub_bpx = 0;
     }
 
+    /* Combat update:
+     * 1) Frontal block absorbs 75% of incoming damage (block_guard = 0.25).
+     * 2) Astra's super starts as an instant-on-press 0.4 s purple shield that
+     *    blocks 100% of damage; blocking >=1 hit unlocks Grab for 0.8 s, and
+     *    only then can Grab fire (otherwise Grab disappears back to Block + CD).
+     * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.2 s. */
+    {
+        assert(fabs(block_guard - 0.25) < 1e-9);
+        assert(fabs(enemy_windup - 0.20) < 1e-9);
+        dt = 1.0 / 60.0;
+
+        /* 1) Normal frontal block cuts 75% of damage for player and bot. */
+        game_state = ST_SOLO;
+        finished = 0;
+        cheat_god = 0;
+        cheat_nocd = 0;
+        cheat_damage = 0;
+        player_class = CLASS_ORDINARY;
+        player_level = 0;
+        player->max_hp = 20;
+        player->hp = 20;
+        player->x = 400;
+        player->y = 400;
+        player->angle = 0;
+        player_block = 1;
+        take_damage_at(4.0, 500, 400);
+        assert(fabs(player->hp - 19.0) < 1e-9);
+        player_block = 0;
+
+        enemy_class = CLASS_ORDINARY;
+        enemy_revive_prot = 0;
+        enemy->max_hp = 20;
+        enemy->hp = 20;
+        enemy->x = 500;
+        enemy->y = 400;
+        enemy->angle = pi;
+        enemy_block_left = 0.5;
+        enemy_apply_damage_at(4.0, 400, 400);
+        assert(fabs(enemy->hp - 19.0) < 1e-9);
+        enemy_block_left = 0;
+
+        /* 2a) Astra super activates immediately on press (action 0, no release)
+         *     as a 0.4 s purple shield; expiring unhit starts cooldown without Grab. */
+        screen_w = 1080;
+        screen_h = 1920;
+        atk_x = screen_w - 132;
+        atk_y = screen_h - 138;
+        atk2_x = screen_w - 132;
+        atk2_y = screen_h - 330;
+        blk_x = screen_w - 258;
+        blk_y = screen_h - 234;
+        blk_id = -1;
+        player_block = 0;
+        player_class = CLASS_ASTRA;
+        player_level = 0;
+        player->max_hp = 18;
+        player->hp = 18;
+        astra_state = 0;
+        astra_cd = 0;
+        astra_parry_t = 0;
+        astra_parry_blocked = 0;
+        astra_grab_ready_t = 0;
+        player_stun = 0;
+        player_freeze = 0;
+        pgrab_active = 0;
+        language = 1;
+        adm_reset_log();
+        draw_controls();
+        assert(adm_has_text("Блок") == 1 && adm_has_text("Захват") == 0);
+
+        touch_game(atk2_x, atk2_y, 0, 7); /* press only - not released! */
+        assert(astra_state == 0);
+        assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.4) < 1e-9);
+        assert(astra_grab_ready_t == 0);
+        stub_circle_color = 0;
+        draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
+        assert(stub_circle_color == 0x38B35CFF);
+
+        for (int f = 0; f < 25; f++)
+            tick_astra();
+        assert(astra_parry_t == 0 && astra_grab_ready_t == 0 && astra_state == 0);
+        assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
+        touch_game(atk2_x, atk2_y, 1, 7);
+
+        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun and unlocks Grab
+         *     for 0.8 s; not pressing within 0.8 s reverts to Block + cooldown. */
+        astra_cd = 0;
+        player->hp = 18;
+        touch_game(atk2_x, atk2_y, 0, 7);
+        touch_game(atk2_x, atk2_y, 1, 7);
+        assert(astra_parry_active() == 1);
+        take_damage_at(6.5, 500, 400);
+        stun_player(0.55);
+        assert(fabs(player->hp - 18.0) < 1e-9 && player_stun == 0);
+        assert(fabs(astra_grab_ready_t - 0.8) < 1e-9);
+        adm_reset_log();
+        draw_controls();
+        assert(adm_has_text("Захват") == 1);
+
+        for (int f = 0; f < 47; f++)
+            tick_astra();
+        assert(astra_grab_ready_t > 0 && astra_cd == 0);
+        tick_astra();
+        tick_astra();
+        assert(astra_grab_ready_t == 0 && astra_state == 0);
+        assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
+
+        /* 2c) Pressing within 0.8 s fires Grab, then returns to Block on CD. */
+        astra_cd = 0;
+        touch_game(atk2_x, atk2_y, 0, 7);
+        touch_game(atk2_x, atk2_y, 1, 7);
+        take_damage_at(3.0, 500, 400);
+        assert(astra_grab_ready_t > 0 && fabs(player->hp - 18.0) < 1e-9);
+        touch_game(atk2_x, atk2_y, 0, 8); /* press while Grab is available */
+        touch_game(atk2_x, atk2_y, 1, 8);
+        assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
+        astra_release(0);
+        assert(astra_state == 0 && fabs(astra_cd - astra_grab_miss_cd) < 1e-9);
+        astra_cd = 0;
+
+        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.2 s. */
+        player_class = CLASS_ORDINARY;
+        player->x = 460;
+        player->y = 400;
+        player->hp = 20;
+        player->max_hp = 20;
+        revive_prot = 0;
+        enemy_class = CLASS_ORDINARY;
+        enemy->x = 400;
+        enemy->y = 400;
+        enemy->angle = 0;
+        enemy->hp = 20;
+        enemy->max_hp = 20;
+        enemy->stun = 0;
+        enemy->state = 0;
+        enemy_punch_a = 0;
+        assert(start_enemy_attack() == 1);
+        assert(enemy->state == 1 && enemy_punching_now() == 1);
+        for (int f = 0; f < 11; f++) {
+            update_enemy();
+            tick_hitbox_fades();
+            assert(enemy->state == 1 && enemy_punching_now() == 1);
+            assert(enemy_punch_a == 0 && fabs(player->hp - 20.0) < 1e-9);
+        }
+        update_enemy();
+        tick_hitbox_fades();
+        assert(enemy->state == 2 && enemy_punch_a > 0);
+        update_enemy();
+        assert(player->hp < 20.0);
+        enemy->state = 0;
+        enemy_punch_a = 0;
+        game_state = ST_LOBBY;
+    }
+
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

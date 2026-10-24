@@ -44,7 +44,7 @@ static double ultimate_visual_busy(void) {
 }
 
 static void fire_punch(void) {
-    if (dash_active > 0 || player_stun > 0 || player_block == 1) {
+    if (dash_active > 0 || player_stun > 0 || player_block == 1 || astra_parry_active() == 1) {
         return;
     }
     if (astra_locked() == 1 || player_grabbed() == 1) {
@@ -104,20 +104,21 @@ static void fire_super(void) {
         return;
     }
     if (class_is_astra(player_class) == 1) {
-        if (astra_cd > 0 || astra_state != 0) {
+        if (astra_state != 0 || player_stun > 0 || player_freeze > 0 || player_grabbed() == 1) {
             queued_super = 0;
             return;
         }
-        if (player_stun > 0 || player_freeze > 0 || player_grabbed() == 1) {
+        if (astra_grab_ready_t > 0) {
             queued_super = 0;
+            start_grab_now();
             return;
         }
-        if (punch_left > 0 || punch_cd > 0 || ultimate_visual_busy() == 1) {
-            queued_super = 1;
+        if (astra_cd > 0 || astra_parry_t > 0) {
+            queued_super = 0;
             return;
         }
         queued_super = 0;
-        start_grab_now();
+        start_astra_parry_now();
         return;
     }
     if (player_class == CLASS_AZUM) {

@@ -98,6 +98,37 @@ static double astra_locked(void) {
     return 0;
 }
 
+#define ASTRA_PARRY_TIME 0.4
+#define ASTRA_GRAB_WINDOW 0.8
+
+static double astra_parry_active(void) {
+    if (class_is_astra(player_class) == 1 && astra_parry_t > 0) {
+        return 1;
+    }
+    return 0;
+}
+
+static void start_astra_parry_now(void) {
+    astra_parry_t = ASTRA_PARRY_TIME;
+    astra_parry_blocked = 0;
+    astra_grab_ready_t = 0;
+    queued_super = 0;
+    queued_punch = 0;
+    punch->active = 0;
+    punch->hit = 0;
+    punch_left = 0;
+    santa_follow = 0;
+    ds_log("astra purple shield cast");
+}
+
+static void astra_on_parry_block(void) {
+    astra_parry_blocked = 1;
+    if (astra_grab_ready_t <= 0) {
+        astra_grab_ready_t = ASTRA_GRAB_WINDOW;
+        ds_log("astra parry unlocked grab");
+    }
+}
+
 static double player_grabbed(void) { return pgrab_active; }
 
 static void grab_cancel_actions(void) {
@@ -111,12 +142,18 @@ static void grab_cancel_actions(void) {
     dash_active = 0;
     dash_t = 0;
     dash_hit = 0;
+    astra_parry_t = 0;
+    astra_parry_blocked = 0;
+    astra_grab_ready_t = 0;
 }
 
 static void start_grab_now(void) {
     /* Arms Astra's short forward step and captures the grab origin at its end:
      * the body then glides onto that origin while the hitbox and published zone
      * are already there. */
+    astra_parry_t = 0;
+    astra_parry_blocked = 0;
+    astra_grab_ready_t = 0;
     astra_ability_lunge_start();
     ability_snd(GRAB_SOUND);
     astra_state = 1;
@@ -149,7 +186,9 @@ static void astra_release(double landed) {
     astra_t = 0;
     astra_caught = 0;
     astra_hits_done = 0;
-    if (landed == 1) {
+    if (admin_cheat_nocd() == 1) {
+        astra_cd = 0;
+    } else if (landed == 1) {
         astra_cd = astra_cd_for(player_level);
     } else {
         astra_cd = astra_grab_miss_cd;
@@ -295,11 +334,35 @@ static double astra_final_solo(void) {
 static void tick_astra(void) {
     double kit = astra_ability_local();
     astra_cd = tick_down(astra_cd);
+    if (admin_cheat_nocd() == 1) {
+        astra_cd = 0;
+    }
     tick_astra_poses();
     astra_ability_lunge_tick();
     tick_grab_quiet();
     if (game_state != ST_ONLINE) {
         tick_enemy_throw();
+    }
+    if (finished != 0 || player->hp <= 0) {
+        astra_parry_t = 0;
+        astra_parry_blocked = 0;
+        astra_grab_ready_t = 0;
+    } else {
+        double had_parry = astra_parry_t > 0;
+        astra_parry_t = tick_down(astra_parry_t);
+        if (had_parry == 1 && astra_parry_t <= 0) {
+            if (astra_parry_blocked == 0 && astra_grab_ready_t <= 0 && astra_state == 0) {
+                astra_cd = admin_cheat_nocd() == 1 ? 0 : astra_grab_miss_cd;
+            }
+            astra_parry_blocked = 0;
+        }
+        double had_ready = astra_grab_ready_t > 0;
+        astra_grab_ready_t = tick_down(astra_grab_ready_t);
+        if (had_ready == 1 && astra_grab_ready_t <= 0 && astra_state == 0) {
+            astra_parry_t = 0;
+            astra_parry_blocked = 0;
+            astra_cd = admin_cheat_nocd() == 1 ? 0 : astra_grab_miss_cd;
+        }
     }
     if (astra_state == 0) {
         return;

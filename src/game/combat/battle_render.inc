@@ -202,6 +202,15 @@ static void draw_guard(double x, double y, double angle, double on, double scale
     ring(x, y, r, clamp(r * 0.13, 3, 5), 0xCC4FC3F7);
 }
 
+static void draw_purple_guard(double x, double y, double on, double scale) {
+    if (on <= 0) {
+        return;
+    }
+    double r = 25 * cube_scale * scale * 1.75;
+    circle(x, y, r, 0x38B35CFF);
+    ring(x, y, r, clamp(r * 0.13, 3, 5), 0xD8B35CFF);
+}
+
 static void draw_player_body_layer(void) {
     double punching = fighter_pose_of(FLOOK_ME, player_punching_now());
     double look = fighter_look_of(FLOOK_ME);
@@ -214,6 +223,7 @@ static void draw_player_body_layer(void) {
     draw_fighter_tint(player->x, player->y, player->angle, look, punching, player_scale, self_tint);
     draw_fighter_hurt(player->x, player->y, player->angle, look, punching, player_scale, player_hurt_a);
     draw_guard(player->x, player->y, player->angle, player_block, player_scale);
+    draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
 }
 
 static double enemy_punching_now(void) {
@@ -269,6 +279,7 @@ static void draw_enemy_body(void) {
     }
     draw_fighter_hurt(enemy->x, enemy->y, enemy->angle, look, punching, enemy_scale, enemy_hurt_a);
     draw_guard(enemy->x, enemy->y, enemy->angle, enemy_block_left > 0, enemy_scale);
+    draw_purple_guard(enemy->x, enemy->y, class_is_astra(enemy_class) == 1 && egrab_parry_t > 0, enemy_scale);
 }
 
 /* A combat pad answers a press the way a menu button does: it shrinks a
@@ -302,12 +313,21 @@ static void draw_controls(void) {
     }
     if (class_has_super(player_class) == 1 && (game_state == ST_SOLO || game_state == ST_ONLINE)) {
         const char *sl = tr_super();
+        uint32_t pad_col = 0x5F10A0;
         if (player_class == CLASS_EBUC) {
             sl = tr_super_ebuc();
         } else if (player_class == CLASS_AZUM) {
             sl = tr_super_azum();
         } else if (class_is_astra(player_class) == 1) {
-            sl = tr_super_astra();
+            if (astra_grab_ready_t > 0) {
+                sl = tr_super_astra();
+                pad_col = 0x9C27B0;
+            } else {
+                sl = tr_block();
+                if (astra_parry_t > 0) {
+                    pad_col = 0x7B1FA2;
+                }
+            }
         } else if (player_class == CLASS_CODECRACKER) {
             sl = tr_super_codecracker();
         }
@@ -320,13 +340,13 @@ static void draw_controls(void) {
         if (player_class == CLASS_AZUM) {
             left = dash_cd;
         } else if (class_is_astra(player_class) == 1) {
-            left = astra_cd;
+            left = astra_grab_ready_t > 0 ? 0 : astra_cd;
         }
         if (left > 0) {
             sl = ds_concat(ds_num_to_string((double)(floor(left + 0.999))), "");
             sls = 0.95;
         }
-        draw_pad(atk2_x, atk2_y, battle_pad_r(), 0x5F10A0, sl, sls);
+        draw_pad(atk2_x, atk2_y, battle_pad_r(), pad_col, sl, sls);
     }
     draw_battle_back();
 }

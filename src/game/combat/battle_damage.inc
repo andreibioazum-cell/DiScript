@@ -26,6 +26,13 @@ static double block_covers(void) {
 }
 
 static double take_damage(double dmg) {
+    if (astra_parry_active() == 1) {
+        dmg_from_k = 0;
+        if (dmg > 0) {
+            astra_on_parry_block();
+        }
+        return 0;
+    }
     /* God mode from the admin panel: the hit never lands at all. */
     if (admin_cheat_god() == 1) {
         dmg_from_k = 0;
@@ -106,6 +113,9 @@ static void stun_enemy(double t) {
 }
 
 static void stun_player(double t) {
+    if (astra_parry_active() == 1) {
+        return;
+    }
     if (t > player_stun) {
         player_stun = t;
     }

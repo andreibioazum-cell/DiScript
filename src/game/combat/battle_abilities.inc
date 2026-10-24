@@ -242,7 +242,7 @@ static void flush_queued_action(void) {
     }
     if (queued_super == 1) {
         if (class_is_astra(player_class) == 1) {
-            if (astra_cd <= 0 && astra_state == 0) {
+            if ((astra_grab_ready_t > 0 || astra_cd <= 0) && astra_state == 0 && astra_parry_t <= 0) {
                 queued_super = 0;
                 fire_super();
                 return;

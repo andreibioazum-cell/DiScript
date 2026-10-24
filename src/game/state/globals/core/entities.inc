@@ -116,6 +116,9 @@ double astra_cd;
 double astra_seq;
 double astra_pub;
 double astra_box_a;
+double astra_parry_t;
+double astra_parry_blocked;
+double astra_grab_ready_t;
 /* Astra lunge: elapsed time, step start and step end. The end
  * point doubles as the grab origin captured when the ultimate is cast. */
 double astra_ability_lunge_t;
@@ -134,6 +137,8 @@ double egrab_dx;
 double egrab_dy;
 double egrab_punch_t;
 double egrab_box_a;
+double egrab_parry_t;
+double egrab_ready_t;
 double pthrow_t;
 double pthrow_dx;
 double pthrow_dy;

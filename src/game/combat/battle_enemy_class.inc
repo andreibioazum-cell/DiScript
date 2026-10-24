@@ -106,6 +106,13 @@ static double enemy_apply_damage(double dmg) {
         dmg_from_k = 0;
         return 0;
     }
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        dmg_from_k = 0;
+        if (dmg > 0) {
+            enemy_on_astra_parry_block();
+        }
+        return 0;
+    }
     /* A raised guard eats part of any frontal ability, like the player's. */
     if (enemy_block_left > 0 && enemy_block_covers() == 1) {
         dmg = dmg * block_guard;
@@ -201,7 +208,7 @@ static void enemy_snow_explode(void) {
     enemy_boom_t = boom_time;
     if (circle_hits_player(enemy_boom_x, enemy_boom_y, super_radius) == 1) {
         if (revive_prot <= 0) {
-            if (player_freeze < santa_freeze_time_for(enemy_level)) {
+            if (astra_parry_active() == 0 && player_freeze < santa_freeze_time_for(enemy_level)) {
                 player_freeze = santa_freeze_time_for(enemy_level);
                 player_freeze_slow = super_freeze_slow;
             }

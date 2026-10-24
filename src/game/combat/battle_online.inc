@@ -117,7 +117,7 @@ static void update_remote_punches(void) {
                         if (revive_prot <= 0) {
                             take_damage_at(rdmg, arr_get(remotes, s * remote_fields + 1),
                                            arr_get(remotes, s * remote_fields + 2));
-                            if (rcls == CLASS_SANTA) {
+                            if (astra_parry_active() == 0 && rcls == CLASS_SANTA) {
                                 if (player_poison <= 0) {
                                     player_poison_tick = santa_poison_tick_interval;
                                 }
@@ -211,7 +211,7 @@ static void update_remote_snow(void) {
                         if (rcls == CLASS_SANTA) {
                             freeze_time = santa_freeze_time_for(rlevel);
                         }
-                        if (player_freeze < freeze_time) {
+                        if (astra_parry_active() == 0 && player_freeze < freeze_time) {
                             player_freeze = freeze_time;
                             player_freeze_slow = super_freeze_slow;
                         }
@@ -323,7 +323,7 @@ static void push_self(void) {
     net_publish(player->x / screen_w, player->y / screen_h, player->angle, player->hp, alive);
     /* The block is synced: others draw the guard, the victim cuts the hit. */
     net_publish_block(player_block);
-    net_publish_codecracker_super(codecracker_super_t > 0 ? 1 : 0);
+    net_publish_codecracker_super((codecracker_super_t > 0 || astra_parry_active() == 1) ? 1 : 0);
     net_publish_punch(punch->x / screen_w, punch->y / screen_h, punch->dx, punch->dy, punch->shot);
     if (player_class == CLASS_EBUC) {
         double x1 = 0;

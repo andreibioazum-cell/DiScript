@@ -18,9 +18,24 @@ static void enemy_grab_clear(void) {
     egrab_state = 0;
     egrab_t = 0;
     egrab_hits = 0;
+    egrab_parry_t = 0;
+    egrab_ready_t = 0;
     if (pgrab_active == 1 && pgrab_slot == grab_slot_bot) {
         pgrab_active = 0;
         pgrab_slot = -1;
+    }
+}
+
+static void enemy_start_astra_parry(void) {
+    egrab_parry_t = ASTRA_PARRY_TIME;
+    egrab_ready_t = 0;
+    ds_log("bot astra purple shield cast");
+}
+
+static void enemy_on_astra_parry_block(void) {
+    if (egrab_ready_t <= 0) {
+        egrab_ready_t = ASTRA_GRAB_WINDOW;
+        ds_log("bot astra parry unlocked grab");
     }
 }
 
@@ -34,6 +49,8 @@ static void enemy_grab_stop(double landed) {
 }
 
 static void enemy_start_grab(void) {
+    egrab_parry_t = 0;
+    egrab_ready_t = 0;
     egrab_state = 1;
     egrab_t = 0;
     egrab_hits = 0;
@@ -46,11 +63,31 @@ static void enemy_start_grab(void) {
 }
 
 static void tick_enemy_grab(void) {
-    if (egrab_state == 0) {
+    if (finished != 0 || enemy->hp <= 0 || enemy_revive_prot > 0) {
+        egrab_parry_t = 0;
+        egrab_ready_t = 0;
+        if (egrab_state != 0) {
+            enemy_grab_stop(0);
+        }
         return;
     }
-    if (finished != 0 || enemy->hp <= 0 || enemy_revive_prot > 0) {
-        enemy_grab_stop(0);
+    double had_parry = egrab_parry_t > 0;
+    egrab_parry_t = tick_down(egrab_parry_t);
+    if (had_parry == 1 && egrab_parry_t <= 0 && egrab_ready_t <= 0 && egrab_state == 0) {
+        enemy_super_cd = astra_grab_miss_cd;
+    }
+    double had_ready = egrab_ready_t > 0;
+    egrab_ready_t = tick_down(egrab_ready_t);
+    if (egrab_ready_t > 0 && egrab_state == 0 && enemy->stun <= 0 &&
+        player->hp > 0 && revive_prot <= 0 &&
+        dist(enemy->x, enemy->y, player->x, player->y) <= enemy_astra_range) {
+        enemy_face_player();
+        enemy_start_grab();
+    } else if (had_ready == 1 && egrab_ready_t <= 0 && egrab_state == 0) {
+        egrab_parry_t = 0;
+        enemy_super_cd = astra_grab_miss_cd;
+    }
+    if (egrab_state == 0) {
         return;
     }
     egrab_t = egrab_t + dt;
@@ -112,7 +149,7 @@ static double enemy_wants_grab(void) {
     if (class_is_astra(enemy_class) == 0) {
         return 0;
     }
-    if (enemy_super_cd > 0 || egrab_state != 0) {
+    if (enemy_super_cd > 0 || egrab_state != 0 || egrab_parry_t > 0 || egrab_ready_t > 0) {
         return 0;
     }
     if (player->hp <= 0 || revive_prot > 0) {

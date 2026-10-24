@@ -181,7 +181,7 @@ static void update_enemy(void) {
         if (ad > reach - enemy_hit_margin) {
             enemy_move(adx / ad * bot_speed * 0.85, ady / ad * bot_speed * 0.85);
         }
-        if (enemy->state_time <= 0) {
+        if (enemy->state_time <= 1e-9) {
             enemy->state = 2;
             enemy->state_time = enemy_punch_time;
             enemy->hit = 0;
@@ -202,7 +202,7 @@ static void update_enemy(void) {
                 if (revive_prot <= 0) {
                     take_damage_at(class_punch_damage_for(enemy_class, enemy_level) * enemy_damage_mult_for(enemy_class),
                                    enemy->x, enemy->y);
-                    if (enemy_class == CLASS_SANTA) {
+                    if (astra_parry_active() == 0 && enemy_class == CLASS_SANTA) {
                         if (player_poison <= 0) {
                             player_poison_tick = santa_poison_tick_interval;
                         }

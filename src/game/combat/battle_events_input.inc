@@ -235,6 +235,9 @@ static void draw_online(void) {
             draw_fighter_tint(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
                               fighter_pose_of(FLOOK_REMOTE + i, punching), player_scale, remote_tint);
             draw_guard(rx, ry, ra, net_player_block(i), player_scale);
+            draw_purple_guard(rx, ry,
+                              class_is_astra(arr_get(remotes, b + 10)) == 1 && net_player_codecracker_super(i) == 1,
+                              player_scale);
             const char *rn = net_player_nick(i);
             if (str_len(rn) > 0) {
                 uint32_t rncol = admin_head_color_of(rn, 0xFFFFFF);
