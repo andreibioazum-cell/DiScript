@@ -1,4 +1,26 @@
+static double nick_is_dimasi229(const char *nick) {
+    const char *want = ADMIN_NICK;
+    if (!nick) {
+        return 0;
+    }
+    while (*want && *nick) {
+        char a = *nick, b = *want;
+        if (a >= 'A' && a <= 'Z')
+            a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z')
+            b = (char)(b - 'A' + 'a');
+        if (a != b)
+            return 0;
+        nick++;
+        want++;
+    }
+    return *want == 0 && *nick == 0 ? 1 : 0;
+}
+
 static double has_achievement(double bit) {
+    if (bit == ACH_EAX229 && nick_is_dimasi229(net_login_nick()) == 1) {
+        return 0;
+    }
     double shifted = floor(achievement_mask / bit);
     return shifted - floor(shifted * 0.5) * 2;
 }
@@ -45,33 +67,13 @@ static void check_buk_elf_achievement(void) {
     grant_achievement(ACH_BUK_GIFT);
 }
 
-static double nick_is_dimasi229(const char *nick) {
-    const char *want = ADMIN_NICK;
-    if (!nick) {
-        return 0;
-    }
-    while (*want && *nick) {
-        char a = *nick, b = *want;
-        if (a >= 'A' && a <= 'Z')
-            a = (char)(a - 'A' + 'a');
-        if (b >= 'A' && b <= 'Z')
-            b = (char)(b - 'A' + 'a');
-        if (a != b)
-            return 0;
-        nick++;
-        want++;
-    }
-    return *want == 0 && *nick == 0 ? 1 : 0;
-}
-
-/* mov eax, 0x229: be in one online room with Dimasi4ek229. For
- * Dimasi4ek229 himself it is granted automatically. */
+/* mov eax, 0x229: be in one online room with Dimasi4ek229. Dimasi4ek229
+ * himself cannot earn the achievement for meeting himself. */
 static void check_meet_eax229(void) {
-    if (has_achievement(ACH_EAX229) == 1) {
+    if (nick_is_dimasi229(net_login_nick()) == 1) {
         return;
     }
-    if (nick_is_dimasi229(net_login_nick()) == 1) {
-        grant_achievement(ACH_EAX229);
+    if (has_achievement(ACH_EAX229) == 1) {
         return;
     }
     if (game_state != ST_ONLINE) {

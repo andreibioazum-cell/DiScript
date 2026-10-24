@@ -154,6 +154,12 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             pc_touch((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp), 1, PC_TOUCH_MOUSE);
         pc_mouse_punch = 0;
         return 0;
+    case 0x020A: /* WM_MOUSEWHEEL */ {
+        short z = (short)HIWORD(wp);
+        if (z != 0)
+            game_pc_wheel((float)z / 120.0f);
+        return 0;
+    }
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
         pc_keys[wp & 0xff] = 1;

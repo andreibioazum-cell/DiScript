@@ -2242,24 +2242,84 @@ static void test_eax229_and_rooms(void) {
         ball_reset();
     }
 
-    /* Dimasi4ek229 himself: granted automatically (case-insensitive). */
+    /* Dimasi4ek229 himself never gets the achievement for meeting himself
+     * (even if ACH_EAX229 was previously in achievement_mask), sees 5 cards,
+     * and has no scrolling on the Achievements screen. */
     achievement_mask = 0;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "dimasi4ek229");
     check_meet_eax229();
-    assert(has_achievement(ACH_EAX229) == 1);
+    assert(has_achievement(ACH_EAX229) == 0);
+    achievement_mask = ACH_EAX229;
+    assert(has_achievement(ACH_EAX229) == 0);
+    assert(ach_visible_count() == 5 && ach_scroll_needed() == 0);
+    {
+        int saved_w = screen_w, saved_h = screen_h;
+        screen_w = 1280;
+        screen_h = 720;
+        language = 1;
+        game_state = ST_ACHIEVEMENTS;
+        t_dir = 0;
+        warn_open = 0;
+        studio_open = 0;
+        acct_open = 0;
+        docs_open = 0;
+        ach_open();
+        adm_reset_log();
+        draw_achievements();
+        assert(adm_has_text("mov eax, 0x229") == 0);
+        assert(adm_has_text("Подарок буКа") == 1);
+        logic_touch(ach_x() + 80, ach_view_top() + 260, 0, 91);
+        logic_touch(ach_x() + 80, ach_view_top() + 120, 2, 91);
+        logic_touch(ach_x() + 80, ach_view_top() + 120, 1, 91);
+        assert(ach_scroll == 0 && ach_scroll_needed() == 0);
+        screen_w = saved_w;
+        screen_h = saved_h;
+    }
 
-    /* Anyone else: only when Dimasi4ek229 is in the same online room. */
+    /* Anyone else: hidden & no scrolling until Dimasi4ek229 is met in an online
+     * room; once earned, all 6 cards appear and vertical drag scrolling works. */
     achievement_mask = 0;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     game_state = ST_LOBBY;
     check_meet_eax229();
     assert(has_achievement(ACH_EAX229) == 0);
+    assert(ach_visible_count() == 5 && ach_scroll_needed() == 0);
     game_state = ST_ONLINE;
     stub_net_slot = 0;
     stub_online[1] = 1;
     snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "%s", "Dimasi4ek229");
     check_meet_eax229();
     assert(has_achievement(ACH_EAX229) == 1);
+    assert(ach_visible_count() == 6);
+    {
+        int saved_w = screen_w, saved_h = screen_h;
+        double mid;
+        screen_w = 1280;
+        screen_h = 720;
+        language = 1;
+        game_state = ST_ACHIEVEMENTS;
+        t_dir = 0;
+        ach_open();
+        assert(ach_scroll_needed() == 1 && ach_scroll_max() > 80);
+        adm_reset_log();
+        draw_achievements();
+        assert(adm_has_text("mov eax, 0x229") == 1);
+        /* Drag upward: list scrolls down smoothly and glides with inertia. */
+        logic_touch(ach_x() + 80, ach_view_top() + 300, 0, 92);
+        logic_touch(ach_x() + 80, ach_view_top() + 240, 2, 92);
+        logic_touch(ach_x() + 80, ach_view_top() + 240, 1, 92);
+        mid = ach_scroll;
+        assert(mid > 50);
+        ach_scroll_tick();
+        assert(ach_scroll > mid);
+        ach_scroll_by(9999);
+        assert(fabs(ach_scroll - ach_scroll_max()) < 1e-6);
+        adm_reset_log();
+        draw_achievements();
+        assert(adm_has_text("Подарок буКа") == 1);
+        screen_w = saved_w;
+        screen_h = saved_h;
+    }
     stub_online[1] = 0;
     stub_nicks[1][0] = 0;
     game_state = ST_LOBBY;

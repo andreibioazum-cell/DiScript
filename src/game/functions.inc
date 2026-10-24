@@ -14,6 +14,7 @@
 #include "include/prototypes/ui/admin.inc"
 #include "include/prototypes/ui/gift_icons.inc"
 #include "include/prototypes/ui/menu_screens.inc"
+#include "include/prototypes/ui/achievements.inc"
 #include "include/prototypes/ui/battle_pass.inc"
 #include "include/prototypes/ui/menu_input.inc"
 #include "include/prototypes/ui/rooms.inc"

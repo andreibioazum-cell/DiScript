@@ -178,6 +178,8 @@ static void logic_update(void) {
         update_promo();
     } else if (game_state == ST_ROOMS) {
         update_rooms();
+    } else if (game_state == ST_ACHIEVEMENTS) {
+        ach_scroll_tick();
     }
     update_newyear();
     update_weather();
@@ -370,10 +372,14 @@ static void logic_touch(double x, double y, double action, double id) {
          * anything either, and a finger that lifts there leaves the queue. */
         press_points_drop(id);
         classes_swipe_reset();
+        ach_scroll_reset();
         return;
     }
     if (game_state != ST_CLASSES || acct_open != 0 || docs_open == 1 || warn_open == 1 || studio_open == 1) {
         classes_swipe_reset();
+    }
+    if (game_state != ST_ACHIEVEMENTS || acct_open != 0 || docs_open == 1 || warn_open == 1 || studio_open == 1) {
+        ach_scroll_reset();
     }
     if (acct_open != 0) {
         touch_account(x, y, action, id);
@@ -407,6 +413,10 @@ static void logic_touch(double x, double y, double action, double id) {
     }
     if (game_state == ST_CLASSES) {
         touch_classes(x, y, action, id);
+        return;
+    }
+    if (game_state == ST_ACHIEVEMENTS) {
+        touch_achievements(x, y, action, id);
         return;
     }
     if (action != 0) {

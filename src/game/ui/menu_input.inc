@@ -345,15 +345,6 @@ static void touch_skins(double x, double y, double action) {
     }
 }
 
-static void touch_achievements(double x, double y, double action) {
-    if (action != 0) {
-        return;
-    }
-    if (back_hit(x, y) == 1) {
-        start_transition(ST_LOBBY);
-    }
-}
-
 static void touch_leaderboard(double x, double y, double action) {
     if (action != 0) {
         return;

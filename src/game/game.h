@@ -52,6 +52,7 @@ void game_pc_pick_class(double cls);
 void game_pc_join_room(const char *name, double create);
 void game_pc_room_tick(void);
 double game_pc_charge(void);
+void game_pc_wheel(float steps);
 #endif
 
 #endif

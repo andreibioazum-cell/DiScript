@@ -29,6 +29,7 @@
 #include "ui/npc_cube.inc"
 #include "ui/class_stars.inc"
 #include "ui/menu_screens.inc"
+#include "ui/achievements.inc"
 #include "ui/battle_pass.inc"
 #include "ui/rooms.inc"
 #include "ui/menu_input.inc"

@@ -3,6 +3,7 @@ static void start_transition(double target) {
         return;
     }
     classes_swipe_reset();
+    ach_scroll_reset();
     t_target = target;
         /* The button fires and squashes, and the screen starts to fade in the same
          * frame - so the press is invisible. Let the button squash first, fade after. */
@@ -62,6 +63,10 @@ static double enter_screen(double state) {
     }
     if (state == ST_LEADERBOARD) {
         open_leaderboard();
+        return 1;
+    }
+    if (state == ST_ACHIEVEMENTS) {
+        ach_open();
         return 1;
     }
     if (state == ST_ONLINE) {

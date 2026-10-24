@@ -180,6 +180,10 @@ static void touch_menu(double x, double y, double action, double id) {
         touch_classes(x, y, action, id);
         return;
     }
+    if (game_state == ST_ACHIEVEMENTS) {
+        touch_achievements(x, y, action, id);
+        return;
+    }
     if (action != 0) {
         return;
     }
@@ -205,10 +209,6 @@ static void touch_menu(double x, double y, double action, double id) {
     }
     if (game_state == ST_SKINS) {
         touch_skins(x, y, action);
-        return;
-    }
-    if (game_state == ST_ACHIEVEMENTS) {
-        touch_achievements(x, y, action);
         return;
     }
     if (game_state == ST_LEADERBOARD) {
