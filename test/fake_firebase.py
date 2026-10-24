@@ -50,7 +50,7 @@ from urllib.parse import parse_qs
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PANEL = os.path.join(ROOT, "index.html")
 
-ADMINS = ("dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game")
+ADMINS = ("dimasi4ek229@cb4.game",)
 SECRET = "BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc"  # из firebase.rules.json (поле "w")
 PUBLIC_ROOT = ("AzumBuff", "FlashSale", "HitboxChaos")      # ".read": true в правилах
 GAME_ROOT = ("users", "rooms", "bans", "event", "banner")
@@ -75,7 +75,7 @@ def profile(nick, **over):
     p = {
         "nick": nick, "w": SECRET,
         "cups": 120, "candies": 7, "cls": 0,
-        "azum": 1, "santa": 0, "ebuc": 1, "astra": 0,
+        "azum": 1, "santa": 0, "ebuc": 1, "astra": 0, "codecracker": 0,
         "level": 2, "levels": 3,
         "ordinary_level": 1, "ordinary_levels": 2,
         "azum_level": 2, "azum_levels": 3,
@@ -261,12 +261,16 @@ def can_write(parts, email):
     if head in ADMIN_ONLY_WRITE:
         if head == "bans" and len(parts) > 1:
                         # you cannot ban your own admins - same as in the rules
-            if parts[1].lower() in ("dimasi4ek229", "qwertyuiopaj1234"):
+            if parts[1].lower() == "dimasi4ek229":
                 return False
         return email in ADMINS
     if head == "rooms":
         if len(parts) > 2 and parts[2] == "meta":
-            return email in ADMINS
+            if email in ADMINS:
+                return True
+            existing = deep_get(DB, parts[:3])
+            nick = email.split("@")[0].lower()
+            return existing is None or (isinstance(existing, dict) and str(existing.get("owner", "")).lower() == nick)
         if len(parts) > 2 and parts[2] == "players" and len(parts) > 3:
             if not re.match(r"^[0-3]$", parts[3]):
                 return False
@@ -364,7 +368,8 @@ class Handler(BaseHTTPRequestHandler):
         qs = parse_qs(query)
         token = (qs.get("auth", [""]) or [""])[0]
         email = token_email(token)
-        method = self.command
+        override = self.headers.get("X-HTTP-Method-Override", "").strip().upper()
+        method = override if override else self.command
         body = self._read_body()
 
         with LOCK:

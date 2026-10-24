@@ -30,7 +30,7 @@ double net_load_astra_levels_unlocked(void) {
 
 void net_save_astra(double owned, double level, double levels_unlocked) {
     int own = owned ? 1 : 0, lv = (int)level, lu = (int)levels_unlocked;
-    int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, ccl, ccu;
+    int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, cc, ccl, ccu;
     normalize_level_pair(&lv, &lu);
     progress_read();
     pg_lock();
@@ -70,6 +70,7 @@ void net_save_astra(double owned, double level, double levels_unlocked) {
     eul = pg.ebuc_levels_unlocked;
     bp = pg.bp_level;
     sk = pg.azum_skin;
+    cc = pg.codecracker;
     ccl = pg.codecracker_level;
     ccu = pg.codecracker_levels_unlocked;
     pg.loaded = 1;
@@ -80,10 +81,19 @@ void net_save_astra(double owned, double level, double levels_unlocked) {
         pending_skin = 0;
     }
     progress_write(c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, own, lv, lu,
-                   (int)net_load_bp_xp(), ccl, ccu);
+                   (int)net_load_bp_xp(), ccl, ccu, cc);
 }
 
-/* CodeCracker level branch: its own, not shared with the ordinary cube. */
+/* CodeCracker ownership and level branch: its own, not shared with the ordinary cube. */
+
+double net_load_codecracker(void) {
+    double v;
+    progress_read();
+    pg_lock();
+    v = (double)pg.codecracker;
+    pg_unlock();
+    return v;
+}
 
 double net_load_codecracker_level(void) {
     double v;
@@ -103,21 +113,32 @@ double net_load_codecracker_levels_unlocked(void) {
     return v;
 }
 
-/* Saves the CodeCracker level branch. As with the other classes the level never
- * rolls back: what was bought on the device is not lost by the next write. */
-void net_save_codecracker(double level, double levels_unlocked) {
-    int lv = (int)level, lu = (int)levels_unlocked;
+/* Saves CodeCracker ownership and its level branch. As with the other classes
+ * neither ownership nor bought levels roll back. */
+void net_save_codecracker(double owned, double level, double levels_unlocked) {
+    int own = owned ? 1 : 0, lv = (int)level, lu = (int)levels_unlocked;
     int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu;
     normalize_level_pair(&lv, &lu);
     progress_read();
     pg_lock();
+    if (pg.codecracker == 1)
+        own = 1;
     if (pg.codecracker_levels_unlocked > lu)
         lu = pg.codecracker_levels_unlocked;
     if (pg.codecracker_level > lv)
         lv = pg.codecracker_level;
     normalize_level_pair(&lv, &lu);
+    pg.codecracker = own;
     pg.codecracker_level = lv;
     pg.codecracker_levels_unlocked = lu;
+    if (pg.cls == 6) {
+        if (!own)
+            pg.cls = 0;
+        else {
+            pg.level = lv;
+            pg.levels_unlocked = lu;
+        }
+    }
     c = pg.cups;
     cd = pg.candies;
     k = pg.cls;
@@ -143,18 +164,22 @@ void net_save_codecracker(double level, double levels_unlocked) {
     pg_unlock();
     if (k == 6) {
         pending_cls = k;
-        pending_level = lv;
+        pending_level = plv;
         pending_skin = 0;
     }
     progress_write(c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu,
-                   (int)net_load_bp_xp(), lv, lu);
+                   (int)net_load_bp_xp(), lv, lu, own);
 }
 
-/* CodeCracker levels bought locally are not lost when the cloud profile
- * arrives: the greater of the local and the cloud number stays. Called under the
- * pg lock, returns 1 if the cloud was corrected. */
-int codecracker_merge_local(int local_level, int local_unlocked) {
+/* CodeCracker ownership and levels bought locally are not lost when the cloud
+ * profile arrives: ownership and the greater level number stay. Called under
+ * the pg lock, returns 1 if the cloud was corrected. */
+int codecracker_merge_local(int local_owned, int local_level, int local_unlocked) {
     int changed = 0;
+    if (local_owned == 1 && pg.codecracker == 0) {
+        pg.codecracker = 1;
+        changed = 1;
+    }
     if (local_level > pg.codecracker_level) {
         pg.codecracker_level = local_level;
         changed = 1;

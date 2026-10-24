@@ -30,8 +30,8 @@
 (кубки и конфеты). Замени их на:
 
 ```
-"cups": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game') || !data.exists() || newData.val() <= data.val() + 1000)" },
-"candies": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game') || !data.exists() || newData.val() <= data.val() + 1000)" },
+"cups": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || !data.exists() || newData.val() <= data.val() + 1000)" },
+"candies": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || !data.exists() || newData.val() <= data.val() + 1000)" },
 ```
 
 Сохрани кнопкой **Publish**. Смысл: за одну запись баланс может вырасти не
@@ -66,7 +66,7 @@ CodeCracker, и Firebase отклоняет **весь** запрос: не по
 правилах, иначе админ не сможет выдать изумруд с оттенком:
 
 ```
-"emerald_hue": { ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')", ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
+"emerald_hue": { ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'", ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
 ```
 
 ## 2. Вернуть кубки (визуальный редактор данных)

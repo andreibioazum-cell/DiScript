@@ -48,7 +48,7 @@ static const char *CLOUD_CODECRACKER =
 
 static const char *CLOUD_CODECRACKER_HI =
     "{\"nick\":\"tester\",\"cups\":100,\"candies\":20,\"cls\":6,\"azum\":0,\"santa\":0,"
-    "\"ebuc\":0,\"level\":3,\"levels\":3,\"ordinary_level\":0,\"ordinary_levels\":0,"
+    "\"ebuc\":0,\"codecracker\":1,\"level\":3,\"levels\":3,\"ordinary_level\":0,\"ordinary_levels\":0,"
     "\"azum_level\":0,\"azum_levels\":0,\"santa_level\":0,\"santa_levels\":0,"
     "\"ebuc_level\":0,\"ebuc_levels\":0,\"astra_level\":0,\"astra_levels\":0,"
     "\"codecracker_level\":3,\"codecracker_levels\":3}";
@@ -161,27 +161,35 @@ static int run_astra(const char *dir) {
 
 static int run_codecracker(const char *dir) {
     net_set_data_path(dir);
+    assert(net_load_codecracker() == 0);
     assert(net_load_codecracker_level() == 0);
     assert(net_load_codecracker_levels_unlocked() == 0);
-    /* The CodeCracker's branch is saved on its own: the ordinary cube keeps
-     * its own levels, and the selected class takes the CodeCracker's. */
-    net_save_codecracker(2, 2);
+    /* CodeCracker ownership and level branch are saved on their own: the
+     * ordinary cube keeps its own levels, and the selected class takes
+     * CodeCracker's. */
+    net_save_codecracker(1, 2, 2);
     net_save_progress_all(90, 20, 6, 0, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    assert(net_load_codecracker() == 1);
+    assert(net_load_class() == 6);
     assert(net_load_codecracker_level() == 2);
     assert(net_load_codecracker_levels_unlocked() == 2);
     assert(net_load_ordinary_level() == 0);
     assert(net_load_ordinary_levels_unlocked() == 0);
     assert(net_load_level() == 2 && net_load_levels_unlocked() == 2);
-    /* A cloud profile with a lower branch does not drag the device branch
-     * down: a level bought on the device is never lost. */
+    /* An older cloud profile without codecracker ownership or with a lower
+     * branch does not wipe local ownership, selection or bought levels. */
     assert(apply_user_json_keep_local(CLOUD_CODECRACKER) == 1);
+    assert(net_load_codecracker() == 1);
+    assert(net_load_class() == 6);
     assert(net_load_codecracker_level() == 2);
     assert(net_load_codecracker_levels_unlocked() == 2);
     /* A higher cloud branch wins, and there is nothing to push back. */
     assert(apply_user_json_keep_local(CLOUD_CODECRACKER_HI) == 0);
+    assert(net_load_codecracker() == 1);
+    assert(net_load_class() == 6);
     assert(net_load_codecracker_level() == 3);
     assert(net_load_codecracker_levels_unlocked() == 3);
-    puts("codecracker: its own level branch is saved and restored apart from the ordinary cube");
+    puts("codecracker: ownership, selection and level branch are saved and restored");
     return 0;
 }
 
@@ -226,19 +234,23 @@ static int run_legacy_profile(const char *dir) {
 static int run_admin_ban_guard(const char *dir) {
     net_set_data_path(dir);
     net_ban_set("Dimasi4ek229", 1);
-    net_ban_set("QWERTYUIOPAJ1234", 1);
     assert(net_is_banned("Dimasi4ek229") == 0);
-    assert(net_is_banned("qwertyuiopaj1234") == 0);
     char path[320];
     snprintf(path, sizeof(path), "%s/bans.dat", dir);
     FILE *f = fopen(path, "r");
     assert(f == NULL);
 
+    /* qwertyuiopaj1234 is no longer an admin and can be banned like any player. */
+    net_ban_set("qwertyuiopaj1234", 1);
+    assert(net_is_banned("qwertyuiopaj1234") == 1);
+    net_ban_set("qwertyuiopaj1234", 0);
+    assert(net_is_banned("qwertyuiopaj1234") == 0);
+
     net_ban_set("ordinary_player", 1);
     assert(net_is_banned("ordinary_player") == 1);
     net_ban_set("ordinary_player", 0);
     assert(net_is_banned("ordinary_player") == 0);
-    puts("moderation: neither administrator can be banned; ordinary bans still work");
+    puts("moderation: Dimasi4ek229 cannot be banned; qwertyuiopaj1234 and ordinary bans work");
     return 0;
 }
 
@@ -305,28 +317,29 @@ int main(int argc, char **argv) {
 '''
 
 def check_balance_rules():
-    rules = json.loads((ROOT / "firebase.rules.json").read_text(encoding="utf-8"))["rules"]
+    rules_text = (ROOT / "firebase.rules.json").read_text(encoding="utf-8")
+    assert "qwertyuiopaj1234" not in rules_text.lower()
+    rules = json.loads(rules_text)["rules"]
     for key in ("cups", "candies"):
         rule = rules["users"]["$nick"][key][".validate"]
         assert "data.val() + 1000" in rule, f"{key}: no per-write growth cap"
-        assert "dimasi4ek229@cb4.game" in rule and "qwertyuiopaj1234@cb4.game" in rule, \
-            f"{key}: administrators cannot correct a balance"
+        assert "dimasi4ek229@cb4.game" in rule, \
+            f"{key}: administrator cannot correct a balance"
         assert rule.count("(") == rule.count(")")
 
 
 def check_class_rules():
     rules = json.loads((ROOT / "firebase.rules.json").read_text(encoding="utf-8"))["rules"]
+    assert "codecracker" in rules["users"]["$nick"]
     validators = [
         rules["users"]["$nick"]["cls"][".validate"],
         rules["rooms"]["$room"]["players"]["$slot"]["cls"][".validate"],
     ]
     for rule in validators:
-        assert "newData.val() <= 4" in rule and "newData.val() == 6" in rule
-        assert "newData.val() == 5" not in rule
+        assert "newData.val() >= 0" in rule and "newData.val() <= 6" in rule
+        assert "newData.val() != 5" in rule
+        assert "dimasi4ek229@cb4.game" not in rule
         assert rule.count("(") == rule.count(")")
-        assert "auth != null" in rule
-        assert "dimasi4ek229@cb4.game" in rule
-        assert "qwertyuiopaj1234@cb4.game" in rule
 
 
 def main():
@@ -388,13 +401,13 @@ def main():
         astra.mkdir()
         subprocess.run([*run, "astra", str(astra)], check=True)
         saved = (astra / "progress.dat").read_text(encoding="utf-8").split()
-        assert len(saved) == 24 and saved[18:] == ["1", "3", "3", "0", "0", "0"], saved
+        assert len(saved) == 25 and saved[18:] == ["1", "3", "3", "0", "0", "0", "0"], saved
 
         codecracker = temp / "codecracker"
         codecracker.mkdir()
         subprocess.run([*run, "codecracker", str(codecracker)], check=True)
         saved = (codecracker / "progress.dat").read_text(encoding="utf-8").split()
-        assert len(saved) == 24 and saved[22:24] == ["3", "3"], saved
+        assert len(saved) == 25 and saved[22:25] == ["3", "3", "1"], saved
 
         legacy_local = temp / "legacy-local"
         legacy_local.mkdir()

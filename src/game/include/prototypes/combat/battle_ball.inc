@@ -1,5 +1,8 @@
 static void ball_reset(void);
+static double ball_damage_for(double bounces);
 static void ball_aim_start(double id);
+static double ball_aim_near(double x, double y);
+static void ball_aim_point(double x, double y);
 static void ball_aim_tick(void);
 static void ball_aim_cancel(void);
 static void ball_fire(void);

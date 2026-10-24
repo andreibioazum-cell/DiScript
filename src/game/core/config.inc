@@ -24,16 +24,12 @@ static double admin_slot(const char *nick) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return 1;
     }
-    if (admin_nick_equal(nick, ADMIN2_NICK) == 1) {
-        return 2;
-    }
     return 0;
 }
 
-/* Admin by the nick of the signed-in account. The game never spends this
- * player's cups: classes and levels are free, a loss takes nothing, and stickers
- * in the shop are bought without a charge (the engine keeps the same list in
- * gifts.inc). */
+/* Admin by the nick of the signed-in account. Shop classes, levels and
+ * stickers are bought without spending cups (the engine keeps the same list in
+ * gifts.inc); battle win/loss cups follow admin_cups_allowed() instead. */
 static double admin_playing(void) {
     if (net_login_status() != 2) {
         return 0;
@@ -42,9 +38,7 @@ static double admin_playing(void) {
 }
 
 static const char *admin_nick_of(double slot) {
-    if (slot == 2) {
-        return ADMIN2_NICK;
-    }
+    (void)slot;
     return ADMIN_NICK;
 }
 
@@ -52,18 +46,12 @@ static double admin_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return admin_color;
     }
-    if (admin_nick_equal(nick, ADMIN2_NICK) == 1) {
-        return admin2_color;
-    }
     return base;
 }
 
 static double admin_head_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return admin_head_color;
-    }
-    if (admin_nick_equal(nick, ADMIN2_NICK) == 1) {
-        return admin2_head_color;
     }
     return base;
 }

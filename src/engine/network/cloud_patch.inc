@@ -203,7 +203,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     int bp = (int)bp_level, sk = (int)azum_skin;
 
     int at = 0, atl = 0, atu = 0;
-    int ccl = 0, ccu = 0;
+    int cc = 0, ccl = 0, ccu = 0;
     int legacy_astra_class = k == 5;
     if (sk < 0)
         sk = 0;
@@ -252,6 +252,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
         at = pg.astra ? 1 : 0;
         atl = pg.astra_level;
         atu = pg.astra_levels_unlocked;
+        cc = pg.codecracker ? 1 : 0;
         ccl = pg.codecracker_level;
         ccu = pg.codecracker_levels_unlocked;
     }
@@ -265,6 +266,8 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     if (k == 3 && !eu)
         k = 0;
     if (k == 4 && !at)
+        k = 0;
+    if (k == 6 && !cc)
         k = 0;
     if (bp < 0)
         bp = 0;
@@ -317,6 +320,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     pg.astra = at;
     pg.astra_level = atl;
     pg.astra_levels_unlocked = atu;
+    pg.codecracker = cc;
     pg.codecracker_level = ccl;
     pg.codecracker_levels_unlocked = ccu;
     pg_unlock();
@@ -324,7 +328,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     pending_level = lv;
     pending_skin = SKIN_OF_CLASS(sk, k);
     progress_write(c, cd, k, a, sn, eu, lv, lu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu,
-                   (int)net_load_bp_xp(), ccl, ccu);
+                   (int)net_load_bp_xp(), ccl, ccu, cc);
 
     char nick[LOGIN_NICK_MAX + 1] = "";
     lg_lock();
@@ -342,12 +346,12 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
         ds_mutex_unlock(ach_lock);
         snprintf(url, sizeof(url), "%s/users/%s.json", net.base, nick);
         snprintf(body, sizeof(body),
-                 "{\"cups\":%d,\"candies\":%d,\"cls\":%d,\"azum\":%d,\"santa\":%d,\"ebuc\":%d,\"astra\":%d,\"level\":%"
-                 "d,\"levels\":%d,\"ordinary_level\":%d,\"ordinary_levels\":%d,\"azum_level\":%d,\"azum_levels\":%d,"
-                 "\"santa_level\":%d,\"santa_levels\":%d,\"ebuc_level\":%d,\"ebuc_levels\":%d,\"astra_level\":%d,"
-                 "\"astra_levels\":%d,\"codecracker_level\":%d,\"codecracker_levels\":%d,\"bp\":%d,\"bpx\":%d,"
-                 "\"azum_skin\":%d,\"ach_flags\":%u,\"ach_revives\":%u}",
-                 c, cd, k, a, sn, eu, at, lv, lu, ol, ou, al, au, sl, su, el, eul, atl, atu, ccl, ccu, bp,
+                 "{\"cups\":%d,\"candies\":%d,\"cls\":%d,\"azum\":%d,\"santa\":%d,\"ebuc\":%d,\"astra\":%d,"
+                 "\"codecracker\":%d,\"level\":%d,\"levels\":%d,\"ordinary_level\":%d,\"ordinary_levels\":%d,"
+                 "\"azum_level\":%d,\"azum_levels\":%d,\"santa_level\":%d,\"santa_levels\":%d,\"ebuc_level\":%d,"
+                 "\"ebuc_levels\":%d,\"astra_level\":%d,\"astra_levels\":%d,\"codecracker_level\":%d,"
+                 "\"codecracker_levels\":%d,\"bp\":%d,\"bpx\":%d,\"azum_skin\":%d,\"ach_flags\":%u,\"ach_revives\":%u}",
+                 c, cd, k, a, sn, eu, at, cc, lv, lu, ol, ou, al, au, sl, su, el, eul, atl, atu, ccl, ccu, bp,
                  (int)net_load_bp_xp(), sk, af, ar);
 
         cloud_dirty_set(1);

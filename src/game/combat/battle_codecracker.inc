@@ -1,10 +1,7 @@
-/* CodeCracker is a separate, administrator-only class (ID 6), gated by the
- * very same administrator check as Astra: it is visible and
- * selectable only for the admin accounts, and that permission is re-checked
- * whenever the account or the battle changes, so a copied progress file
- * cannot grant it. Online it travels as its own class ID (see the room-slot
- * validation in firebase.rules.json), so every other client sees the real
- * class and applies the same rules.
+/* CodeCracker is an ordinary purchasable class (ID 6, 475 cups in the shop).
+ * Online it travels as its own class ID (see the room-slot validation in
+ * firebase.rules.json), so every other client sees the real class and applies
+ * the same rules.
  *
  * CodeCracker looks like an ordinary cube and plays like one - normal
  * speed, normal punch - except for its small codecracker_hp (12) pool. Its
@@ -30,13 +27,10 @@
 static const double codecracker_tint_rgb = 0x00E676;
 static const double codecracker_tint_a = 0.35;
 
-/* Cached permission bit, refreshed together with the developer permission when the
- * account changes (login, profile load, battle start), never per frame. */
-static void codecracker_refresh(void) { codecracker_ok = astra_ability_is_dev(); }
+/* CodeCracker is available to every player in the shop now. */
+static void codecracker_refresh(void) { codecracker_ok = 1; }
 
-static double codecracker_allowed(void) { return codecracker_ok; }
-
-static double codecracker_on(void) { return player_class == CLASS_CODECRACKER && codecracker_allowed() == 1; }
+static double codecracker_on(void) { return player_class == CLASS_CODECRACKER; }
 
 static double codecracker_of_slot(double slot) {
     return arr_get(remotes, slot * remote_fields + 10) == CLASS_CODECRACKER;

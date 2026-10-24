@@ -13,16 +13,11 @@ static double class_owned_of(double cls) {
     if (cls == CLASS_ORDINARY) {
         return 1;
     }
-    if (cls == CLASS_CODECRACKER) {
-        return codecracker_allowed();
-    }
     return arr_get(class_owned_tbl, cls);
 }
 
 static void set_class_owned(double cls, double owned) {
-    if (cls != CLASS_CODECRACKER) {
-        arr_set(class_owned_tbl, cls, owned);
-    }
+    arr_set(class_owned_tbl, cls, owned);
 }
 
 static void set_class_progress(double cls, double lv, double un) {
@@ -65,6 +60,9 @@ static double class_base_cost_of(double cls) {
     }
     if (cls == CLASS_EBUC) {
         return ebuc_cost;
+    }
+    if (cls == CLASS_CODECRACKER) {
+        return codecracker_cost;
     }
     return 0;
 }
@@ -167,8 +165,8 @@ static double skin_unlocked_for(double cls, double skin) {
         return 1;
     }
     if (cls == CLASS_EBUC) {
-                /* Elf ebuc (буК, genitive буКа): achievement "Подарок буКа" – be at the Ded Moroz event online as Santa, or battle-pass tier 4. */
-        if (bp_claimed >= 4 || has_achievement(ACH_BUK_GIFT) == 1) {
+        /* Elf ebuc (буК, genitive буКа): achievement "Подарок буКа" – be at the Ded Moroz event online as Santa, or admin battle-pass tier 4. */
+        if ((is_admin() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
             return 1;
         }
         return 0;
@@ -220,10 +218,7 @@ static void pick_skin(double skin) {
 }
 
 static double class_visible(double cls) {
-    if (cls == CLASS_CODECRACKER) {
-        return codecracker_allowed();
-    }
-    if (cls == CLASS_SANTA && dev_access() == 0 && bp_claimed < 7) {
+    if (cls == CLASS_SANTA && dev_access() == 0 && (is_admin() == 0 || bp_claimed < 7)) {
         return 0;
     }
     return 1;

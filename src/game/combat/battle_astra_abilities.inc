@@ -38,8 +38,7 @@ static void astra_ability_refresh(void) { astra_ability_ok = astra_ability_is_de
 static double astra_ability_allowed(void) { return astra_ability_ok; }
 
 /* Developer-only features: for now the winter theme, Santa and candies are
- * available only to the two administrator accounts (Dimasi4ek229 and
- * qwertyuiopaj1234 - the same check that unlocks the developer classes).
+ * available only to the administrator account (Dimasi4ek229).
  * Everyone else sees the winter button greyed out, no Santa in the shop and
  * no candies anywhere; when the features open for all, this one function is
  * the only switch to flip. */

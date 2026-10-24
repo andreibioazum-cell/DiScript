@@ -384,7 +384,7 @@ const USER_FIELDS = {
   /* Пароль в базе запрещён правилами (".validate": false) - это мусор. */
   pass: {t:"forbidden", why:"пароль в базе - так больше нельзя"},
   cups: num(0,10000000), candies: num(0,10000000),
-  cls: num(0,4), azum: flag(), santa: flag(), ebuc: flag(), astra: flag(),
+  cls: num(0,6), azum: flag(), santa: flag(), ebuc: flag(), astra: flag(), codecracker: flag(),
   level: num(0,3), levels: num(0,3),
   ordinary_level: num(0,3), ordinary_levels: num(0,3),
   azum_level: num(0,3), azum_levels: num(0,3),
@@ -427,7 +427,7 @@ const SLOT_FIELDS = {
   thud: num(0,1000000000000), blk: flag(), ccu: flag(),
   bkx: num(0,1), bky: num(0,1), bkdx: num(-1.001,1.001), bkdy: num(-1.001,1.001),
   brick: num(0,1000000000000),
-  cls: num(0,4), level: num(0,3), skin: num(0,1)
+  cls: num(0,6), level: num(0,3), skin: num(0,1)
 };
 
 const CHAT_REQ   = ["uid","nick","text"];
@@ -539,7 +539,7 @@ function suffixWarn(){
 }
 
 /* ---------- auth ---------- */
-const ADMINS = ["dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game"];
+const ADMINS = ["dimasi4ek229@cb4.game"];
 /* Сюда - исторические ступени хвоста пароля: по ним входили аккаунты,
  * созданные раньше. Текущий хвост - 32 случайных символа из NET_PASS_SECRET_*
  * (src/engine/network.h), он в панель НЕ вшит: страница лежит в открытом

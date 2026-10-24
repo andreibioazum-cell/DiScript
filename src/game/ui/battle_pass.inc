@@ -55,7 +55,7 @@ static const char *bp_reward_text(double t) {
     if (t == 1) return ds_concat("+10 ", tr_cups_unit());
     if (t == 2) return ds_concat("+20 ", tr_cups_unit());
     if (t == 3) return ds_concat("+30 ", tr_cups_unit());
-    if (t == 4) return language == 1 ? "Скин: Эльф-буК" : "Skin: Elf буК";
+    if (t == 4) return language == 1 ? "Скин: Эльф-буК" : "Skin: Elf ebuC";
     if (t == 5) return ds_concat("+60 ", tr_cups_unit());
     if (t == 6) return ds_concat("+120 ", tr_candies_unit());
     return language == 1 ? "Класс: Дед Мороз" : "Class: Santa";
@@ -80,6 +80,9 @@ static void bp_grant(double t) {
 }
 
 static void bp_claim(double t) {
+    if (is_admin() != 1) {
+        return;
+    }
     if (t <= bp_claimed) {
         return;
     }
@@ -205,6 +208,9 @@ static void touch_bpass(double x, double y, double action) {
 static double bpass_any_hit(double x, double y) {
     if (back_hit(x, y) == 1) {
         return 1;
+    }
+    if (is_admin() != 1) {
+        return 0;
     }
     double t = 1;
     while (t <= BP_TIERS) {

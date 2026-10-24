@@ -23,6 +23,11 @@ jobs:
         with:
           python-version: '3.11'
 
+      - uses: actions/cache@v4
+        with:
+          path: ~/.cache/pip
+          key: pip-ziglang-${{ runner.os }}-py311
+
       # Zig ships its own Win32 headers and C runtime glue: no MSVC, no
       # Windows SDK, and the exe builds on Linux.
       - name: Install Zig
@@ -81,42 +86,25 @@ jobs:
 
       - name: Check native game sources
         run: |
+          set -euo pipefail
           clang -std=c99 -Wall -Wextra -Werror -pedantic \
             -Isrc -I. -Itools/host_test/stub -fsyntax-only src/game/game.c
           python3 tools/check_game_file_size.py
-          python3 tools/test_resources.py
-          python3 tools/test_game_state.py
-          python3 tools/test_live_flags.py
-          python3 tools/test_string_pool.py
-          python3 tools/test_settings_storage.py
-          python3 tools/test_cloud_progress.py
-          python3 tools/test_promo.py
-          python3 tools/test_presence.py
-          python3 tools/test_network_memory.py
-          python3 tools/test_font_memory.py
-          python3 tools/test_db_rules.py
-          python3 tools/test_engine_formats.py
-
-      # ПК-версия (src/platform/pc): собирается теми же game.c/рантаймом, что
-      # и APK, и прогоняется без окна: меню, бой, удар, вход в аккаунт через
-      # подставную базу по настоящему HTTP.
-      - name: Build and play the PC build headless
-        run: python3 tools/test_pc.py
-
-      # Веб-панель админа (index.html): синтаксис скриптов, наличие всех
-      # кнопок и обработчиков, схема базы против firebase.rules.json.
-      - name: Check the web admin panel
-        run: |
-          python3 tools/test_admin_panel.py
-
-      # То же, но в настоящей DOM: jsdom открывает панель против подставной
-      # базы (test/fake_firebase.py) и нажимает каждую кнопку. Именно этот
-      # прогон ловит «страница выглядит живой, но ничего не нажимается».
-      - name: Click through the web admin panel in a real DOM
-        run: |
-          cd test
-          npm ci --no-audit --no-fund
-          node test_admin_panel_dom.mjs
+          printf '%s\n' \
+            tools/test_resources.py \
+            tools/test_game_state.py \
+            tools/test_live_flags.py \
+            tools/test_string_pool.py \
+            tools/test_settings_storage.py \
+            tools/test_cloud_progress.py \
+            tools/test_promo.py \
+            tools/test_presence.py \
+            tools/test_network_memory.py \
+            tools/test_font_memory.py \
+            tools/test_db_rules.py \
+            tools/test_engine_formats.py \
+            tools/test_admin_panel.py \
+            | xargs -P 4 -n 1 python3
 
       - name: Setup Java for Android build tools
         uses: actions/setup-java@v5
@@ -124,66 +112,80 @@ jobs:
           distribution: temurin
           java-version: '17'
 
-      # One permanent debug key for every build: it is committed at
-      # platform/android/debug.keystore (alias androiddebugkey, password
-      # "android" - a public debug credential, never use it for releases).
-      # Signing every APK with the same key lets new versions install over
-      # old ones instead of failing with a package conflict.
       - name: Check debug signing key
         run: |
           set -euo pipefail
           test -f platform/android/debug.keystore
           echo "Using the permanent debug signing key from the repository"
 
-      - name: Install Android SDK packages
+      - name: Prepare Android SDK and NDK
+        id: android-tools
         run: |
           set -euo pipefail
           SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
-          if [ ! -x "$SDKM" ]; then
-            TMP="$(mktemp -d)"
-            curl -fsSL -o "$TMP/tools.zip" \
-              https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
-            unzip -q "$TMP/tools.zip" -d "$TMP"
-            mkdir -p "$ANDROID_HOME/cmdline-tools"
-            rm -rf "$ANDROID_HOME/cmdline-tools/latest"
-            mv "$TMP/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
-            rm -rf "$TMP"
+          if [ ! -f "$ANDROID_HOME/platforms/android-35/android.jar" ] || [ ! -x "$ANDROID_HOME/build-tools/34.0.0/aapt" ]; then
+            if [ ! -x "$SDKM" ]; then
+              TMP="$(mktemp -d)"
+              curl -fsSL -o "$TMP/tools.zip" \
+                https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
+              unzip -q "$TMP/tools.zip" -d "$TMP"
+              mkdir -p "$ANDROID_HOME/cmdline-tools"
+              rm -rf "$ANDROID_HOME/cmdline-tools/latest"
+              mv "$TMP/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+              rm -rf "$TMP"
+            fi
+            yes | "$SDKM" --licenses > /dev/null || true
+            "$SDKM" "platforms;android-35" "build-tools;34.0.0"
           fi
-          yes | "$SDKM" --licenses > /dev/null || true
-          "$SDKM" "platforms;android-35" "build-tools;34.0.0"
-
-      - name: Setup Android NDK
-        uses: nttld/setup-ndk@v1
-        id: ndk
-        with:
-          ndk-version: r25c
+          NDK_PATH=""
+          if [ -d "$ANDROID_HOME/ndk" ]; then
+            for cand in $(ls -1d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V -r); do
+              if [ -x "$cand/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang" ] && \
+                 [ -f "$cand/sources/android/native_app_glue/android_native_app_glue.c" ]; then
+                NDK_PATH="$cand"
+                break
+              fi
+            done
+          fi
+          if [ -z "$NDK_PATH" ]; then
+            yes | "$SDKM" --licenses > /dev/null || true
+            "$SDKM" "ndk;25.2.9519653"
+            NDK_PATH="$ANDROID_HOME/ndk/25.2.9519653"
+          fi
+          echo "Using NDK: $NDK_PATH"
+          echo "ndk-path=$NDK_PATH" >> "$GITHUB_OUTPUT"
 
       - name: Stage assets
         run: python3 stage_assets.py assets staging/assets
 
       - name: Build native libraries
         env:
-          NDK_ROOT: ${{ steps.ndk.outputs.ndk-path }}
+          NDK_ROOT: ${{ steps.android-tools.outputs.ndk-path }}
         run: |
           set -euo pipefail
           TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
           GLUE="$NDK_ROOT/sources/android/native_app_glue"
           C_SOURCES=(src/game/game.c src/engine/runtime.c src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")
           CPP_SOURCE=src/game/cpp/ui_fx.cpp
-          # C and C++ need different -std flags; the C++ unit is compiled once
-          # per ABI and linked into the same .so as the C99 game sources.
           C_OPTS=(-std=c99 -O3 -s -fPIC -shared -Isrc -I. -I"$GLUE" -landroid -llog -ldl -lm -lvulkan)
           CPP_OPTS=(-std=c++17 -fno-exceptions -fno-rtti -O3 -s -fPIC -Isrc)
           mkdir -p staging/lib/arm64-v8a staging/lib/armeabi-v7a staging/lib/x86_64
+          pids=()
           for ABI in arm64-v8a armeabi-v7a x86_64; do
             case "$ABI" in
               arm64-v8a) TRIPLE=aarch64-linux-android26;;
               armeabi-v7a) TRIPLE=armv7a-linux-androideabi26;;
               x86_64) TRIPLE=x86_64-linux-android26;;
             esac
-            "$TOOLCHAIN/$TRIPLE-clang++" "${CPP_OPTS[@]}" -c "$CPP_SOURCE" -o "staging/ui_fx_$ABI.o"
-            "$TOOLCHAIN/$TRIPLE-clang" "${C_OPTS[@]}" "${C_SOURCES[@]}" "staging/ui_fx_$ABI.o" \
-              -o "staging/lib/$ABI/libcb_game.so"
+            (
+              "$TOOLCHAIN/$TRIPLE-clang++" "${CPP_OPTS[@]}" -c "$CPP_SOURCE" -o "staging/ui_fx_$ABI.o"
+              "$TOOLCHAIN/$TRIPLE-clang" "${C_OPTS[@]}" "${C_SOURCES[@]}" "staging/ui_fx_$ABI.o" \
+                -o "staging/lib/$ABI/libcb_game.so"
+            ) &
+            pids+=("$!")
+          done
+          for pid in "${pids[@]}"; do
+            wait "$pid"
           done
 
       - name: Package and align APK

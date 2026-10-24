@@ -279,9 +279,9 @@ static const char *tr_skin_elf(void) {
 
 static const char *tr_skin_elf_hint(void) {
     if (language == 1) {
-        return "Подарок буКа";
+        return "подарок буКа";
     }
-    return "a gift from буК";
+    return "ebuC's gift";
 }
 
 static const char *tr_skin_legends_hint(void) {
@@ -317,13 +317,13 @@ static const char *tr_cups_cheated(void) {
     return "Cheats used: no Cups";
 }
 
-/* The admin keeps the cups after a loss, so the result screen says so
- * instead of promising a deduction that never happens. */
+/* Shown instead of the deduction line when a lost battle was played with any
+ * admin panel switch enabled: cups are neither awarded nor taken away. */
 static const char *tr_cups_admin(void) {
     if (language == 1) {
-        return "Админ: кубки не снимаются";
+        return "Читы: кубки не снимаются";
     }
-    return "Admin: no Cups lost";
+    return "Cheats used: no Cups lost";
 }
 
 static const char *tr_cups_lose(double amount) {

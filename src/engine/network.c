@@ -15,6 +15,7 @@
 #include "engine/network/settings_storage.inc"
 #include "engine/network/promo.inc"
 #include "engine/network/profile_apply.inc"
+#include "engine/network/profile_merge.inc"
 #include "engine/network/auth_session.inc"
 #include "engine/network/gifts.inc"
 #include "engine/network/presence_classify.inc"

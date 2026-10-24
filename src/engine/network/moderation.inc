@@ -6,6 +6,40 @@ void net_logout(void) {
     lg.session_pass[0] = 0;
     lg.status = NET_LOGIN_IDLE;
     lg_unlock();
+    pg_lock();
+    pg.cups = 0;
+    pg.candies = 0;
+    pg.cls = 0;
+    pg.azum = 0;
+    pg.santa = 0;
+    pg.ebuc = 0;
+    pg.level = 0;
+    pg.levels_unlocked = 0;
+    pg.ordinary_level = 0;
+    pg.ordinary_levels_unlocked = 0;
+    pg.azum_level = 0;
+    pg.azum_levels_unlocked = 0;
+    pg.santa_level = 0;
+    pg.santa_levels_unlocked = 0;
+    pg.ebuc_level = 0;
+    pg.ebuc_levels_unlocked = 0;
+    pg.bp_level = 0;
+    pg.bp_xp = 0;
+    pg.azum_skin = 0;
+    pg.astra = 0;
+    pg.astra_level = 0;
+    pg.astra_levels_unlocked = 0;
+    pg.codecracker = 0;
+    pg.codecracker_level = 0;
+    pg.codecracker_levels_unlocked = 0;
+    pg.loaded = 1;
+    pg_unlock();
+    ds_mutex_lock(ach_lock);
+    ach_loaded = 1;
+    ach_flags = 0;
+    ach_revives = 0;
+    ds_mutex_unlock(ach_lock);
+    achievements_write(0, 0);
     if (lg.path[0])
         snprintf(path, sizeof(path), "%s/%s", lg.path, SESSION_FILE);
     else
@@ -89,7 +123,7 @@ const char *net_login_pass(void) {
 }
 
 static int ban_protected_admin_nick(const char *nick) {
-    static const char *admins[] = {"Dimasi4ek229", "qwertyuiopaj1234"};
+    static const char *admins[] = {"Dimasi4ek229"};
     if (!nick || !*nick) {
         return 0;
     }

@@ -229,7 +229,7 @@ static int put_default_user(const char *req_url, const char *nick, const char *p
     json_escape(nick, enick, sizeof(enick));
     snprintf(body, sizeof(body),
              "{\"nick\":\"%s\",\"cups\":0,\"candies\":0,\"cls\":0,\"azum\":0,\"santa\":0,\"ebuc\":0,\"astra\":0,"
-             "\"level\":0,\"levels\":0,\"ordinary_level\":0,\"ordinary_levels\":0,"
+             "\"codecracker\":0,\"level\":0,\"levels\":0,\"ordinary_level\":0,\"ordinary_levels\":0,"
              "\"azum_level\":0,\"azum_levels\":0,\"santa_level\":0,\"santa_levels\":0,"
              "\"ebuc_level\":0,\"ebuc_levels\":0,\"astra_level\":0,\"astra_levels\":0,"
              "\"codecracker_level\":0,\"codecracker_levels\":0,"
@@ -245,7 +245,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
     int keep = 0;
     int cups = 0, candies = 0, cls = 0, azum = 0, santa = 0, ebuc = 0;
     int lv = 0, lu = 0, ol = 0, ou = 0, al = 0, au = 0, sl = 0, su = 0, el = 0, eul = 0;
-    int bp = 0, sk = 0, astra = 0, atl = 0, atu = 0;
+    int bp = 0, sk = 0, astra = 0, atl = 0, atu = 0, cc = 0, ccl = 0, ccu = 0;
     progress_read();
     pg_lock();
     if (pg.loaded) {
@@ -270,8 +270,11 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
         astra = pg.astra;
         atl = pg.astra_level;
         atu = pg.astra_levels_unlocked;
-        if (cups > 0 || candies > 0 || azum || santa || ebuc || astra || cls != 0 || bp > 0 || lu > 0 || ou > 0 ||
-            au > 0 || su > 0 || eul > 0 || atu > 0)
+        cc = pg.codecracker;
+        ccl = pg.codecracker_level;
+        ccu = pg.codecracker_levels_unlocked;
+        if (cups > 0 || candies > 0 || azum || santa || ebuc || astra || cc || cls != 0 || bp > 0 || lu > 0 || ou > 0 ||
+            au > 0 || su > 0 || eul > 0 || atu > 0 || ccu > 0)
             keep = 1;
     }
     pg_unlock();
@@ -283,6 +286,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
         lg_unlock();
         session_save(nick, pass);
 
+        net_save_codecracker(cc, ccl, ccu);
         net_save_astra(astra, atl, atu);
         net_save_progress_all(cups, candies, cls, azum, santa, ebuc, lv, lu, ol, ou, al, au, sl, su, el, eul, bp, sk);
         LOG("moved local progress into new account '%s'", nick);
@@ -310,6 +314,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
     pg.astra = 0;
     pg.astra_level = 0;
     pg.astra_levels_unlocked = 0;
+    pg.codecracker = 0;
     pg.codecracker_level = 0;
     pg.codecracker_levels_unlocked = 0;
     pg.loaded = 1;
@@ -317,7 +322,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
     pending_cls = 0;
     pending_level = 0;
     pending_skin = 0;
-    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     lg_lock();
     snprintf(lg.session_nick, sizeof(lg.session_nick), "%s", nick);
     snprintf(lg.session_pass, sizeof(lg.session_pass), "%s", pass);

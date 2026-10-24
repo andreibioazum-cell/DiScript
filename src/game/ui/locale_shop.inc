@@ -64,10 +64,13 @@ static const char *tr_class_astra_desc(void) {
 
 static const char *tr_class_codecracker(void) { return "CodeCracker"; }
 
-static const char *tr_class_codecracker_desc(void) { return "Stop-The-World"; }
+static const char *tr_class_codecracker_desc(void) { return "MOL Edits..."; }
 
 static const char *tr_class_ebuc(void) {
-    return "буК";
+    if (language == 1) {
+        return "буК";
+    }
+    return "ebuC";
 }
 
 static const char *tr_class_ebuc_desc(void) {

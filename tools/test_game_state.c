@@ -283,8 +283,12 @@ static double stub_gdy[4];
 double net_slot(void) {
     return stub_net_slot;
 }
+static double stub_class[4];
 double net_player_online(double slot) {
     return stub_online[(int)slot];
+}
+double net_player_class(double slot) {
+    return stub_class[(int)slot];
 }
 double net_player_level(double slot) {
     return stub_level[(int)slot];
@@ -304,6 +308,19 @@ double net_player_grab_dx(double slot) {
 double net_player_grab_dy(double slot) {
     return stub_gdy[(int)slot];
 }
+static double stub_brick[4], stub_bkx[4], stub_bky[4], stub_bkdx[4], stub_bkdy[4];
+void net_publish_brick(double x, double y, double dx, double dy, double shot) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)shot;
+}
+double net_player_brick(double slot) { return stub_brick[(int)slot]; }
+double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
+double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
+double net_player_brick_dx(double slot) { return stub_bkdx[(int)slot]; }
+double net_player_brick_dy(double slot) { return stub_bkdy[(int)slot]; }
 void net_mark_achievement_flag(double flag) {
     (void)flag;
 }
@@ -444,6 +461,8 @@ int snd_play(const char *name) {
     }
     return 1;
 }
+static int seraphim_playing = 0;
+static double seraphim_vol = 0;
 int snd_loop(const char *name) {
     if (name && LOBBY_MUSIC && strcmp(name, LOBBY_MUSIC) == 0) {
         lobby_playing = 1;
@@ -452,6 +471,9 @@ int snd_loop(const char *name) {
         winter_playing = 1;
         winter_loop_calls++;
     }
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0) {
+        seraphim_playing = 1;
+    }
     return 1;
 }
 int snd_playing(const char *name) {
@@ -459,6 +481,8 @@ int snd_playing(const char *name) {
         return lobby_playing;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         return winter_playing;
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
+        return seraphim_playing;
     return 0;
 }
 void snd_stop(const char *name) {
@@ -466,10 +490,12 @@ void snd_stop(const char *name) {
         lobby_playing = 0;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         winter_playing = 0;
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
+        seraphim_playing = 0;
 }
 void snd_volume(const char *name, double volume) {
-    (void)name;
-    (void)volume;
+    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
+        seraphim_vol = volume;
 }
 
 int tex_ready(const char *name) {
@@ -664,9 +690,12 @@ double net_load_azum_skin(void) { return 0; }
 double net_load_astra(void) { return 0; }
 double net_load_astra_level(void) { return 0; }
 double net_load_astra_levels_unlocked(void) { return 0; }
+static double stub_last_codecracker;
+double net_load_codecracker(void) { return 0; }
 double net_load_codecracker_level(void) { return 0; }
 double net_load_codecracker_levels_unlocked(void) { return 0; }
-void net_save_codecracker(double level, double levels_unlocked) {
+void net_save_codecracker(double owned, double level, double levels_unlocked) {
+    stub_last_codecracker = owned;
     (void)level;
     (void)levels_unlocked;
 }
@@ -2011,9 +2040,136 @@ static void test_eax229_and_rooms(void) {
     game_reset();
     screen_w = 1280;
     screen_h = 720;
-    assert(achievement_count() == 5);
+    assert(achievement_count() == 6);
+    assert(achievement_bit(5) == ACH_BUK_GIFT);
     assert(strcmp(tr_achievement_eax229(), "mov eax, 0x229") == 0);
     assert(strcmp(tr_achievement_eax229_desc(), "???") == 0);
+    language = 1;
+    assert(strcmp(tr_class_ebuc(), "буК") == 0);
+    assert(strcmp(tr_achievement_buk(), "подарок буКа") == 0);
+    assert(strcmp(tr_skin_elf_hint(), "подарок буКа") == 0);
+    assert(strcmp(bp_reward_text(4), "Скин: Эльф-буК") == 0);
+    language = 0;
+    assert(strcmp(tr_class_ebuc(), "ebuC") == 0);
+    assert(strcmp(tr_achievement_buk(), "ebuC's gift") == 0);
+    assert(strcmp(tr_skin_elf_hint(), "ebuC's gift") == 0);
+    assert(strcmp(bp_reward_text(4), "Skin: Elf ebuC") == 0);
+    language = 1;
+
+    /* Gift from буК: granted in an online Ded Moroz event as Santa, unlocks Elf буК. */
+    achievement_mask = 0;
+    bp_claimed = 0;
+    assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
+    game_state = ST_ONLINE;
+    online_ready = 1;
+    event_mode = 3;
+    player_class = CLASS_SANTA;
+    check_buk_elf_achievement();
+    assert(has_achievement(ACH_BUK_GIFT) == 1);
+    assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
+    online_ready = 0;
+    event_mode = 0;
+    player_class = CLASS_ORDINARY;
+    game_state = ST_LOBBY;
+
+    /* Aiming the magic projectile only updates within 180 px around the player. */
+    player->x = 400;
+    player->y = 360;
+    player->angle = 0;
+    super_cd = 0;
+    finished = 0;
+    player_block = 0;
+    ball_reset();
+    ball_aim_start(7);
+    assert(ball.aim_on == 1 && fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
+    ball_aim_point(400, 100); /* 260 px away: ignored */
+    assert(fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
+    ball_aim_point(400, 240); /* 120 px away: aims straight up */
+    assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
+    ball_aim_cancel();
+
+    /* Ball bounce scaling: 0 bounces barely scratches (0.5 dmg), each bounce
+     * increases damage and accelerates the ball by +4% (x1.04). */
+    assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
+    for (int b = 0; b < 10; b++) {
+        assert(ball_damage_for(b + 1) > ball_damage_for(b));
+    }
+    assert(fabs(ball_damage_for(1) - 2.0) < 1e-9);
+    assert(fabs(ball_damage_for(4) - 6.5) < 1e-9);
+    assert(fabs(ball_damage_for(10) - 15.5) < 1e-9);
+    {
+        game_state = ST_SOLO;
+        finished = 0;
+        enemy_class = CLASS_ORDINARY;
+        enemy->max_hp = 20;
+        enemy->hp = 20;
+        enemy->size = 25;
+        enemy->x = 460;
+        enemy->y = 360;
+        enemy_revive_prot = 0;
+        player->x = 400;
+        player->y = 360;
+        super_cd = 0;
+        ball_reset();
+        ball.aim_dx = 1;
+        ball.aim_dy = 0;
+        ball_fire();
+        for (int f = 0; f < 30 && ball.active == 1; f++)
+            ball_tick();
+        assert(ball.active == 0 && ball.bounces == 0);
+        assert(fabs(enemy->hp - 19.5) < 1e-6);
+
+        /* Wall bounce: speed multiplies by 1.04 on each bounce, damage grows. */
+        enemy->x = 900;
+        enemy->y = 600;
+        enemy->hp = 20;
+        player->x = 80;
+        player->y = 80;
+        super_cd = 0;
+        ball_reset();
+        ball.aim_dx = -0.8;
+        ball.aim_dy = -0.6;
+        ball_fire();
+        for (int f = 0; f < 120 && ball.bounces < 2; f++)
+            ball_tick();
+        assert(ball.bounces == 2);
+        assert(fabs(hypot(ball.vx, ball.vy) - BALL_SPEED * 1.04 * 1.04) < 1e-6);
+        enemy->x = ball.x;
+        enemy->y = ball.y;
+        ball_tick();
+        assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+
+        /* Online remote brick: same +4% speed per bounce and bounce damage. */
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        stub_online[1] = 1;
+        player_class = CLASS_ORDINARY;
+        player->max_hp = 20;
+        player->hp = 20;
+        player->size = 25;
+        player->x = 900;
+        player->y = 600;
+        player_block = 0;
+        revive_prot = 0;
+        remote_bricks_reset();
+        stub_bkx[1] = 80.0 / screen_w;
+        stub_bky[1] = 80.0 / screen_h;
+        stub_bkdx[1] = -0.8;
+        stub_bkdy[1] = -0.6;
+        stub_brick[1] = 1;
+        for (int f = 0; f < 120 && rb_bounces[1] < 2; f++)
+            remote_bricks_tick();
+        assert(rb_bounces[1] == 2);
+        assert(fabs(hypot(rb_vx[1], rb_vy[1]) - BALL_SPEED * 1.04 * 1.04) < 1e-6);
+        player->x = rb_x[1];
+        player->y = rb_y[1];
+        remote_bricks_tick();
+        assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+        stub_online[1] = 0;
+        stub_brick[1] = 0;
+        game_state = ST_LOBBY;
+        ball_reset();
+    }
 
     /* Dimasi4ek229 himself: granted automatically (case-insensitive). */
     achievement_mask = 0;
@@ -2656,6 +2812,42 @@ int main(void) {
     winter_theme = 0;
     update_newyear_jingle();
     assert(winter_playing == 0);
+    /* Azum vs Astra battle music: starts immediately in Solo and Online, cuts
+     * lobby music cleanly, reaches battle volume, and stops outside the matchup. */
+    seraphim_ok = 0;
+    seraphim_playing = 0;
+    seraphim_vol = 0;
+    lobby_playing = 1;
+    game_state = ST_SOLO;
+    player_class = CLASS_AZUM;
+    enemy_class = CLASS_ASTRA;
+    assert(seraphim_should_play() == 1);
+    update_seraphim_music();
+    assert(seraphim_ok == 1 && seraphim_playing == 1 && lobby_playing == 0 && seraphim_vol > 0.2);
+    for (int f = 0; f < 20; f++)
+        update_seraphim_music();
+    assert(seraphim_vol > 0.8);
+    player_class = CLASS_ASTRA;
+    enemy_class = CLASS_AZUM;
+    assert(seraphim_should_play() == 1);
+    enemy_class = CLASS_ORDINARY;
+    assert(seraphim_should_play() == 0);
+    for (int f = 0; f < 80; f++)
+        update_seraphim_music();
+    assert(seraphim_playing == 0);
+    game_state = ST_ONLINE;
+    player_class = CLASS_AZUM;
+    arr_set(remotes, 1 * remote_fields, 1);
+    arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
+    assert(seraphim_should_play() == 1);
+    update_seraphim_music();
+    assert(seraphim_playing == 1);
+    arr_set(remotes, 1 * remote_fields, 0);
+    arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
+    game_state = ST_LOBBY;
+    for (int f = 0; f < 80; f++)
+        update_seraphim_music();
+    assert(seraphim_playing == 0);
     winter_theme = 1;
     warn_open = 0;
 
@@ -2784,8 +2976,9 @@ int main(void) {
         finish_game(1);
         assert(has_achievement(ACH_LAST_HP) == 0);
 
-        assert(achievement_count() == 5);
+        assert(achievement_count() == 6);
         assert(achievement_bit(3) == ACH_LAST_HP);
+        assert(achievement_bit(5) == ACH_BUK_GIFT);
         finished = 0;
         cups_awarded = 0;
         achievement_mask = 0;
@@ -2898,7 +3091,8 @@ int main(void) {
     assert(astra_ability_of(CLASS_ASTRA, SKIN_SPECIAL) == 1);
     assert(astra_ability_of(CLASS_AZUM, SKIN_SPECIAL) == 0);
     assert(admin_slot("DIMASI4EK229") == 1);
-    assert(admin_slot("QWERTYUIOPAJ1234") == 2);
+    assert(admin_slot("QWERTYUIOPAJ1234") == 0);
+    assert(admin_slot("qwertyuiopaj1234") == 0);
     assert(admin_slot("regular_player") == 0);
         /* Dev rights come from the profile (nick), not the password: the password
          * can be changed as often as you like, the right stays; only nick and login
@@ -2909,15 +3103,18 @@ int main(void) {
     astra_ability_refresh();
     assert(astra_ability_allowed() == 1);
     assert(astra_ability_is_dev() == 1);
+    assert(acct_is_admin_nick() == 1);
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "completely-different");
     astra_ability_refresh();
     assert(astra_ability_allowed() == 1 && astra_ability_is_dev() == 1);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "regular_player");
     astra_ability_refresh();
     assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0);
-    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN2_NICK);
+    assert(acct_is_admin_nick() == 0);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
     astra_ability_refresh();
-    assert(astra_ability_allowed() == 1 && astra_ability_is_dev() == 1);
+    assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0 && is_admin() == 0);
+    assert(acct_is_admin_nick() == 0);
     stub_login_status = 0;
     astra_ability_refresh();
     assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0);
@@ -2945,7 +3142,7 @@ int main(void) {
     assert(fabs(class_power_of(CLASS_ASTRA) - punch_damage * 0.93) < 1e-9);
     classes_scroll = 0;
     codecracker_refresh();
-    assert(codecracker_allowed() == 1 && codecracker_allowed() == astra_ability_allowed());
+    assert(class_visible(CLASS_CODECRACKER) == 1 && astra_ability_allowed() == 1);
     assert(player_max_hp_for(CLASS_CODECRACKER) == 12 * round_hp_mult() && codecracker_hp == 12);
     assert(codecracker_speed_mult == 3 && codecracker_touch_damage == 1.55 && codecracker_touch_heal == 0.529);
     assert(codecracker_super_time == 7 && codecracker_super_absorb == 0.5);
@@ -3142,6 +3339,16 @@ int main(void) {
         screen_h = saved_h;
     }
     player_class = CLASS_ORDINARY;
+    assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
+    assert(class_base_cost_of(CLASS_CODECRACKER) == 475 && class_cost_of(CLASS_CODECRACKER) == 475);
+    assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
+    /* Admin gets shop classes without spending cups; persistence still saves ownership. */
+    cups = 100;
+    stub_last_codecracker = 0;
+    pick_class(CLASS_CODECRACKER);
+    assert(cups == 100 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
+    assert(stub_last_codecracker == 1);
+    player_class = CLASS_ORDINARY;
     assert(class_owned_of(CLASS_CODECRACKER) == 1 && class_visible(CLASS_CODECRACKER) == 1);
     assert(visible_class_at(5) == CLASS_CODECRACKER);
     screen_w = 320;
@@ -3173,8 +3380,7 @@ int main(void) {
     assert(classes_scroll < scroll_after_drag && player_class == selected_before_swipe);
     double had_astra_access = astra_ability_ok;
     astra_ability_ok = 0;
-    codecracker_ok = 0;
-    assert(classes_visible_count() == 4 && classes_scroll_needed() == 0); /* no Santa either: developer-only */
+    assert(classes_visible_count() == 5 && classes_scroll_needed() == 0); /* Santa is developer-only; CodeCracker is public */
     assert(classes_swipe_zone(swipe_x, swipe_y) == 0);
     astra_ability_ok = had_astra_access;
     codecracker_refresh();
@@ -3288,16 +3494,30 @@ int main(void) {
     assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
     assert(fabs(class_hp_of(CLASS_ASTRA) - astra_hp * 0.95 * round_hp_mult()) < 1e-9);
     /* The card keeps only its description; no rating graphic is drawn. */
-    /* No developer account still hides only developer-only classes. */
+    /* No developer account still hides only developer-only Santa; CodeCracker
+     * is public in the shop for 475 cups with "MOL Edits..." description. */
     stub_login_nick[0] = 'x';
     stub_login_nick[1] = 0;
     astra_ability_refresh();
     codecracker_refresh();
-    assert(astra_ability_allowed() == 0 && codecracker_allowed() == 0);
+    set_class_owned(CLASS_CODECRACKER, 0);
+    assert(astra_ability_allowed() == 0 && class_visible(CLASS_CODECRACKER) == 1);
     assert(class_visible(CLASS_ASTRA) == 1);
-    assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 0);
-    assert(class_visible_index(CLASS_ASTRA) >= 0 && classes_visible_count() == 4);
-    assert(class_visible_index(CLASS_CODECRACKER) == -1);
+    assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
+    assert(class_visible_index(CLASS_ASTRA) >= 0 && classes_visible_count() == 5);
+    assert(class_visible_index(CLASS_CODECRACKER) == 4);
+    assert(class_cost_of(CLASS_CODECRACKER) == 475);
+    assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
+    cups = 474;
+    pick_class(CLASS_CODECRACKER);
+    assert(cups == 474 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ASTRA);
+    cups = 500;
+    stub_last_codecracker = 0;
+    pick_class(CLASS_CODECRACKER);
+    assert(cups == 25 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
+    assert(stub_last_codecracker == 1 && codecracker_on() == 1);
+    set_class_owned(CLASS_CODECRACKER, 0);
+    player_class = CLASS_ORDINARY;
     assert(class_skin_of(CLASS_ASTRA) == SKIN_NORMAL && current_skin() == SKIN_NORMAL);
     /* Candies and Santa are only hidden while they are developer-only, never
      * taken away: an earlier balance and an earlier purchase survive in the
@@ -3455,7 +3675,7 @@ int main(void) {
     stub_online[1] = 1;
     snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "remote_guy");
     stub_online[2] = 1;
-    snprintf(stub_nicks[2], sizeof(stub_nicks[2]), "%s", ADMIN2_NICK);
+    snprintf(stub_nicks[2], sizeof(stub_nicks[2]), "qwertyuiopaj1234");
     stub_ban_n = 1;
     snprintf(stub_bans[0], sizeof(stub_bans[0]), "old_cheater");
     stub_last_chat[0] = 0;
@@ -3582,30 +3802,61 @@ int main(void) {
     assert(admin_cups_allowed() == 0);
     cups = 0;
     cup_win = 50;
+    cup_lose = 3;
     player->hp = player->max_hp;
     player_was_hit = 0;
     award_battle_result(1);
     assert(cups == 0);
-    /* A fresh battle with every switch off pays normally again. */
+    cups = 30;
+    award_battle_result(2);
+    assert(cups == 30); /* stained fight: loss also takes no Cups */
+    finished = 1;
+    adm_reset_log();
+    draw_result(tr_victory());
+    assert(adm_has_text(tr_cups_cheated()) == 1);
+    finished = 2;
+    adm_reset_log();
+    draw_result(tr_defeat());
+    assert(adm_has_text(tr_cups_admin()) == 1);
+    finished = 0;
+
+    /* A fresh battle with every switch off awards and deducts Cups normally,
+     * even for the admin account. */
     admin_battle_stain_reset();
     assert(admin_cups_allowed() == 1);
     cups = 0;
     award_battle_result(1);
     assert(cups == 50);
-    /* In admin mode a loss does not take the cups away. */
-    if (dev_access() == 1) {
-        cups = 30;
+    cups = 30;
+    award_battle_result(2);
+    assert(cups == 27);
+    finished = 1;
+    adm_reset_log();
+    draw_result(tr_victory());
+    assert(adm_has_text(tr_cups_reward(50)) == 1);
+    finished = 2;
+    adm_reset_log();
+    draw_result(tr_defeat());
+    assert(adm_has_text(tr_cups_lose(-3)) == 1);
+    finished = 0;
+    cup_lose = 1;
+
+    /* Every single one of the 7 admin panel switches blocks both cup awards
+     * and cup deductions while enabled. */
+    for (int i = 0; i < 7; i++) {
+        cheat_stain = 0;
+        admin_press_cheat(i);
+        admin_battle_stain_reset();
+        assert(admin_any_cheat_on() == 1 && admin_cups_allowed() == 0);
+        cups = 10;
+        award_battle_result(1);
+        assert(cups == 10);
         award_battle_result(2);
-        assert(cups == 30);
+        assert(cups == 10);
+        admin_press_cheat(i);
+        admin_battle_stain_reset();
+        assert(admin_any_cheat_on() == 0 && admin_cups_allowed() == 1);
     }
-    /* Entering a battle with a cheat already on stains it as well. */
-    cheat_stain = 0;
-    cheat_speed = 1;
-    admin_battle_stain_reset();
-    assert(admin_cups_allowed() == 0);
-    cheat_speed = 0;
-    admin_battle_stain_reset();
-    assert(admin_cups_allowed() == 1);
     cups = 0;
 
     net_ban_set("remote_guy", 0);
@@ -3987,9 +4238,31 @@ int main(void) {
     test_gifts_page();
     test_admin_keyboard();
 
-    /* New Year battle pass: wins give XP, tiers claim in order for
-          * candies; tier 4 unlocks the Elf ebuc skin, tier 7 grants Santa. */
+    /* New Year battle pass is admin-only: non-admins (including demoted
+     * qwertyuiopaj1234) cannot earn XP, claim tiers, or unlock tier rewards;
+     * Dimasi4ek229 earns XP and claims tiers 1..7 in order. */
     {
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
+        astra_ability_refresh();
+        assert(is_admin() == 0);
+        bp_xp = 0;
+        bp_claimed = 0;
+        candies = 1000;
+        cups = 0;
+        stub_bpx = 0;
+        award_battle_result(1);
+        assert(bp_xp == 0 && stub_bpx == 0);
+        bp_xp = 300;
+        bp_claim(1);
+        assert(bp_claimed == 0 && candies == 1000);
+        bp_claimed = 7;
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
+        assert(class_visible(CLASS_SANTA) == 0);
+
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+        astra_ability_refresh();
+        assert(is_admin() == 1);
         bp_xp = 0;
         bp_claimed = 0;
         candies = 1000;
@@ -3998,11 +4271,12 @@ int main(void) {
         award_battle_result(1);
         assert(bp_xp == 10 && stub_bpx == 10);
         double cups_after_win = cups;
+        double candies_after_win = candies;
         assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
         bp_claim(2); /* out of order: nothing happens */
-        assert(bp_claimed == 0 && candies == 1000);
+        assert(bp_claimed == 0 && candies == candies_after_win);
         bp_claim(1);
-        assert(bp_claimed == 1 && cups == cups_after_win + 10 && candies == 1000 - 12);
+        assert(bp_claimed == 1 && cups == cups_after_win + 10 && candies == candies_after_win - 12);
         assert(stub_last_bp == 1); /* claimed tier rides the cloud save (field "bp") */
         bp_xp = 300;
         bp_claim(2);

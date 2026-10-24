@@ -186,8 +186,7 @@ static void draw_acct_field(const char *label, double i) {
     text_in_field(shown, acct_x() + field_text_pad, y, login_fh, text_color, 0.6);
 }
 static double acct_is_admin_nick(void) {
-    const char *nick = net_login_nick();
-    return str_eq(nick, ADMIN_NICK) == 1 || str_eq(nick, ADMIN2_NICK) == 1;
+    return admin_slot(net_login_nick()) != 0 ? 1 : 0;
 }
 static void acct_pass_try(void) {
     acct_sync();

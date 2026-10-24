@@ -1,5 +1,5 @@
-/* Admin panel: a small black-and-white "CCP" orb that only the two admin
- * accounts see. Drag it anywhere, tap it to open a compact monochrome panel
+/* Admin panel: a small black-and-white "CCP" orb that only the admin
+ * account sees. Drag it anywhere, tap it to open a compact monochrome panel
  * with two tabs - cheats and players. The panel is drawn above every screen,
  * above the transition curtain and above the epilepsy warning, so it never
  * hides itself, and nothing here prints a status line under the panel.
@@ -185,9 +185,12 @@ static double admin_cheat_value(double idx) {
     return cheat_chaos;
 }
 
-/* True while at least one cheat switch is on – now includes masterpiece hitboxes too:
- * if anything is on, cups must not be given. */
+/* True while at least one admin panel cheat switch is on: if anything is on,
+ * cups must neither be awarded on a win nor deducted on a loss. */
 static double admin_any_cheat_on(void) {
+    if (is_admin() == 0) {
+        return 0;
+    }
     if (cheat_god == 1 || cheat_damage == 1 || cheat_speed == 1 || cheat_nocd == 1 || cheat_cc == 1 ||
         cheat_estun == 1 || cheat_chaos == 1) {
         return 1;
@@ -199,12 +202,23 @@ static double admin_any_cheat_on(void) {
  * it just like flipping one on during the fight does. */
 static void admin_battle_stain_reset(void) {
     cheat_stain = admin_any_cheat_on();
-        /* New fight: the previous admin state is forgotten, the ring makes sense again. */
+    /* New fight: the previous admin state is forgotten, the ring makes sense again. */
     cheat_estun_mark = 0;
 }
 
-/* A stained battle pays no Cups at the end. */
-static double admin_cups_allowed(void) { return cheat_stain == 0 ? 1 : 0; }
+/* A stained battle neither pays Cups on a win nor deducts Cups on a loss. */
+static double admin_cups_allowed(void) {
+    if (is_admin() == 0) {
+        return 1;
+    }
+    if (cheat_stain != 0) {
+        return 0;
+    }
+    if (finished == 0 && admin_any_cheat_on() == 1) {
+        return 0;
+    }
+    return 1;
+}
 
 static void admin_press_cheat(double idx) {
     double v = admin_cheat_value(idx);
@@ -213,9 +227,9 @@ static void admin_press_cheat(double idx) {
     } else {
         v = 1;
     }
-    if (v == 1) {
+    if (v == 1 && finished == 0) {
         /* Switching any cheat on leaves a mark on the current battle: a win
-         * then pays no Cups, even if the switch is flipped back off at once. */
+         * then pays no Cups and a loss takes none, even if flipped back off. */
         cheat_stain = 1;
     }
     if (idx == 0) {
@@ -251,28 +265,28 @@ static void admin_press(double idx) {
 
 /* Cheats read by the fight code every frame. */
 static double admin_cheat_god(void) {
-    return cheat_god;
+    return is_admin() == 1 && cheat_god == 1 ? 1 : 0;
 }
 
 static double admin_cheat_damage_mult(void) {
-    if (cheat_damage == 1) {
+    if (is_admin() == 1 && cheat_damage == 1) {
         return 5;
     }
     return 1;
 }
 
 static double admin_cheat_speed_mult(void) {
-    if (cheat_speed == 1) {
+    if (is_admin() == 1 && cheat_speed == 1) {
         return 2;
     }
     return 1;
 }
 
 static double admin_cheat_nocd(void) {
-    return cheat_nocd;
+    return is_admin() == 1 && cheat_nocd == 1 ? 1 : 0;
 }
 
 /* Joke mode switched on right here, without the web panel flag. */
 static double admin_cheat_chaos(void) {
-    return cheat_chaos;
+    return is_admin() == 1 && cheat_chaos == 1 ? 1 : 0;
 }

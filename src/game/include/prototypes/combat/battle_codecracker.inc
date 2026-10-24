@@ -1,5 +1,4 @@
 static void codecracker_refresh(void);
-static double codecracker_allowed(void);
 static double codecracker_on(void);
 static double codecracker_of_slot(double slot);
 static double codecracker_touching(double x, double y);

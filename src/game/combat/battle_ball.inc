@@ -8,11 +8,13 @@
 
 #define BALL_COUNT_FROM 3.0      /* countdown digits: 3, 2, 1 */
 #define BALL_COUNT_STEP 0.7      /* seconds per digit */
-#define BALL_SPEED 620.0       /* px per second */
+#define BALL_SPEED 620.0         /* initial px per second */
+#define BALL_BOUNCE_ACCEL 1.04   /* +4% speed on every wall bounce */
 #define BALL_RADIUS 24.0
-#define BALL_DAMAGE 10.0
+#define BALL_BASE_DAMAGE 0.5     /* 0 bounces: barely scratches the target */
+#define BALL_BOUNCE_DAMAGE 1.5   /* extra damage gained per wall bounce */
 #define BALL_MAX_BOUNCES 10.0
-#define BALL_MAX_TIME 8.0      /* safety net: the ball always goes away */
+#define BALL_MAX_TIME 8.0        /* safety net: the ball always goes away */
 #define BALL_TRAIL 12
 
 typedef struct {
@@ -132,6 +134,11 @@ static double ball_aim_digit(void) {
     return d;
 }
 
+static double ball_aim_near(double x, double y) {
+    double d = dist(x, y, player->x, player->y);
+    return d >= 14 && d <= 180 ? 1 : 0;
+}
+
 /* The finger moved: the projectile goes where it points, from the cube outwards.
  * Only touches directly around the player count – not any empty area without
  * buttons. A touch right on the cube means nothing yet. Hitbox direction is
@@ -140,11 +147,7 @@ static void ball_aim_point(double x, double y) {
     double dx = x - player->x;
     double dy = y - player->y;
     double len = sqrt(dx * dx + dy * dy);
-    if (ball.aim_on == 0 || len < 14) {
-        return;
-    }
-    /* Only when pressing directly around the player, not anywhere on screen. */
-    if (len > 180) {
+    if (ball.aim_on == 0 || len < 14 || len > 180) {
         return;
     }
     ball.aim_dx = dx / len;
@@ -201,6 +204,11 @@ static void ball_fire(void) {
     ds_log("magic projectile thrown");
 }
 
+static double ball_damage_for(double bounces) {
+    double b = bounces < 0 ? 0 : bounces;
+    return BALL_BASE_DAMAGE + b * BALL_BOUNCE_DAMAGE;
+}
+
 static void ball_burst(double damage) {
     ball.active = 0;
     boom_x = ball.x;
@@ -210,7 +218,7 @@ static void ball_burst(double damage) {
         return;
     }
     if (enemy_revive_prot <= 0) {
-        enemy_apply_damage_at(BALL_DAMAGE, ball.x, ball.y);
+        enemy_apply_damage_at(ball_damage_for(ball.bounces), ball.x, ball.y);
     }
 }
 
@@ -231,20 +239,24 @@ static void ball_tick(void) {
         ball.y = ball.y + ball.vy * dt * piece;
         if (ball.x < BALL_RADIUS) {
             ball.x = BALL_RADIUS;
-            ball.vx = 0 - ball.vx;
+            ball.vx = (0 - ball.vx) * BALL_BOUNCE_ACCEL;
+            ball.vy = ball.vy * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         } else if (ball.x > screen_w - BALL_RADIUS) {
             ball.x = screen_w - BALL_RADIUS;
-            ball.vx = 0 - ball.vx;
+            ball.vx = (0 - ball.vx) * BALL_BOUNCE_ACCEL;
+            ball.vy = ball.vy * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         }
         if (ball.y < BALL_RADIUS) {
             ball.y = BALL_RADIUS;
-            ball.vy = 0 - ball.vy;
+            ball.vx = ball.vx * BALL_BOUNCE_ACCEL;
+            ball.vy = (0 - ball.vy) * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         } else if (ball.y > screen_h - BALL_RADIUS) {
             ball.y = screen_h - BALL_RADIUS;
-            ball.vy = 0 - ball.vy;
+            ball.vx = ball.vx * BALL_BOUNCE_ACCEL;
+            ball.vy = (0 - ball.vy) * BALL_BOUNCE_ACCEL;
             ball.bounces = ball.bounces + 1;
         }
         if (ball.bounces > BALL_MAX_BOUNCES || ball.t > BALL_MAX_TIME) {
@@ -335,125 +347,4 @@ static void ball_fade_tick(void) {
         }
         i = i + 1;
     }
-}
-
-/* Projectiles thrown by other players in an online fight. Every client flies them
- * from the published origin and direction, so the bounces happen in the same
- * places on every screen, and the hit lands where the local player stands. */
-#define REMOTE_BRICKS 4
-
-static double rb_on[REMOTE_BRICKS], rb_shot[REMOTE_BRICKS];
-static double rb_x[REMOTE_BRICKS], rb_y[REMOTE_BRICKS], rb_vx[REMOTE_BRICKS], rb_vy[REMOTE_BRICKS];
-static double rb_bounces[REMOTE_BRICKS], rb_t[REMOTE_BRICKS], rb_spin[REMOTE_BRICKS];
-
-static void remote_bricks_reset(void) {
-    double i = 0;
-    while (i < REMOTE_BRICKS) {
-        rb_on[(int)i] = 0;
-        rb_shot[(int)i] = -1;
-        i = i + 1;
-    }
-}
-
-static void remote_bricks_tick(void) {
-    double s = 0;
-    if (game_state != ST_ONLINE) {
-        return;
-    }
-    while (s < max_players && s < REMOTE_BRICKS) {
-        double shot = net_player_brick(s);
-        if (net_player_online(s) != 1 || s == net_slot()) {
-            rb_on[(int)s] = 0;
-            rb_shot[(int)s] = -1;
-            s = s + 1;
-            continue;
-        }
-        if (shot != rb_shot[(int)s]) {
-            rb_shot[(int)s] = shot;
-            if (shot > 0) {
-                rb_on[(int)s] = 1;
-                rb_x[(int)s] = net_player_brick_x(s) * screen_w;
-                rb_y[(int)s] = net_player_brick_y(s) * screen_h;
-                rb_vx[(int)s] = net_player_brick_dx(s) * BALL_SPEED;
-                rb_vy[(int)s] = net_player_brick_dy(s) * BALL_SPEED;
-                rb_bounces[(int)s] = 0;
-                rb_t[(int)s] = 0;
-                rb_spin[(int)s] = 0;
-            }
-        }
-        if (rb_on[(int)s] == 1) {
-            double x = rb_x[(int)s], y = rb_y[(int)s], vx = rb_vx[(int)s], vy = rb_vy[(int)s];
-            rb_t[(int)s] = rb_t[(int)s] + dt;
-            rb_spin[(int)s] = rb_spin[(int)s] + dt * 6;
-            x = x + vx * dt;
-            y = y + vy * dt;
-            if (x < BALL_RADIUS || x > screen_w - BALL_RADIUS) {
-                vx = 0 - vx;
-                x = clamp(x, BALL_RADIUS, screen_w - BALL_RADIUS);
-                rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
-            }
-            if (y < BALL_RADIUS || y > screen_h - BALL_RADIUS) {
-                vy = 0 - vy;
-                y = clamp(y, BALL_RADIUS, screen_h - BALL_RADIUS);
-                rb_bounces[(int)s] = rb_bounces[(int)s] + 1;
-            }
-            rb_x[(int)s] = x;
-            rb_y[(int)s] = y;
-            rb_vx[(int)s] = vx;
-            rb_vy[(int)s] = vy;
-            if (circle_hits_player(x, y, BALL_RADIUS) == 1) {
-                take_damage_at(BALL_DAMAGE, x, y);
-                rb_on[(int)s] = 0;
-            } else if (rb_bounces[(int)s] > BALL_MAX_BOUNCES || rb_t[(int)s] > BALL_MAX_TIME) {
-                rb_on[(int)s] = 0;
-            }
-        }
-        s = s + 1;
-    }
-}
-
-static void draw_remote_bricks(void) {
-    double s = 0;
-    while (s < REMOTE_BRICKS) {
-        if (rb_on[(int)s] == 1) {
-            double hw = 26, hh = 16;
-            roundrect(rb_x[(int)s] - hw, rb_y[(int)s] - hh, hw * 2, hh * 2, 6, 0xFF3A8BFFu);
-            if (show_hitboxes == 1) {
-                draw_hit_circle(rb_x[(int)s], rb_y[(int)s], BALL_RADIUS, 1);
-            }
-        }
-        s = s + 1;
-    }
-}
-
-#ifdef CB_PC
-/* How many bricks of other players are in the air right now (harness only). */
-static double remote_bricks_live(void) {
-    double s = 0, n = 0;
-    while (s < REMOTE_BRICKS) {
-        if (rb_on[(int)s] == 1) {
-            n = n + 1;
-        }
-        s = s + 1;
-    }
-    return n;
-}
-#endif
-
-/* The round is over: the projectile goes away and so do the ones in the air. */
-static void ball_clear_after_finish(void) {
-    ball.active = 0;
-    ball.aim_on = 0;
-    ball.aim_id = -1;
-    ball.aim_t = 0;
-    remote_bricks_reset();
-}
-
-/* Everything the projectile needs per frame in an online fight: the local aim and
- * flight plus the projectiles of the others. */
-static void ball_online_tick(void) {
-    ball_aim_tick();
-    ball_tick();
-    ball_fade_tick();
-    remote_bricks_tick();
 }

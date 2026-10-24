@@ -95,7 +95,7 @@ static int gift_nick_same(const char *a, const char *b) {
  * statics): their sticker purchase is free and the cups in the database are
  * left alone - "admins never lose cups". */
 static int gift_nick_is_admin(const char *nick) {
-    return gift_nick_same(nick, "Dimasi4ek229") == 1 || gift_nick_same(nick, "qwertyuiopaj1234") == 1;
+    return gift_nick_same(nick, "Dimasi4ek229") == 1;
 }
 
 /* Counters from users/<nick>/gifts.json; a missing node ("null") means all

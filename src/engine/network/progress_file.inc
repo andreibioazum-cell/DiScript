@@ -3,7 +3,7 @@ static void progress_write(int cups, int candies, int cls, int azum, int santa, 
                            int azum_levels_unlocked, int santa_level, int santa_levels_unlocked, int ebuc_level,
                            int ebuc_levels_unlocked, int bp_level, int azum_skin, int astra, int astra_level,
                            int astra_levels_unlocked, int bp_xp, int codecracker_level,
-                           int codecracker_levels_unlocked) {
+                           int codecracker_levels_unlocked, int codecracker) {
     char path[320], text[512];
     if (cls == 5) {
         cls = 4;
@@ -11,11 +11,11 @@ static void progress_write(int cups, int candies, int cls, int azum, int santa, 
     }
     data_file_path(path, sizeof(path), PROGRESS_FILE);
     snprintf(text, sizeof(text),
-             "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", cups, cls, azum, santa,
+             "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", cups, cls, azum, santa,
              candies, level, levels_unlocked, ordinary_level, ordinary_levels_unlocked, azum_level,
              azum_levels_unlocked, santa_level, santa_levels_unlocked, ebuc_level, ebuc_levels_unlocked, ebuc, bp_level,
              azum_skin, astra, astra_level, astra_levels_unlocked, bp_xp, codecracker_level,
-             codecracker_levels_unlocked);
+             codecracker_levels_unlocked, codecracker);
     file_write_atomic(path, text);
 }
 static void progress_read(void) {
@@ -29,8 +29,8 @@ static void progress_read(void) {
     int bp_level = 0, azum_skin = 0;
     int astra = 0, astra_level = -1, astra_levels_unlocked = -1;
     int bp_xp = 0; /* Trailing field: battle-pass XP (was an ignored 0 in old saves). */
-    /* Trailing fields after it: the CodeCracker's own level track. */
-    int codecracker_level = -1, codecracker_levels_unlocked = -1;
+    /* Trailing fields after it: the CodeCracker's own level track and ownership. */
+    int codecracker_level = -1, codecracker_levels_unlocked = -1, codecracker = 0;
     int legacy_astra_class = 0;
     pg_lock();
     if (pg.loaded) {
@@ -41,11 +41,11 @@ static void progress_read(void) {
     data_file_path(path, sizeof(path), PROGRESS_FILE);
     f = fopen(path, "r");
     if (f) {
-        int n = fscanf(f, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", &cups, &cls, &azum,
-                       &santa, &candies, &level, &levels_unlocked, &ordinary_level, &ordinary_levels_unlocked,
+        int n = fscanf(f, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", &cups, &cls,
+                       &azum, &santa, &candies, &level, &levels_unlocked, &ordinary_level, &ordinary_levels_unlocked,
                        &azum_level, &azum_levels_unlocked, &santa_level, &santa_levels_unlocked, &ebuc_level,
                        &ebuc_levels_unlocked, &ebuc, &bp_level, &azum_skin, &astra, &astra_level,
-                       &astra_levels_unlocked, &bp_xp, &codecracker_level, &codecracker_levels_unlocked);
+                       &astra_levels_unlocked, &bp_xp, &codecracker_level, &codecracker_levels_unlocked, &codecracker);
         legacy_astra_class = (cls == 5);
         if (n < 3) {
             cups = 0;
@@ -119,6 +119,9 @@ static void progress_read(void) {
                 codecracker_level = 0;
                 codecracker_levels_unlocked = 0;
             }
+            if (n < 25) {
+                codecracker = 0;
+            }
         }
         fclose(f);
     }
@@ -134,6 +137,7 @@ static void progress_read(void) {
     santa = santa ? 1 : 0;
     ebuc = ebuc ? 1 : 0;
     astra = astra ? 1 : 0;
+    codecracker = codecracker ? 1 : 0;
     if (legacy_astra_class)
         astra = 1;
     if (cls == 1 && !azum)
@@ -143,6 +147,8 @@ static void progress_read(void) {
     if (cls == 3 && !ebuc)
         cls = 0;
     if (cls == 4 && !astra)
+        cls = 0;
+    if (cls == 6 && !codecracker)
         cls = 0;
     normalize_level_pair(&level, &levels_unlocked);
     normalize_level_pair(&ordinary_level, &ordinary_levels_unlocked);
@@ -201,6 +207,7 @@ static void progress_read(void) {
     pg.astra = astra;
     pg.astra_level = astra_level;
     pg.astra_levels_unlocked = astra_levels_unlocked;
+    pg.codecracker = codecracker;
     pg.codecracker_level = codecracker_level;
     pg.codecracker_levels_unlocked = codecracker_levels_unlocked;
     pg.loaded = 1;
