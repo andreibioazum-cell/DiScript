@@ -87,7 +87,7 @@ static double ach_scroll_allowed(void) {
 }
 
 static double ach_visible_count(void) {
-    return ach_scroll_allowed() == 1 ? 6 : 5;
+    return ach_scroll_allowed() == 1 ? achievement_count() : achievement_count() - 1;
 }
 
 static double ach_visible_item(double vi) {
