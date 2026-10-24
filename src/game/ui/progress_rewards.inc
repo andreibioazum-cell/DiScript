@@ -236,6 +236,7 @@ static void progress_reset_on_signout(void) {
     cheat_cc = 0;
     cheat_estun = 0;
     cheat_chaos = 0;
+    cheat_ball_path = 0;
     cheat_stain = 0;
     cheat_estun_mark = 0;
     admin_panel_open = 0;

@@ -2155,7 +2155,38 @@ static void test_eax229_and_rooms(void) {
         ball_tick();
         assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
 
-        /* Online remote brick: same +4% speed per bounce and bounce damage. */
+        /* Explosion radius is ~15% larger than super_radius (150 vs 130), and
+         * when the projectile bursts on expiry ("в пустую") it still hurts an
+         * enemy caught inside BALL_BOOM_RADIUS (while leaving a far enemy unharmed). */
+        assert(fabs(BALL_BOOM_RADIUS - 150.0) < 1e-6 && BALL_BOOM_RADIUS > super_radius * 1.14);
+        ball_reset();
+        ball.active = 1;
+        ball.x = 400;
+        ball.y = 360;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.bounces = 4;
+        ball.t = BALL_MAX_TIME + 0.01;
+        enemy->hp = 20;
+        enemy->x = 400 + 145; /* outside BALL_RADIUS and old 130, inside 150 + cube half-width */
+        enemy->y = 360;
+        ball_tick();
+        assert(ball.active == 0 && ball.boom_t > 0);
+        assert(fabs(enemy->hp - (20.0 - ball_damage_for(4))) < 1e-6);
+
+        ball_reset();
+        ball.active = 1;
+        ball.x = 400;
+        ball.y = 360;
+        ball.bounces = 4;
+        ball.t = BALL_MAX_TIME + 0.01;
+        enemy->hp = 20;
+        enemy->x = 800; /* outside BALL_BOOM_RADIUS */
+        enemy->y = 360;
+        ball_tick();
+        assert(ball.active == 0 && fabs(enemy->hp - 20.0) < 1e-6);
+
+        /* Online remote brick: same +4% speed per bounce, bounce damage, and expiry blast. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         stub_online[1] = 1;
@@ -2181,6 +2212,21 @@ static void test_eax229_and_rooms(void) {
         player->y = rb_y[1];
         remote_bricks_tick();
         assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+
+        /* Online expiry blast: clips player within BALL_BOOM_RADIUS when rb_t expires. */
+        player->hp = 20;
+        rb_on[1] = 1;
+        rb_x[1] = 400;
+        rb_y[1] = 360;
+        rb_vx[1] = 0;
+        rb_vy[1] = 0;
+        rb_bounces[1] = 3;
+        rb_t[1] = BALL_MAX_TIME + 0.01;
+        player->x = 400 + 145;
+        player->y = 360;
+        remote_bricks_tick();
+        assert(rb_on[1] == 0 && rb_boom_t[1] > 0);
+        assert(fabs(player->hp - (20.0 - ball_damage_for(3))) < 1e-6);
         stub_online[1] = 0;
         stub_brick[1] = 0;
         game_state = ST_LOBBY;
@@ -3734,8 +3780,8 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and seven cheat labels. */
-    assert(adm_text_n == 12);
+    /* The title, close button, orb, two tabs and eight cheat labels. */
+    assert(adm_text_n == 13);
     assert(adm_has_text(tr_admin_title()) == 1);
     assert(adm_has_text(admin_orb_label()) == 1);
     assert(adm_has_text(language == 1 ? "Читы" : "Cheats") == 1);
@@ -3743,7 +3789,7 @@ int main(void) {
     assert(adm_has_text("ADMIN") == 0);
     assert(adm_has_text(ADMIN_NICK) == 0);
     assert(adm_has_text(": ") == 0);
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < ADMIN_CHEATS; i++)
         assert(adm_has_text(admin_cheat_label(i)) == 1);
 
         /* The panel has separate cheat and gift tabs. */
@@ -3751,7 +3797,7 @@ int main(void) {
     admin_draw();
     assert(adm_all_greyscale() == 1);
     assert(adm_all_flat() == 1);
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < ADMIN_CHEATS; i++)
         assert(adm_has_text(admin_cheat_label(i)) == 1);
     /* The cheat grid starts below the tabs and remains inside the panel. */
     assert(fabs(admin_grid_top() - admin_content_top() - admin_row_h() - admin_gap()) < 0.001);
@@ -3857,9 +3903,9 @@ int main(void) {
     finished = 0;
     cup_lose = 1;
 
-    /* Every single one of the 7 admin panel switches blocks both cup awards
+    /* Every single one of the 8 admin panel switches blocks both cup awards
      * and cup deductions while enabled. */
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < ADMIN_CHEATS; i++) {
         cheat_stain = 0;
         admin_press_cheat(i);
         admin_battle_stain_reset();
@@ -3874,6 +3920,40 @@ int main(void) {
         assert(admin_any_cheat_on() == 0 && admin_cups_allowed() == 1);
     }
     cups = 0;
+
+    /* Cheat 7 ("Отскоки буКа" / "ebuC bounces") draws all bounce segments. */
+    {
+        int calls_off, calls_on;
+        language = 1;
+        assert(strcmp(admin_cheat_label(7), "Отскоки буКа") == 0);
+        language = 0;
+        assert(strcmp(admin_cheat_label(7), "ebuC bounces") == 0);
+        language = 1;
+        game_state = ST_SOLO;
+        finished = 0;
+        player_class = CLASS_EBUC;
+        player->x = 300;
+        player->y = 500;
+        ball_reset();
+        ball_mode = 1;
+        ball.aim_on = 1;
+        ball.aim_dx = 0.6;
+        ball.aim_dy = -0.8;
+        adm_reset_log();
+        draw_ball();
+        calls_off = adm_color_n;
+        admin_press_cheat(7);
+        assert(admin_cheat_ball_path() == 1);
+        adm_reset_log();
+        draw_ball();
+        calls_on = adm_color_n;
+        assert(calls_on >= calls_off + 25);
+        admin_press_cheat(7);
+        assert(admin_cheat_ball_path() == 0);
+        cheat_stain = 0;
+        ball_reset();
+        player_class = CLASS_ORDINARY;
+    }
 
     net_ban_set("remote_guy", 0);
     net_ban_set("old_cheater", 0);

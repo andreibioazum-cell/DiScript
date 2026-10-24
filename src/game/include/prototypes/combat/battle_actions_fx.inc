@@ -8,5 +8,6 @@ static void fire_super(void);
 static void tick_super_windup(void);
 static void update_gift(void);
 static void draw_gift(void);
+static void draw_boom_at_r(double x, double y, double bt, double rad);
 static void draw_boom_at(double x, double y, double bt);
 static void draw_boom(void);

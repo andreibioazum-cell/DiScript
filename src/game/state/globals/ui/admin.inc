@@ -21,6 +21,8 @@ double cheat_cc;
 double cheat_estun;
 /* Joke mode from this panel: masterpiece hitboxes without the web flag. */
 double cheat_chaos;
+/* Trajectory preview: all bounce directions of ebuC's (буК) projectile. */
+double cheat_ball_path;
 /* Mark: the admin panel put this stun on the enemy, not the game. Such a stun
  * draws no orange ring - neither while the cheat is on nor after it is off while
  * the leftover stun still ticks. Cleared by a real stun (stun_enemy) and by the

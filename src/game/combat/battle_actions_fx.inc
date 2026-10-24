@@ -264,12 +264,12 @@ static void draw_gift(void) {
     tex(gift->x - hw, gift->y - hw, SNOWFLAKE_TEX, rot, 0.5);
 }
 
-static void draw_boom_at(double x, double y, double bt) {
+static void draw_boom_at_r(double x, double y, double bt, double rad) {
     if (bt <= 0) {
         return;
     }
     double p = 1 - bt / boom_time;
-    double r = super_radius * p;
+    double r = rad * p;
     double fade_in = clamp(p / boom_fade_in, 0, 1);
     double fade_out = clamp(bt / (boom_time * boom_fade_out), 0, 1);
     double a = floor(fade_in * fade_out * 255);
@@ -280,7 +280,11 @@ static void draw_boom_at(double x, double y, double bt) {
     double c1 = (((unsigned)(int)a) << 24) | 0x00E1F5FE;
     ring(x, y, r, 9, c0);
     ring(x, y, r * 0.6, 6, c1);
-    circle(x, y, super_radius * 0.3, c0);
+    circle(x, y, rad * 0.3, c0);
+}
+
+static void draw_boom_at(double x, double y, double bt) {
+    draw_boom_at_r(x, y, bt, super_radius);
 }
 
 static void draw_boom(void) {

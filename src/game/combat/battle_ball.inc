@@ -11,6 +11,7 @@
 #define BALL_SPEED 620.0              /* initial px per second */
 #define BALL_BOUNCE_ACCEL 1.04        /* +4% speed on every wall bounce */
 #define BALL_RADIUS 24.0
+#define BALL_BOOM_RADIUS 150.0        /* ~15% wider explosion than super_radius (130) */
 #define BALL_BASE_DAMAGE 0.5          /* 0 bounces: barely scratches the target */
 #define BALL_BOUNCE_DAMAGE 1.5        /* damage gained on the 1st wall bounce */
 #define BALL_BOUNCE_DAMAGE_GROW 1.13  /* +13% bounce damage on every wall bounce */
@@ -22,6 +23,7 @@ typedef struct {
     double active;
     double x, y, vx, vy;
     double bounces, t, spin, shot;
+    double boom_x, boom_y, boom_t;
     /* Aiming: the countdown runs in aim_t, the throw follows aim_dx/aim_dy. */
     double aim_on, aim_id, aim_t, aim_dx, aim_dy;
     double trail_x[BALL_TRAIL], trail_y[BALL_TRAIL], trail_a[BALL_TRAIL];
@@ -75,6 +77,9 @@ static void ball_reset(void) {
     ball.vy = 0;
     ball.bounces = 0;
     ball.t = 0;
+    ball.boom_x = 0;
+    ball.boom_y = 0;
+    ball.boom_t = 0;
     ball.aim_on = 0;
     ball.aim_id = -1;
     ball.aim_t = 0;
@@ -229,16 +234,15 @@ static double ball_damage_for(double bounces) {
     return dmg;
 }
 
-static void ball_burst(double damage) {
+static void ball_burst(void) {
+    double b = ball.bounces > BALL_MAX_BOUNCES ? BALL_MAX_BOUNCES : ball.bounces;
     ball.active = 0;
-    boom_x = ball.x;
-    boom_y = ball.y;
-    boom_t = boom_time;
-    if (damage <= 0) {
-        return;
-    }
-    if (enemy_revive_prot <= 0) {
-        enemy_apply_damage_at(ball_damage_for(ball.bounces), ball.x, ball.y);
+    ball.boom_x = ball.x;
+    ball.boom_y = ball.y;
+    ball.boom_t = boom_time;
+    if (game_state != ST_ONLINE && enemy_revive_prot <= 0 &&
+        circle_hits_enemy(ball.x, ball.y, BALL_BOOM_RADIUS) == 1) {
+        enemy_apply_damage_at(ball_damage_for(b), ball.x, ball.y);
     }
 }
 
@@ -280,13 +284,13 @@ static void ball_tick(void) {
             ball.bounces = ball.bounces + 1;
         }
         if (ball.bounces > BALL_MAX_BOUNCES || ball.t > BALL_MAX_TIME) {
-            /* Out of bounces: it bursts where it is and nobody gets hurt. */
+            /* Out of bounces or time: bursts with BALL_BOOM_RADIUS, hurting any enemy caught in the blast. */
             ds_log("charged ult: projectile used up after %g bounces", ball.bounces);
-            ball_burst(0);
+            ball_burst();
             return;
         }
         if (game_state != ST_ONLINE && circle_hits_enemy(ball.x, ball.y, BALL_RADIUS) == 1) {
-            ball_burst(1);
+            ball_burst();
             return;
         }
     }
@@ -326,6 +330,23 @@ static void draw_ball(void) {
     double i = 0;
     double a;
     draw_ult_mode();
+    if (admin_cheat_ball_path() == 1) {
+        if (ball.active == 1) {
+            draw_ball_path_from(ball.x, ball.y, ball.vx, ball.vy, ball.bounces, ball.t, 0x0056CCF2u);
+        } else if (ball.aim_on == 1) {
+            draw_ball_path_from(player->x, player->y, ball.aim_dx * BALL_SPEED, ball.aim_dy * BALL_SPEED, 0, 0,
+                                0x00FFD54Fu);
+        } else if (player_class == CLASS_EBUC && ball_mode == 1 && finished == 0) {
+            double dx = cos(player->angle);
+            double dy = sin(player->angle);
+            if (joy.dx != 0 || joy.dy != 0) {
+                double jl = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
+                dx = joy.dx / jl;
+                dy = joy.dy / jl;
+            }
+            draw_ball_path_from(player->x, player->y, dx * BALL_SPEED, dy * BALL_SPEED, 0, 0, 0x0056CCF2u);
+        }
+    }
     draw_ball_aim();
     if (ball.aim_on == 1) {
         /* Armed: the countdown runs, the joystick steers the aim. */
@@ -343,12 +364,21 @@ static void draw_ball(void) {
         /* Pure ball + particles only: no outline, no hitbox ring. */
         circle(ball.x, ball.y, BALL_RADIUS, 0xFF3A8BFFu);
     }
+    if (ball.boom_t > 0) {
+        draw_boom_at_r(ball.boom_x, ball.boom_y, ball.boom_t, BALL_BOOM_RADIUS);
+        if (show_hitboxes == 1) {
+            draw_hit_circle(ball.boom_x, ball.boom_y, BALL_BOOM_RADIUS, ball.boom_t / boom_time);
+        }
+    }
 }
 
 /* Trail fade runs even between launches, so the dots left by the last ball do
  * not stay on screen forever. */
 static void ball_fade_tick(void) {
     double i = 0;
+    if (ball.boom_t > 0) {
+        ball.boom_t = tick_down(ball.boom_t);
+    }
     while (i < BALL_TRAIL) {
         if (ball.trail_a[(int)i] > 0) {
             ball.trail_a[(int)i] = ball.trail_a[(int)i] - dt / 0.45;

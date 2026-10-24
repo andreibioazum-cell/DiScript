@@ -1,19 +1,89 @@
-/* Projectiles thrown by other players in an online fight. Every client flies them
- * from the published origin and direction, so the bounces happen in the same
- * places on every screen, and the hit lands where the local player stands. */
+/* Projectiles thrown by other players in an online fight, plus the admin bounce
+ * trajectory preview shared by solo and online. Every client flies remote
+ * projectiles from the published origin and direction, so the bounces happen in
+ * the same places on every screen, and the hit lands where the local player stands. */
 #define REMOTE_BRICKS 4
 
 static double rb_on[REMOTE_BRICKS], rb_shot[REMOTE_BRICKS];
 static double rb_x[REMOTE_BRICKS], rb_y[REMOTE_BRICKS], rb_vx[REMOTE_BRICKS], rb_vy[REMOTE_BRICKS];
 static double rb_bounces[REMOTE_BRICKS], rb_t[REMOTE_BRICKS], rb_spin[REMOTE_BRICKS];
+static double rb_boom_x[REMOTE_BRICKS], rb_boom_y[REMOTE_BRICKS], rb_boom_t[REMOTE_BRICKS];
 static double rb_trail_x[REMOTE_BRICKS][BALL_TRAIL], rb_trail_y[REMOTE_BRICKS][BALL_TRAIL];
 static double rb_trail_a[REMOTE_BRICKS][BALL_TRAIL];
+
+/* Admin toggle: draws all remaining bounce directions of ebuC's (буК) projectile. */
+static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, double bounces0, double t0, uint32_t rgb) {
+    double min_x = BALL_RADIUS, max_x = screen_w - BALL_RADIUS;
+    double min_y = BALL_RADIUS, max_y = screen_h - BALL_RADIUS;
+    double x, y, vx = vx0, vy = vy0, b = bounces0, t = t0, seg = 0;
+    if (max_x <= min_x || max_y <= min_y || (fabs(vx) < 1e-6 && fabs(vy) < 1e-6)) {
+        return;
+    }
+    x = clamp(x0, min_x, max_x);
+    y = clamp(y0, min_y, max_y);
+    while (b <= BALL_MAX_BOUNCES && t < BALL_MAX_TIME && seg < 16) {
+        double tx = vx > 1e-6 ? (max_x - x) / vx : (vx < -1e-6 ? (min_x - x) / vx : 1e9);
+        double ty = vy > 1e-6 ? (max_y - y) / vy : (vy < -1e-6 ? (min_y - y) / vy : 1e9);
+        double dt_wall = tx < ty ? tx : ty;
+        double dt_rem = BALL_MAX_TIME - t;
+        double dt_seg, nx, ny, slen;
+        int hit_cap = 0;
+        int alpha = 220 - (int)(seg * 9);
+        uint32_t col;
+        if (dt_wall < 0) {
+            dt_wall = 0;
+        }
+        dt_seg = dt_wall;
+        if (dt_rem < dt_seg) {
+            dt_seg = dt_rem;
+            hit_cap = 1;
+        }
+        nx = clamp(x + vx * dt_seg, min_x, max_x);
+        ny = clamp(y + vy * dt_seg, min_y, max_y);
+        if (alpha < 110) {
+            alpha = 110;
+        }
+        col = ((uint32_t)alpha << 24) | (rgb & 0x00FFFFFFu);
+        line(x, y, nx, ny, 2.5, col);
+        slen = sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y));
+        if (slen >= 36) {
+            double ux = (nx - x) / slen;
+            double uy = (ny - y) / slen;
+            double mx = x + (nx - x) * 0.56;
+            double my = y + (ny - y) * 0.56;
+            line(mx, my, mx - ux * 11 - uy * 6.5, my - uy * 11 + ux * 6.5, 2.5, col);
+            line(mx, my, mx - ux * 11 + uy * 6.5, my - uy * 11 - ux * 6.5, 2.5, col);
+        }
+        circle(nx, ny, 4, col);
+        x = nx;
+        y = ny;
+        t = t + dt_seg;
+        seg = seg + 1;
+        if (hit_cap == 1) {
+            break;
+        }
+        if (fabs(dt_wall - tx) <= 1e-6) {
+            vx = (0 - vx) * BALL_BOUNCE_ACCEL;
+            vy = vy * BALL_BOUNCE_ACCEL;
+            b = b + 1;
+        }
+        if (fabs(dt_wall - ty) <= 1e-6) {
+            vx = vx * BALL_BOUNCE_ACCEL;
+            vy = (0 - vy) * BALL_BOUNCE_ACCEL;
+            b = b + 1;
+        }
+    }
+    ring(x, y, 8, 2, (180u << 24) | (rgb & 0x00FFFFFFu));
+}
 
 static void remote_bricks_reset(void) {
     int i = 0, k;
     while (i < REMOTE_BRICKS) {
         rb_on[i] = 0;
         rb_shot[i] = -1;
+        rb_boom_x[i] = 0;
+        rb_boom_y[i] = 0;
+        rb_boom_t[i] = 0;
         for (k = 0; k < BALL_TRAIL; k++) {
             rb_trail_a[i][k] = 0;
         }
@@ -34,6 +104,17 @@ static void rb_trail_push(int s, double x, double y) {
     rb_trail_a[s][0] = 1;
 }
 
+static void rb_burst(int s, double x, double y) {
+    double b = rb_bounces[s] > BALL_MAX_BOUNCES ? BALL_MAX_BOUNCES : rb_bounces[s];
+    rb_on[s] = 0;
+    rb_boom_x[s] = x;
+    rb_boom_y[s] = y;
+    rb_boom_t[s] = boom_time;
+    if (circle_hits_player(x, y, BALL_BOOM_RADIUS) == 1) {
+        take_damage_at(ball_damage_for(b), x, y);
+    }
+}
+
 static void remote_bricks_tick(void) {
     double s = 0;
     if (game_state != ST_ONLINE) {
@@ -44,6 +125,7 @@ static void remote_bricks_tick(void) {
         if (net_player_online(s) != 1 || s == net_slot()) {
             rb_on[(int)s] = 0;
             rb_shot[(int)s] = -1;
+            rb_boom_t[(int)s] = 0;
             s = s + 1;
             continue;
         }
@@ -97,15 +179,17 @@ static void remote_bricks_tick(void) {
                 rb_vx[(int)s] = vx;
                 rb_vy[(int)s] = vy;
                 if (rb_bounces[(int)s] > BALL_MAX_BOUNCES || rb_t[(int)s] > BALL_MAX_TIME) {
-                    rb_on[(int)s] = 0;
+                    rb_burst((int)s, x, y);
                 } else if (circle_hits_player(x, y, BALL_RADIUS) == 1) {
-                    take_damage_at(ball_damage_for(rb_bounces[(int)s]), x, y);
-                    rb_on[(int)s] = 0;
+                    rb_burst((int)s, x, y);
                 }
             }
             if (rb_on[(int)s] == 1) {
                 rb_trail_push((int)s, rb_x[(int)s], rb_y[(int)s]);
             }
+        }
+        if (rb_boom_t[(int)s] > 0) {
+            rb_boom_t[(int)s] = tick_down(rb_boom_t[(int)s]);
         }
         {
             int k = 0;
@@ -126,6 +210,9 @@ static void remote_bricks_tick(void) {
 static void draw_remote_bricks(void) {
     int s = 0, k;
     while (s < REMOTE_BRICKS) {
+        if (rb_on[s] == 1 && admin_cheat_ball_path() == 1) {
+            draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FF6B6Bu);
+        }
         for (k = 0; k < BALL_TRAIL; k++) {
             if (rb_trail_a[s][k] > 0) {
                 double a = rb_trail_a[s][k];
@@ -135,6 +222,12 @@ static void draw_remote_bricks(void) {
         }
         if (rb_on[s] == 1) {
             circle(rb_x[s], rb_y[s], BALL_RADIUS, 0xFF3A8BFFu);
+        }
+        if (rb_boom_t[s] > 0) {
+            draw_boom_at_r(rb_boom_x[s], rb_boom_y[s], rb_boom_t[s], BALL_BOOM_RADIUS);
+            if (show_hitboxes == 1) {
+                draw_hit_circle(rb_boom_x[s], rb_boom_y[s], BALL_BOOM_RADIUS, rb_boom_t[s] / boom_time);
+            }
         }
         s = s + 1;
     }
@@ -157,6 +250,7 @@ static double remote_bricks_live(void) {
 /* The round is over: the projectile goes away and so do the ones in the air. */
 static void ball_clear_after_finish(void) {
     ball.active = 0;
+    ball.boom_t = 0;
     ball.aim_on = 0;
     ball.aim_id = -1;
     ball.aim_t = 0;
