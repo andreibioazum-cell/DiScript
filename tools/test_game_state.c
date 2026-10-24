@@ -2031,6 +2031,17 @@ static void test_eax229_and_rooms(void) {
     assert(achievement_bit(5) == ACH_BUK_GIFT);
     assert(strcmp(tr_achievement_eax229(), "mov eax, 0x229") == 0);
     assert(strcmp(tr_achievement_eax229_desc(), "???") == 0);
+    language = 1;
+    assert(strcmp(tr_class_ebuc(), "буК") == 0);
+    assert(strcmp(tr_achievement_buk(), "подарок буКа") == 0);
+    assert(strcmp(tr_skin_elf_hint(), "подарок буКа") == 0);
+    assert(strcmp(bp_reward_text(4), "Скин: Эльф-буК") == 0);
+    language = 0;
+    assert(strcmp(tr_class_ebuc(), "ebuC") == 0);
+    assert(strcmp(tr_achievement_buk(), "ebuC's gift") == 0);
+    assert(strcmp(tr_skin_elf_hint(), "ebuC's gift") == 0);
+    assert(strcmp(bp_reward_text(4), "Skin: Elf ebuC") == 0);
+    language = 1;
 
     /* Gift from буК: granted in an online Ded Moroz event as Santa, unlocks Elf буК. */
     achievement_mask = 0;

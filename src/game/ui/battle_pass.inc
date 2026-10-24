@@ -55,7 +55,7 @@ static const char *bp_reward_text(double t) {
     if (t == 1) return ds_concat("+10 ", tr_cups_unit());
     if (t == 2) return ds_concat("+20 ", tr_cups_unit());
     if (t == 3) return ds_concat("+30 ", tr_cups_unit());
-    if (t == 4) return language == 1 ? "Скин: Эльф-буК" : "Skin: Elf буК";
+    if (t == 4) return language == 1 ? "Скин: Эльф-буК" : "Skin: Elf ebuC";
     if (t == 5) return ds_concat("+60 ", tr_cups_unit());
     if (t == 6) return ds_concat("+120 ", tr_candies_unit());
     return language == 1 ? "Класс: Дед Мороз" : "Class: Santa";

@@ -50,7 +50,12 @@ static const char *tr_admin_ban_protected(void) {
 }
 
 static const char *tr_skins_note_for(double cls) {
-    (void)cls;
+    if (cls == CLASS_EBUC) {
+        if (language == 1) {
+            return "Скин «Эльф»: достижение «подарок буКа»";
+        }
+        return "Elf skin: \"ebuC's gift\" achievement";
+    }
     return tr_skins_need_legends();
 }
 
