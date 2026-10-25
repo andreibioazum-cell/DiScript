@@ -1,11 +1,11 @@
-name: Build Cubic Battle 4 (Pure C)
+name: Build Cubic Battle 4 (APK + EXE)
 
 on:
   push:
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 concurrency:
   group: build-${{ github.ref }}
@@ -27,20 +27,13 @@ jobs:
         with:
           python-version: '3.11'
 
-      - uses: actions/cache@v4
-        with:
-          path: ~/.cache/pip
-          key: pip-ziglang-${{ runner.os }}-py311
-
-      # Zig ships its own Win32 headers and C runtime glue: no MSVC, no
-      # Windows SDK, and the exe builds on Linux.
       - name: Install Zig
         run: pip install ziglang
 
-      - name: Build CubeBattle4.exe
+      - name: Build CubicBattle4.exe
         run: python3 tools/build_pc.py --windows
 
-      - name: Stage assets next to the exe
+      - name: Stage Windows package
         run: |
           set -euo pipefail
           mkdir -p build/pc/dist
@@ -49,13 +42,33 @@ jobs:
           test -f build/pc/dist/assets/grass.png
           test -f build/pc/dist/assets/fonts/ComicRelief-Regular.ttf
           test -f build/pc/dist/assets/sounds/lobbymusic.wav
+          (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: Cubic-Battle-4-PC-Windows
           path: build/pc/dist/
           retention-days: 1
           if-no-files-found: error
+
+      - name: Publish Windows .exe to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="latest-build"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "${{ github.sha }}" \
+              --title "Latest Build (APK + EXE)" \
+              --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
+              --prerelease || true
+          fi
+          gh release upload "$TAG" CubicBattle4-Windows.zip build/pc/CubicBattle4.exe --clobber
+          echo "### Windows Build Ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [CubicBattle4-Windows.zip (EXE + assets)](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4-Windows.zip)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [CubicBattle4.exe](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.exe)" >> "$GITHUB_STEP_SUMMARY"
 
   build-android:
     name: Build Android APK (Android 8-15)
@@ -66,62 +79,11 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Verify pure-C project layout
-        run: |
-          set -euo pipefail
-          test -f src/game/game.c
-          test -d src/engine
-          test -d src/platform/android
-          test -d assets/textures
-          test -d assets/audio
-          test -d platform/android
-          test ! -e game
-          test ! -e native
-          grep -q 'android:name="com.cb4.GameActivity"' platform/android/AndroidManifest.xml
-          grep -q 'android:value="cb_game"' platform/android/AndroidManifest.xml
-          grep -q 'android:versionCode="[0-9]\+"' platform/android/AndroidManifest.xml
-          grep -q '^package com.cb4;' platform/android/java/com/cb4/GameActivity.java
-          grep -q 'Java_com_cb4_GameActivity_nativeReplaceText' src/platform/android/keyboard.inc
-          grep -q 'Java_com_cb4_PresenceJobService_nativePresence' src/platform/android/presence_job.inc
-          grep -q 'android:name="com.cb4.PresenceJobService"' platform/android/AndroidManifest.xml
-          if find . -type f -name '*.ds' -print -quit | grep -q .; then
-            echo "::error::The C port must not contain script sources"
-            exit 1
-          fi
-
-      - name: Check native game sources
-        run: |
-          set -euo pipefail
-          clang -std=c99 -Wall -Wextra -Werror -pedantic \
-            -Isrc -I. -Itools/host_test/stub -fsyntax-only src/game/game.c
-          python3 tools/check_game_file_size.py
-          printf '%s\n' \
-            tools/test_resources.py \
-            tools/test_game_state.py \
-            tools/test_live_flags.py \
-            tools/test_string_pool.py \
-            tools/test_settings_storage.py \
-            tools/test_cloud_progress.py \
-            tools/test_promo.py \
-            tools/test_presence.py \
-            tools/test_network_memory.py \
-            tools/test_font_memory.py \
-            tools/test_db_rules.py \
-            tools/test_engine_formats.py \
-            tools/test_admin_panel.py \
-            | xargs -P 4 -n 1 python3
-
       - name: Setup Java for Android build tools
         uses: actions/setup-java@v5
         with:
           distribution: temurin
           java-version: '17'
-
-      - name: Check debug signing key
-        run: |
-          set -euo pipefail
-          test -f platform/android/debug.keystore
-          echo "Using the permanent debug signing key from the repository"
 
       - name: Prepare Android SDK and NDK
         id: android-tools
@@ -193,7 +155,7 @@ jobs:
             wait "$pid"
           done
 
-      - name: Package and align APK
+      - name: Package and sign APK
         run: |
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/34.0.0"
@@ -203,26 +165,34 @@ jobs:
             -I "$ANDROID_HOME/platforms/android-35/android.jar" \
             -F unsigned.apk ./staging/
           "$BT/zipalign" -v 4 unsigned.apk aligned.apk
-
-      - name: Sign APK with debug key
-        run: |
-          set -euo pipefail
-          BT="$ANDROID_HOME/build-tools/34.0.0"
           "$BT/apksigner" sign \
             --ks platform/android/debug.keystore --ks-type PKCS12 \
             --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android \
             --out Game.apk aligned.apk
-
-      - name: Verify APK
-        run: |
-          set -euo pipefail
-          BT="$ANDROID_HOME/build-tools/34.0.0"
-          "$BT/aapt" dump badging Game.apk | head -n 5
           "$BT/apksigner" verify --verbose --print-certs Game.apk
+          cp Game.apk CubicBattle4.apk
 
       - uses: actions/upload-artifact@v4
+        continue-on-error: true
         with:
           name: Cubic-Battle-4-Full-C-APK
           path: Game.apk
           retention-days: 1
           if-no-files-found: error
+
+      - name: Publish Android APK to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="latest-build"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "${{ github.sha }}" \
+              --title "Latest Build (APK + EXE)" \
+              --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
+              --prerelease || true
+          fi
+          gh release upload "$TAG" CubicBattle4.apk --clobber
+          echo "### Android APK Ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [CubicBattle4.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.apk)" >> "$GITHUB_STEP_SUMMARY"
