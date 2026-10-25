@@ -2139,20 +2139,51 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
-    /* ebuC ball bounce scaling: 0.5 base dmg, +1.5 on first bounce, x1.13 gain and x1.04 speed per bounce. */
+    /* ebuC ball bounce scaling: 0.5 base dmg, +2.4 on first bounce, x1.22 gain and x1.04 speed per bounce. */
     assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
     for (int b = 0; b < 10; b++) {
         assert(ball_damage_for(b + 1) > ball_damage_for(b));
     }
-    assert(fabs(ball_damage_for(1) - 2.0) < 1e-9);
-    assert(fabs(ball_damage_for(2) - 3.695) < 1e-9);
+    assert(fabs(ball_damage_for(1) - 2.9) < 1e-9);
+    assert(fabs(ball_damage_for(2) - 5.828) < 1e-9);
     for (int b = 1; b < 10; b++) {
         double prev_gain = ball_damage_for(b) - ball_damage_for(b - 1);
         double next_gain = ball_damage_for(b + 1) - ball_damage_for(b);
-        assert(fabs(next_gain - prev_gain * 1.13) < 1e-9);
+        assert(fabs(next_gain - prev_gain * 1.22) < 1e-9);
     }
-    assert(fabs(ball_damage_for(4) - 7.7746955) < 1e-9);
-    assert(fabs(ball_damage_for(10) - (0.5 + 1.5 * (pow(1.13, 10) - 1.0) / 0.13)) < 1e-9);
+    assert(fabs(ball_damage_for(4) - 13.7581952) < 1e-9);
+    assert(fabs(ball_damage_for(10) - (0.5 + 2.4 * (pow(1.22, 10) - 1.0) / 0.22)) < 1e-9);
+    assert(fabs(station_beam_pull - 45.0) < 1e-9);
+    {
+        /* ebuC's dispenser beam renders before ebuC's body layer in Solo. */
+        int beam_idx = -1, body_idx = -1;
+        player_class = CLASS_EBUC;
+        reset_battle();
+        game_state = ST_SOLO;
+        finished = 0;
+        player->hp = player->max_hp = 24;
+        player->x = 300;
+        player->y = 400;
+        player_block = 1;
+        arr_set(turret_x, 0, 500);
+        arr_set(turret_y, 0, 400);
+        arr_set(turret_hp, 0, 10);
+        arr_set(turret_maxhp, 0, 10);
+        last_turret_slot = 0;
+        adm_reset_log();
+        draw_game();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            uint32_t c = adm_colors[ci];
+            if ((c & 0x00FFFFFFu) == 0x00C8FAD6u && beam_idx < 0)
+                beam_idx = ci;
+            if (c == 0x2E4FC3F7u && body_idx < 0)
+                body_idx = ci;
+        }
+        assert(beam_idx >= 0 && body_idx > beam_idx);
+        player_block = 0;
+        arr_set(turret_hp, 0, 0);
+        player_class = CLASS_ORDINARY;
+    }
     {
         game_state = ST_SOLO;
         finished = 0;

@@ -57,7 +57,7 @@ static double ball_seg_hits_target(double x, double y, double nx, double ny, dou
 
 /* Draw predicted bounce segments; highlight enemy-intersecting segments in red. */
 static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, double bounces0, double t0,
-                                uint32_t rgb, double check_foe) {
+                                uint32_t rgb, double check_foe, double start_off) {
     double min_x = BALL_RADIUS, max_x = screen_w - BALL_RADIUS;
     double min_y = BALL_RADIUS, max_y = screen_h - BALL_RADIUS;
     double x, y, vx = vx0, vy = vy0, b = bounces0, t = t0, seg = 0;
@@ -72,7 +72,7 @@ static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, do
         double ty = vy > 1e-6 ? (max_y - y) / vy : (vy < -1e-6 ? (min_y - y) / vy : 1e9);
         double dt_wall = tx < ty ? tx : ty;
         double dt_rem = BALL_MAX_TIME - t;
-        double dt_seg, nx, ny, slen, next_b, end_r, hits;
+        double dt_seg, nx, ny, slen, next_b, end_r, hits, lx = x, ly = y;
         int hit_cap = 0;
         int alpha = 220 - (int)(seg * 9);
         uint32_t seg_rgb, col;
@@ -108,13 +108,20 @@ static void draw_ball_path_from(double x0, double y0, double vx0, double vy0, do
         }
         last_rgb = seg_rgb;
         col = ((uint32_t)alpha << 24) | seg_rgb;
-        line(x, y, nx, ny, 2.5, col);
         slen = sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y));
-        if (slen >= 36) {
+        if (seg == 0 && start_off > 0 && slen > 1e-6) {
+            double off = start_off < slen ? start_off : slen;
+            lx = x + (nx - x) / slen * off;
+            ly = y + (ny - y) / slen * off;
+        }
+        if (sqrt((nx - lx) * (nx - lx) + (ny - ly) * (ny - ly)) > 0.5) {
+            line(lx, ly, nx, ny, 2.5, col);
+        }
+        if (slen >= 36 && slen > start_off + 20) {
             double ux = (nx - x) / slen;
             double uy = (ny - y) / slen;
-            double mx = x + (nx - x) * 0.56;
-            double my = y + (ny - y) * 0.56;
+            double mx = lx + (nx - lx) * 0.56;
+            double my = ly + (ny - ly) * 0.56;
             line(mx, my, mx - ux * 11 - uy * 6.5, my - uy * 11 + ux * 6.5, 2.5, col);
             line(mx, my, mx - ux * 11 + uy * 6.5, my - uy * 11 - ux * 6.5, 2.5, col);
         }
@@ -287,7 +294,7 @@ static void draw_remote_bricks(void) {
     int s = 0, k;
     while (s < REMOTE_BRICKS) {
         if (rb_on[s] == 1 && admin_cheat_ball_path() == 1) {
-            draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FFD54Fu, 0);
+            draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FFD54Fu, 0, 0);
         }
         for (k = 0; k < BALL_TRAIL; k++) {
             if (rb_trail_a[s][k] > 0) {

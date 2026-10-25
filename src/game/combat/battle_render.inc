@@ -333,6 +333,7 @@ static void draw_controls(void) {
             sls = 0.95;
         }
         draw_pad(atk2_x, atk2_y, battle_pad_r(), pad_col, sl, sls);
+        draw_ult_mode();
     }
     draw_battle_back();
 }
@@ -384,6 +385,7 @@ static void draw_game(void) {
     draw_enemy_gift();
     draw_enemy_boom();
     draw_universe();
+    draw_station();
     draw_enemy_turrets();
     draw_ball();
     draw_enemy_ball();
@@ -392,7 +394,6 @@ static void draw_game(void) {
     draw_status_aura(player->x, player->y, player->size, freeze_rgb, freeze_rim, pfreeze_a);
     draw_status_aura(player->x, player->y, player->size, poison_rgb, poison_rim, ppoison_a);
     draw_status_aura(player->x, player->y, player->size, stun_rgb, stun_rim, pstun_a);
-    draw_station();
     draw_enemy_body();
     draw_status_aura(enemy->x, enemy->y, enemy->size, freeze_rgb, freeze_rim, freeze_a);
     draw_status_aura(enemy->x, enemy->y, enemy->size, poison_rgb, poison_rim, poison_a);

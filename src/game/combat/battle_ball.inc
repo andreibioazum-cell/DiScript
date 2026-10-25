@@ -5,8 +5,8 @@
 #define BALL_RADIUS 24.0
 #define BALL_BOOM_RADIUS 150.0
 #define BALL_BASE_DAMAGE 0.5
-#define BALL_BOUNCE_DAMAGE 1.5
-#define BALL_BOUNCE_DAMAGE_GROW 1.13
+#define BALL_BOUNCE_DAMAGE 2.4
+#define BALL_BOUNCE_DAMAGE_GROW 1.22
 #define BALL_MAX_BOUNCES 10.0
 #define BALL_MAX_TIME 8.0
 #define BALL_TRAIL 12
@@ -262,13 +262,12 @@ static void ult_ball_draw_body(UltBall *b) {
 }
 
 static void draw_ball(void) {
-    draw_ult_mode();
     if (admin_cheat_ball_path() == 1) {
         if (ball.active == 1) {
-            draw_ball_path_from(ball.x, ball.y, ball.vx, ball.vy, ball.bounces, ball.t, 0x0056CCF2u, 1);
+            draw_ball_path_from(ball.x, ball.y, ball.vx, ball.vy, ball.bounces, ball.t, 0x0056CCF2u, 1, 0);
         } else if (player_class == CLASS_EBUC && ball_mode == 1 && finished == 0) {
             draw_ball_path_from(player->x, player->y, cos(player->angle) * BALL_SPEED, sin(player->angle) * BALL_SPEED,
-                                0, 0, 0x0056CCF2u, 1);
+                                0, 0, 0x0056CCF2u, 1, 25 * cube_scale * player_scale);
         }
     }
     ult_ball_draw_body(&ball);
@@ -281,10 +280,10 @@ static void draw_enemy_ball(void) {
     if (admin_cheat_ball_path() == 1) {
         if (enemy_ball.active == 1) {
             draw_ball_path_from(enemy_ball.x, enemy_ball.y, enemy_ball.vx, enemy_ball.vy, enemy_ball.bounces,
-                                enemy_ball.t, 0x00FFD54Fu, 0);
+                                enemy_ball.t, 0x00FFD54Fu, 0, 0);
         } else if (enemy_class == CLASS_EBUC && (enemy_ball_mode == 1 || enemy_super_kind == 4) && finished == 0) {
             draw_ball_path_from(enemy->x, enemy->y, cos(enemy->angle) * BALL_SPEED, sin(enemy->angle) * BALL_SPEED,
-                                0, 0, 0x00FFD54Fu, 0);
+                                0, 0, 0x00FFD54Fu, 0, 25 * cube_scale * enemy_scale);
         }
     }
     ult_ball_draw_body(&enemy_ball);
