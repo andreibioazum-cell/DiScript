@@ -2139,21 +2139,21 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
-    /* ebuC ball bounce scaling: 0.5 base dmg, +2.4 on first bounce, x1.22 gain and x1.04 speed per bounce. */
+    /* ebuC ball bounce scaling: 0.5 base dmg, +2.8 on first bounce, x1.28 gain and x1.04 speed per bounce. */
     assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
     for (int b = 0; b < 10; b++) {
         assert(ball_damage_for(b + 1) > ball_damage_for(b));
     }
-    assert(fabs(ball_damage_for(1) - 2.9) < 1e-9);
-    assert(fabs(ball_damage_for(2) - 5.828) < 1e-9);
+    assert(fabs(ball_damage_for(1) - 3.3) < 1e-9);
+    assert(fabs(ball_damage_for(2) - 6.884) < 1e-9);
     for (int b = 1; b < 10; b++) {
         double prev_gain = ball_damage_for(b) - ball_damage_for(b - 1);
         double next_gain = ball_damage_for(b + 1) - ball_damage_for(b);
-        assert(fabs(next_gain - prev_gain * 1.22) < 1e-9);
+        assert(fabs(next_gain - prev_gain * 1.28) < 1e-9);
     }
-    assert(fabs(ball_damage_for(4) - 13.7581952) < 1e-9);
-    assert(fabs(ball_damage_for(10) - (0.5 + 2.4 * (pow(1.22, 10) - 1.0) / 0.22)) < 1e-9);
-    assert(fabs(station_beam_pull - 45.0) < 1e-9);
+    assert(fabs(ball_damage_for(4) - 17.3435456) < 1e-9);
+    assert(fabs(ball_damage_for(10) - (0.5 + 2.8 * (pow(1.28, 10) - 1.0) / 0.28)) < 1e-9);
+    assert(fabs(station_beam_pull - 26.0) < 1e-9 && fabs(station_beam_min - 54.0) < 1e-9);
     {
         /* ebuC's dispenser beam renders before ebuC's body layer in Solo. */
         int beam_idx = -1, body_idx = -1;
