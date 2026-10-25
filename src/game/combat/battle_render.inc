@@ -317,9 +317,9 @@ static void draw_controls(void) {
         } else if (player_class == CLASS_AZUM) {
             sl = tr_super_azum();
         } else if (class_is_astra(player_class) == 1) {
-            if (astra_grab_ready_t > 0 || astra_state != 0) {
+            if (astra_grab_ready_t > 0 || astra_strike_unlock_t > 0 || astra_state != 0) {
                 sl = tr_super_astra();
-                pad_col = astra_state != 0 ? 0x7B1FA2 : 0x9C27B0;
+                pad_col = astra_grab_ready_t > 0 ? 0x9C27B0 : (astra_state != 0 ? 0x7B1FA2 : 0x5F10A0);
             } else {
                 sl = tr_block();
                 if (astra_parry_t > 0) {
@@ -338,7 +338,7 @@ static void draw_controls(void) {
         if (player_class == CLASS_AZUM) {
             left = dash_cd;
         } else if (class_is_astra(player_class) == 1) {
-            left = astra_grab_ready_t > 0 ? 0 : astra_cd;
+            left = (astra_grab_ready_t > 0 || astra_strike_unlock_t > 0) ? 0 : astra_cd;
         }
         if (left > 0) {
             sl = ds_concat(ds_num_to_string((double)(floor(left + 0.999))), "");

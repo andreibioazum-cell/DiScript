@@ -118,7 +118,7 @@ static void fire_super(void) {
             start_grab_now();
             return;
         }
-        if (astra_cd > 0 || astra_parry_t > 0) {
+        if (astra_cd > 0 || astra_parry_t > 0 || astra_strike_unlock_t > 0) {
             queued_super = 0;
             return;
         }

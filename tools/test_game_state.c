@@ -2736,10 +2736,13 @@ int main(void) {
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
     assert(fabs(ASTRA_PARRY_TIME - 0.9) < 1e-9);
     assert(fabs(ASTRA_PARRY_SPEED_K - 0.90) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_UNLOCK_DELAY - 0.30) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.85) < 1e-9);
+    assert(fabs(ASTRA_PULLBACK_TIME - 0.18) < 1e-9);
+    assert(fabs(ASTRA_DASH_TIME - 0.58) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
     assert(astra_ability_lunge_dist > 250.0 && astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
-    assert(fabs(PUNCH_WINDUP - 0.3) < 1e-9);
+    assert(fabs(PUNCH_WINDUP - 0.2) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 65);
@@ -3751,7 +3754,7 @@ int main(void) {
         start_grab_now();
         assert(player_punching_now() == 1);
         enemy->x = 200 + 260; /* Farther than old 48 px lunge, reached by new 310 px dash! */
-        for (int f = 0; f < 30 && astra_caught == 0; f++) {
+        for (int f = 0; f < 50 && astra_caught == 0; f++) {
             tick_astra();
             tick_astra_fades();
         }
@@ -3851,7 +3854,7 @@ int main(void) {
     dt = 0.02;
     start_grab_now();
     assert(player_punching_now() == 1);
-    for (int frame = 0; frame < 4; frame++)
+    for (int frame = 0; frame < 9; frame++)
         tick_astra();
     assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
@@ -3879,7 +3882,7 @@ int main(void) {
     pthrow_t = 0;
     enemy_start_grab();
     assert(enemy_grab_punching() == 1);
-    for (int frame = 0; frame < 4; frame++) {
+    for (int frame = 0; frame < 9; frame++) {
         tick_enemy_grab();
         tick_astra_fades();
     }
@@ -3910,7 +3913,7 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < 4; frame++) {
+    for (int frame = 0; frame < 9; frame++) {
         update_remote_grabs();
         tick_astra_fades();
     }
@@ -3932,7 +3935,7 @@ int main(void) {
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
-    for (int frame = 0; frame < 4; frame++)
+    for (int frame = 0; frame < 9; frame++)
         update_remote_grabs();
     assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - astra_strike_stun_for(3)) < 1e-9);
     dt = saved_dt_astra;
@@ -4655,7 +4658,7 @@ int main(void) {
      * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.2 s. */
     {
         assert(fabs(block_guard - 0.25) < 1e-9);
-        assert(fabs(enemy_windup - 0.30) < 1e-9);
+        assert(fabs(enemy_windup - 0.20) < 1e-9);
         dt = 1.0 / 60.0;
 
         /* 1) Normal frontal block cuts 75% of damage for player and bot. */
@@ -4751,8 +4754,8 @@ int main(void) {
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
         touch_game(atk2_x, atk2_y, 1, 7);
 
-        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun and unlocks Strike ("Удар")
-         *     for 0.85 s; not pressing within 0.85 s reverts to Block + cooldown. */
+        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun, waits 0.30 s before
+         *     Strike ("Удар") can be pressed, then keeps it open for 0.85 s. */
         astra_cd = 0;
         player->hp = 18;
         touch_game(atk2_x, atk2_y, 0, 7);
@@ -4761,6 +4764,17 @@ int main(void) {
         take_damage_at(6.5, 500, 400);
         stun_player(0.55);
         assert(fabs(player->hp - 18.0) < 1e-9 && player_stun == 0);
+        assert(fabs(astra_strike_unlock_t - 0.30) < 1e-9 && astra_grab_ready_t == 0);
+        /* Pressing immediately during the 0.30 s pause cannot cast Strike yet. */
+        touch_game(atk2_x, atk2_y, 0, 8);
+        touch_game(atk2_x, atk2_y, 1, 8);
+        assert(astra_state == 0 && astra_grab_ready_t == 0 && astra_strike_unlock_t > 0);
+        int unlock_ticks = 0;
+        while (astra_strike_unlock_t > 0 && unlock_ticks < 30) {
+            tick_astra();
+            unlock_ticks++;
+        }
+        assert(unlock_ticks >= 18 && unlock_ticks <= 19);
         assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);
         adm_reset_log();
         draw_controls();
@@ -4775,7 +4789,7 @@ int main(void) {
         assert(astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
 
-        /* 2c) Pressing within 0.85 s does tiny fast pullback then long forward dash + stun. */
+        /* 2c) Pressing after the 0.30 s unlock pause performs slower pullback + forward dash + stun. */
         astra_cd = 0;
         player->x = 400;
         player->y = 400;
@@ -4789,7 +4803,10 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 7);
         touch_game(atk2_x, atk2_y, 1, 7);
         take_damage_at(3.0, 500, 400);
-        assert(fabs(astra_grab_ready_t - 0.85) < 1e-9 && fabs(player->hp - 18.0) < 1e-9);
+        assert(fabs(astra_strike_unlock_t - 0.30) < 1e-9 && fabs(player->hp - 18.0) < 1e-9);
+        while (astra_strike_unlock_t > 0)
+            tick_astra();
+        assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
@@ -4797,14 +4814,14 @@ int main(void) {
         {
             double saved_dt2 = dt;
             dt = 0.02;
-            for (int f = 0; f < 4; f++)
+            for (int f = 0; f < 9; f++)
                 tick_astra();
             assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
             assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
-            for (int f = 0; f < 40 && astra_state != 0; f++)
+            for (int f = 0; f < 60 && astra_state != 0; f++)
                 tick_astra();
             assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
-            for (int f = 0; f < 40 && player_punching_now() == 1; f++)
+            for (int f = 0; f < 60 && player_punching_now() == 1; f++)
                 tick_astra();
             assert(player_punching_now() == 0);
             dt = saved_dt2;
@@ -4812,7 +4829,7 @@ int main(void) {
         enemy->stun = 0;
         astra_cd = 0;
 
-        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.3 s. */
+        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.2 s. */
         player_class = CLASS_ORDINARY;
         player->x = 460;
         player->y = 400;
@@ -4830,7 +4847,7 @@ int main(void) {
         enemy_punch_a = 0;
         assert(start_enemy_attack() == 1);
         assert(enemy->state == 1 && enemy_punching_now() == 1);
-        for (int f = 0; f < 17; f++) {
+        for (int f = 0; f < 11; f++) {
             update_enemy();
             tick_hitbox_fades();
             assert(enemy->state == 1 && enemy_punching_now() == 1);
@@ -5323,7 +5340,7 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* Drag-over does not squeeze buttons; normal punches hit after 0.3 s for player & remote. */
+    /* Drag-over does not squeeze buttons; normal punches hit after 0.2 s for player & remote. */
     {
         /* 1. Dragging/moving over a button (action == 2) never triggers press squeeze. */
         game_state = ST_LOBBY;
@@ -5335,7 +5352,7 @@ int main(void) {
         assert(button_press_k(menu_x(), menu_row(0), btn_w, btn_h) == 0);
         assert(press_phase[0] == 0);
 
-        /* 2. Player normal punch: pose immediate, hitbox/damage after 0.3 s. */
+        /* 2. Player normal punch: pose immediate, hitbox/damage after 0.2 s. */
         game_state = ST_SOLO;
         finished = 0;
         dt = 0.02;
@@ -5349,14 +5366,14 @@ int main(void) {
         enemy->x = 460;
         enemy->y = 400;
         enemy->hp = enemy->max_hp = 20;
-        enemy->stun = 99; /* keep enemy stationary to verify exact 0.3 s timing */
+        enemy->stun = 99; /* keep enemy stationary to verify exact 0.2 s timing */
         punch->active = 0;
         punch_left = 0;
         punch_cd = 0;
         aim_a = 0;
         fire_punch();
         assert(punch->active == 1 && player_punching_now() == 1);
-        for (int f = 0; f < 14; f++) {
+        for (int f = 0; f < 9; f++) {
             update_game();
             assert(player_punching_now() == 1 && fabs(enemy->hp - 20.0) < 1e-9);
         }
@@ -5367,7 +5384,7 @@ int main(void) {
         punch_left = 0;
         punch_cd = 0;
 
-        /* 3. Online remote normal punch: pose immediate, damage after 0.3 s. */
+        /* 3. Online remote normal punch: pose immediate, damage after 0.2 s. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         finished = 0;
@@ -5388,7 +5405,7 @@ int main(void) {
         arr_set(remote_punches, 1 * punch_fields + 3, 1);
         arr_set(remote_punches, 1 * punch_fields + 4, 0);
         arr_set(remote_punches, 1 * punch_fields + 5, 0);
-        for (int f = 0; f < 14; f++) {
+        for (int f = 0; f < 9; f++) {
             tick_remote_punches();
             update_remote_punches();
             assert(arr_get(remote_punches, 1 * punch_fields) == 1 && fabs(player->hp - 20.0) < 1e-9);

@@ -75,8 +75,7 @@ static double update_remote_grab(double slot) {
         double reach = astra_zone_reach(lv);
         double width = astra_zone_width(lv);
         double u = clamp((t - ASTRA_PULLBACK_TIME) / ASTRA_DASH_TIME, 0, 1);
-        double q = 1 - u;
-        double p = 1 - q * q * q;
+        double p = astra_dash_progress(u);
         double sx = gx - gdx * astra_ability_lunge_dist;
         double sy = gy - gdy * astra_ability_lunge_dist;
         double swept = astra_ability_lunge_dist * p;

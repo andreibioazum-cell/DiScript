@@ -109,6 +109,7 @@ static void reset_battle(void) {
     astra_box_a = 0;
     astra_parry_t = 0;
     astra_parry_blocked = 0;
+    astra_strike_unlock_t = 0;
     astra_grab_ready_t = 0;
     pgrab_active = 0;
     pgrab_slot = -1;

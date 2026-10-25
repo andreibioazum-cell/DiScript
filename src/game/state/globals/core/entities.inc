@@ -115,6 +115,7 @@ double astra_pub;
 double astra_box_a;
 double astra_parry_t;
 double astra_parry_blocked;
+double astra_strike_unlock_t;
 double astra_grab_ready_t;
 /* Astra forward lunge timer, start point, and target/grab origin. */
 double astra_ability_lunge_t;
@@ -134,6 +135,7 @@ double egrab_dy;
 double egrab_punch_t;
 double egrab_box_a;
 double egrab_parry_t;
+double egrab_unlock_t;
 double egrab_ready_t;
 double pthrow_t;
 double pthrow_dx;

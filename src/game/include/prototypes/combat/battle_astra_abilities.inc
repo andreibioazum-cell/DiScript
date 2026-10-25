@@ -1,3 +1,4 @@
+static double astra_dash_progress(double u);
 static double astra_ability_of(double cls, double skin);
 static double astra_ability_of_slot(double slot);
 static double astra_ability_is_dev(void);

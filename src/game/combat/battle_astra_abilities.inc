@@ -2,9 +2,9 @@
 
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
-#define ASTRA_PULLBACK_DIST 18.0
-#define ASTRA_PULLBACK_TIME 0.07
-#define ASTRA_DASH_TIME 0.34
+#define ASTRA_PULLBACK_DIST 20.0
+#define ASTRA_PULLBACK_TIME 0.18
+#define ASTRA_DASH_TIME 0.58
 static const double astra_ability_lunge_dist = 310.0;
 static const double astra_ability_lunge_time = ASTRA_PULLBACK_TIME + ASTRA_DASH_TIME;
 
@@ -13,6 +13,11 @@ static const double astra_ability_lunge_time = ASTRA_PULLBACK_TIME + ASTRA_DASH_
 #define ASTRA_STRIKE_TIME (ASTRA_STRIKE_DELAY + ASTRA_STRIKE_ACTIVE)
 #define ASTRA_STRIKE_STUN 1.0
 #define ASTRA_STRIKE_DAMAGE 4.5
+
+static double astra_dash_progress(double u) {
+    double q = 1 - u;
+    return 0.35 * u + 0.65 * (1 - q * q);
+}
 
 static double astra_ability_of(double cls, double skin) {
     (void)skin;
@@ -136,8 +141,7 @@ static void astra_ability_lunge_tick(void) {
     double by = clamp(astra_ability_lunge_fy - astra_dy * ASTRA_PULLBACK_DIST, player->size, screen_h - player->size);
     if (astra_ability_lunge_t < ASTRA_PULLBACK_TIME) {
         double u = clamp(astra_ability_lunge_t / ASTRA_PULLBACK_TIME, 0, 1);
-        double q = 1 - u;
-        double p = 1 - q * q;
+        double p = sin(pi * 0.5 * u);
         player->x = astra_ability_lunge_fx + (bx - astra_ability_lunge_fx) * p;
         player->y = astra_ability_lunge_fy + (by - astra_ability_lunge_fy) * p;
         return;
@@ -150,10 +154,9 @@ static void astra_ability_lunge_tick(void) {
         player->y = astra_ability_lunge_ty;
         return;
     }
-    /* Fast cubic ease-out forward dash from pullback point to target. */
+    /* Smooth forward dash from pullback point to target. */
     double u = clamp((astra_ability_lunge_t - ASTRA_PULLBACK_TIME) / ASTRA_DASH_TIME, 0, 1);
-    double q = 1 - u;
-    double p = 1 - q * q * q;
+    double p = astra_dash_progress(u);
     player->x = bx + (astra_ability_lunge_tx - bx) * p;
     player->y = by + (astra_ability_lunge_ty - by) * p;
     tick_dust(astra_dx, astra_dy, 1);

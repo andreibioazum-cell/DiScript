@@ -1,6 +1,7 @@
 /* Astra purple parry shield and stun counter-strike. */
 
 #define ASTRA_PARRY_TIME 0.9
+#define ASTRA_STRIKE_UNLOCK_DELAY 0.30
 #define ASTRA_STRIKE_WINDOW 0.85
 #define ASTRA_GRAB_WINDOW ASTRA_STRIKE_WINDOW
 
@@ -74,6 +75,7 @@ static double astra_parry_active(void) {
 static void start_astra_parry_now(void) {
     astra_parry_t = ASTRA_PARRY_TIME;
     astra_parry_blocked = 0;
+    astra_strike_unlock_t = 0;
     astra_grab_ready_t = 0;
     player_freeze = 0;
     queued_super = 0;
@@ -82,16 +84,21 @@ static void start_astra_parry_now(void) {
 
 static void astra_on_parry_block(void) {
     astra_parry_blocked = 1;
-    astra_grab_ready_t = ASTRA_STRIKE_WINDOW;
+    if (astra_grab_ready_t > 0) {
+        astra_grab_ready_t = ASTRA_STRIKE_WINDOW;
+    } else if (astra_strike_unlock_t <= 0) {
+        astra_strike_unlock_t = ASTRA_STRIKE_UNLOCK_DELAY;
+    }
     ds_log("astra parry unlocked strike");
 }
 
 static double player_grabbed(void) { return pgrab_active; }
 
 static void start_grab_now(void) {
-    /* Trigger tiny pullback followed by long forward counter-dash. */
+    /* Trigger pullback followed by forward counter-dash. */
     astra_parry_t = 0;
     astra_parry_blocked = 0;
+    astra_strike_unlock_t = 0;
     astra_grab_ready_t = 0;
     astra_x = player->x;
     astra_y = player->y;
@@ -226,12 +233,13 @@ static void tick_astra(void) {
     if (finished != 0 || player->hp <= 0) {
         astra_parry_t = 0;
         astra_parry_blocked = 0;
+        astra_strike_unlock_t = 0;
         astra_grab_ready_t = 0;
     } else {
         double had_parry = astra_parry_t > 0;
         astra_parry_t = tick_down(astra_parry_t);
         if (had_parry == 1 && astra_parry_t <= 0) {
-            if (astra_parry_blocked == 0 && astra_grab_ready_t <= 0 && astra_state == 0) {
+            if (astra_parry_blocked == 0 && astra_strike_unlock_t <= 0 && astra_grab_ready_t <= 0 && astra_state == 0) {
                 astra_cd = admin_cheat_nocd() == 1 ? 0 : astra_grab_miss_cd;
             }
             astra_parry_blocked = 0;
@@ -242,6 +250,11 @@ static void tick_astra(void) {
             astra_parry_t = 0;
             astra_parry_blocked = 0;
             astra_cd = admin_cheat_nocd() == 1 ? 0 : astra_grab_miss_cd;
+        }
+        double had_unlock = astra_strike_unlock_t > 0;
+        astra_strike_unlock_t = tick_down(astra_strike_unlock_t);
+        if (had_unlock == 1 && astra_strike_unlock_t <= 0 && astra_state == 0) {
+            astra_grab_ready_t = ASTRA_STRIKE_WINDOW;
         }
     }
     if (astra_state == 0) {
