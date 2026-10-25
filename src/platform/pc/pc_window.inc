@@ -186,15 +186,15 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pc_mouse_punch = 0;
         return 0;
     }
-    case WM_CAPTURECHANGED:
-    case WM_KILLFOCUS:
+    case 0x0215: /* WM_CAPTURECHANGED */
+    case 0x0008: /* WM_KILLFOCUS */
         if (pc_mouse_down) {
             pc_mouse_down = 0;
             if (!pc_mouse_punch)
                 pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
             pc_mouse_punch = 0;
         }
-        if (msg == WM_KILLFOCUS)
+        if (msg == 0x0008)
             memset(pc_keys, 0, sizeof(pc_keys));
         return 0;
     case 0x020A: /* WM_MOUSEWHEEL */ {
