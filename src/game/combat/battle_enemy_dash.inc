@@ -135,6 +135,8 @@ static void tick_enemy_class(void) {
     tick_enemy_gift();
     tick_enemy_dash();
     tick_enemy_grab();
+    enemy_ball_tick();
+    enemy_ball_fade_tick();
 }
 
 static double enemy_tick_class_abilities(void) {
@@ -161,6 +163,8 @@ static double enemy_tick_class_abilities(void) {
                 enemy_place_turret();
             } else if (enemy_super_kind == 3) {
                 enemy_start_grab();
+            } else if (enemy_super_kind == 4) {
+                enemy_ball_fire();
             }
             enemy_super_kind = 0;
         }
@@ -180,13 +184,30 @@ static double enemy_tick_class_abilities(void) {
             return 1;
         }
     } else if (enemy_class == CLASS_EBUC) {
-        if (enemy_super_cd <= 0 && enemy_turret_count_alive() < turret_max) {
-            enemy_super_kind = 2;
-            enemy_super_windup = enemy_super_windup_time;
-            enemy_super_cd = enemy_station_cd_time;
-            enemy->state = 0;
-            enemy->state_time = 0;
-            return 1;
+        if (enemy_super_cd <= 0) {
+            if (enemy_turret_count_alive() >= turret_max) {
+                enemy_ball_mode = 1;
+            } else if (enemy_ball_active() == 1) {
+                enemy_ball_mode = 0;
+            }
+            if (enemy_ball_mode == 1 && enemy_ball_active() == 0) {
+                enemy_super_kind = 4;
+                enemy_super_windup = enemy_super_windup_time;
+                enemy_super_cd = enemy_station_cd_time;
+                enemy_ball_mode = 0;
+                enemy->state = 0;
+                enemy->state_time = 0;
+                return 1;
+            }
+            if (enemy_turret_count_alive() < turret_max) {
+                enemy_super_kind = 2;
+                enemy_super_windup = enemy_super_windup_time;
+                enemy_super_cd = enemy_station_cd_time;
+                enemy_ball_mode = 1;
+                enemy->state = 0;
+                enemy->state_time = 0;
+                return 1;
+            }
         }
     } else if (enemy_class == CLASS_AZUM) {
         if (enemy_dash_cd <= 0 && d >= enemy_dash_min_range && d <= enemy_dash_max_range) {

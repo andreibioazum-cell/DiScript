@@ -55,8 +55,9 @@ static void draw_remote_snow(void) {
             double x = arr_get(remote_snow, b + 3);
             double y = arr_get(remote_snow, b + 4);
             double t = arr_get(remote_snow, b + 2);
-            double hw = 16;
-            tex(x - hw, y - hw, SNOWFLAKE_TEX, t * 3, 0.5);
+            double sc = snow_scale_for(arr_get(remote_snow, b));
+            double hw = 16 * sc;
+            tex(x - hw, y - hw, SNOWFLAKE_TEX, t * 3, 0.5 * sc);
         }
         if (arr_get(remote_snow, b + 5) > 0) {
             draw_boom_at(arr_get(remote_snow, b + 6), arr_get(remote_snow, b + 7), arr_get(remote_snow, b + 5));
@@ -130,7 +131,7 @@ static void award_battle_result(double result) {
         if (candies_on() == 1) {
             candies = candies + candy_win;
         }
-        if (is_admin() == 1) {
+        if (bpass_allowed() == 1) {
             bp_xp = bp_xp + 10;
         }
         save_progress();
@@ -385,6 +386,7 @@ static void draw_game(void) {
     draw_universe();
     draw_enemy_turrets();
     draw_ball();
+    draw_enemy_ball();
     draw_codecracker_fx_local();
     draw_player_body_layer();
     draw_status_aura(player->x, player->y, player->size, freeze_rgb, freeze_rim, pfreeze_a);

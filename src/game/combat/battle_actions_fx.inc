@@ -211,6 +211,8 @@ static void tick_super_windup(void) {
     if (player_class == 2) {
         gift->x = player->x;
         gift->y = player->y;
+        gift->x0 = player->x;
+        gift->y0 = player->y;
         gift->dx = cos(player->angle);
         gift->dy = sin(player->angle);
         gift->active = 1;
@@ -228,21 +230,58 @@ static void tick_super_windup(void) {
     }
 }
 
+/* Alternate Santa snowflake: odd casts fly straight, even casts are 10% smaller and zigzag. */
+static double snow_is_zigzag(double shot) {
+    if (shot < 2) {
+        return 0;
+    }
+    return (((int)floor(shot + 0.5)) % 2) == 0 ? 1 : 0;
+}
+
+static double snow_scale_for(double shot) {
+    return snow_is_zigzag(shot) == 1 ? 0.9 : 1.0;
+}
+
+static double snow_radius_for(double shot) {
+    return snow_ball_r * snow_scale_for(shot);
+}
+
+static double snow_zigzag_lateral(double t) {
+    double u = fmod(t, 0.20) / 0.20;
+    double w;
+    if (u < 0) {
+        u = u + 1;
+    }
+    w = u < 0.25 ? 4 * u : (u < 0.75 ? 2 - 4 * u : 4 * u - 4);
+    return w * 32.0;
+}
+
+static void snow_step_pos(double x0, double y0, double dx, double dy, double t, double shot, double *ox, double *oy) {
+    double fwd = super_speed * t;
+    double lat = snow_is_zigzag(shot) == 1 ? snow_zigzag_lateral(t) : 0;
+    *ox = x0 + dx * fwd - dy * lat;
+    *oy = y0 + dy * fwd + dx * lat;
+}
+
 static void update_gift(void) {
     if (gift->active == 0) {
         return;
     }
+    if (gift->t == 0) {
+        gift->x0 = gift->x;
+        gift->y0 = gift->y;
+    }
     gift->t = gift->t + dt;
-    gift->x = gift->x + gift->dx * super_speed * dt;
-    gift->y = gift->y + gift->dy * super_speed * dt;
+    snow_step_pos(gift->x0, gift->y0, gift->dx, gift->dy, gift->t, gift->shot, &gift->x, &gift->y);
     double touched = 0;
+    double r = snow_radius_for(gift->shot);
     if (game_state == ST_ONLINE) {
         if (gift->t > super_range / super_speed) {
             touched = 1;
         }
     } else {
         snow_chip_enemy_turrets();
-        if (circle_hits_enemy(gift->x, gift->y, snow_ball_r) == 1) {
+        if (circle_hits_enemy(gift->x, gift->y, r) == 1) {
             touched = 1;
         }
         if (gift->t > super_range / super_speed) {
@@ -268,9 +307,10 @@ static void draw_gift(void) {
     if (gift->active == 0) {
         return;
     }
-    double hw = 16;
+    double sc = snow_scale_for(gift->shot);
+    double hw = 16 * sc;
     double rot = gift->t * 3;
-    tex(gift->x - hw, gift->y - hw, SNOWFLAKE_TEX, rot, 0.5);
+    tex(gift->x - hw, gift->y - hw, SNOWFLAKE_TEX, rot, 0.5 * sc);
 }
 
 static void draw_boom_at_r(double x, double y, double bt, double rad) {

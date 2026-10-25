@@ -235,16 +235,17 @@ static int run_admin_ban_guard(const char *dir) {
     net_set_data_path(dir);
     net_ban_set("Dimasi4ek229", 1);
     assert(net_is_banned("Dimasi4ek229") == 0);
-    net_ban_set("Sanch", 1);
-    assert(net_is_banned("Sanch") == 0);
-    net_ban_set("sanch", 1);
-    assert(net_is_banned("sanch") == 0);
     char path[320];
     snprintf(path, sizeof(path), "%s/bans.dat", dir);
     FILE *f = fopen(path, "r");
     assert(f == NULL);
 
-    /* qwertyuiopaj1234 is no longer an admin and can be banned like any player. */
+    /* Non-admin accounts (including Sanch and qwertyuiopaj1234) are not ban-exempt. */
+    net_ban_set("Sanch", 1);
+    assert(net_is_banned("Sanch") == 1);
+    net_ban_set("Sanch", 0);
+    assert(net_is_banned("Sanch") == 0);
+
     net_ban_set("qwertyuiopaj1234", 1);
     assert(net_is_banned("qwertyuiopaj1234") == 1);
     net_ban_set("qwertyuiopaj1234", 0);

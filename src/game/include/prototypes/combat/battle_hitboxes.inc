@@ -6,7 +6,7 @@ static double hb_zone_bytes(double env);
 static void draw_hit_strip(double sx, double sy, double dx, double dy, double off0, double off1, double half_w,
                            double env);
 static void draw_hit_circle(double x, double y, double r, double env);
-static void draw_hit_snowball(double x, double y, double env);
+static void draw_hit_snowball(double x, double y, double shot, double env);
 static void draw_hit_snow(void);
 static void draw_hit_dash_path(double sx, double sy, double dx, double dy, double cx, double cy, double pr, double env);
 static void draw_hit_dash(void);

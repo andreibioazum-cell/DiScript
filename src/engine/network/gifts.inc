@@ -64,7 +64,7 @@ static int gift_nick_same(const char *a, const char *b) {
 
 /* Admins purchase stickers without spending cups. */
 static int gift_nick_is_admin(const char *nick) {
-    return gift_nick_same(nick, "Dimasi4ek229") == 1 || gift_nick_same(nick, "Sanch") == 1;
+    return gift_nick_same(nick, "Dimasi4ek229") == 1;
 }
 
 /* Fetch sticker counters from users/<nick>/gifts.json. */

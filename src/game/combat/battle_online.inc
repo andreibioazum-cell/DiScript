@@ -177,26 +177,26 @@ static void update_remote_snow(void) {
             double cnt = net_player_snow(s);
             double prev = arr_get(remote_snow, b);
             if (cnt != prev && cnt > 0) {
+                double sx0 = net_player_snow_x(s) * screen_w;
+                double sy0 = net_player_snow_y(s) * screen_h;
                 arr_set(remote_snow, b, cnt);
                 arr_set(remote_snow, b + 1, 1);
                 arr_set(remote_snow, b + 2, 0);
-                arr_set(remote_snow, b + 3, net_player_snow_x(s) * screen_w);
-                arr_set(remote_snow, b + 4, net_player_snow_y(s) * screen_h);
+                arr_set(remote_snow, b + 3, sx0);
+                arr_set(remote_snow, b + 4, sy0);
+                arr_set(remote_snow, b + 8, sx0);
+                arr_set(remote_snow, b + 9, sy0);
             }
             if (arr_get(remote_snow, b + 1) == 1) {
                 double t = arr_get(remote_snow, b + 2) + dt;
-                double x = arr_get(remote_snow, b + 3) + net_player_snow_dx(s) * super_speed * dt;
-                double y = arr_get(remote_snow, b + 4) + net_player_snow_dy(s) * super_speed * dt;
+                double x = 0, y = 0;
+                snow_step_pos(arr_get(remote_snow, b + 8), arr_get(remote_snow, b + 9), net_player_snow_dx(s),
+                              net_player_snow_dy(s), t, arr_get(remote_snow, b), &x, &y);
                 arr_set(remote_snow, b + 2, t);
                 arr_set(remote_snow, b + 3, x);
                 arr_set(remote_snow, b + 4, y);
-                double hit = 0;
-                if (circle_hits_player(x, y, snow_ball_r) == 1) {
-                    hit = 1;
-                }
-                if (t > super_range / super_speed) {
-                    hit = 1;
-                }
+                double hit = circle_hits_player(x, y, snow_radius_for(arr_get(remote_snow, b))) == 1 ||
+                             t > super_range / super_speed ? 1 : 0;
                 if (hit == 1) {
                     arr_set(remote_snow, b + 1, 0);
                     arr_set(remote_snow, b + 5, boom_time);

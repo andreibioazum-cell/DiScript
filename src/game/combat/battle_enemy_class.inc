@@ -28,6 +28,7 @@ static void enemy_reset_class_state(void) {
     egrab_punch_t = 0;
     egrab_box_a = 0;
     enemy_last_turret_slot = 0;
+    enemy_ball_reset();
     arr_clear(enemy_turret_x);
     arr_clear(enemy_turret_y);
     arr_clear(enemy_turret_hp);
@@ -190,6 +191,8 @@ static double enemy_try_revive(void) {
 static void enemy_start_snow(void) {
     enemy_gift->x = enemy->x;
     enemy_gift->y = enemy->y;
+    enemy_gift->x0 = enemy->x;
+    enemy_gift->y0 = enemy->y;
     double a = atan2(player->y - enemy->y, player->x - enemy->x);
     enemy_gift->dx = cos(a);
     enemy_gift->dy = sin(a);
@@ -227,12 +230,16 @@ static void tick_enemy_gift(void) {
         enemy_gift->active = 0;
         return;
     }
+    if (enemy_gift->t == 0) {
+        enemy_gift->x0 = enemy_gift->x;
+        enemy_gift->y0 = enemy_gift->y;
+    }
     enemy_gift->t = enemy_gift->t + dt;
-    enemy_gift->x = enemy_gift->x + enemy_gift->dx * super_speed * dt;
-    enemy_gift->y = enemy_gift->y + enemy_gift->dy * super_speed * dt;
+    snow_step_pos(enemy_gift->x0, enemy_gift->y0, enemy_gift->dx, enemy_gift->dy, enemy_gift->t, enemy_gift->shot,
+                  &enemy_gift->x, &enemy_gift->y);
     snow_chip_player_turrets();
     double touched = 0;
-    if (circle_hits_player(enemy_gift->x, enemy_gift->y, snow_ball_r) == 1) {
+    if (circle_hits_player(enemy_gift->x, enemy_gift->y, snow_radius_for(enemy_gift->shot)) == 1) {
         touched = 1;
     }
     if (enemy_gift->t > super_range / super_speed) {
@@ -247,9 +254,10 @@ static void draw_enemy_gift(void) {
     if (enemy_gift->active == 0) {
         return;
     }
-    double hw = 16;
+    double sc = snow_scale_for(enemy_gift->shot);
+    double hw = 16 * sc;
     double rot = enemy_gift->t * 3;
-    tex(enemy_gift->x - hw, enemy_gift->y - hw, SNOWFLAKE_TEX, rot, 0.5);
+    tex(enemy_gift->x - hw, enemy_gift->y - hw, SNOWFLAKE_TEX, rot, 0.5 * sc);
 }
 
 static void draw_enemy_boom(void) {

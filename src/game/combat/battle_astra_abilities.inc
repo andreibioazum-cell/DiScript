@@ -32,10 +32,10 @@ static void astra_ability_refresh(void) { astra_ability_ok = astra_ability_is_de
 
 static double astra_ability_allowed(void) { return astra_ability_ok; }
 
-/* Gate developer-restricted seasonal content (winter theme, Santa, candies). */
+/* Gate developer-restricted seasonal content (winter theme, Santa). */
 static double dev_access(void) { return astra_ability_allowed(); }
 
-static double candies_on(void) { return candy_enabled == 1 && dev_access() == 1; }
+static double candies_on(void) { return candy_enabled == 1 && (dev_access() == 1 || bpass_allowed() == 1); }
 
 /* Return 1 when local player is Astra. */
 static double astra_ability_on(void) { return player_class == CLASS_ASTRA; }

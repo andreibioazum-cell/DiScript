@@ -78,20 +78,20 @@ static void draw_hit_circle(double x, double y, double r, double env) {
     circle(x, y, r, hb_zone_col(env));
 }
 
-static void draw_hit_snowball(double x, double y, double env) {
-    draw_hit_circle(x, y, snow_ball_r, env);
+static void draw_hit_snowball(double x, double y, double shot, double env) {
+    draw_hit_circle(x, y, snow_radius_for(shot), env);
 }
 
 static void draw_hit_snow(void) {
     if (snow_ball_a > 0) {
-        draw_hit_snowball(gift->x, gift->y, snow_ball_a);
+        draw_hit_snowball(gift->x, gift->y, gift->shot, snow_ball_a);
     }
     if (snow_boom_a > 0) {
         draw_hit_circle(boom_x, boom_y, super_radius, snow_boom_a);
     }
     if (game_state == ST_SOLO) {
         if (esnow_ball_a > 0) {
-            draw_hit_snowball(enemy_gift->x, enemy_gift->y, esnow_ball_a);
+            draw_hit_snowball(enemy_gift->x, enemy_gift->y, enemy_gift->shot, esnow_ball_a);
         }
         if (esnow_boom_a > 0) {
             draw_hit_circle(enemy_boom_x, enemy_boom_y, super_radius, esnow_boom_a);
@@ -107,7 +107,8 @@ static void draw_hit_snow(void) {
     while (s < max_players) {
         double b = s * snow_fields;
         if (arr_get(rsnow_ball_a, s) > 0) {
-            draw_hit_snowball(arr_get(remote_snow, b + 3), arr_get(remote_snow, b + 4), arr_get(rsnow_ball_a, s));
+            draw_hit_snowball(arr_get(remote_snow, b + 3), arr_get(remote_snow, b + 4), arr_get(remote_snow, b),
+                              arr_get(rsnow_ball_a, s));
         }
         if (arr_get(rsnow_boom_a, s) > 0) {
             draw_hit_circle(arr_get(remote_snow, b + 6), arr_get(remote_snow, b + 7), super_radius,

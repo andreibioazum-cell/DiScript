@@ -52,7 +52,7 @@ static void draw_lobby(void) {
     draw_menu_button(2, tr_settings());
     draw_menu_button(3, tr_account());
     draw_menu_button(4, tr_achievements());
-    if (is_admin() == 1) {
+    if (bpass_allowed() == 1) {
         button(language == 1 ? "Баттл-пасс" : "Battle Pass", bpass_corner_x(), bpass_corner_y(),
                bpass_corner_w(), btn_h);
     }

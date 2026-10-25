@@ -326,6 +326,8 @@ static double remote_bricks_live(void) {
 static void ball_clear_after_finish(void) {
     ball.active = 0;
     ball.boom_t = 0;
+    enemy_ball.active = 0;
+    enemy_ball.boom_t = 0;
     remote_bricks_reset();
 }
 

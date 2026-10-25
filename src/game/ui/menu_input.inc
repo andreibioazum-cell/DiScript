@@ -231,7 +231,7 @@ static void touch_lobby(double x, double y, double action) {
     if (hit_menu_row(x, y, 4) == 1) {
         start_transition(ST_ACHIEVEMENTS);
     }
-    if (is_admin() == 1 && hit_bpass_corner(x, y) == 1) {
+    if (bpass_allowed() == 1 && hit_bpass_corner(x, y) == 1) {
         start_transition(ST_BPASS);
     }
 }

@@ -369,7 +369,7 @@ dust_enemy_min_speed = 40;
 /* active, position, combat state, immutable battle class and skin */
 remote_fields = 12;
 punch_fields = 6;
-snow_fields = 8;
+snow_fields = 10;
 remote_smooth = 18;
 remote_snap = 220;
 DASH_GEN = 0;

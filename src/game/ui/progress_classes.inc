@@ -159,8 +159,8 @@ static double skin_unlocked_for(double cls, double skin) {
         return 1;
     }
     if (cls == CLASS_EBUC) {
-        /* Unlock Elf ebuC via ACH_BUK_GIFT or admin battle pass tier 4. */
-        if ((is_admin() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
+        /* Unlock Elf ebuC via ACH_BUK_GIFT or battle pass tier 4. */
+        if ((bpass_allowed() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
             return 1;
         }
         return 0;
@@ -212,7 +212,7 @@ static void pick_skin(double skin) {
 }
 
 static double class_visible(double cls) {
-    if (cls == CLASS_SANTA && dev_access() == 0 && (is_admin() == 0 || bp_claimed < 7)) {
+    if (cls == CLASS_SANTA && dev_access() == 0 && (bpass_allowed() == 0 || bp_claimed < 7)) {
         return 0;
     }
     return 1;

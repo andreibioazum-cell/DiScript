@@ -61,8 +61,6 @@ const char *ADMIN_NICK;
 double admin_color;
 double admin_head_color;
 const char *SANCH_NICK;
-double sanch_color;
-double sanch_head_color;
 double codecracker_cost;
 const char *GRASS;
 const char *ORDINARY_TEX;

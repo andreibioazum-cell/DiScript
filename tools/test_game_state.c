@@ -320,18 +320,30 @@ void net_publish_brick(double x, double y, double dx, double dy, double shot) {
     (void)dy;
     (void)shot;
 }
+void net_publish_snow(double x, double y, double dx, double dy, double shot) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)shot;
+}
 double net_player_brick(double slot) { return stub_brick[(int)slot]; }
 double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
 double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
 double net_player_brick_dx(double slot) { return stub_bkdx[(int)slot]; }
 double net_player_brick_dy(double slot) { return stub_bkdy[(int)slot]; }
 static double stub_universe[4], stub_ux[4], stub_uy[4];
-static double stub_snow[4], stub_dash[4], stub_thud[4], stub_cc_super[4];
+static double stub_snow[4], stub_sx[4], stub_sy[4], stub_sdx[4], stub_sdy[4];
+static double stub_dash[4], stub_thud[4], stub_cc_super[4];
 static double stub_rx[4], stub_ry[4], stub_ra[4], stub_ralive[4], stub_rpunch[4], stub_rskin[4];
 double net_player_universe(double slot) { return stub_universe[(int)slot]; }
 double net_player_universe_x(double slot) { return stub_ux[(int)slot]; }
 double net_player_universe_y(double slot) { return stub_uy[(int)slot]; }
 double net_player_snow(double slot) { return stub_snow[(int)slot]; }
+double net_player_snow_x(double slot) { return stub_sx[(int)slot]; }
+double net_player_snow_y(double slot) { return stub_sy[(int)slot]; }
+double net_player_snow_dx(double slot) { return stub_sdx[(int)slot]; }
+double net_player_snow_dy(double slot) { return stub_sdy[(int)slot]; }
 double net_player_dash(double slot) { return stub_dash[(int)slot]; }
 double net_player_thud(double slot) { return stub_thud[(int)slot]; }
 double net_player_x(double slot) { return stub_rx[(int)slot]; }
@@ -4646,27 +4658,71 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* Sanch yellow nick + CCP panel access, and shimmering Emerald cycling
-     * across the rainbow over time instead of freezing on red. */
+    /* Sanch has Battle Pass access only (no admin, no winter theme, no CCP),
+     * while Dimasi4ek229 retains full admin and developer access. */
     {
-        assert(admin_slot("Sanch") == 2 && admin_slot("sanch") == 2 && admin_slot("SANCH") == 2);
-        assert(strcmp(admin_nick_of(2), "Sanch") == 0);
-        assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
-        assert((uint32_t)admin_color_of("sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
-        assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFDD33u);
+        assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
+        assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
+        assert(strcmp(admin_nick_of(1), "Dimasi4ek229") == 0);
+        assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFFFFFu);
+        assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFFFFFu);
         assert((uint32_t)admin_color_of("Dimasi4ek229", 0xFFFFFFFF) == 0xFFFF4444u);
         assert((uint32_t)admin_color_of("Player2", 0xFFFFFFFF) == 0xFFFFFFFFu);
 
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
-        assert(is_admin() == 1 && admin_playing() == 1);
-        assert(strcmp(admin_actor_nick(), "Sanch") == 0);
-        assert(ach_scroll_allowed() == 1); /* Sanch still has mov eax, 0x229 in list */
+        astra_ability_refresh();
+        winter_theme = 1;
+        candy_enabled = 1;
+        bp_claimed = 0;
+        bp_xp = 0;
+        set_class_owned(CLASS_SANTA, 0);
+        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(dev_access() == 0 && winter_theme_on() == 0);
+        assert(bpass_allowed() == 1 && candies_on() == 1);
+        assert(class_visible(CLASS_SANTA) == 0);
         adm_reset_log();
         game_state = ST_LOBBY;
         admin_panel_open = 0;
         admin_draw();
+        assert(adm_has_text("CCP") == 0);
+
+        /* Sanch can earn BP XP, claim BP tiers (Tier 6 gives +100 cups, never candies),
+         * unlock Elf ebuC at Tier 4 and Santa at Tier 7. */
+        candies = 500;
+        cups = 100;
+        bp_xp = 300;
+        for (int t = 1; t <= 7; t++) {
+            language = 0;
+            assert(strstr(bp_reward_text(t), "cand") == NULL);
+            language = 1;
+            assert(strstr(bp_reward_text(t), "конфет") == NULL);
+        }
+        for (int t = 1; t <= 5; t++)
+            bp_claim(t);
+        assert(bp_claimed == 5 && skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
+        double cups_before_t6 = cups;
+        double candies_before_t6 = candies;
+        bp_claim(6);
+        assert(bp_claimed == 6);
+        assert(fabs(cups - (cups_before_t6 + 100)) < 1e-9);
+        assert(fabs(candies - (candies_before_t6 - 95)) < 1e-9);
+        bp_claim(7);
+        assert(bp_claimed == 7 && class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1);
+        bp_claimed = 0;
+        bp_xp = 0;
+        winter_theme = 0;
+        set_class_owned(CLASS_SANTA, 0);
+
+        /* Dimasi4ek229 retains CCP, winter theme, and full admin rights. */
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Dimasi4ek229");
+        astra_ability_refresh();
+        winter_theme = 1;
+        assert(is_admin() == 1 && dev_access() == 1 && winter_theme_on() == 1 && bpass_allowed() == 1);
+        adm_reset_log();
+        admin_draw();
         assert(adm_has_text("CCP") == 1);
+        winter_theme = 0;
 
         stub_gift_hue = 0;
         stub_frame_seconds = 0.05;
@@ -4784,6 +4840,143 @@ int main(void) {
         rooms_open();
         assert(rooms_name_buf[0] == 0 && rooms_pass_buf[0] == 0);
         assert(str_len(rooms_name) == 0 && str_len(rooms_pass) == 0);
+        game_state = ST_LOBBY;
+        dt = 1.0 / 60.0;
+    }
+
+    /* Bot ebuC mode switching and Santa alternating straight / zigzag (-10% size) snowflakes. */
+    {
+        /* 1) Bot ebuC alternates between dispenser turret (mode 0) and bouncing projectile (mode 1). */
+        screen_w = 1280;
+        screen_h = 720;
+        dt = 0.05;
+        finished = 0;
+        game_state = ST_SOLO;
+        enemy_reset_class_state();
+        enemy_class = CLASS_EBUC;
+        enemy->x = 300;
+        enemy->y = 360;
+        enemy->hp = 20;
+        enemy->max_hp = 20;
+        enemy->state = 0;
+        player->x = 700;
+        player->y = 360;
+        player->hp = 20;
+        player->max_hp = 20;
+        player_block = 0;
+        revive_prot = 0;
+        assert(enemy_ball_mode == 0 && enemy_turret_count_alive() == 0);
+
+        /* First cast: places turret and switches enemy_ball_mode to 1. */
+        enemy_super_cd = 0;
+        assert(enemy_tick_class_abilities() == 1);
+        assert(enemy_super_kind == 2 && enemy_ball_mode == 1);
+        for (int f = 0; f < 6; f++)
+            enemy_tick_class_abilities();
+        assert(enemy_turret_count_alive() == 1 && enemy_ball_active() == 0);
+
+        /* Second cast: fires bouncing projectile and switches enemy_ball_mode back to 0. */
+        enemy_super_cd = 0;
+        assert(enemy_tick_class_abilities() == 1);
+        assert(enemy_super_kind == 4 && enemy_ball_mode == 0);
+        for (int f = 0; f < 6; f++)
+            enemy_tick_class_abilities();
+        assert(enemy_ball_active() == 1);
+        for (int f = 0; f < 40 && enemy_ball_active() == 1; f++)
+            tick_enemy_class();
+        assert(enemy_ball_active() == 0 && player->hp < 20.0);
+
+        /* When all 3 turret slots are full, bot ebuC forces projectile mode even if mode was 0. */
+        enemy_place_turret();
+        enemy_place_turret();
+        assert(enemy_turret_count_alive() == 3);
+        enemy_ball_mode = 0;
+        enemy_super_cd = 0;
+        assert(enemy_tick_class_abilities() == 1);
+        assert(enemy_super_kind == 4);
+        enemy_reset_class_state();
+
+        /* 2) Santa alternates: cast 1 normal straight, cast 2 10%-smaller left-right zigzag, cast 3 straight, cast 4 zigzag. */
+        assert(snow_is_zigzag(1) == 0 && fabs(snow_scale_for(1) - 1.0) < 1e-9 && fabs(snow_radius_for(1) - 24.0) < 1e-9);
+        assert(snow_is_zigzag(2) == 1 && fabs(snow_scale_for(2) - 0.9) < 1e-9 && fabs(snow_radius_for(2) - 21.6) < 1e-9);
+        assert(snow_is_zigzag(3) == 0 && fabs(snow_scale_for(3) - 1.0) < 1e-9);
+        assert(snow_is_zigzag(4) == 1 && fabs(snow_scale_for(4) - 0.9) < 1e-9);
+
+        player_class = CLASS_SANTA;
+        player->x = 200;
+        player->y = 360;
+        player->angle = 0;
+        enemy->x = 1100;
+        enemy->y = 360;
+        enemy->hp = 20;
+        gift->active = 0;
+        gift->shot = 0;
+        dt = 0.025;
+
+        /* Cast 1: straight normal snowflake along +X (y stays at 360). */
+        super_windup = 0.01;
+        tick_super_windup();
+        assert(gift->active == 1 && gift->shot == 1);
+        for (int f = 0; f < 10; f++) {
+            update_gift();
+            assert(fabs(gift->y - 360.0) < 1e-9);
+        }
+        assert(gift->x > 200.0);
+        gift->active = 0;
+
+        /* Cast 2: 10%-smaller zigzag snowflake moves forward along +X while oscillating both +Y and -Y. */
+        super_windup = 0.01;
+        tick_super_windup();
+        assert(gift->active == 1 && gift->shot == 2);
+        double min_y = 360.0, max_y = 360.0, prev_x = gift->x;
+        for (int f = 0; f < 12; f++) {
+            update_gift();
+            assert(gift->x > prev_x);
+            prev_x = gift->x;
+            if (gift->y < min_y) min_y = gift->y;
+            if (gift->y > max_y) max_y = gift->y;
+        }
+        assert(max_y > 375.0 && min_y < 345.0);
+        gift->active = 0;
+
+        /* Bot Santa and online remote Santa also alternate straight (shot 1) then zigzag (shot 2). */
+        enemy_class = CLASS_SANTA;
+        enemy->x = 900;
+        enemy->y = 360;
+        player->x = 200;
+        player->y = 360;
+        enemy_gift->shot = 0;
+        enemy_start_snow();
+        assert(enemy_gift->shot == 1);
+        tick_enemy_gift();
+        assert(fabs(enemy_gift->y - 360.0) < 1e-9);
+        enemy_gift->active = 0;
+        enemy_start_snow();
+        assert(enemy_gift->shot == 2);
+        tick_enemy_gift();
+        tick_enemy_gift();
+        assert(fabs(enemy_gift->y - 360.0) > 5.0 && enemy_gift->x < 900.0);
+        enemy_gift->active = 0;
+
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        stub_online[1] = 1;
+        stub_snow[1] = 2;
+        stub_sx[1] = 300.0 / screen_w;
+        stub_sy[1] = 360.0 / screen_h;
+        stub_sdx[1] = 1.0;
+        stub_sdy[1] = 0.0;
+        player->x = 1100;
+        player->y = 360;
+        arr_set(remote_snow, 1 * snow_fields, 1);
+        arr_set(remote_snow, 1 * snow_fields + 1, 0);
+        update_remote_snow();
+        update_remote_snow();
+        assert(fabs(arr_get(remote_snow, 1 * snow_fields + 4) - 360.0) > 5.0);
+        assert(arr_get(remote_snow, 1 * snow_fields + 3) > 300.0);
+        arr_set(remote_snow, 1 * snow_fields + 1, 0);
+        stub_online[1] = 0;
+        stub_snow[1] = 0;
         game_state = ST_LOBBY;
         dt = 1.0 / 60.0;
     }

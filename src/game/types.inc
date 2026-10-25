@@ -65,6 +65,8 @@ struct Punch {
 struct Gift {
     double x;
     double y;
+    double x0;
+    double y0;
     double dx;
     double dy;
     double active;
