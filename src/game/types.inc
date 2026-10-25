@@ -6,7 +6,7 @@ typedef struct FighterSpritePair FighterSpritePair;
 typedef struct ScrollTrack ScrollTrack;
 
 /* Windup delay before normal punch hitbox activates across all fighters. */
-#define PUNCH_WINDUP 0.6
+#define PUNCH_WINDUP 0.3
 
 struct ScrollTrack {
     double hist_d[4];

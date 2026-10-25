@@ -142,7 +142,7 @@ def test_menu_and_battle(assets: Path) -> None:
             "--report", "430",
             "--report", "590",
             "--stick", "600:0:-1", "--stick", "618:0:0",              # face + step toward enemy
-            "--atk", "600:1", "--atk", "620:0",                       # attack (hits after 0.6 s = 36 frames)
+            "--atk", "600:1", "--atk", "620:0",                       # attack (hits after 0.3 s = 18 frames)
             "--report", "650",
             "--dump", f"740:{shot}",
             "--report", "775",

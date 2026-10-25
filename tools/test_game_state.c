@@ -2737,7 +2737,7 @@ int main(void) {
     assert(fabs(ASTRA_PARRY_TIME - 0.4) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.9) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DELAY - 0.0) < 1e-9);
-    assert(fabs(PUNCH_WINDUP - 0.6) < 1e-9);
+    assert(fabs(PUNCH_WINDUP - 0.3) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 65);
@@ -4645,7 +4645,7 @@ int main(void) {
      * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.2 s. */
     {
         assert(fabs(block_guard - 0.25) < 1e-9);
-        assert(fabs(enemy_windup - 0.60) < 1e-9);
+        assert(fabs(enemy_windup - 0.30) < 1e-9);
         dt = 1.0 / 60.0;
 
         /* 1) Normal frontal block cuts 75% of damage for player and bot. */
@@ -4802,7 +4802,7 @@ int main(void) {
         enemy->stun = 0;
         astra_cd = 0;
 
-        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.6 s. */
+        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.3 s. */
         player_class = CLASS_ORDINARY;
         player->x = 460;
         player->y = 400;
@@ -4820,7 +4820,7 @@ int main(void) {
         enemy_punch_a = 0;
         assert(start_enemy_attack() == 1);
         assert(enemy->state == 1 && enemy_punching_now() == 1);
-        for (int f = 0; f < 35; f++) {
+        for (int f = 0; f < 17; f++) {
             update_enemy();
             tick_hitbox_fades();
             assert(enemy->state == 1 && enemy_punching_now() == 1);
@@ -5313,7 +5313,7 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* Drag-over does not squeeze buttons; normal punches hit after 0.6 s for player & remote. */
+    /* Drag-over does not squeeze buttons; normal punches hit after 0.3 s for player & remote. */
     {
         /* 1. Dragging/moving over a button (action == 2) never triggers press squeeze. */
         game_state = ST_LOBBY;
@@ -5325,7 +5325,7 @@ int main(void) {
         assert(button_press_k(menu_x(), menu_row(0), btn_w, btn_h) == 0);
         assert(press_phase[0] == 0);
 
-        /* 2. Player normal punch: pose immediate, hitbox/damage after 0.6 s. */
+        /* 2. Player normal punch: pose immediate, hitbox/damage after 0.3 s. */
         game_state = ST_SOLO;
         finished = 0;
         dt = 0.02;
@@ -5339,14 +5339,14 @@ int main(void) {
         enemy->x = 460;
         enemy->y = 400;
         enemy->hp = enemy->max_hp = 20;
-        enemy->stun = 99; /* keep enemy stationary to verify exact 0.6 s timing */
+        enemy->stun = 99; /* keep enemy stationary to verify exact 0.3 s timing */
         punch->active = 0;
         punch_left = 0;
         punch_cd = 0;
         aim_a = 0;
         fire_punch();
         assert(punch->active == 1 && player_punching_now() == 1);
-        for (int f = 0; f < 29; f++) {
+        for (int f = 0; f < 14; f++) {
             update_game();
             assert(player_punching_now() == 1 && fabs(enemy->hp - 20.0) < 1e-9);
         }
@@ -5357,7 +5357,7 @@ int main(void) {
         punch_left = 0;
         punch_cd = 0;
 
-        /* 3. Online remote normal punch: pose immediate, damage after 0.6 s. */
+        /* 3. Online remote normal punch: pose immediate, damage after 0.3 s. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         finished = 0;
@@ -5378,7 +5378,7 @@ int main(void) {
         arr_set(remote_punches, 1 * punch_fields + 3, 1);
         arr_set(remote_punches, 1 * punch_fields + 4, 0);
         arr_set(remote_punches, 1 * punch_fields + 5, 0);
-        for (int f = 0; f < 29; f++) {
+        for (int f = 0; f < 14; f++) {
             tick_remote_punches();
             update_remote_punches();
             assert(arr_get(remote_punches, 1 * punch_fields) == 1 && fabs(player->hp - 20.0) < 1e-9);
