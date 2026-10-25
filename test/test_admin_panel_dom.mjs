@@ -173,6 +173,28 @@ try {
   check("мусорный узел удалён из базы", (await db("freeCupsHack", token)) === null);
   check("удаление попало в журнал", /готово: удалено/.test(logText()));
 
+  // Verify old and unneeded data cleanup (#markOld and #cleanOld).
+  setVal("#cleanChatKeep", "0");
+  $("#cleanChatKeep").dispatchEvent(new window.Event("change", { bubbles: true }));
+  setVal("#cleanBannerHours", "0");
+  $("#cleanBannerHours").dispatchEvent(new window.Event("change", { bubbles: true }));
+  click("#markOld");
+  await waitFor(() => /отмечено старых и ненужных узлов/.test(logText()), "отметка старого и ненужного");
+  check("отмечены пустые комнаты и старые данные",
+        $("#found").textContent.includes("rooms/private1") &&
+        $("#found").textContent.includes("bans/OldBan"));
+  click("#cleanOld");
+  await waitFor(async () => (await db("rooms/private1", token)) === null, "чистка старых и ненужных данных");
+  check("пустая старая комната удалена чисткой", (await db("rooms/private1", token)) === null);
+  check("снятый бан (false) удалён чисткой", (await db("bans/OldBan", token)) === null);
+  check("мусорный аккаунт удалён чисткой", (await db("users/xX_hack_Xx", token)) === null);
+  check("живые профили игроков сохранены при чистке",
+        (await db("users/Dimasi4ek229/cups", token)) === 4200 &&
+        (await db("users/Player2/cups", token)) === 10);
+  check("живые слоты комнаты main сохранены при чистке",
+        (await db("rooms/main/players/0/nick", token)) === "Dimasi4ek229" &&
+        (await db("rooms/main/players/2", token)) === null);
+
   console.log("\n== 4. Ивенты 0..4 ==");
   for (const ev of [1, 2, 3, 4, 0]) {
     click(`[data-ev="${ev}"]`);

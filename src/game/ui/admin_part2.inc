@@ -126,14 +126,20 @@ static void admin_panel_press(double x, double y) {
         admin_panel_close();
         return;
     }
+    if (admin_gifts_allowed() == 0) {
+        if (admin_tab == 1) admin_keyboard_drop();
+        admin_tab = 0;
+    }
     double tab_y = admin_content_top();
     if (y >= tab_y && y <= tab_y + admin_row_h()) {
-        if (admin_tab == 1) admin_keyboard_drop();
-        admin_tab = x < px + pw / 2 ? 0 : 1;
-        play_button_click();
+        if (admin_gifts_allowed() == 1) {
+            if (admin_tab == 1) admin_keyboard_drop();
+            admin_tab = x < px + pw / 2 ? 0 : 1;
+            play_button_click();
+        }
         return;
     }
-    if (admin_tab == 1) {
+    if (admin_tab == 1 && admin_gifts_allowed() == 1) {
         double ty = admin_content_top();
         double rhg = admin_row_h();
         double row_index = floor((y - ty) / (rhg + admin_gap()));
@@ -188,7 +194,7 @@ static double admin_ball_hit(double x, double y) {
 }
 
 static double admin_touch(double x, double y, double action, double id) {
-    if (is_admin() == 0) {
+    if (admin_modifiers_allowed() == 0) {
         return 0;
     }
     /* Consume all touches while admin panel is open. */
@@ -276,8 +282,12 @@ static void admin_draw_cheats(void) {
 static void admin_draw_tabs(void) {
     double px = admin_panel_x() + admin_pad();
     double y = admin_content_top();
-    double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
     double h = admin_row_h();
+    if (admin_gifts_allowed() == 0) {
+        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, admin_panel_w() - 2 * admin_pad(), h, 1, 0.55);
+        return;
+    }
+    double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
     admin_btn(language == 1 ? "Читы" : "Cheats", px, y, w, h, admin_tab == 0, 0.55);
     admin_btn(language == 1 ? "Подарки" : "Gifts", px + w + admin_gap(), y, w, h, admin_tab == 1, 0.55);
 }
@@ -375,11 +385,11 @@ static void admin_draw_panel(void) {
     ring(cxx, py + hh / 2, cr, clamp(cr * 0.14, 2, 3), admin_frame());
     text_in_box("X", cxx - cr, py + hh / 2 - cr, cr * 2, cr * 2, admin_frame(), cr / 30.0);
     admin_draw_tabs();
-    if (admin_tab == 0) admin_draw_cheats(); else admin_draw_gifts();
+    if (admin_tab == 0 || admin_gifts_allowed() == 0) admin_draw_cheats(); else admin_draw_gifts();
 }
 
 static void admin_draw(void) {
-    if (is_admin() == 0) {
+    if (admin_modifiers_allowed() == 0) {
         return;
     }
     if (admin_ball_x == 0 && admin_ball_y == 0) {
@@ -395,14 +405,14 @@ static void admin_draw(void) {
 /* Tick active continuous cheats and admin gift actions. */
 static void admin_tick(void) {
     admin_ball_t = admin_ball_t + dt;
-    if (is_admin() == 1 && admin_panel_open == 1 && admin_tab == 1) {
+    if (admin_gifts_allowed() == 1 && admin_panel_open == 1 && admin_tab == 1) {
         if (keyboard_visible() == 1) keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
         if (admin_gift_busy == 1) {
             double gs = net_gift_action_status();
             if (gs >= 2) admin_gift_busy = gs == 2 ? 2 : 3;
         }
     }
-    if (is_admin() == 0 || admin_in_battle() == 0 || finished != 0) {
+    if (admin_modifiers_allowed() == 0 || admin_in_battle() == 0 || finished != 0) {
         return;
     }
     if (cheat_nocd == 1) {

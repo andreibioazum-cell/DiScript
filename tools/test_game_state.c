@@ -4658,8 +4658,8 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* Sanch has Battle Pass access only (no admin, no winter theme, no CCP),
-     * while Dimasi4ek229 retains full admin and developer access. */
+    /* Sanch: CCP modifiers only (no gift management, no Battle Pass UI, no winter theme),
+     * while keeping earned BP rewards and stored candies; Dimasi4ek229 retains everything. */
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
@@ -4675,20 +4675,69 @@ int main(void) {
         winter_theme = 1;
         candy_enabled = 1;
         bp_claimed = 0;
-        bp_xp = 0;
+        bp_xp = 300;
+        candies = 77;
         set_class_owned(CLASS_SANTA, 0);
         assert(is_admin() == 0 && admin_playing() == 0);
         assert(dev_access() == 0 && winter_theme_on() == 0);
-        assert(bpass_allowed() == 1 && candies_on() == 1);
-        assert(class_visible(CLASS_SANTA) == 0);
+        assert(bpass_allowed() == 0 && candies_on() == 0);
+        assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+
+        /* Sanch cannot claim BP tiers, open BP, or see candies on balance, yet candies stay stored. */
+        bp_claim(1);
+        assert(bp_claimed == 0 && fabs(candies - 77.0) < 1e-9);
+        adm_reset_log();
+        language = 1;
+        draw_lobby_money();
+        assert(adm_has_text("Конфеты") == 0 && fabs(candies - 77.0) < 1e-9);
+
+        /* Previously earned BP rewards (Tier 4 Elf ebuC, Tier 7 Santa) remain unlocked for Sanch. */
+        bp_claimed = 4;
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
+        bp_claimed = 7;
+        player_class = CLASS_SANTA;
+        progress_normalize();
+        assert(class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1 && player_class == CLASS_SANTA);
+        assert(fabs(candies - 77.0) < 1e-9);
+
+        /* Sanch sees CCP with regular modifiers only and no gift management tab. */
         adm_reset_log();
         game_state = ST_LOBBY;
-        admin_panel_open = 0;
+        admin_panel_open = 1;
+        admin_tab = 1;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        assert(admin_tab == 0);
+        adm_reset_log();
+        language = 1;
         admin_draw();
-        assert(adm_has_text("CCP") == 0);
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
+        assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        cheat_god = 1;
+        cheat_damage = 1;
+        assert(admin_cheat_god() == 1 && fabs(admin_cheat_damage_mult() - 5.0) < 1e-9);
+        cheat_god = 0;
+        cheat_damage = 0;
+        admin_panel_open = 0;
+        bp_claimed = 0;
+        bp_xp = 0;
+        winter_theme = 0;
+        player_class = CLASS_ORDINARY;
+        set_class_owned(CLASS_SANTA, 0);
 
-        /* Sanch can earn BP XP, claim BP tiers (Tier 6 gives +100 cups, never candies),
-         * unlock Elf ebuC at Tier 4 and Santa at Tier 7. */
+        /* Dimasi4ek229 retains full CCP (both Cheats & Gifts), winter theme, and BP (Tier 6 = +100 cups). */
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Dimasi4ek229");
+        astra_ability_refresh();
+        winter_theme = 1;
+        assert(is_admin() == 1 && dev_access() == 1 && winter_theme_on() == 1);
+        assert(bpass_allowed() == 1 && candies_on() == 1 && admin_gifts_allowed() == 1);
+        adm_reset_log();
+        language = 1;
+        admin_panel_open = 1;
+        admin_draw();
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Читы") == 1 && adm_has_text("Подарки") == 1);
+        admin_panel_open = 0;
+        winter_theme = 0;
+
         candies = 500;
         cups = 100;
         bp_xp = 300;
@@ -4700,29 +4749,13 @@ int main(void) {
         }
         for (int t = 1; t <= 5; t++)
             bp_claim(t);
-        assert(bp_claimed == 5 && skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
         double cups_before_t6 = cups;
         double candies_before_t6 = candies;
         bp_claim(6);
-        assert(bp_claimed == 6);
-        assert(fabs(cups - (cups_before_t6 + 100)) < 1e-9);
+        assert(bp_claimed == 6 && fabs(cups - (cups_before_t6 + 100)) < 1e-9);
         assert(fabs(candies - (candies_before_t6 - 95)) < 1e-9);
-        bp_claim(7);
-        assert(bp_claimed == 7 && class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1);
         bp_claimed = 0;
         bp_xp = 0;
-        winter_theme = 0;
-        set_class_owned(CLASS_SANTA, 0);
-
-        /* Dimasi4ek229 retains CCP, winter theme, and full admin rights. */
-        snprintf(stub_login_nick, sizeof(stub_login_nick), "Dimasi4ek229");
-        astra_ability_refresh();
-        winter_theme = 1;
-        assert(is_admin() == 1 && dev_access() == 1 && winter_theme_on() == 1 && bpass_allowed() == 1);
-        adm_reset_log();
-        admin_draw();
-        assert(adm_has_text("CCP") == 1);
-        winter_theme = 0;
 
         stub_gift_hue = 0;
         stub_frame_seconds = 0.05;

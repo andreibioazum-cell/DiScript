@@ -146,7 +146,10 @@ static void progress_normalize(void) {
         set_class_progress(cls, lv, un);
         order = order + 1;
     }
-    if (player_class == CLASS_SANTA && dev_access() == 0 && (bpass_allowed() == 0 || bp_claimed < 7)) {
+    if (bpass_rewards_allowed() == 1 && bp_claimed >= 7) {
+        set_class_owned(CLASS_SANTA, 1);
+    }
+    if (player_class == CLASS_SANTA && dev_access() == 0 && (bpass_rewards_allowed() == 0 || bp_claimed < 7)) {
         /* Restrict Santa selection unless developer access or tier 7 is active. */
         player_class = CLASS_ORDINARY;
     }

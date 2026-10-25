@@ -1,0 +1,174 @@
+name: Cleanup Old Builds
+
+on:
+  workflow_run:
+    workflows: ["Build Cubic Battle 4 (Pure C)"]
+    types: [completed]
+  schedule:
+    - cron: "0 3 * * *"
+  workflow_dispatch:
+    inputs:
+      keep_latest:
+        description: "Number of latest successful build runs to keep (0 wipes all completed builds)"
+        required: false
+        default: "1"
+        type: string
+
+permissions:
+  actions: write
+  contents: read
+
+concurrency:
+  group: cleanup-old-builds
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  cleanup:
+    name: Purge old workflow runs, artifacts, and caches
+    runs-on: ubuntu-latest
+    steps:
+      - name: Delete old builds, artifacts, and stale caches
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          REPO: ${{ github.repository }}
+          CURRENT_RUN_ID: ${{ github.run_id }}
+          KEEP_LATEST_INPUT: ${{ inputs.keep_latest }}
+        run: |
+          python3 - <<'PY'
+          import json
+          import os
+          import subprocess
+          import sys
+          from concurrent.futures import ThreadPoolExecutor, as_completed
+
+          REPO = os.environ["REPO"]
+          CURRENT_RUN_ID = int(os.environ["CURRENT_RUN_ID"])
+          raw_keep = (os.environ.get("KEEP_LATEST_INPUT") or "").strip()
+          KEEP_LATEST = max(0, int(raw_keep)) if raw_keep.isdigit() else 1
+          BUILD_WORKFLOW_NAME = "Build Cubic Battle 4 (Pure C)"
+
+
+          def gh_api(endpoint: str, method: str = "GET") -> tuple[int, object]:
+              cmd = ["gh", "api", "-X", method, endpoint]
+              proc = subprocess.run(cmd, capture_output=True, text=True)
+              if proc.returncode != 0:
+                  if "404" in proc.stderr or "Not Found" in proc.stderr:
+                      return 404, None
+                  return proc.returncode, proc.stderr.strip()
+              if not proc.stdout.strip():
+                  return 204, None
+              try:
+                  return 200, json.loads(proc.stdout)
+              except json.JSONDecodeError:
+                  return 200, proc.stdout
+
+
+          def list_paginated(path: str, key: str) -> list[dict]:
+              items: list[dict] = []
+              page = 1
+              while True:
+                  sep = "&" if "?" in path else "?"
+                  code, data = gh_api(f"{path}{sep}per_page=100&page={page}")
+                  if code != 200 or not isinstance(data, dict):
+                      print(f"warn: GET {path} page {page} -> {code}: {data}", file=sys.stderr)
+                      break
+                  batch = data.get(key) or []
+                  if not batch:
+                      break
+                  items.extend(batch)
+                  if len(batch) < 100:
+                      break
+                  page += 1
+              return items
+
+
+          # 1. Snapshot all workflow runs before deleting anything so pagination never shifts.
+          runs = list_paginated(f"repos/{REPO}/actions/runs", "workflow_runs")
+          runs.sort(key=lambda r: r.get("created_at") or "", reverse=True)
+
+          kept_run_ids: set[int] = {CURRENT_RUN_ID}
+          kept_builds = 0
+          runs_to_delete: list[dict] = []
+
+          for r in runs:
+              rid = int(r["id"])
+              if rid == CURRENT_RUN_ID:
+                  continue
+              if r.get("status") != "completed":
+                  kept_run_ids.add(rid)
+                  continue
+              if (
+                  r.get("name") == BUILD_WORKFLOW_NAME
+                  and r.get("conclusion") == "success"
+                  and kept_builds < KEEP_LATEST
+              ):
+                  kept_run_ids.add(rid)
+                  kept_builds += 1
+                  continue
+              runs_to_delete.append(r)
+
+          # 2. Delete all artifacts not belonging to a kept run.
+          artifacts = list_paginated(f"repos/{REPO}/actions/artifacts", "artifacts")
+          artifacts_to_delete = [
+              a for a in artifacts
+              if not a.get("expired", False)
+              and int((a.get("workflow_run") or {}).get("id") or 0) not in kept_run_ids
+          ]
+
+          # 3. Delete stale Actions caches (keep only the newest cache entry per key).
+          caches = list_paginated(f"repos/{REPO}/actions/caches", "actions_caches")
+          caches.sort(key=lambda c: c.get("created_at") or "", reverse=True)
+          seen_keys: set[str] = set()
+          caches_to_delete: list[dict] = []
+          for c in caches:
+              ck = str(c.get("key") or "")
+              if KEEP_LATEST > 0 and ck and ck not in seen_keys:
+                  seen_keys.add(ck)
+                  continue
+              caches_to_delete.append(c)
+
+
+          def delete_all(label: str, endpoints: list[str]) -> tuple[int, int]:
+              ok = 0
+              fail = 0
+              if not endpoints:
+                  print(f"{label}: nothing to delete")
+                  return 0, 0
+              with ThreadPoolExecutor(max_workers=8) as pool:
+                  futs = {pool.submit(gh_api, ep, "DELETE"): ep for ep in endpoints}
+                  for fut in as_completed(futs):
+                      ep = futs[fut]
+                      code, err = fut.result()
+                      if code in (200, 204, 404):
+                          ok += 1
+                      else:
+                          fail += 1
+                          print(f"warn: DELETE {ep} -> {code}: {err}", file=sys.stderr)
+              print(f"{label}: deleted {ok}, failed {fail}")
+              return ok, fail
+
+
+          print(
+              f"cleanup plan: keep_latest={KEEP_LATEST}, kept_runs={sorted(kept_run_ids)}, "
+              f"delete_artifacts={len(artifacts_to_delete)}, "
+              f"delete_runs={len(runs_to_delete)}, "
+              f"delete_caches={len(caches_to_delete)}"
+          )
+
+          delete_all(
+              "artifacts",
+              [f"repos/{REPO}/actions/artifacts/{a['id']}" for a in artifacts_to_delete],
+          )
+          delete_all(
+              "workflow_runs",
+              [f"repos/{REPO}/actions/runs/{r['id']}" for r in runs_to_delete],
+          )
+          delete_all(
+              "caches",
+              [f"repos/{REPO}/actions/caches/{c['id']}" for c in caches_to_delete],
+          )
+          PY

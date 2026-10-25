@@ -146,7 +146,18 @@
     <label class="chk"><input type="checkbox" class="flt" data-k="slot" checked> мёртвые/битые слоты</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="stale"> слоты-заглушки (нулевые)</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="meta"> комнаты без правильных meta</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="empty_room"> пустые старые комнаты</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="old_chat"> старый чат (сверх лимита)</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="old_banner"> устаревший баннер</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="bans"> список банов</label>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <span class="muted">оставлять в чате последних:</span>
+    <input id="cleanChatKeep" type="number" min="0" max="500" step="1" value="20" size="5" title="сколько новых сообщений чата оставлять в каждой комнате">
+    <span class="muted">баннер старый после (ч):</span>
+    <input id="cleanBannerHours" type="number" min="0" max="8760" step="1" value="24" size="5" title="возраст баннера в часах, после которого он считается устаревшим">
+    <button id="markOld">Отметить старое и ненужное</button>
+    <button id="cleanOld" class="danger">Очистить старые и ненужные данные</button>
   </div>
   <div class="row" style="margin-bottom:10px">
     <span class="muted">стоп-слова (через запятую):</span>
@@ -774,12 +785,27 @@ function badValue(spec, v){
   return null;
 }
 
+const OLD_CLEAN_KINDS = [
+  "unknown_root","unknown_field","bad_user","chat","slot",
+  "stale","meta","empty_room","old_chat","old_banner"
+];
+function cleanChatKeep(){
+  const v = parseInt(($("#cleanChatKeep") && $("#cleanChatKeep").value) ?? "20", 10);
+  return isFinite(v) && v >= 0 ? v : 20;
+}
+function cleanBannerHours(){
+  const v = parseFloat(($("#cleanBannerHours") && $("#cleanBannerHours").value) ?? "24");
+  return isFinite(v) && v >= 0 ? v : 24;
+}
+
 function analyze(){
   FOUND = [];
+  const nonDefault = new Set(["bans","chat_all","stale","meta","empty_room","old_chat","old_banner"]);
   const add = (kind, path, why, extra) =>
-    FOUND.push({kind, path, why, extra: extra || "",
-                sel: kind !== "bans" && kind !== "chat_all" && kind !== "stale" && kind !== "meta"});
+    FOUND.push({kind, path, why, extra: extra || "", sel: !nonDefault.has(kind)});
   const d = SNAP || {};
+  const keepChat = cleanChatKeep();
+  const bannerMaxAgeMs = cleanBannerHours() * 3600000;
 
   /* Root keys */
   for(const k of Object.keys(d))
@@ -800,13 +826,16 @@ function analyze(){
     if(!d.banner || typeof d.banner !== "object")
       add("unknown_field", "banner", "баннер должен быть узлом с ts/text/color", JSON.stringify(d.banner).slice(0,80));
     else{
+      let bannerInvalid = false;
       for(const k of Object.keys(d.banner))
-        if(!BANNER_FIELDS[k]) add("unknown_field", "banner/" + k, "в баннере нет такого поля", JSON.stringify(d.banner[k]).slice(0,60));
+        if(!BANNER_FIELDS[k]){ bannerInvalid = true; add("unknown_field", "banner/" + k, "в баннере нет такого поля", JSON.stringify(d.banner[k]).slice(0,60)); }
       for(const [k, spec] of Object.entries(BANNER_FIELDS))
         if(k in d.banner){
           const bad = badValue(spec, d.banner[k]);
-          if(bad) add("unknown_field", "banner/" + k, bad, JSON.stringify(d.banner[k]).slice(0,60));
+          if(bad){ bannerInvalid = true; add("unknown_field", "banner/" + k, bad, JSON.stringify(d.banner[k]).slice(0,60)); }
         }
+      if(!bannerInvalid && typeof d.banner.ts === "number" && (Date.now() - d.banner.ts) >= bannerMaxAgeMs)
+        add("old_banner", "banner", "устаревший баннер (> " + cleanBannerHours() + " ч)", String(d.banner.text || "").slice(0,80));
     }
   }
 
@@ -894,11 +923,23 @@ function analyze(){
         const bad = badValue(spec, v);
         if(bad) add("unknown_field", `${base}/${f}`, bad, JSON.stringify(v).slice(0,60));
       }
-      /* Zeroed placeholder slot written on initial room claim; left unselected by default. */
-      if(p.seq === 0 && p.hp === 0 && p.alive === 0 && p.x === 0 && p.y === 0)
-        add("stale", base, "нулевой слот-заглушка (заявка без движения)", p.nick || "");
+      /* Zeroed placeholder or dead slot; left unselected by default. */
+      if(p.hp === 0 && p.alive === 0)
+        add("stale", base, p.seq === 0 && p.x === 0 && p.y === 0
+            ? "нулевой слот-заглушка (заявка без движения)"
+            : "мёртвый неактивный слот (hp=0, alive=0)", p.nick || "");
     }
 
+    /* Custom rooms without any live players are abandoned and safe to remove. */
+    if(rn !== "main"){
+      const livePlayers = Object.values(room.players || {}).filter(
+        p => p && typeof p === "object" && ((p.alive || 0) > 0 || (p.hp || 0) > 0)
+      );
+      if(livePlayers.length === 0)
+        add("empty_room", `rooms/${rn}`, "пустая старая комната без живых игроков");
+    }
+
+    const validChatIds = [];
     for(const [id, m] of Object.entries(room.chat || {})){
       const base = `rooms/${rn}/chat/${id}`;
       if(typeof m !== "object" || m === null){ add("chat", base, "сообщение - не объект"); continue; }
@@ -916,8 +957,17 @@ function analyze(){
         for(const [f, spec] of Object.entries(CHAT_FIELDS))
           if(f in m){ const b = badValue(spec, m[f]); if(b){ why = f + ": " + b; break; } }
         if(why) add("chat", base, why, label);
-        else    add("chat_all", base, "обычное сообщение чата", label);
+        else    validChatIds.push({id, base, label});
       }
+    }
+    validChatIds.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const cutoff = Math.max(0, validChatIds.length - keepChat);
+    for(let i = 0; i < validChatIds.length; i++){
+      const c = validChatIds[i];
+      if(i < cutoff)
+        add("old_chat", c.base, "старое сообщение чата (сверх последних " + keepChat + ")", c.label);
+      else
+        add("chat_all", c.base, "обычное сообщение чата", c.label);
     }
   }
 
@@ -1071,6 +1121,54 @@ async function wipe(){
   await scan();
 }
 
+/* Select all old and unneeded items across janitor filters for review. */
+async function markOldData(){
+  if(!SNAP) await scan();
+  else analyze();
+  const kinds = new Set(OLD_CLEAN_KINDS);
+  $$(".flt").forEach(c => { c.checked = kinds.has(c.dataset.k); });
+  FOUND.forEach(f => { f.sel = kinds.has(f.kind); });
+  render();
+  const n = FOUND.filter(f => f.sel).length;
+  log("отмечено старых и ненужных узлов: " + n, n ? "good" : "");
+}
+
+/* Delete all old and unneeded database nodes in a single batch run. */
+async function cleanOldData(){
+  if(!SNAP) await scan();
+  else analyze();
+  const kinds = new Set(OLD_CLEAN_KINDS);
+  const targets = FOUND.filter(f => kinds.has(f.kind));
+  if(!targets.length){
+    log("чистка старых и ненужных данных: ничего лишнего не найдено", "good");
+    alert("Старых или ненужных данных не найдено.");
+    return;
+  }
+  const plan = wipePlan(targets.map(f => f.path));
+  if(!plan.length) return;
+  if(!confirm(`Очистить старые и ненужные данные?\nНайдено узлов: ${targets.length}, запросов DELETE: ${plan.length}.\n\nПервые:\n` +
+              plan.slice(0,12).join("\n") + (plan.length>12?"\n…":"") +
+              (isTest() ? "" : "\n\nБаза БОЕВАЯ - отменить удаление будет нельзя."))) return;
+  const btn = $("#cleanOld"); btn.disabled = true;
+  let ok = 0, fail = 0, done = 0;
+  const total = plan.length, queue = [...plan];
+  const tick = () => { btn.textContent = `чищу ${done}/${total}…`; };
+  const worker = async () => {
+    while(queue.length){
+      const p = queue.shift();
+      try{ await wipeNode(p); ok++; log("очищено: " + p); }
+      catch(e){ fail++; log("НЕ очищено " + p + " - " + e.message, "err"); }
+      done++; tick();
+    }
+  };
+  tick();
+  await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
+  btn.textContent = "Очистить старые и ненужные данные"; btn.disabled = false;
+  log(`чистка завершена: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
+  alert(`Чистка завершена.\nУдалено: ${ok}\nОшибок: ${fail}`);
+  await scan();
+}
+
 /* Targeted moderation and maintenance helpers. */
 async function safe(fn, name){
   if(window.cb4FatalClear) window.cb4FatalClear();
@@ -1185,6 +1283,10 @@ function boot(){
   on("#scan", scan, "Сканировать базу");
   $$(".flt").forEach(c => c.addEventListener("change", render));
   $("#words").addEventListener("input", () => { if(SNAP) analyze(); });
+  onChange("#cleanChatKeep", () => { if(SNAP) analyze(); });
+  onChange("#cleanBannerHours", () => { if(SNAP) analyze(); });
+  on("#markOld", markOldData, "Отметить старое и ненужное");
+  on("#cleanOld", cleanOldData, "Очистить старые и ненужные данные");
   on("#all", () => { const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
                      FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=true; }); render(); }, "Выделить всё");
   on("#none", () => { FOUND.forEach(f=>f.sel=false); render(); }, "Снять всё");

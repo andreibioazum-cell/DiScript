@@ -43,7 +43,10 @@ static double admin_row_h(void) { return clamp(screen_h * 0.066, 36, 76); }
 static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
-static double admin_content_h(void) { return admin_tab == 0 ? admin_grid_h() + admin_row_h() + admin_gap() : 9 * admin_row_h() + 8 * admin_gap(); }
+static double admin_content_h(void) {
+    return (admin_tab == 0 || admin_gifts_allowed() == 0) ? admin_grid_h() + admin_row_h() + admin_gap()
+                                                          : 9 * admin_row_h() + 8 * admin_gap();
+}
 
 static double admin_cheat_row_h(void) {
     double h = (admin_content_h() - 2 * admin_gap()) / 3;
@@ -165,7 +168,7 @@ static double admin_cheat_value(double idx) {
 
 /* Return 1 while any admin cheat switch is active. */
 static double admin_any_cheat_on(void) {
-    if (is_admin() == 0) {
+    if (admin_modifiers_allowed() == 0) {
         return 0;
     }
     if (cheat_god == 1 || cheat_damage == 1 || cheat_speed == 1 || cheat_nocd == 1 || cheat_cc == 1 ||
@@ -183,7 +186,7 @@ static void admin_battle_stain_reset(void) {
 
 /* Return 0 when active or prior cheat use disables battle cup payout. */
 static double admin_cups_allowed(void) {
-    if (is_admin() == 0) {
+    if (admin_modifiers_allowed() == 0) {
         return 1;
     }
     if (cheat_stain != 0) {
@@ -239,27 +242,27 @@ static void admin_press(double idx) {
 
 /* Cheats read by the fight code every frame. */
 static double admin_cheat_god(void) {
-    return is_admin() == 1 && cheat_god == 1 ? 1 : 0;
+    return admin_modifiers_allowed() == 1 && cheat_god == 1 ? 1 : 0;
 }
 
 static double admin_cheat_damage_mult(void) {
-    if (is_admin() == 1 && cheat_damage == 1) {
+    if (admin_modifiers_allowed() == 1 && cheat_damage == 1) {
         return 5;
     }
     return 1;
 }
 
 static double admin_cheat_speed_mult(void) {
-    if (is_admin() == 1 && cheat_speed == 1) {
+    if (admin_modifiers_allowed() == 1 && cheat_speed == 1) {
         return 2;
     }
     return 1;
 }
 
 static double admin_cheat_nocd(void) {
-    return is_admin() == 1 && cheat_nocd == 1 ? 1 : 0;
+    return admin_modifiers_allowed() == 1 && cheat_nocd == 1 ? 1 : 0;
 }
 
 static double admin_cheat_ball_path(void) {
-    return is_admin() == 1 && cheat_ball_path == 1 ? 1 : 0;
+    return admin_modifiers_allowed() == 1 && cheat_ball_path == 1 ? 1 : 0;
 }

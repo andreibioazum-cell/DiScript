@@ -35,8 +35,8 @@ static double admin_playing(void) {
     return admin_slot(net_login_nick()) != 0 ? 1 : 0;
 }
 
-/* Return 1 when signed-in player has access to the Battle Pass. */
-static double bpass_allowed(void) {
+/* Return 1 when signed-in player has access to combat modifiers in CCP. */
+static double admin_modifiers_allowed(void) {
     if (net_login_status() != 2) {
         return 0;
     }
@@ -45,6 +45,21 @@ static double bpass_allowed(void) {
         return 1;
     }
     return 0;
+}
+
+/* Return 1 when signed-in player can manage gifts in CCP. */
+static double admin_gifts_allowed(void) {
+    return admin_playing();
+}
+
+/* Return 1 when signed-in player has access to the Battle Pass. */
+static double bpass_allowed(void) {
+    return admin_playing();
+}
+
+/* Return 1 when signed-in player retains claimed Battle Pass rewards. */
+static double bpass_rewards_allowed(void) {
+    return admin_modifiers_allowed();
 }
 
 static const char *admin_nick_of(double slot) {
