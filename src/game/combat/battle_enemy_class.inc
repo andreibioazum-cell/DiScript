@@ -126,8 +126,8 @@ static double enemy_apply_damage(double dmg) {
         damage_taken_shake(dmg);
     /* Chance to raise guard after taking a hit. */
     if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
-            rand() % 100 < 18) {
-            enemy_block_left = 0.5 + (rand() % 100) / 100.0 * 0.4;
+            rand() % 100 < 10) {
+            enemy_block_left = 0.4 + (rand() % 100) / 100.0 * 0.3;
         }
     }
     enemy->hp = enemy->hp - dmg;

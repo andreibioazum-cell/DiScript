@@ -11,12 +11,14 @@ static double player_walk_speed(void) {
         spd = spd * codecracker_speed_mult;
     }
     spd = spd * admin_cheat_speed_mult();
-    if (player_freeze > 0) {
-        spd = spd * player_freeze_slow;
-    }
-    if (player_block == 1) {
-        /* Reduce movement speed while blocking. */
-        spd = spd * block_speed_k;
+    if (astra_parry_active() == 0) {
+        if (player_freeze > 0) {
+            spd = spd * player_freeze_slow;
+        }
+        if (player_block == 1) {
+            /* Reduce movement speed while blocking. */
+            spd = spd * block_speed_k;
+        }
     }
     return spd;
 }
@@ -108,8 +110,17 @@ static void move_player(void) {
         player_vel_reset();
         return;
     }
-    if (pgrab_active == 1 || astra_locked() == 1) {
+    if (pgrab_active == 1) {
         player_vel_reset();
+        return;
+    }
+    if (astra_locked() == 1) {
+        double jml = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
+        if (jml > 0.15) {
+            player_dir_x = joy.dx / jml;
+            player_dir_y = joy.dy / jml;
+            player->angle = atan2(joy.dy, joy.dx);
+        }
         return;
     }
     if (dash_active > 0) {

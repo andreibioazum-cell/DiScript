@@ -92,6 +92,9 @@ static void heal_after_attack(void) {
 }
 
 static void stun_enemy(double t) {
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        return;
+    }
     if (t > enemy->stun) {
         enemy->stun = t;
     }

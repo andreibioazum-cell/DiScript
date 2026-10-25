@@ -44,10 +44,10 @@ static double ultimate_visual_busy(void) {
 }
 
 static void fire_punch(void) {
-    if (dash_active > 0 || player_stun > 0 || player_block == 1 || astra_parry_active() == 1) {
+    if (dash_active > 0 || player_stun > 0 || player_block == 1) {
         return;
     }
-    if (astra_locked() == 1 || player_grabbed() == 1) {
+    if (astra_state != 0 || player_grabbed() == 1) {
         queued_punch = 0;
         return;
     }
@@ -107,7 +107,7 @@ static void fire_super(void) {
         return;
     }
     if (class_is_astra(player_class) == 1) {
-        if (astra_state != 0 || player_stun > 0 || player_freeze > 0 || player_grabbed() == 1) {
+        if (astra_state != 0 || player_stun > 0 || player_grabbed() == 1) {
             queued_super = 0;
             return;
         }

@@ -28,9 +28,9 @@ static const char *tr_super_azum(void) {
 
 static const char *tr_super_astra(void) {
     if (language == 1) {
-        return "Захват";
+        return "Удар";
     }
-    return "Grab";
+    return "Strike";
 }
 
 static const char *tr_class_selected(void) {
@@ -154,21 +154,21 @@ static const char *tr_class_level_effect(double cls, double n) {
     }
     if (cls == 4 && n == 1) {
         if (language == 1) {
-            return "Захват: откат -2 с";
+            return "Удар: откат -2 с";
         }
-        return "Grab: cooldown -2 s";
+        return "Strike: cooldown -2 s";
     }
     if (cls == 4 && n == 2) {
         if (language == 1) {
-            return "Зона захвата +15%";
+            return "Дальность удара +15%";
         }
-        return "Grab zone +15%";
+        return "Strike range +15%";
     }
     if (cls == 4 && n == 3) {
         if (language == 1) {
-            return "Бросок дальше +40%, оглушение +0.3 с";
+            return "Урон удара +20%";
         }
-        return "Throw +40% further, stun +0.3 s";
+        return "Strike damage +20%";
     }
     if (cls == 0 && n == 1) {
         if (language == 1) {

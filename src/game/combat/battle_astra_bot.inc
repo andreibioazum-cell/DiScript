@@ -1,3 +1,5 @@
+/* Bot Astra purple parry shield and stun counter-strike. */
+
 static double enemy_grab_active(void) {
     if (egrab_state != 0) {
         return 1;
@@ -5,7 +7,7 @@ static double enemy_grab_active(void) {
     return 0;
 }
 
-static void enemy_grab_swing(void) { egrab_punch_t = astra_hit_show; }
+static void enemy_grab_swing(void) { egrab_punch_t = ASTRA_STRIKE_TIME; }
 
 static double enemy_grab_punching(void) {
     if (egrab_punch_t > 0) {
@@ -33,10 +35,8 @@ static void enemy_start_astra_parry(void) {
 }
 
 static void enemy_on_astra_parry_block(void) {
-    if (egrab_ready_t <= 0) {
-        egrab_ready_t = ASTRA_GRAB_WINDOW;
-        ds_log("bot astra parry unlocked grab");
-    }
+    egrab_ready_t = ASTRA_STRIKE_WINDOW;
+    ds_log("bot astra parry unlocked strike");
 }
 
 static void enemy_grab_stop(double landed) {
@@ -59,7 +59,7 @@ static void enemy_start_grab(void) {
     egrab_dx = cos(enemy->angle);
     egrab_dy = sin(enemy->angle);
     enemy_grab_swing();
-    ds_log("bot astra grab cast");
+    ds_log("bot astra strike cast");
 }
 
 static void tick_enemy_grab(void) {
@@ -90,57 +90,45 @@ static void tick_enemy_grab(void) {
     if (egrab_state == 0) {
         return;
     }
-    egrab_t = egrab_t + dt;
-    double kit = astra_ability_of(enemy_class, SKIN_NORMAL);
-    if (egrab_state == 1) {
-        if (egrab_t <= astra_ability_catch_time_for(kit)) {
-            if (pgrab_active == 0 && revive_prot <= 0 && player->hp > 0) {
-                if (astra_zone_hits_player(egrab_x, egrab_y, egrab_dx, egrab_dy, enemy_level) == 1) {
-                    egrab_state = 2;
-                    pgrab_active = 1;
-                    pgrab_slot = grab_slot_bot;
-                    grab_cancel_actions();
-                    ds_log("caught by the bot astra");
+    if (egrab_t < astra_ability_lunge_time && enemy->stun <= 0) {
+        double step = dt;
+        if (egrab_t + step > astra_ability_lunge_time) {
+            step = astra_ability_lunge_time - egrab_t;
+        }
+        double lspd = astra_ability_lunge_dist / astra_ability_lunge_time;
+        enemy->x = clamp(enemy->x + egrab_dx * lspd * step, enemy->size, screen_w - enemy->size);
+        enemy->y = clamp(enemy->y + egrab_dy * lspd * step, enemy->size, screen_h - enemy->size);
+        tick_enemy_dust(egrab_dx * lspd, egrab_dy * lspd);
+    }
+    egrab_x = enemy->x;
+    egrab_y = enemy->y;
+    if (egrab_hits == 0) {
+        double target = punch_resolve_target(egrab_x, egrab_y, egrab_dx, egrab_dy, astra_zone_reach(enemy_level),
+                                             astra_zone_width(enemy_level));
+        if (target == 0) {
+            egrab_hits = 1;
+            egrab_box_a = 1;
+            if (revive_prot <= 0) {
+                stun_player(astra_strike_stun_for(enemy_level));
+                if (take_damage_at(astra_strike_damage_for(enemy_level) * enemy_damage_mult_for(enemy_class),
+                                   enemy->x, enemy->y) == 1) {
+                    enemy_grab_stop(1);
+                    return;
                 }
             }
-        } else {
-            enemy_grab_stop(0);
-            return;
+        } else if (target >= 1 && target <= turret_max) {
+            egrab_hits = 1;
+            egrab_box_a = 1;
+            damage_turret(target - 1, astra_strike_damage_for(enemy_level) * enemy_damage_mult_for(enemy_class));
+            if (enemy_apply_damage(turret_counter_damage) == 1) {
+                enemy_grab_stop(1);
+                return;
+            }
         }
     }
-    if (egrab_state != 2) {
-        return;
-    }
-    grab_quiet_player(astra_ability_hit_interval_for(kit));
-    double due = astra_ability_beats_done_for(egrab_t, kit);
-    while (egrab_hits < due) {
-        egrab_hits = egrab_hits + 1;
-        enemy_grab_swing();
-        if (take_damage_at(astra_beat_damage(player->max_hp) * enemy_damage_mult_for(enemy_class), enemy->x,
-                           enemy->y) == 1) {
-            enemy_grab_stop(1);
-            return;
-        }
-        if (player->hp <= 0 || finished != 0 || revive_prot > 0) {
-            enemy_grab_stop(1);
-            return;
-        }
-    }
-    if (egrab_t >= astra_ability_final_time_for(kit)) {
-        enemy_grab_swing();
-        /* Keep final hit zone visible for fade-out after release. */
-        egrab_box_a = 1;
-        double dead =
-            take_damage_at(astra_final_damage(player->max_hp) * enemy_damage_mult_for(enemy_class), enemy->x, enemy->y);
-        enemy_grab_stop(1);
-        if (dead == 1) {
-            return;
-        }
-        if (player->hp > 0 && finished == 0 && revive_prot <= 0) {
-            throw_player(egrab_dx, egrab_dy, astra_ability_throw_dist_for(enemy_level, kit),
-                         astra_ability_throw_stun_for(enemy_level, kit));
-            ds_log("thrown by the bot astra");
-        }
+    egrab_t = egrab_t + dt;
+    if (egrab_t >= ASTRA_STRIKE_TIME) {
+        enemy_grab_stop(egrab_hits > 0 ? 1 : 0);
     }
 }
 

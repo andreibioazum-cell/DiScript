@@ -345,7 +345,7 @@ static void spawn_enemy(void) {
     enemy->svx = 0;
     enemy->svy = 0;
     enemy->react = enemy_human_react_min + (rand() % 100) / 100.0 * (enemy_human_react_max - enemy_human_react_min);
-    enemy->speed_var = 0.9 + (rand() % 40) / 100.0;
+    enemy->speed_var = 0.85 + (rand() % 20) / 100.0;
     enemy->aim_err = 0;
     if (rand() % 2 == 0) {
         enemy->strafe = -1;

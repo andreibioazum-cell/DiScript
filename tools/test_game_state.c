@@ -6,10 +6,7 @@
 
 #include "game/game.c"
 
-/* Test-only views over the game rules. The game itself no longer needs these
- * shortcuts, so they live here instead of in the shipped code. */
-static double astra_grab_total_fraction(void) { return astra_hit_fraction * astra_hit_count + astra_final_fraction; }
-
+/* Test-only views over fighter sprites. */
 static const char *fighter_sprite(double cls, double punching, double skin) {
     double look = class_look(cls, skin);
     if (look_ready(look) != 1) {
@@ -327,6 +324,7 @@ void net_publish_snow(double x, double y, double dx, double dy, double shot) {
     (void)dy;
     (void)shot;
 }
+void net_publish_thud(double seq) { (void)seq; }
 double net_player_brick(double slot) { return stub_brick[(int)slot]; }
 double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
 double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
@@ -2132,13 +2130,14 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(ball.vx - 0.6 * BALL_SPEED) < 1e-6 && fabs(ball.vy + 0.8 * BALL_SPEED) < 1e-6);
     ball_reset();
 
-    /* Enemy Azum dash damage is -10% (5.4 vs 6), while all other Solo enemies deal +12% damage. */
-    assert(fabs(enemy_dash_damage - 5.4) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 1.0) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 1.12) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 1.12) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 1.12) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.12) < 1e-9);
+    /* Solo enemies deal reduced damage and reduced Azum dash damage. */
+    assert(fabs(enemy_dash_damage - 2.8) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
+    assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
     /* ebuC ball bounce scaling: 0.5 base dmg, +1.5 on first bounce, x1.13 gain and x1.04 speed per bounce. */
     assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
@@ -2598,19 +2597,18 @@ int main(void) {
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 2), tr_class_level_effect(CLASS_ASTRA, 2)) == 0);
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 3), tr_class_level_effect(CLASS_ASTRA, 3)) == 0);
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
-    assert(fabs(astra_hit_interval - 0.2) < 1e-9);
-    assert(fabs(astra_final_delay - 0.85) < 1e-9);
-    assert(fabs(astra_ability_final_time_for(0) - astra_ability_beat_time_for(astra_hit_count, 0) - astra_final_delay) < 1e-9);
+    assert(fabs(ASTRA_PARRY_TIME - 0.4) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_WINDOW - 0.9) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_STUN - 0.4) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 65);
     assert(class_cost_of(CLASS_SANTA) == 100);
     assert(class_cost_of(CLASS_EBUC) == 120);
     assert(class_cost_of(CLASS_ASTRA) == 135);
     assert(class_has_super(CLASS_ASTRA) == 1);
-    assert(astra_cd_for(0) == 8);
+    assert(astra_cd_for(0) == 6);
     assert(astra_cd_for(1) < astra_cd_for(0));
     assert(astra_zone_reach(2) > astra_zone_reach(1));
-    assert(astra_throw_dist_for(3) > astra_throw_dist_for(2));
-    assert(fabs(astra_grab_total_fraction() - 0.45) < 1e-9);
+    assert(astra_strike_damage_for(3) > astra_strike_damage_for(2));
     assert(strcmp(WINTER_JINGLE, "winter_jingle.wav") == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
@@ -3432,7 +3430,7 @@ int main(void) {
         assert(strcmp(stub_last_snd, "station.wav") == 0);
         player_class = CLASS_ASTRA;
         start_grab_now();
-        assert(strcmp(stub_last_snd, "grab.wav") == 0);
+        assert(strcmp(stub_last_snd, "punch.wav") == 0);
         astra_state = 0;
         player_class = CLASS_ORDINARY;
         super_windup = 0;
@@ -3544,54 +3542,37 @@ int main(void) {
     screen_w = 320;
     player_class = CLASS_ASTRA;
     progress_normalize();
-    assert(astra_ability_hit_interval_for(1) < astra_ability_hit_interval_for(0));
-    /* the first three beats land sooner... */
-    assert(astra_ability_beat_time_for(1, 1) < astra_ability_beat_time_for(1, 0));
-    assert(astra_ability_beat_time_for(3, 1) < astra_ability_beat_time_for(3, 0));
-    assert(astra_ability_beats_done_for(astra_ability_beat_time_for(3, 1), 1) == 3);
-    /* ...and then the throw waits only ~0.4 s after the last beat, so the
-     * whole ultimate reads as fast hits, a short pause, the throw. */
-    assert(fabs(astra_ability_final_delay_for(1) - 0.4) < 1e-9);
-    assert(fabs(astra_ability_final_time_for(1) - astra_ability_beat_time_for(3, 1) - 0.4) < 1e-9);
-    assert(astra_ability_final_time_for(1) < astra_ability_final_time_for(0));
-    assert(astra_ability_grab_time_for(1) < astra_ability_grab_time_for(0));
-    assert(fabs(astra_ability_throw_dist_for(0, 1) - astra_throw_dist_for(0) * 1.10) < 1e-9);
-    assert(astra_ability_throw_dist_for(0, 1) < astra_throw_dist_for(0) * 1.35);
-    assert(astra_ability_throw_stun_for(0, 1) == astra_ability_throw_stun_for(0, 0));
-    /* pressing the ultimate takes a small forward step: the grab origin is
-     * the end of the step, while the body slides there smoothly frame by
-     * frame instead of jumping in one go */
+    assert(fabs(astra_strike_stun_for(0) - 0.4) < 1e-9);
+    assert(fabs(astra_strike_damage_for(0) - ASTRA_STRIKE_DAMAGE) < 1e-9);
+    assert(astra_strike_damage_for(3) > astra_strike_damage_for(0));
+    /* Astra counter-strike performs a smooth short forward lunge over 0.16 s. */
     player->angle = 0;
     player->size = 45;
     player->x = 150;
     player->y = 90;
-    astra_punch_t = 0.05;
+    astra_punch_t = 0;
     start_grab_now();
-    assert(astra_punch_t == 0);
+    assert(fabs(astra_punch_t - ASTRA_STRIKE_TIME) < 1e-9);
     assert(fabs(player->x - 150) < 1e-9);
-    assert(astra_x > 150 && astra_x - 150 <= astra_ability_lunge_dist + 1e-9);
-    assert(fabs(astra_y - 90) < 1e-9);
+    assert(astra_ability_lunge_tx > 150 && astra_ability_lunge_tx - 150 <= astra_ability_lunge_dist + 1e-9);
+    assert(fabs(astra_ability_lunge_ty - 90) < 1e-9);
     double lunge_prev = player->x;
     astra_ability_lunge_tick();
-    assert(player->x > lunge_prev && player->x < astra_x);
+    assert(player->x > lunge_prev && player->x < astra_ability_lunge_tx);
     lunge_prev = player->x;
     int lunge_frames = 1;
-    while (lunge_frames < 60 && player->x < astra_x) {
+    while (lunge_frames < 60 && player->x < astra_ability_lunge_tx) {
         astra_ability_lunge_tick();
         assert(player->x >= lunge_prev);
         lunge_prev = player->x;
         lunge_frames = lunge_frames + 1;
     }
-    assert(fabs(player->x - astra_x) < 1e-9);
-    assert(fabs(player->y - astra_y) < 1e-9);
+    assert(fabs(player->x - astra_ability_lunge_tx) < 1e-9);
+    assert(fabs(player->y - astra_ability_lunge_ty) < 1e-9);
     assert(lunge_frames * dt >= astra_ability_lunge_time);
-    assert(astra_ability_zone_live_for(astra_ability_lunge_time / 2, 0, 1) == 0);
-    assert(astra_ability_zone_live_for(astra_ability_lunge_time, 0, 1) == 1);
     astra_state = 0;
     astra_cd = 0;
-    /* On the move the lunge still beats the walk: it lands a full step
-     * further than walking would have carried her, and it bursts off faster
-     * than walking pace from the very first frame. */
+    /* Moving lunge adds walking distance over lunge duration. */
     {
         double saved_jdx = joy.dx;
         double saved_jdy = joy.dy;
@@ -3600,7 +3581,8 @@ int main(void) {
         player->x = 150;
         player->y = 90;
         start_grab_now();
-        assert(astra_x - 150 > player_walk_speed() * astra_ability_lunge_time + astra_ability_lunge_dist - 1e-6);
+        assert(astra_ability_lunge_tx - 150 >
+               player_walk_speed() * astra_ability_lunge_time + astra_ability_lunge_dist - 1e-6);
         double before = player->x;
         astra_ability_lunge_tick();
         assert((player->x - before) / dt > player_walk_speed());
@@ -3609,36 +3591,29 @@ int main(void) {
             astra_ability_lunge_tick();
             k = k + 1;
         }
-        assert(fabs(player->x - astra_x) < 1e-9);
+        assert(fabs(player->x - astra_ability_lunge_tx) < 1e-9);
         joy.dx = saved_jdx;
         joy.dy = saved_jdy;
         astra_state = 0;
         astra_cd = 0;
     }
-    /* The grab/catch waits for the visual dash to finish; its first hit is
-     * still scheduled before Astra's first beat. */
+    /* Strike reaches enemies opened up by the short forward lunge, deals damage once, and stuns for 0.4 s. */
     player->x = 100;
     player->y = 90;
     player->hp = 10;
     enemy->hp = enemy->max_hp = 10;
+    enemy->stun = 0;
     enemy_revive_prot = 0;
     enemy->y = player->y;
     game_state = ST_SOLO;
     start_grab_now();
-    enemy->x = astra_x + 70;
-    for (int frame = 0; frame < 9; frame++) {
-        tick_astra();
-        assert(astra_caught == 0 && astra_hits_done == 0);
-    }
-    assert(astra_caught == 0 && enemy->hp == 10);
+    enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 45;
     tick_astra();
-    assert(astra_caught == 1 && astra_hits_done == 0);
-    for (int frame = 10; frame < 22; frame++)
-        tick_astra();
-    assert(astra_hits_done == 0);
-    tick_astra();
-    assert(astra_hits_done == 1 && astra_punch_t > 0);
+    assert(astra_caught == 1 && astra_hits_done == 1);
+    assert(fabs(enemy->stun - 0.4) < 1e-9);
+    assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
     astra_release(0);
+    enemy->stun = 0;
     astra_cd = 0;
     /* Astra has no separate skin or developer variant: one ordinary card,
      * with the current fast ability kit. */
@@ -3720,21 +3695,27 @@ int main(void) {
     enemy->x = 470;
     enemy->y = 400;
     enemy->hp = enemy->max_hp = 10;
+    enemy->stun = 0;
+    enemy_throw_t = 0;
     astra_cd = 0;
     start_grab_now();
-    for (int frame = 0; frame < 400 && astra_state != 0; frame++)
+    assert(fabs(enemy->stun - 0.0) < 1e-9);
+    tick_astra();
+    assert(fabs(enemy->stun - 0.4) < 1e-9);
+    for (int frame = 0; frame < 60 && astra_state != 0; frame++)
         tick_astra();
-    assert(fabs(enemy->hp - 5.5) < 1e-6);
-    assert(enemy_throw_t > 0);
+    assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+    assert(enemy_throw_t == 0);
+    enemy->stun = 0;
 
     astra_state = 0;
-    enemy_throw_t = 0;
     player_class = CLASS_ORDINARY;
     game_state = ST_SOLO;
     finished = 0;
     player->x = 470;
     player->y = 400;
     player->hp = player->max_hp = 10;
+    player_stun = 0;
     enemy_class = CLASS_ASTRA;
     enemy_level = 0;
     enemy->x = 400;
@@ -3744,10 +3725,14 @@ int main(void) {
     pgrab_active = 0;
     pthrow_t = 0;
     enemy_start_grab();
-    for (int frame = 0; frame < 400 && egrab_state != 0; frame++)
+    tick_enemy_grab();
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    assert(fabs(player_stun - 0.4) < 1e-9);
+    for (int frame = 0; frame < 60 && egrab_state != 0; frame++)
         tick_enemy_grab();
-    assert(fabs(player->hp - (10.0 - 4.5 * ENEMY_OTHER_DAMAGE_MULT)) < 1e-6);
-    assert(pthrow_t > 0);
+    assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE * ENEMY_OTHER_DAMAGE_MULT)) < 1e-6);
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    player_stun = 0;
 
     egrab_state = 0;
     pgrab_active = 0;
@@ -3757,6 +3742,7 @@ int main(void) {
     player->x = 470;
     player->y = 400;
     player->hp = player->max_hp = 10;
+    player_stun = 0;
     stub_net_slot = 0;
     stub_online[1] = 1;
     stub_level[1] = 0;
@@ -3765,42 +3751,31 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < 400; frame++)
+    update_remote_grabs();
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    assert(fabs(player_stun - 0.4) < 1e-9);
+    for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
-    assert(fabs(player->hp - 5.5) < 1e-6);
-    assert(pthrow_t > 0);
-    double plain_throw = pthrow_speed * astra_throw_time;
+    assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    player_stun = 0;
 
-    /* The same grab from an Astra attacker uses the class snapshot; the three
-     * hits land sooner, the throw waits only ~0.4 s after the last beat and
-     * goes farther; the total damage of the grab is unchanged. */
-    pgrab_active = 0;
-    pgrab_slot = -1;
-    pthrow_t = 0;
+    /* Level 3 remote Astra strike deals +20% damage with 0.4 s stun and no grab/throw. */
     finished = 0;
     player->x = 470;
     player->y = 400;
     player->hp = player->max_hp = 10;
+    stub_level[1] = 3;
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
-    for (int frame = 0; frame < 9; frame++)
+    update_remote_grabs();
+    assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - 0.4) < 1e-9);
+    for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
-    assert(pgrab_active == 0 && player->hp == 10);
-    for (int frame = 9; frame < 45; frame++)
-        update_remote_grabs();
-    assert(player->hp < 10);
-    assert(astra_ability_beat_time_for(3, 1) < astra_ability_beat_time_for(3, 0));
-    assert(45 * dt > astra_ability_beat_time_for(3, 1) && 45 * dt < astra_ability_beat_time_for(3, 0) + 1e-9);
-    for (int frame = 0; frame < 400 && pthrow_t <= 0; frame++)
-        update_remote_grabs();
-    assert(fabs(player->hp - 5.5) < 1e-6);
-    assert(pthrow_t > 0);
-    assert(pthrow_speed * astra_throw_time > plain_throw);
-    assert(fabs(pthrow_speed * astra_throw_time - plain_throw * 1.10) < 1e-6);
-    pgrab_active = 0;
-    pgrab_slot = -1;
-    pthrow_t = 0;
+    assert(fabs(player->hp - (10.0 - astra_strike_damage_for(3))) < 1e-6);
+    player_stun = 0;
+    stub_level[1] = 0;
     stub_grab[1] = 0;
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_NORMAL);
@@ -4545,8 +4520,9 @@ int main(void) {
         assert(fabs(enemy->hp - 19.0) < 1e-9);
         enemy_block_left = 0;
 
-        /* 2a) Astra super activates immediately on press (action 0, no release)
-         *     as a 0.4 s purple shield; expiring unhit starts cooldown without Grab. */
+        /* 2a) Astra super activates immediately on press as a 0.4 s purple shield
+         *     with zero slowdown (normal walk speed and normal punch allowed);
+         *     expiring unhit starts cooldown without unlocking Strike. */
         screen_w = 1080;
         screen_h = 1920;
         atk_x = screen_w - 132;
@@ -4567,7 +4543,8 @@ int main(void) {
         astra_parry_blocked = 0;
         astra_grab_ready_t = 0;
         player_stun = 0;
-        player_freeze = 0;
+        player_freeze = 1.5;
+        player_freeze_slow = 0.12;
         pgrab_active = 0;
         language = 1;
         adm_reset_log();
@@ -4577,10 +4554,28 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 7); /* press only - not released! */
         assert(astra_state == 0);
         assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.4) < 1e-9);
+        assert(player_freeze == 0 && fabs(player_walk_speed() - joy_speed) < 1e-9);
+        player_block = 1;
+        assert(fabs(player_walk_speed() - joy_speed) < 1e-9);
+        player_block = 0;
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+        fire_punch();
+        assert(punch->active == 1);
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
         assert(astra_grab_ready_t == 0);
         stub_circle_color = 0;
         draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
         assert(stub_circle_color == 0x38B35CFF);
+
+        /* Bot Astra also keeps acting normally while its purple block is active. */
+        enemy_class = CLASS_ASTRA;
+        enemy_start_astra_parry();
+        assert(egrab_parry_t > 0 && enemy_tick_class_abilities() == 0);
+        egrab_parry_t = 0;
 
         for (int f = 0; f < 25; f++)
             tick_astra();
@@ -4588,8 +4583,8 @@ int main(void) {
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
         touch_game(atk2_x, atk2_y, 1, 7);
 
-        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun and unlocks Grab
-         *     for 0.8 s; not pressing within 0.8 s reverts to Block + cooldown. */
+        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun and unlocks Strike ("Удар")
+         *     for 0.9 s; not pressing within 0.9 s reverts to Block + cooldown. */
         astra_cd = 0;
         player->hp = 18;
         touch_game(atk2_x, atk2_y, 0, 7);
@@ -4598,12 +4593,13 @@ int main(void) {
         take_damage_at(6.5, 500, 400);
         stun_player(0.55);
         assert(fabs(player->hp - 18.0) < 1e-9 && player_stun == 0);
-        assert(fabs(astra_grab_ready_t - 0.8) < 1e-9);
+        assert(fabs(astra_grab_ready_t - 0.9) < 1e-9);
         adm_reset_log();
         draw_controls();
-        assert(adm_has_text("Захват") == 1);
+        assert(adm_has_text("Захват") == 0);
+        assert(strcmp(tr_super_astra(), "Удар") == 0);
 
-        for (int f = 0; f < 47; f++)
+        for (int f = 0; f < 53; f++)
             tick_astra();
         assert(astra_grab_ready_t > 0 && astra_cd == 0);
         tick_astra();
@@ -4611,17 +4607,30 @@ int main(void) {
         assert(astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
 
-        /* 2c) Pressing within 0.8 s fires Grab, then returns to Block on CD. */
+        /* 2c) Pressing within 0.9 s fires counter-strike (lunge + damage + 0.4 s stun). */
         astra_cd = 0;
+        player->x = 400;
+        player->y = 400;
+        player->angle = 0;
+        enemy_class = CLASS_ORDINARY;
+        enemy->x = 470;
+        enemy->y = 400;
+        enemy->hp = enemy->max_hp = 20;
+        enemy->stun = 0;
         touch_game(atk2_x, atk2_y, 0, 7);
         touch_game(atk2_x, atk2_y, 1, 7);
         take_damage_at(3.0, 500, 400);
-        assert(astra_grab_ready_t > 0 && fabs(player->hp - 18.0) < 1e-9);
-        touch_game(atk2_x, atk2_y, 0, 8); /* press while Grab is available */
+        assert(fabs(astra_grab_ready_t - 0.9) < 1e-9 && fabs(player->hp - 18.0) < 1e-9);
+        touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
-        astra_release(0);
-        assert(astra_state == 0 && fabs(astra_cd - astra_grab_miss_cd) < 1e-9);
+        assert(astra_ability_lunge_tx > 400.0);
+        tick_astra();
+        assert(fabs(enemy->stun - 0.4) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+        for (int f = 0; f < 20 && astra_state != 0; f++)
+            tick_astra();
+        assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
+        enemy->stun = 0;
         astra_cd = 0;
 
         /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.2 s. */

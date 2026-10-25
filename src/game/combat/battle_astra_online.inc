@@ -1,9 +1,12 @@
+/* Online sync for Astra's counter-strike. */
+
 static void push_astra_grab(void) {
     if (class_is_astra(player_class) == 0) {
         return;
     }
     if (astra_state != 0 && astra_pub == 0) {
-        net_publish_grab(astra_x / screen_w, astra_y / screen_h, astra_dx, astra_dy, astra_seq);
+        net_publish_grab(astra_ability_lunge_tx / screen_w, astra_ability_lunge_ty / screen_h, astra_dx, astra_dy,
+                         astra_seq);
         astra_pub = 1;
     } else if (astra_state == 0 && astra_pub == 1) {
         net_publish_grab(0, 0, 0, 0, 0);
@@ -40,8 +43,8 @@ static void remote_grab_begin(double slot) {
     remote_grab_set(slot, GRAB_Y, net_player_grab_y(slot) * screen_h);
     remote_grab_set(slot, GRAB_DX, net_player_grab_dx(slot));
     remote_grab_set(slot, GRAB_DY, net_player_grab_dy(slot));
-    /* Cache Astra kit flag from remote class snapshot. */
     remote_grab_set(slot, GRAB_ASTRA_KIT, astra_ability_of_slot(slot));
+    remote_grab_swing(slot);
 }
 
 static double update_remote_grab(double slot) {
@@ -57,63 +60,41 @@ static double update_remote_grab(double slot) {
     if (remote_grab_get(slot, GRAB_ACTIVE) != 1) {
         return 0;
     }
-    double kit = remote_grab_get(slot, GRAB_ASTRA_KIT);
-    double t = remote_grab_get(slot, GRAB_T) + dt;
-    remote_grab_set(slot, GRAB_T, t);
     double lv = net_player_level(slot);
     double gx = remote_grab_get(slot, GRAB_X);
     double gy = remote_grab_get(slot, GRAB_Y);
     double gdx = remote_grab_get(slot, GRAB_DX);
     double gdy = remote_grab_get(slot, GRAB_DY);
-    if (remote_grab_get(slot, GRAB_CAUGHT) == 0) {
-        if (t <= astra_ability_catch_time_for(kit)) {
-            if (t >= astra_ability_lunge_time_for(kit) && pgrab_active == 0 && revive_prot <= 0 && player->hp > 0) {
-                if (astra_zone_hits_player(gx, gy, gdx, gdy, lv) == 1) {
-                    remote_grab_set(slot, GRAB_CAUGHT, 1);
-                    pgrab_active = 1;
-                    pgrab_slot = slot;
-                    grab_cancel_actions();
-                    ds_log("caught by astra of slot %g", slot);
+    double reach = astra_zone_reach(lv);
+    double width = astra_zone_width(lv);
+    if (remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
+        double target = punch_resolve_target(gx, gy, gdx, gdy, reach, width);
+        double b = slot * remote_fields;
+        if (target < 0 && arr_get(remotes, b) == 1) {
+            target = punch_resolve_target(arr_get(remotes, b + 1), arr_get(remotes, b + 2), gdx, gdy, reach, width);
+        }
+        if (target == 0) {
+            remote_grab_set(slot, GRAB_CAUGHT, 1);
+            arr_set(rgrab_box_a, slot, 1);
+            if (revive_prot <= 0) {
+                stun_player(astra_strike_stun_for(lv));
+                if (take_damage_at(astra_strike_damage_for(lv), gx, gy) == 1) {
+                    remote_grab_stop(slot);
+                    return 1;
                 }
             }
-        } else {
-            if (t >= astra_ability_grab_time_for(kit)) {
-                remote_grab_stop(slot);
-            }
-            return 0;
+        } else if (target >= 1 && target <= turret_max) {
+            remote_grab_set(slot, GRAB_CAUGHT, 1);
+            arr_set(rgrab_box_a, slot, 1);
+            damage_turret(target - 1, astra_strike_damage_for(lv));
+            thud_seq = thud_seq + 1;
+            net_publish_thud(thud_seq);
         }
     }
-    if (remote_grab_get(slot, GRAB_CAUGHT) != 1) {
-        return 0;
-    }
-    grab_quiet_player(astra_ability_hit_interval_for(kit));
-    double due = astra_ability_beats_done_for(t, kit);
-    while (remote_grab_get(slot, GRAB_HITS) < due) {
-        remote_grab_set(slot, GRAB_HITS, remote_grab_get(slot, GRAB_HITS) + 1);
-        remote_grab_swing(slot);
-        if (take_damage_at(astra_beat_damage(player->max_hp), arr_get(remotes, slot * remote_fields + 1),
-                          arr_get(remotes, slot * remote_fields + 2)) == 1) {
-            remote_grab_stop(slot);
-            return 1;
-        }
-        if (player->hp <= 0 || finished != 0) {
-            remote_grab_stop(slot);
-            return 0;
-        }
-    }
-    if (t >= astra_ability_final_time_for(kit)) {
-        remote_grab_swing(slot);
-        /* Keep final hit zone visible for fade-out after release. */
-        arr_set(rgrab_box_a, slot, 1);
-        double dead = take_damage_at(astra_final_damage(player->max_hp), arr_get(remotes, slot * remote_fields + 1),
-                                     arr_get(remotes, slot * remote_fields + 2));
+    double t = remote_grab_get(slot, GRAB_T) + dt;
+    remote_grab_set(slot, GRAB_T, t);
+    if (t >= ASTRA_STRIKE_TIME) {
         remote_grab_stop(slot);
-        if (dead == 1) {
-            return 1;
-        }
-        if (player->hp > 0 && finished == 0) {
-            throw_player(gdx, gdy, astra_ability_throw_dist_for(lv, kit), astra_ability_throw_stun_for(lv, kit));
-        }
     }
     return 0;
 }
@@ -140,5 +121,5 @@ static double remote_grab_punching(double slot) {
 }
 
 static void remote_grab_swing(double slot) {
-    arr_set(rgrab_punch_t, slot, astra_hit_show);
+    arr_set(rgrab_punch_t, slot, ASTRA_STRIKE_TIME);
 }

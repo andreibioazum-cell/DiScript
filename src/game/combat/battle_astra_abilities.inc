@@ -1,14 +1,14 @@
-/* Astra grab ultimate tuning and lunge motion. */
+/* Astra counter-strike tuning, developer access gate, and lunge motion. */
 
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
-static const double astra_ability_interval_factor = 0.8;
-static const double astra_ability_final_delay = 0.4;
-static const double astra_ability_throw_factor = 1.10;
-static const double astra_ability_lunge_dist = 37.4;
+static const double astra_ability_lunge_dist = 48.0;
 static const double astra_ability_lunge_time = 0.16;
-static const double astra_ability_catch_buffer = 0.06;
-/* Return 1 when class uses Astra's grab kit. */
+
+#define ASTRA_STRIKE_TIME 0.2
+#define ASTRA_STRIKE_STUN 0.4
+#define ASTRA_STRIKE_DAMAGE 2.5
+
 static double astra_ability_of(double cls, double skin) {
     (void)skin;
     return cls == CLASS_ASTRA;
@@ -32,100 +32,36 @@ static void astra_ability_refresh(void) { astra_ability_ok = astra_ability_is_de
 
 static double astra_ability_allowed(void) { return astra_ability_ok; }
 
-/* Gate developer-restricted seasonal content (winter theme, Santa). */
+/* Gate developer-restricted seasonal content. */
 static double dev_access(void) { return astra_ability_allowed(); }
 
 static double candies_on(void) { return candy_enabled == 1 && dev_access() == 1; }
 
-/* Return 1 when local player is Astra. */
 static double astra_ability_on(void) { return player_class == CLASS_ASTRA; }
 
 static double astra_ability_local(void) { return astra_ability_on(); }
 
-static double astra_ability_hit_interval_for(double kit) {
-    if (kit == 1) {
-        return astra_hit_interval * astra_ability_interval_factor;
-    }
-    return astra_hit_interval;
-}
-
-static double astra_ability_lunge_time_for(double kit) {
-    if (kit == 1) {
-        return astra_ability_lunge_time;
-    }
-    return 0;
-}
-
-/* Return catch window duration after lunge completion. */
-static double astra_ability_catch_time_for(double kit) {
-    if (kit == 1) {
-        return astra_ability_lunge_time_for(kit) + astra_ability_catch_buffer;
-    }
-    return astra_catch_time;
-}
-
-static double astra_ability_beat_time_for(double i, double kit) {
-    return astra_ability_catch_time_for(kit) + astra_ability_hit_interval_for(kit) * i;
-}
-
-static double astra_ability_final_delay_for(double kit) {
-    if (kit == 1) {
-        return astra_ability_final_delay;
-    }
-    return astra_final_delay;
-}
-
-static double astra_ability_final_time_for(double kit) {
-    return astra_ability_catch_time_for(kit) + astra_ability_hit_interval_for(kit) * astra_hit_count + astra_ability_final_delay_for(kit);
-}
-
-static double astra_ability_grab_time_for(double kit) { return astra_ability_final_time_for(kit) + astra_throw_time; }
-
-static double astra_ability_beats_done_for(double t, double kit) {
-    double n = 0;
-    double i = 1;
-    while (i <= astra_hit_count) {
-        if (t >= astra_ability_beat_time_for(i, kit)) {
-            n = n + 1;
-        }
-        i = i + 1;
-    }
-    return n;
-}
-
-static double astra_ability_zone_live_for(double t, double caught, double kit) {
-    if (t >= astra_ability_lunge_time_for(kit) && t <= astra_ability_catch_time_for(kit)) {
-        return 1;
-    }
-    if (caught != 1) {
-        return 0;
-    }
-    double i = 1;
-    while (i <= astra_hit_count) {
-        double bt = astra_ability_beat_time_for(i, kit);
-        if (t >= bt && t <= bt + astra_hit_show) {
-            return 1;
-        }
-        i = i + 1;
-    }
-    double ft = astra_ability_final_time_for(kit);
-    if (t >= ft && t <= ft + astra_hit_show) {
-        return 1;
-    }
-    return 0;
-}
-
-static double astra_ability_throw_dist_for(double lv, double kit) {
-    double d = astra_throw_dist_for(lv);
-    if (kit == 1) {
-        d = d * astra_ability_throw_factor;
+static double astra_strike_damage_for(double lv) {
+    double d = ASTRA_STRIKE_DAMAGE;
+    if (lv >= 3) {
+        d = d * (1 + astra_level_throw_bonus);
     }
     return d;
 }
 
-static double astra_ability_throw_stun_for(double lv, double kit) {
-    (void)kit;
-    return astra_throw_stun_for(lv);
+static double astra_strike_stun_for(double lv) {
+    double s = ASTRA_STRIKE_STUN;
+    if (lv >= 3) {
+        s = s + astra_level_stun_bonus;
+    }
+    return s;
+}
+
+static double astra_ability_lunge_active(void) {
+    if (astra_ability_lunge_fx != astra_ability_lunge_tx || astra_ability_lunge_fy != astra_ability_lunge_ty) {
+        return 1;
+    }
+    return 0;
 }
 
 static double astra_ability_max_hp_for(double cls, double kit) {
@@ -153,7 +89,7 @@ static double astra_ability_self_damage(void) {
     return astra_ability_punch_damage_for(player_class, player_level, astra_ability_local());
 }
 
-/* Start Astra's forward lunge toward the grab origin. */
+/* Start Astra's short forward lunge for the counter-strike. */
 static void astra_ability_lunge_start(void) {
     astra_ability_lunge_t = 0;
     astra_ability_lunge_fx = player->x;
@@ -165,7 +101,6 @@ static void astra_ability_lunge_start(void) {
     }
     double dx = cos(player->angle);
     double dy = sin(player->angle);
-    /* Add walking distance over lunge duration so moving casts still dash ahead. */
     double dist = astra_ability_lunge_dist;
     if (sqrt(joy.dx * joy.dx + joy.dy * joy.dy) > 0.15) {
         dist = dist + player_walk_speed() * astra_ability_lunge_time;
@@ -176,7 +111,7 @@ static void astra_ability_lunge_start(void) {
 }
 
 static void astra_ability_lunge_tick(void) {
-    if (astra_ability_lunge_fx == astra_ability_lunge_tx && astra_ability_lunge_fy == astra_ability_lunge_ty) {
+    if (astra_ability_lunge_active() == 0) {
         return;
     }
     astra_ability_lunge_t = astra_ability_lunge_t + dt;

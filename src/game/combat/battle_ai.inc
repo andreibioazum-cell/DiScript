@@ -228,12 +228,7 @@ static void update_enemy(void) {
             enemy->state = 3;
             enemy->state_time = enemy_recovery;
             enemy->cooldown = enemy_roll_cooldown();
-            if (enemy->hit == 1 && enemy_free_window() == 1) {
-                enemy->cooldown = enemy_cooldown_min * 0.7;
-                enemy->think = 0;
-            } else {
-                enemy->think = enemy_think_min + (rand() % 100) / 100.0 * (enemy_think_max - enemy_think_min);
-            }
+            enemy->think = enemy_think_min + (rand() % 100) / 100.0 * (enemy_think_max - enemy_think_min);
         }
         return;
     }
@@ -274,9 +269,9 @@ static void update_enemy(void) {
         if (enemy->react <= 0) {
             if (rand() % 100 < enemy_human_dodge_fail * 100) {
                 ds_log("enemy dodge fail (human)");
-            } else if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 100 < 45) {
-                /* Raise guard against incoming attack instead of side-stepping. */
-                enemy_block_left = 0.55 + (rand() % 100) / 100.0 * 0.5;
+            } else if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 100 < 28) {
+                /* Raise guard against incoming attack. */
+                enemy_block_left = 0.40 + (rand() % 100) / 100.0 * 0.35;
                 enemy->react =
                     enemy_human_react_min + (rand() % 100) / 100.0 * (enemy_human_react_max - enemy_human_react_min);
                 ds_log("enemy blocks (human)");

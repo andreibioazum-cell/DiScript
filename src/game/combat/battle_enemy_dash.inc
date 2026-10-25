@@ -217,15 +217,10 @@ static double enemy_tick_class_abilities(void) {
             return 1;
         }
     } else if (class_is_astra(enemy_class) == 1) {
-        if (egrab_parry_t > 0) {
-            enemy_face_player();
-            return 1;
-        }
         if (enemy_wants_grab() == 1) {
             enemy->state = 0;
             enemy->state_time = 0;
             enemy_start_astra_parry();
-            return 1;
         }
     }
     return 0;
