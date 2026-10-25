@@ -89,7 +89,7 @@ static void astra_on_parry_block(void) {
 static double player_grabbed(void) { return pgrab_active; }
 
 static void start_grab_now(void) {
-    /* Start short forward lunge and counter-strike swing. */
+    /* Start punch animation and lunge immediately; hitbox and damage fire at 0.8 s. */
     astra_parry_t = 0;
     astra_parry_blocked = 0;
     astra_grab_ready_t = 0;
@@ -99,6 +99,7 @@ static void start_grab_now(void) {
     astra_t = 0;
     astra_hits_done = 0;
     astra_caught = 0;
+    astra_box_a = 0;
     astra_x = player->x;
     astra_y = player->y;
     astra_dx = cos(player->angle);
@@ -119,6 +120,7 @@ static void astra_release(double landed) {
     astra_t = 0;
     astra_caught = 0;
     astra_hits_done = 0;
+    astra_punch_t = 0;
     if (admin_cheat_nocd() == 1) {
         astra_cd = 0;
     } else if (landed == 1) {
@@ -249,14 +251,18 @@ static void tick_astra(void) {
     astra_y = player->y;
     astra_dx = cos(player->angle);
     astra_dy = sin(player->angle);
-    if (astra_caught == 0) {
+    double prev_t = astra_t;
+    astra_t = astra_t + dt;
+    if (prev_t < ASTRA_STRIKE_DELAY - 1e-9 && astra_t >= ASTRA_STRIKE_DELAY - 1e-9) {
+        punch_snd();
+    }
+    if (astra_t >= ASTRA_STRIKE_DELAY - 1e-9 && astra_caught == 0) {
         if (astra_strike_hit_check() == 1) {
             astra_release(1);
             return;
         }
     }
-    astra_t = astra_t + dt;
-    if (astra_t >= ASTRA_STRIKE_TIME) {
+    if (astra_t >= ASTRA_STRIKE_TIME - 1e-9) {
         astra_release(astra_caught);
     }
 }

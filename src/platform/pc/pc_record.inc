@@ -293,7 +293,10 @@ static void pc_render_frame(void) {
                 tex = pc_font_tex;
                 tw = pc_font_w;
                 th = pc_font_h;
-                geo_text_rainbow(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.sc, c->v.tr.hue, font);
+                if (c->v.tr.c)
+                    geo_text_shimmer(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.c, c->v.tr.sc, c->v.tr.hue, font);
+                else
+                    geo_text_rainbow(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.sc, c->v.tr.hue, font);
             }
             break;
         }

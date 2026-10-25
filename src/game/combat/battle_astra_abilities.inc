@@ -5,9 +5,11 @@ static const double astra_ability_punch_factor = 0.93;
 static const double astra_ability_lunge_dist = 48.0;
 static const double astra_ability_lunge_time = 0.16;
 
-#define ASTRA_STRIKE_TIME 0.2
-#define ASTRA_STRIKE_STUN 0.4
-#define ASTRA_STRIKE_DAMAGE 2.5
+#define ASTRA_STRIKE_DELAY 0.8
+#define ASTRA_STRIKE_ACTIVE 0.2
+#define ASTRA_STRIKE_TIME (ASTRA_STRIKE_DELAY + ASTRA_STRIKE_ACTIVE)
+#define ASTRA_STRIKE_STUN 1.0
+#define ASTRA_STRIKE_DAMAGE 4.5
 
 static double astra_ability_of(double cls, double skin) {
     (void)skin;
@@ -55,6 +57,17 @@ static double astra_strike_stun_for(double lv) {
         s = s + astra_level_stun_bonus;
     }
     return s;
+}
+
+/* Visual windup pull-back before 0.8 s and forward punch thrust at impact. */
+static double astra_strike_shift(double active, double t) {
+    if (active == 0) {
+        return 0;
+    }
+    if (t < ASTRA_STRIKE_DELAY) {
+        return -8.0 * sin(pi * 0.5 * clamp(t / ASTRA_STRIKE_DELAY, 0, 1));
+    }
+    return 14.0 * (1.0 - clamp((t - ASTRA_STRIKE_DELAY) / ASTRA_STRIKE_ACTIVE, 0, 1));
 }
 
 static double astra_ability_lunge_active(void) {

@@ -88,9 +88,18 @@ static void money_pair(const char *left, const char *right, double x, double y, 
     text_scaled(right, x + lw + gap, y, text_color, scale);
 }
 
+static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale) {
+    uint32_t col = admin_color_of(nick, base);
+    if (nick_shimmers(nick) == 1) {
+        text_shimmer(nick, x, y, col, scale, gift_shimmer_time());
+        return;
+    }
+    text_scaled(nick, x, y, col, scale);
+}
+
 static void draw_nick_msg(const char *nick, const char *rest, double x, double y, uint32_t base, double scale) {
     double nw = text_ink_width(nick) * scale;
-    text_scaled(nick, x, y, admin_color_of(nick, base), scale);
+    draw_styled_nick(nick, x, y, base, scale);
     text_scaled(rest, x + nw, y, base, scale);
 }
 

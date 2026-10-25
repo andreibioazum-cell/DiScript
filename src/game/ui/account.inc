@@ -404,7 +404,7 @@ static void draw_account(void) {
         double nw = text_ink_width(anick) * tscale;
         double tx = (screen_w - (pw + nw)) / 2;
         text_scaled(pre, tx, acct_top(), text_color, tscale);
-        text_scaled(anick, tx + pw, acct_top(), admin_color_of(anick, text_color), tscale);
+        draw_styled_nick(anick, tx + pw, acct_top(), text_color, tscale);
     } else {
         ctext_scaled(title, acct_top(), text_color, tscale);
     }

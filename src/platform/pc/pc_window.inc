@@ -68,7 +68,7 @@ static void pc_blit(void) {
         uint32_t *dst = pc_conv + (size_t)y * (size_t)pc_conv_w;
         for (x = 0; x < g_frame.width; x++) {
             uint32_t c = src[x]; /* r | g<<8 | b<<16 | a<<24 */
-            dst[x] = 0xff000000u | ((c & 0xff) << 16) | ((c >> 8) & 0xff00) | ((c >> 16) & 0xff);
+            dst[x] = 0xff000000u | ((c & 0xffu) << 16) | (c & 0xff00u) | ((c >> 16) & 0xffu);
         }
     }
     dc = GetDC(pc_hwnd);

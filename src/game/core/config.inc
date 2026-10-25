@@ -41,7 +41,8 @@ static double admin_modifiers_allowed(void) {
         return 0;
     }
     if (admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1 ||
-        admin_nick_equal(net_login_nick(), SANCH_NICK) == 1) {
+        admin_nick_equal(net_login_nick(), SANCH_NICK) == 1 ||
+        admin_nick_equal(net_login_nick(), QWERTY_NICK) == 1) {
         return 1;
     }
     return 0;
@@ -59,7 +60,14 @@ static double bpass_allowed(void) {
 
 /* Return 1 when signed-in player retains claimed Battle Pass rewards. */
 static double bpass_rewards_allowed(void) {
-    return admin_modifiers_allowed();
+    if (net_login_status() != 2) {
+        return 0;
+    }
+    if (admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1 ||
+        admin_nick_equal(net_login_nick(), SANCH_NICK) == 1) {
+        return 1;
+    }
+    return 0;
 }
 
 static const char *admin_nick_of(double slot) {
@@ -71,6 +79,12 @@ static double admin_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return admin_color;
     }
+    if (admin_nick_equal(nick, SANCH_NICK) == 1) {
+        return sanch_color;
+    }
+    if (admin_nick_equal(nick, QWERTY_NICK) == 1) {
+        return qwerty_color;
+    }
     return base;
 }
 
@@ -78,5 +92,20 @@ static double admin_head_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return admin_head_color;
     }
+    if (admin_nick_equal(nick, SANCH_NICK) == 1) {
+        return sanch_head_color;
+    }
+    if (admin_nick_equal(nick, QWERTY_NICK) == 1) {
+        return qwerty_head_color;
+    }
     return base;
+}
+
+static double nick_shimmers(const char *nick) {
+    if (admin_nick_equal(nick, ADMIN_NICK) == 1 ||
+        admin_nick_equal(nick, SANCH_NICK) == 1 ||
+        admin_nick_equal(nick, QWERTY_NICK) == 1) {
+        return 1;
+    }
+    return 0;
 }

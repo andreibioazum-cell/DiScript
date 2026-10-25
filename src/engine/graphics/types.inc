@@ -119,10 +119,11 @@ typedef struct {
             float x, y, sc;
             uint32_t c;
         } tt;
-        /* Rainbow text command payload. */
+        /* Rainbow or subtle base-color shimmer text command payload. */
         struct {
             char *s;
             float x, y, sc, hue;
+            uint32_t c;
         } tr;
     } v;
 } DSCmd;

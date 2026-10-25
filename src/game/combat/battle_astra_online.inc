@@ -25,6 +25,7 @@ static void remote_grab_stop(double slot) {
     remote_grab_set(slot, GRAB_HITS, 0);
     remote_grab_set(slot, GRAB_T, 0);
     remote_grab_set(slot, GRAB_ASTRA_KIT, 0);
+    arr_set(rgrab_punch_t, slot, 0);
     if (pgrab_active == 1 && pgrab_slot == slot) {
         pgrab_active = 0;
         pgrab_slot = -1;
@@ -41,6 +42,7 @@ static void remote_grab_begin(double slot) {
     remote_grab_set(slot, GRAB_DX, net_player_grab_dx(slot));
     remote_grab_set(slot, GRAB_DY, net_player_grab_dy(slot));
     remote_grab_set(slot, GRAB_ASTRA_KIT, astra_ability_of_slot(slot));
+    arr_set(rgrab_box_a, slot, 0);
     remote_grab_swing(slot);
 }
 
@@ -57,16 +59,25 @@ static double update_remote_grab(double slot) {
     if (remote_grab_get(slot, GRAB_ACTIVE) != 1) {
         return 0;
     }
-    double lv = net_player_level(slot);
-    double gx = remote_grab_get(slot, GRAB_X);
-    double gy = remote_grab_get(slot, GRAB_Y);
-    double gdx = remote_grab_get(slot, GRAB_DX);
-    double gdy = remote_grab_get(slot, GRAB_DY);
-    double reach = astra_zone_reach(lv);
-    double width = astra_zone_width(lv);
-    if (remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
+    double b = slot * remote_fields;
+    double t = remote_grab_get(slot, GRAB_T) + dt;
+    remote_grab_set(slot, GRAB_T, t);
+    if (arr_get(remotes, b) == 1 && arr_get(remotes, b + 5) == 1 && t <= ASTRA_STRIKE_DELAY + dt) {
+        double ra = arr_get(remotes, b + 3);
+        remote_grab_set(slot, GRAB_X, arr_get(remotes, b + 1));
+        remote_grab_set(slot, GRAB_Y, arr_get(remotes, b + 2));
+        remote_grab_set(slot, GRAB_DX, cos(ra));
+        remote_grab_set(slot, GRAB_DY, sin(ra));
+    }
+    if (t >= ASTRA_STRIKE_DELAY - 1e-9 && remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
+        double lv = net_player_level(slot);
+        double gx = remote_grab_get(slot, GRAB_X);
+        double gy = remote_grab_get(slot, GRAB_Y);
+        double gdx = remote_grab_get(slot, GRAB_DX);
+        double gdy = remote_grab_get(slot, GRAB_DY);
+        double reach = astra_zone_reach(lv);
+        double width = astra_zone_width(lv);
         double target = punch_resolve_target(gx, gy, gdx, gdy, reach, width);
-        double b = slot * remote_fields;
         if (target < 0 && arr_get(remotes, b) == 1) {
             target = punch_resolve_target(arr_get(remotes, b + 1), arr_get(remotes, b + 2), gdx, gdy, reach, width);
         }
@@ -88,9 +99,7 @@ static double update_remote_grab(double slot) {
             net_publish_thud(thud_seq);
         }
     }
-    double t = remote_grab_get(slot, GRAB_T) + dt;
-    remote_grab_set(slot, GRAB_T, t);
-    if (t >= ASTRA_STRIKE_TIME) {
+    if (t >= ASTRA_STRIKE_TIME - 1e-9) {
         remote_grab_stop(slot);
     }
     return 0;

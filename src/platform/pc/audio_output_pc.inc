@@ -2,7 +2,6 @@
 #include <pthread.h>
 
 #define AT_FRAMES 256
-static int16_t snd_pc_mixbuf[AT_FRAMES * 2];
 static pthread_t snd_thread;
 static volatile int snd_run = 0;
 static volatile int snd_paused = 0;
@@ -14,10 +13,13 @@ static int snd_thread_ok = 0;
 #endif
 #include <windows.h>
 #include <mmsystem.h>
-#define SND_HDRS 2
+#define SND_WIN_FRAMES 1024
+#define SND_HDRS 4
+static int16_t snd_pc_mixbuf[SND_WIN_FRAMES * 2];
 static HWAVEOUT snd_wo = NULL;
+static HANDLE snd_ev = NULL;
 static WAVEHDR snd_hdr[SND_HDRS];
-static char snd_hdrbuf[SND_HDRS][AT_FRAMES * 2 * sizeof(int16_t)];
+static char snd_hdrbuf[SND_HDRS][SND_WIN_FRAMES * 2 * sizeof(int16_t)];
 static int snd_hdr_prepared[SND_HDRS];
 
 static int snd_wave_open(void) {
@@ -25,6 +27,13 @@ static int snd_wave_open(void) {
     int i;
     if (snd_wo)
         return 1;
+    if (!snd_ev) {
+        snd_ev = CreateEventW(NULL, FALSE, TRUE, NULL);
+        if (!snd_ev) {
+            ds_log_err("audio: CreateEventW failed");
+            return 0;
+        }
+    }
     memset(&fmt, 0, sizeof(fmt));
     fmt.wFormatTag = WAVE_FORMAT_PCM;
     fmt.nChannels = 2;
@@ -32,8 +41,10 @@ static int snd_wave_open(void) {
     fmt.wBitsPerSample = 16;
     fmt.nBlockAlign = (fmt.nChannels * fmt.wBitsPerSample) / 8;
     fmt.nAvgBytesPerSec = fmt.nSamplesPerSec * fmt.nBlockAlign;
-    if (waveOutOpen(&snd_wo, WAVE_MAPPER, &fmt, 0, 0, CALLBACK_NULL) != MMSYSERR_NOERROR) {
+    if (waveOutOpen(&snd_wo, WAVE_MAPPER, &fmt, (DWORD_PTR)snd_ev, 0, CALLBACK_EVENT) != MMSYSERR_NOERROR) {
         snd_wo = NULL;
+        CloseHandle(snd_ev);
+        snd_ev = NULL;
         ds_log_err("audio: waveOutOpen failed");
         return 0;
     }
@@ -41,28 +52,35 @@ static int snd_wave_open(void) {
         memset(&snd_hdr[i], 0, sizeof(snd_hdr[i]));
         snd_hdr[i].lpData = snd_hdrbuf[i];
         snd_hdr[i].dwBufferLength = sizeof(snd_hdrbuf[i]);
-        if (waveOutPrepareHeader(snd_wo, &snd_hdr[i], sizeof(WAVEHDR)) == MMSYSERR_NOERROR)
+        if (waveOutPrepareHeader(snd_wo, &snd_hdr[i], sizeof(WAVEHDR)) == MMSYSERR_NOERROR) {
+            snd_hdr[i].dwFlags |= WHDR_DONE;
             snd_hdr_prepared[i] = 1;
+        }
     }
     return 1;
 }
 
 static void snd_wave_close(void) {
     int i;
-    if (!snd_wo)
-        return;
-    waveOutReset(snd_wo);
-    for (i = 0; i < SND_HDRS; i++)
-        if (snd_hdr_prepared[i])
-            waveOutUnprepareHeader(snd_wo, &snd_hdr[i], sizeof(WAVEHDR));
-    waveOutClose(snd_wo);
-    snd_wo = NULL;
+    if (snd_wo) {
+        waveOutReset(snd_wo);
+        for (i = 0; i < SND_HDRS; i++)
+            if (snd_hdr_prepared[i])
+                waveOutUnprepareHeader(snd_wo, &snd_hdr[i], sizeof(WAVEHDR));
+        waveOutClose(snd_wo);
+        snd_wo = NULL;
+    }
+    if (snd_ev) {
+        CloseHandle(snd_ev);
+        snd_ev = NULL;
+    }
     memset(snd_hdr_prepared, 0, sizeof(snd_hdr_prepared));
 }
 
 static void *snd_out_thread(void *arg) {
     int next = 0;
     (void)arg;
+    SetThreadPriority(GetCurrentThread(), THREAD_PRIORITY_HIGHEST);
     if (!snd_wave_open())
         return NULL;
     while (snd_run) {
@@ -71,29 +89,31 @@ static void *snd_out_thread(void *arg) {
             Sleep(20);
             continue;
         }
-        snd_frame(snd_pc_mixbuf, AT_FRAMES);
         h = &snd_hdr[next];
-        next = (next + 1) % SND_HDRS;
-        if (!(h->dwFlags & WHDR_PREPARED))
+        if (!(h->dwFlags & WHDR_PREPARED)) {
+            next = (next + 1) % SND_HDRS;
             continue;
-        if (!(h->dwFlags & WHDR_DONE) && h->dwFlags & WHDR_INQUEUE) {
-            /* Output starved: wait for this header instead of overwriting. */
-            int spins = 0;
-            while (snd_run && !(h->dwFlags & WHDR_DONE) && spins++ < 100)
-                Sleep(2);
-            if (!(h->dwFlags & WHDR_DONE))
-                continue;
         }
+        while (snd_run && !snd_paused && (h->dwFlags & WHDR_INQUEUE) && !(h->dwFlags & WHDR_DONE))
+            WaitForSingleObject(snd_ev, 20);
+        if (!snd_run)
+            break;
+        if (snd_paused || ((h->dwFlags & WHDR_INQUEUE) && !(h->dwFlags & WHDR_DONE)))
+            continue;
+        snd_frame(snd_pc_mixbuf, SND_WIN_FRAMES);
         memcpy(h->lpData, snd_pc_mixbuf, sizeof(snd_hdrbuf[0]));
-        h->dwBytesRecorded = sizeof(snd_hdrbuf[0]);
+        h->dwBufferLength = sizeof(snd_hdrbuf[0]);
+        h->dwFlags &= ~(DWORD)WHDR_DONE;
         if (waveOutWrite(snd_wo, h, sizeof(WAVEHDR)) != MMSYSERR_NOERROR)
             ds_log_err("audio: waveOutWrite failed");
+        next = (next + 1) % SND_HDRS;
     }
     snd_wave_close();
     return NULL;
 }
 #else
 #include <time.h>
+static int16_t snd_pc_mixbuf[AT_FRAMES * 2];
 static void *snd_out_thread(void *arg) {
     struct timespec ts;
     (void)arg;
@@ -130,6 +150,10 @@ static void snd_backend_stop(void) {
         return;
     snd_run = 0;
     snd_paused = 0;
+#ifdef _WIN32
+    if (snd_ev)
+        SetEvent(snd_ev);
+#endif
     pthread_join(snd_thread, NULL);
     snd_thread_ok = 0;
 }

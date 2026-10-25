@@ -38,6 +38,8 @@ static double gift_emerald_phase(void) {
     return gift_emerald_base_hue() + gift_shimmer_t * 0.42;
 }
 
+static double gift_shimmer_time(void) { return gift_shimmer_t; }
+
 /* The hue colour comes from the same wheel as the rainbow letters. */
 static uint32_t gift_hue_color(double hue) {
     double h = hue - floor(hue);

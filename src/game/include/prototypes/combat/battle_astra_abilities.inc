@@ -9,6 +9,7 @@ static double astra_ability_on(void);
 static double astra_ability_local(void);
 static double astra_strike_damage_for(double lv);
 static double astra_strike_stun_for(double lv);
+static double astra_strike_shift(double active, double t);
 static double astra_ability_lunge_active(void);
 static double astra_ability_max_hp_for(double cls, double kit);
 static double astra_ability_punch_damage_for(double cls, double lv, double kit);

@@ -172,8 +172,9 @@ static double player_punching_now(void) {
 }
 
 static void draw_player_shadow_layer(void) {
-    draw_fighter_shadow(player->x, player->y, player->angle, fighter_look_of(FLOOK_ME),
-                        fighter_pose_of(FLOOK_ME, player_punching_now()));
+    double sh = astra_strike_shift(astra_state != 0, astra_t);
+    draw_fighter_shadow(player->x + cos(player->angle) * sh, player->y + sin(player->angle) * sh, player->angle,
+                        fighter_look_of(FLOOK_ME), fighter_pose_of(FLOOK_ME, player_punching_now()));
 }
 
 static void draw_player_hitbox_layer(void) {
@@ -208,14 +209,17 @@ static void draw_purple_guard(double x, double y, double on, double scale) {
 static void draw_player_body_layer(void) {
     double punching = fighter_pose_of(FLOOK_ME, player_punching_now());
     double look = fighter_look_of(FLOOK_ME);
+    double sh = astra_strike_shift(astra_state != 0, astra_t);
+    double px = player->x + cos(player->angle) * sh;
+    double py = player->y + sin(player->angle) * sh;
     if (look != LOOK_NONE) {
-        draw_motion_ghosts(player->x, player->y, mb_dx, mb_dy, 25 * cube_scale * player_scale,
+        draw_motion_ghosts(px, py, mb_dx, mb_dy, 25 * cube_scale * player_scale,
                            cube_scale * player_scale, look_tex(look, punching), sprite_a(player->angle));
     }
-    draw_fighter_body(player->x, player->y, player->angle, look, punching);
+    draw_fighter_body(px, py, player->angle, look, punching);
     double self_tint = codecracker_tint_local();
-    draw_fighter_tint(player->x, player->y, player->angle, look, punching, player_scale, self_tint);
-    draw_fighter_hurt(player->x, player->y, player->angle, look, punching, player_scale, player_hurt_a);
+    draw_fighter_tint(px, py, player->angle, look, punching, player_scale, self_tint);
+    draw_fighter_hurt(px, py, player->angle, look, punching, player_scale, player_hurt_a);
     draw_guard(player->x, player->y, player->angle, player_block, player_scale);
     draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
 }
@@ -262,16 +266,19 @@ static void draw_enemy_body(void) {
     double es = cube_scale * enemy_scale;
     double punching = fighter_pose_of(FLOOK_BOT, enemy_punching_now());
     double look = fighter_look_of(FLOOK_BOT);
+    double esh = astra_strike_shift(egrab_state != 0, egrab_t);
+    double ex = enemy->x + cos(enemy->angle) * esh;
+    double ey = enemy->y + sin(enemy->angle) * esh;
     if (look != LOOK_NONE) {
-        draw_motion_ghosts(enemy->x, enemy->y, mb_edx, mb_edy, ehw, es, look_tex(look, punching),
+        draw_motion_ghosts(ex, ey, mb_edx, mb_edy, ehw, es, look_tex(look, punching),
                            sprite_a(enemy->angle));
     }
     if (look == LOOK_NONE) {
-        rect(enemy->x - ehw, enemy->y - ehw, 2 * ehw, 2 * ehw, fighter_fallback_rgb);
+        rect(ex - ehw, ey - ehw, 2 * ehw, 2 * ehw, fighter_fallback_rgb);
     } else {
-        tex(enemy->x - ehw, enemy->y - ehw, look_tex(look, punching), sprite_a(enemy->angle), es);
+        tex(ex - ehw, ey - ehw, look_tex(look, punching), sprite_a(enemy->angle), es);
     }
-    draw_fighter_hurt(enemy->x, enemy->y, enemy->angle, look, punching, enemy_scale, enemy_hurt_a);
+    draw_fighter_hurt(ex, ey, enemy->angle, look, punching, enemy_scale, enemy_hurt_a);
     draw_guard(enemy->x, enemy->y, enemy->angle, enemy_block_left > 0, enemy_scale);
     draw_purple_guard(enemy->x, enemy->y, class_is_astra(enemy_class) == 1 && egrab_parry_t > 0, enemy_scale);
 }
@@ -305,9 +312,9 @@ static void draw_controls(void) {
         } else if (player_class == CLASS_AZUM) {
             sl = tr_super_azum();
         } else if (class_is_astra(player_class) == 1) {
-            if (astra_grab_ready_t > 0) {
+            if (astra_grab_ready_t > 0 || astra_state != 0) {
                 sl = tr_super_astra();
-                pad_col = 0x9C27B0;
+                pad_col = astra_state != 0 ? 0x7B1FA2 : 0x9C27B0;
             } else {
                 sl = tr_block();
                 if (astra_parry_t > 0) {

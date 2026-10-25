@@ -134,6 +134,10 @@ static void draw_overhead_nick(const char *nick, double cx, double top_y, uint32
     double w = text_ink_width(nick) * 0.5;
     double th = text_ink_height(nick) * 0.5;
     double tt = text_ink_top(nick) * 0.5;
+    if (nick_shimmers(nick) == 1) {
+        text_shimmer(nick, cx - w / 2, top_y - 12 - th - tt, col, 0.5, gift_shimmer_time());
+        return;
+    }
     text_scaled(nick, cx - w / 2, top_y - 12 - th - tt, col, 0.5);
 }
 
@@ -226,10 +230,11 @@ static void draw_online(void) {
                 punching = 1;
             }
             draw_codecracker_fx_slot(i, rx, ry, ra);
-            draw_fighter_body(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
+            double rsh = astra_strike_shift(remote_grab_get(i, GRAB_ACTIVE) == 1, remote_grab_get(i, GRAB_T));
+            draw_fighter_body(rx + cos(ra) * rsh, ry + sin(ra) * rsh, ra, fighter_look_of(FLOOK_REMOTE + i),
                               fighter_pose_of(FLOOK_REMOTE + i, punching));
             double remote_tint = codecracker_tint_slot(i);
-            draw_fighter_tint(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
+            draw_fighter_tint(rx + cos(ra) * rsh, ry + sin(ra) * rsh, ra, fighter_look_of(FLOOK_REMOTE + i),
                               fighter_pose_of(FLOOK_REMOTE + i, punching), player_scale, remote_tint);
             draw_guard(rx, ry, ra, net_player_block(i), player_scale);
             draw_purple_guard(rx, ry,

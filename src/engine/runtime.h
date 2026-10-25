@@ -117,6 +117,8 @@ void text(const char *string, float x, float y, uint32_t color);
 void text_scaled(const char *string, float x, float y, uint32_t color, float scale);
 /* Draw scaled text with per-glyph rainbow hue starting at `hue` in [0, 1). */
 void text_rainbow(const char *string, float x, float y, float scale, float hue);
+/* Draw scaled text with subtle per-glyph shimmer around `color`. */
+void text_shimmer(const char *string, float x, float y, uint32_t color, float scale, float phase);
 
 int text_ink_width(const char *string);
 int text_ink_height(const char *string);

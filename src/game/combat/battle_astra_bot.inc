@@ -20,6 +20,7 @@ static void enemy_grab_clear(void) {
     egrab_state = 0;
     egrab_t = 0;
     egrab_hits = 0;
+    egrab_punch_t = 0;
     egrab_parry_t = 0;
     egrab_ready_t = 0;
     if (pgrab_active == 1 && pgrab_slot == grab_slot_bot) {
@@ -56,6 +57,7 @@ static void enemy_start_grab(void) {
     egrab_state = 1;
     egrab_t = 0;
     egrab_hits = 0;
+    egrab_box_a = 0;
     egrab_x = enemy->x;
     egrab_y = enemy->y;
     egrab_dx = cos(enemy->angle);
@@ -104,7 +106,8 @@ static void tick_enemy_grab(void) {
     }
     egrab_x = enemy->x;
     egrab_y = enemy->y;
-    if (egrab_hits == 0) {
+    egrab_t = egrab_t + dt;
+    if (egrab_t >= ASTRA_STRIKE_DELAY - 1e-9 && egrab_hits == 0) {
         double target = punch_resolve_target(egrab_x, egrab_y, egrab_dx, egrab_dy, astra_zone_reach(enemy_level),
                                              astra_zone_width(enemy_level));
         if (target == 0) {
@@ -128,8 +131,7 @@ static void tick_enemy_grab(void) {
             }
         }
     }
-    egrab_t = egrab_t + dt;
-    if (egrab_t >= ASTRA_STRIKE_TIME) {
+    if (egrab_t >= ASTRA_STRIKE_TIME - 1e-9) {
         enemy_grab_stop(egrab_hits > 0 ? 1 : 0);
     }
 }

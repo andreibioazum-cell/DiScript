@@ -599,6 +599,13 @@ void text_rainbow(const char *s, float x, float y, float scale, float hue) {
         snprintf(rainbow_text[rainbow_text_n++], sizeof(rainbow_text[0]), "%s", s);
 }
 
+static int shimmer_text_n;
+void text_shimmer(const char *s, float x, float y, uint32_t c, float scale, float phase) {
+    (void)phase;
+    shimmer_text_n++;
+    text_scaled(s, x, y, c, scale);
+}
+
 int text_ink_width(const char *s) {
     return s ? (int)(9 * strlen(s)) : 0;
 }
@@ -2630,7 +2637,9 @@ int main(void) {
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
     assert(fabs(ASTRA_PARRY_TIME - 0.4) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.9) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_STUN - 0.4) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DELAY - 0.8) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 65);
     assert(class_cost_of(CLASS_SANTA) == 100);
     assert(class_cost_of(CLASS_EBUC) == 120);
@@ -3573,9 +3582,10 @@ int main(void) {
     screen_w = 320;
     player_class = CLASS_ASTRA;
     progress_normalize();
-    assert(fabs(astra_strike_stun_for(0) - 0.4) < 1e-9);
+    assert(fabs(astra_strike_stun_for(0) - ASTRA_STRIKE_STUN) < 1e-9);
     assert(fabs(astra_strike_damage_for(0) - ASTRA_STRIKE_DAMAGE) < 1e-9);
     assert(astra_strike_damage_for(3) > astra_strike_damage_for(0));
+    assert(astra_strike_stun_for(3) > astra_strike_stun_for(0));
     /* Astra counter-strike performs a smooth short forward lunge over 0.16 s. */
     player->angle = 0;
     player->size = 45;
@@ -3628,7 +3638,7 @@ int main(void) {
         astra_state = 0;
         astra_cd = 0;
     }
-    /* Strike reaches enemies opened up by the short forward lunge, deals damage once, and stuns for 0.4 s. */
+    /* Strike shows punch pose immediately, waits 0.8 s before hitbox/damage, then stuns. */
     player->x = 100;
     player->y = 90;
     player->hp = 10;
@@ -3637,13 +3647,26 @@ int main(void) {
     enemy_revive_prot = 0;
     enemy->y = player->y;
     game_state = ST_SOLO;
-    start_grab_now();
-    enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 45;
-    tick_astra();
-    assert(astra_caught == 1 && astra_hits_done == 1);
-    assert(fabs(enemy->stun - 0.4) < 1e-9);
-    assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
-    astra_release(0);
+    {
+        double saved_dt = dt;
+        dt = 0.02;
+        start_grab_now();
+        assert(player_punching_now() == 1);
+        enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 45;
+        for (int f = 0; f < 39; f++) {
+            tick_astra();
+            tick_astra_fades();
+            assert(player_punching_now() == 1);
+            assert(astra_caught == 0 && astra_box_a == 0 && fabs(enemy->hp - 10.0) < 1e-9 && enemy->stun == 0);
+        }
+        tick_astra();
+        tick_astra_fades();
+        assert(astra_caught == 1 && astra_hits_done == 1 && astra_box_a > 0);
+        assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
+        assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+        astra_release(0);
+        dt = saved_dt;
+    }
     enemy->stun = 0;
     astra_cd = 0;
     /* Astra has no separate skin or developer variant: one ordinary card,
@@ -3729,10 +3752,16 @@ int main(void) {
     enemy->stun = 0;
     enemy_throw_t = 0;
     astra_cd = 0;
+    double saved_dt_astra = dt;
+    dt = 0.02;
     start_grab_now();
-    assert(fabs(enemy->stun - 0.0) < 1e-9);
+    assert(fabs(enemy->stun - 0.0) < 1e-9 && player_punching_now() == 1);
+    for (int frame = 0; frame < 39; frame++) {
+        tick_astra();
+        assert(enemy->stun == 0 && fabs(enemy->hp - 10.0) < 1e-9);
+    }
     tick_astra();
-    assert(fabs(enemy->stun - 0.4) < 1e-9);
+    assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
         tick_astra();
     assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
@@ -3756,9 +3785,15 @@ int main(void) {
     pgrab_active = 0;
     pthrow_t = 0;
     enemy_start_grab();
+    assert(enemy_grab_punching() == 1);
+    for (int frame = 0; frame < 39; frame++) {
+        tick_enemy_grab();
+        tick_astra_fades();
+        assert(egrab_box_a == 0 && player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
+    }
     tick_enemy_grab();
     assert(pgrab_active == 0 && pthrow_t == 0);
-    assert(fabs(player_stun - 0.4) < 1e-9);
+    assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && egrab_state != 0; frame++)
         tick_enemy_grab();
     assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE * ENEMY_OTHER_DAMAGE_MULT)) < 1e-6);
@@ -3782,16 +3817,22 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
+    for (int frame = 0; frame < 39; frame++) {
+        update_remote_grabs();
+        tick_astra_fades();
+        assert(remote_grab_punching(1) == 1 && arr_get(rgrab_box_a, 1) == 0);
+        assert(player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
+    }
     update_remote_grabs();
     assert(pgrab_active == 0 && pthrow_t == 0);
-    assert(fabs(player_stun - 0.4) < 1e-9);
+    assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
     assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
     assert(pgrab_active == 0 && pthrow_t == 0);
     player_stun = 0;
 
-    /* Level 3 remote Astra strike deals +20% damage with 0.4 s stun and no grab/throw. */
+    /* Level 3 remote Astra strike deals +20% damage with Lv3 stun after 0.8 s and no grab/throw. */
     finished = 0;
     player->x = 470;
     player->y = 400;
@@ -3800,8 +3841,12 @@ int main(void) {
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
+    for (int frame = 0; frame < 39; frame++)
+        update_remote_grabs();
+    assert(player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
     update_remote_grabs();
-    assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - 0.4) < 1e-9);
+    assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - astra_strike_stun_for(3)) < 1e-9);
+    dt = saved_dt_astra;
     for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
     assert(fabs(player->hp - (10.0 - astra_strike_damage_for(3))) < 1e-6);
@@ -4655,11 +4700,20 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
-        assert(astra_ability_lunge_tx > 400.0);
-        tick_astra();
-        assert(fabs(enemy->stun - 0.4) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
-        for (int f = 0; f < 20 && astra_state != 0; f++)
+        assert(astra_ability_lunge_tx > 400.0 && player_punching_now() == 1);
+        {
+            double saved_dt2 = dt;
+            dt = 0.02;
+            for (int f = 0; f < 39; f++) {
+                tick_astra();
+                assert(enemy->stun == 0 && fabs(enemy->hp - 20.0) < 1e-9);
+            }
             tick_astra();
+            assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+            for (int f = 0; f < 20 && astra_state != 0; f++)
+                tick_astra();
+            dt = saved_dt2;
+        }
         assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
         enemy->stun = 0;
         astra_cd = 0;
@@ -4703,11 +4757,39 @@ int main(void) {
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
+        assert(admin_slot("qwertyuiopaj1234") == 0 && admin_slot("QWERTYUIOPAJ1234") == 0);
         assert(strcmp(admin_nick_of(1), "Dimasi4ek229") == 0);
-        assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFFFFFu);
-        assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFFFFFu);
+        assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
+        assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFDD33u);
+        assert((uint32_t)admin_color_of("qwertyuiopaj1234", 0xFFFFFFFF) == 0xFF4FC3F7u);
+        assert((uint32_t)admin_head_color_of("qwertyuiopaj1234", 0xFFFFFFFF) == 0xFF33A8FFu);
         assert((uint32_t)admin_color_of("Dimasi4ek229", 0xFFFFFFFF) == 0xFFFF4444u);
         assert((uint32_t)admin_color_of("Player2", 0xFFFFFFFF) == 0xFFFFFFFFu);
+        assert(nick_shimmers("Dimasi4ek229") == 1 && nick_shimmers("Sanch") == 1 &&
+               nick_shimmers("qwertyuiopaj1234") == 1 && nick_shimmers("Player2") == 0);
+
+        /* qwertyuiopaj1234: sky-blue shimmering nick and modifier-only CCP (no gift management). */
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
+        astra_ability_refresh();
+        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(dev_access() == 0 && bpass_allowed() == 0 && bpass_rewards_allowed() == 0);
+        assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+        shimmer_text_n = 0;
+        draw_lobby_nick();
+        assert(shimmer_text_n == 1);
+        adm_reset_log();
+        language = 1;
+        game_state = ST_LOBBY;
+        admin_panel_open = 1;
+        admin_tab = 1;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        assert(admin_tab == 0);
+        adm_reset_log();
+        admin_draw();
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
+        assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        admin_panel_open = 0;
 
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");

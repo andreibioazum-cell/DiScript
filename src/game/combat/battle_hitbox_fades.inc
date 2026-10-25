@@ -81,16 +81,19 @@ static void tick_hitbox_fades(void) {
 }
 
 static void tick_astra_fades(void) {
-    double live = astra_state != 0 ? 1 : 0;
+    double live = (astra_state != 0 && astra_t >= ASTRA_STRIKE_DELAY - 1e-9) ? 1 : 0;
     astra_box_a = hb_fade(astra_box_a, hb_live(live), hitbox_fade_in, hitbox_fade_out);
-    double elive = egrab_state != 0 ? 1 : 0;
+    double elive = (egrab_state != 0 && egrab_t >= ASTRA_STRIKE_DELAY - 1e-9) ? 1 : 0;
     egrab_box_a = hb_fade(egrab_box_a, hb_live(elive), hitbox_fade_in, hitbox_fade_out);
     if (game_state != ST_ONLINE) {
         return;
     }
     double s = 0;
     while (s < max_players) {
-        double rlive = (s != net_slot() && remote_grab_get(s, GRAB_ACTIVE) == 1) ? 1 : 0;
+        double rlive = (s != net_slot() && remote_grab_get(s, GRAB_ACTIVE) == 1 &&
+                        remote_grab_get(s, GRAB_T) >= ASTRA_STRIKE_DELAY - 1e-9)
+                           ? 1
+                           : 0;
         arr_set(rgrab_box_a, s, hb_fade(arr_get(rgrab_box_a, s), hb_live(rlive), hitbox_fade_in, hitbox_fade_out));
         s = s + 1;
     }

@@ -7,3 +7,4 @@ static double bpass_rewards_allowed(void);
 static const char *admin_nick_of(double slot);
 static double admin_color_of(const char *nick, double base);
 static double admin_head_color_of(const char *nick, double base);
+static double nick_shimmers(const char *nick);
