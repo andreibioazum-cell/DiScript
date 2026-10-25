@@ -25,19 +25,19 @@
 #define BODY 1024
 #define RESP 8192
 #define CHAT_RESP 8192
-#define WRITE_TICK 60
-#define READ_TICK 60
-#define CHAT_TICK 1000
-#define EVENT_TICK 500
+#define WRITE_TICK 33
+#define READ_TICK 40
+#define CHAT_TICK 1200
+#define EVENT_TICK 1000
 
-#define BANNER_TICK 1000
+#define BANNER_TICK 1500
 #define BANNER_COLOR_MAX 16
 
-#define HEARTBEAT_TICK 2500
+#define HEARTBEAT_TICK 1200
 
 #define CHAT_PRUNE_TICK 5000
-#define TIMEOUT 4000
-#define STALE 6000
+#define TIMEOUT 6500
+#define STALE 8000
 #define CHAT_MAX 32
 #define CHAT_TEXT_MAX 96
 #define LOGIN_NICK_MAX 16
@@ -46,7 +46,7 @@
 #define ACHIEVEMENTS_FILE "achievements.dat"
 #define BANS_FILE "bans.dat"
 #define BAN_MAX 64
-#define BAN_TICK 2000
+#define BAN_TICK 3500
 #define BAN_WAIT 2500
 #define BAN_KICK_TICK 2000
 
@@ -103,7 +103,7 @@ static struct {
     int stream_active;
     DSMutex lock;
     JavaVM *vm;
-    int run, started, slot, status;
+    int run, started, slot, status, urgent;
 
     unsigned gen;
     int self_banned;
@@ -124,6 +124,7 @@ typedef struct {
     char nick[BAN_MAX][LOGIN_NICK_MAX + 1];
     int count, synced;
     long long synced_at;
+    char etag[96];
 } BanList;
 static BanList banlist = {.lock = DS_MUTEX_INIT};
 static void ban_lock(void) {
@@ -141,6 +142,7 @@ static char claim_seen_uid[NET_SLOTS][24];
 static unsigned long rp_lseq[NET_SLOTS];
 static long long rp_lch[NET_SLOTS];
 static long long rp_kicked[NET_SLOTS];
+static char rp_luid[NET_SLOTS][24];
 static char s_chat_text_ret[CHAT_TEXT_MAX];
 static char s_chat_uid_ret[24];
 static char s_nick_ret[24];

@@ -10,9 +10,6 @@ static double rb_trail_a[REMOTE_BRICKS][BALL_TRAIL];
 
 /* True when a bounce segment [x,y -> nx,ny] (or its terminal blast) touches a target. */
 static double ball_seg_hits_target(double x, double y, double nx, double ny, double end_r, double check_foe) {
-    double slen = sqrt((nx - x) * (nx - x) + (ny - y) * (ny - y));
-    double ux = slen > 1e-6 ? (nx - x) / slen : 1;
-    double uy = slen > 1e-6 ? (ny - y) / slen : 0;
     if (finished != 0) {
         return 0;
     }
@@ -20,32 +17,30 @@ static double ball_seg_hits_target(double x, double y, double nx, double ny, dou
         if (player->hp <= 0) {
             return 0;
         }
-        if (slen > 0 && strip_hits_player(x, y, ux, uy, 0, slen, BALL_RADIUS) == 1) {
+        if (ball_seg_hits_fighter(x, y, nx, ny, BALL_RADIUS, player->x, player->y, player->angle, player_scale) == 1) {
             return 1;
         }
-        return circle_hits_player(x, y, BALL_RADIUS) == 1 || circle_hits_player(nx, ny, end_r) == 1;
+        return ball_hits_fighter_r(nx, ny, end_r, player->x, player->y, player->angle, player_scale);
     }
     if (game_state == ST_SOLO) {
         if (enemy->hp <= 0) {
             return 0;
         }
-        if (slen > 0 && strip_hits_enemy(x, y, ux, uy, 0, slen, BALL_RADIUS) == 1) {
+        if (ball_seg_hits_fighter(x, y, nx, ny, BALL_RADIUS, enemy->x, enemy->y, enemy->angle, enemy_scale) == 1) {
             return 1;
         }
-        return circle_hits_enemy(x, y, BALL_RADIUS) == 1 || circle_hits_enemy(nx, ny, end_r) == 1;
+        return ball_hits_fighter_r(nx, ny, end_r, enemy->x, enemy->y, enemy->angle, enemy_scale);
     }
     if (game_state == ST_ONLINE) {
         double i = 0;
-        double rh = player_half();
         while (i < max_players) {
             double b = i * remote_fields;
-            if (i != net_slot() && arr_get(remotes, b + 5) == 1 && net_player_hp(i) > 0) {
+            if (i != net_slot() && arr_get(remotes, b + 5) == 1 && arr_get(remotes, b + 4) > 0) {
                 double rx = arr_get(remotes, b + 1);
                 double ry = arr_get(remotes, b + 2);
                 double ra = arr_get(remotes, b + 3);
-                if ((slen > 0 && strip_hits_box(x, y, ux, uy, 0, slen, BALL_RADIUS, rx, ry, ra, rh) == 1) ||
-                    circle_hits_box(x, y, BALL_RADIUS, rx, ry, ra, rh) == 1 ||
-                    circle_hits_box(nx, ny, end_r, rx, ry, ra, rh) == 1) {
+                if (ball_seg_hits_fighter(x, y, nx, ny, BALL_RADIUS, rx, ry, ra, player_scale) == 1 ||
+                    ball_hits_fighter_r(nx, ny, end_r, rx, ry, ra, player_scale) == 1) {
                     return 1;
                 }
             }
@@ -193,9 +188,25 @@ static void rb_burst(int s, double x, double y) {
     rb_boom_x[s] = x;
     rb_boom_y[s] = y;
     rb_boom_t[s] = boom_time;
-    if (finished == 0 && revive_prot <= 0 && circle_hits_player(x, y, BALL_BOOM_RADIUS) == 1) {
+    if (finished == 0 && revive_prot <= 0 &&
+        ball_hits_fighter_r(x, y, BALL_BOOM_RADIUS, player->x, player->y, player->angle, player_scale) == 1) {
         take_damage_at(ball_damage_for(b), x, y);
     }
+}
+
+static double rb_seg_hits_other_remote(double shooter, double ox, double oy, double nx, double ny) {
+    double k = 0;
+    while (k < max_players) {
+        double rb = k * remote_fields;
+        if (k != shooter && k != net_slot() && arr_get(remotes, rb + 5) == 1 && arr_get(remotes, rb + 4) > 0) {
+            if (ball_seg_hits_fighter(ox, oy, nx, ny, BALL_RADIUS, arr_get(remotes, rb + 1),
+                                      arr_get(remotes, rb + 2), arr_get(remotes, rb + 3), player_scale) == 1) {
+                return 1;
+            }
+        }
+        k = k + 1;
+    }
+    return 0;
 }
 
 static void remote_bricks_tick(void) {
@@ -230,9 +241,10 @@ static void remote_bricks_tick(void) {
             rb_t[(int)s] = rb_t[(int)s] + dt;
             rb_spin[(int)s] = rb_spin[(int)s] + dt * 6;
             while (left > 0 && rb_on[(int)s] == 1) {
-                double piece = left < 0.2 ? left : 0.2;
-                double x = rb_x[(int)s] + rb_vx[(int)s] * dt * piece;
-                double y = rb_y[(int)s] + rb_vy[(int)s] * dt * piece;
+                double piece = left < 0.125 ? left : 0.125;
+                double ox = rb_x[(int)s], oy = rb_y[(int)s];
+                double x = ox + rb_vx[(int)s] * dt * piece;
+                double y = oy + rb_vy[(int)s] * dt * piece;
                 double vx = rb_vx[(int)s], vy = rb_vy[(int)s];
                 left = left - piece;
                 if (x < BALL_RADIUS) {
@@ -263,7 +275,10 @@ static void remote_bricks_tick(void) {
                 rb_vy[(int)s] = vy;
                 if (rb_bounces[(int)s] > BALL_MAX_BOUNCES || rb_t[(int)s] > BALL_MAX_TIME) {
                     rb_burst((int)s, x, y);
-                } else if (circle_hits_player(x, y, BALL_RADIUS) == 1) {
+                } else if ((player->hp > 0 &&
+                            ball_seg_hits_fighter(ox, oy, x, y, BALL_RADIUS, player->x, player->y, player->angle,
+                                                  player_scale) == 1) ||
+                           rb_seg_hits_other_remote(s, ox, oy, x, y) == 1) {
                     rb_burst((int)s, x, y);
                 }
             }

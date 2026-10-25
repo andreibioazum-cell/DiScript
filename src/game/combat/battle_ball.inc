@@ -169,15 +169,33 @@ static void ult_ball_burst(UltBall *b, int is_enemy) {
     b->boom_t = boom_time;
     if (is_enemy) {
         if (finished == 0 && revive_prot <= 0 &&
-            circle_hits_player(b->x, b->y, BALL_BOOM_RADIUS) == 1) {
+            ball_hits_fighter_r(b->x, b->y, BALL_BOOM_RADIUS, player->x, player->y, player->angle, player_scale) == 1) {
             take_damage_at(ball_damage_for(n) * enemy_damage_mult_for(enemy_class), b->x, b->y);
         }
         return;
     }
     if (game_state != ST_ONLINE && enemy_revive_prot <= 0 &&
-        circle_hits_enemy(b->x, b->y, BALL_BOOM_RADIUS) == 1) {
+        ball_hits_fighter_r(b->x, b->y, BALL_BOOM_RADIUS, enemy->x, enemy->y, enemy->angle, enemy_scale) == 1) {
         enemy_apply_damage_at(ball_damage_for(n), b->x, b->y);
     }
+}
+
+/* Check swept projectile segment against living remote fighters. */
+static double ball_seg_hits_online_foe(double ox, double oy, double nx, double ny, double r) {
+    double s = 0;
+    while (s < max_players) {
+        double rb = s * remote_fields;
+        if (s != net_slot() && arr_get(remotes, rb + 5) == 1 && arr_get(remotes, rb + 4) > 0) {
+            double rx = arr_get(remotes, rb + 1);
+            double ry = arr_get(remotes, rb + 2);
+            double ra = arr_get(remotes, rb + 3);
+            if (ball_seg_hits_fighter(ox, oy, nx, ny, r, rx, ry, ra, player_scale) == 1) {
+                return 1;
+            }
+        }
+        s = s + 1;
+    }
+    return 0;
 }
 
 static void ult_ball_step(UltBall *b, int is_enemy) {
@@ -187,10 +205,12 @@ static void ult_ball_step(UltBall *b, int is_enemy) {
     }
     b->t = b->t + dt;
     b->spin = b->spin + dt * 6;
-    /* Substep projectile motion to prevent tunneling on slow frames. */
+    /* Substep projectile motion and test swept segments against fighters. */
     left = 1;
     while (left > 0 && b->active == 1) {
-        piece = left < 0.2 ? left : 0.2;
+        double ox = b->x;
+        double oy = b->y;
+        piece = left < 0.125 ? left : 0.125;
         left = left - piece;
         b->x = b->x + b->vx * dt * piece;
         b->y = b->y + b->vy * dt * piece;
@@ -221,11 +241,20 @@ static void ult_ball_step(UltBall *b, int is_enemy) {
             return;
         }
         if (is_enemy) {
-            if (circle_hits_player(b->x, b->y, BALL_RADIUS) == 1) {
+            if (player->hp > 0 &&
+                ball_seg_hits_fighter(ox, oy, b->x, b->y, BALL_RADIUS, player->x, player->y, player->angle,
+                                      player_scale) == 1) {
                 ult_ball_burst(b, 1);
                 return;
             }
-        } else if (game_state != ST_ONLINE && circle_hits_enemy(b->x, b->y, BALL_RADIUS) == 1) {
+        } else if (game_state == ST_ONLINE) {
+            if (ball_seg_hits_online_foe(ox, oy, b->x, b->y, BALL_RADIUS) == 1) {
+                ult_ball_burst(b, 0);
+                return;
+            }
+        } else if (enemy->hp > 0 &&
+                   ball_seg_hits_fighter(ox, oy, b->x, b->y, BALL_RADIUS, enemy->x, enemy->y, enemy->angle,
+                                         enemy_scale) == 1) {
             ult_ball_burst(b, 0);
             return;
         }

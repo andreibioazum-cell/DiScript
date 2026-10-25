@@ -41,6 +41,7 @@ static void read_remotes(void) {
                 arr_set(remotes, b + 8, y);
                 arr_set(remotes, b + 9, a);
                 arr_set(remotes, b + 6, net_player_punch(s));
+                reset_remote_smooth_slot((int)s);
                 baseline_remote_slot(s);
                 /* Snapshot class and skin on join. */
                 double rcls = finite_or(net_player_class(s), CLASS_ORDINARY);
@@ -310,26 +311,16 @@ static void push_self(void) {
     if (net_slot() < 0) {
         return;
     }
-    double alive = 1;
-    if (player->hp <= 0) {
-        alive = 0;
-    }
+    double alive = player->hp <= 0 ? 0 : 1;
     progress_push_to_net();
-    net_publish(player->x / screen_w, player->y / screen_h, player->angle, player->hp, alive);
-    /* The block is synced: others draw the guard, the victim cuts the hit. */
+    /* Sync guard, abilities, and turrets before committing fighter state. */
     net_publish_block(player_block);
     net_publish_codecracker_super((codecracker_super_t > 0 || astra_parry_active() == 1) ? 1 : 0);
     net_publish_punch(punch->x / screen_w, punch->y / screen_h, punch->dx, punch->dy, punch->shot);
     if (player_class == CLASS_EBUC) {
-        double x1 = 0;
-        double y1 = 0;
-        double h1 = 0;
-        double x2 = 0;
-        double y2 = 0;
-        double h2 = 0;
-        double x3 = 0;
-        double y3 = 0;
-        double h3 = 0;
+        double x1 = 0, y1 = 0, h1 = 0;
+        double x2 = 0, y2 = 0, h2 = 0;
+        double x3 = 0, y3 = 0, h3 = 0;
         if (turret_alive(0) == 1) {
             x1 = arr_get(turret_x, 0) / screen_w;
             y1 = arr_get(turret_y, 0) / screen_h;
@@ -362,6 +353,7 @@ static void push_self(void) {
             dash_pub = 0;
         }
     }
+    net_publish(player->x / screen_w, player->y / screen_h, player->angle, player->hp, alive);
 }
 
 static void update_online(void) {
@@ -385,7 +377,14 @@ static void update_online(void) {
     tick_hurt_fades();
     tick_remote_punches();
     update_aim();
-    ball_online_tick(); /* Tick ebuC's projectiles. */
+    if (net_slot() >= 0) {
+        if (online_ready == 0) {
+            place_online();
+        }
+        read_remotes();
+        smooth_remotes();
+    }
+    ball_online_tick(); /* Tick ebuC's projectiles against current remote positions. */
     if (finished != 0) {
         return;
     }
@@ -416,11 +415,6 @@ static void update_online(void) {
         return;
     }
     if (net_slot() >= 0) {
-        if (online_ready == 0) {
-            place_online();
-        }
-        read_remotes();
-        smooth_remotes();
         codecracker_tick_online();
         if (finished != 0) {
             return;

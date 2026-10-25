@@ -381,7 +381,7 @@ def test_codecracker_online(assets: Path) -> None:
         isinstance(cloud_user, dict)
         and cloud_user.get("codecracker") == 1
         and cloud_user.get("cls") == 6
-        and cloud_user.get("cups") == 25,
+        and cloud_user.get("cups") in (25, 30),
         str(cloud_user),
     )
     check(

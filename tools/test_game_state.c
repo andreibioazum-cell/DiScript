@@ -317,6 +317,57 @@ double net_player_grab_dx(double slot) {
 double net_player_grab_dy(double slot) {
     return stub_gdy[(int)slot];
 }
+static double stub_pub_hp = -1, stub_pub_alive = -1;
+static int stub_pub_calls = 0;
+void net_publish(double x, double y, double angle, double hp, double alive) {
+    (void)x;
+    (void)y;
+    (void)angle;
+    stub_pub_hp = hp;
+    stub_pub_alive = alive;
+    stub_pub_calls++;
+}
+void net_publish_block(double on) { (void)on; }
+void net_publish_codecracker_super(double on) { (void)on; }
+void net_publish_punch(double x, double y, double dx, double dy, double punch) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)punch;
+}
+void net_publish_turrets(double x1, double y1, double hp1, double x2, double y2, double hp2, double x3, double y3,
+                         double hp3, double count) {
+    (void)x1;
+    (void)y1;
+    (void)hp1;
+    (void)x2;
+    (void)y2;
+    (void)hp2;
+    (void)x3;
+    (void)y3;
+    (void)hp3;
+    (void)count;
+}
+void net_publish_universe(double x, double y, double counter) {
+    (void)x;
+    (void)y;
+    (void)counter;
+}
+void net_publish_dash(double x, double y, double dx, double dy, double dash) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)dash;
+}
+void net_publish_grab(double x, double y, double dx, double dy, double grab) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)grab;
+}
 static double stub_brick[4], stub_bkx[4], stub_bky[4], stub_bkdx[4], stub_bkdy[4];
 void net_publish_brick(double x, double y, double dx, double dy, double shot) {
     (void)x;
@@ -5205,6 +5256,96 @@ int main(void) {
         stub_snow[1] = 0;
         game_state = ST_LOBBY;
         dt = 1.0 / 60.0;
+    }
+
+    /* ebuC's projectile bursts on online remote contact, side-hand touch, and slow frames,
+     * remote dead-reckoning decays cleanly on stop, and online defeat publishes alive == 0. */
+    {
+        screen_w = 1280;
+        screen_h = 720;
+        dt = 1.0 / 60.0;
+        reset_battle();
+
+        /* 1. Online shooter's projectile bursts on living remote fighter instead of flying through. */
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        player_class = CLASS_EBUC;
+        ball_mode = 1;
+        player->x = 300;
+        player->y = 360;
+        player->angle = 0;
+        super_cd = 0;
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 480);
+        arr_set(remotes, 1 * remote_fields + 2, 360);
+        arr_set(remotes, 1 * remote_fields + 3, 0);
+        arr_set(remotes, 1 * remote_fields + 4, 20);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        ball_fire();
+        assert(ball.active == 1);
+        for (int f = 0; f < 30 && ball.active == 1; f++)
+            ball_tick();
+        assert(ball.active == 0 && ball.boom_t > 0);
+        assert(ball.boom_x < 480);
+
+        /* 2. Grazing visible side hands of a fighter bursts the projectile in Solo and Online. */
+        game_state = ST_SOLO;
+        ball_reset();
+        enemy->hp = 20;
+        enemy->x = 500;
+        enemy->y = 360;
+        enemy->angle = 0; /* Facing right: side hands extend vertically to +-23*cube_scale*enemy_scale (~58 px). */
+        ball.active = 1;
+        ball.x = 475;
+        ball.y = 360 + 74; /* Center offset 74 px: misses 40.3+24=64.3 old box, touches 58+24=82 visible hand! */
+        ball.vx = BALL_SPEED;
+        ball.vy = 0;
+        ball.bounces = 0;
+        ball.t = 0;
+        dt = 0.08; /* Slow frame spike: swept segment prevents tunneling past thin 4.5-texel hand! */
+        ball_tick();
+        assert(ball.active == 0 && ball.boom_t > 0);
+        assert(enemy->hp < 20.0);
+        dt = 1.0 / 60.0;
+
+        /* 3. Remote dead-reckoning has zero join velocity spike and settles onto nx,ny when stopped. */
+        game_state = ST_ONLINE;
+        reset_remote_smooth();
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 600);
+        arr_set(remotes, 1 * remote_fields + 2, 360);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 7, 600);
+        arr_set(remotes, 1 * remote_fields + 8, 360);
+        smooth_remotes();
+        assert(fabs(arr_get(remotes, 1 * remote_fields + 1) - 600.0) < 1e-6);
+        /* Snapshot moves right by 18 px after 3 frames (360 px/s). */
+        for (int f = 0; f < 3; f++)
+            smooth_remotes();
+        arr_set(remotes, 1 * remote_fields + 7, 618);
+        for (int f = 0; f < 4; f++)
+            smooth_remotes();
+        assert(arr_get(remotes, 1 * remote_fields + 1) > 618.0);
+        /* Remote stops moving: smoothed position settles back onto 618 instead of staying offset. */
+        for (int f = 0; f < 45; f++)
+            smooth_remotes();
+        assert(fabs(arr_get(remotes, 1 * remote_fields + 1) - 618.0) < 0.5);
+
+        /* 4. Online defeat immediately publishes hp == 0 and alive == 0. */
+        stub_net_slot = 0;
+        stub_pub_calls = 0;
+        stub_pub_hp = 20;
+        stub_pub_alive = 1;
+        player_class = CLASS_ORDINARY;
+        player->hp = 0;
+        finish_game(2);
+        assert(stub_pub_calls > 0 && stub_pub_hp == 0 && stub_pub_alive == 0);
+
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+        finished = 0;
+        game_state = ST_LOBBY;
     }
 
     state_destroy();

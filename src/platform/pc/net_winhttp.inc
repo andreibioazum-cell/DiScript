@@ -48,7 +48,7 @@ static HINTERNET pc_open_request(const char *method, PcUrl *u, const char *heade
     wchar_t *whost = NULL, *wpath = NULL, *wmethod = NULL;
     DWORD flags = u->https ? WINHTTP_FLAG_SECURE : 0;
     int tmo = net_fast ? 1200 : TIMEOUT;
-    int rtmo = streaming ? 15000 : tmo;
+    int rtmo = streaming ? 90000 : tmo;
 
     if (out_conn)
         *out_conn = NULL;

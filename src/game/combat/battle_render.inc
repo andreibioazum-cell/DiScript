@@ -115,6 +115,9 @@ static void finish_game(double result) {
         arr_set(rpunch_a, i, 0);
         i = i + 1;
     }
+    if (game_state == ST_ONLINE && net_slot() >= 0) {
+        push_self();
+    }
     if ((result == 1 || result == 2) && cups_awarded == 0) {
         cups_awarded = 1;
         award_battle_result(result);

@@ -287,6 +287,24 @@ static void check_stream(void) {
     const char *del = "event: put\ndata: {\"path\":\"/0\",\"data\":null}\n\n";
     assert(stream_players_chunk(NULL, del, strlen(del)) == 1);
     assert(net.players[0].online == 0);
+
+    /* Isolated per-thread SseStreamCtx stops stale generations and read_players ignores older seq. */
+    SseStreamCtx old_sc, cur_sc;
+    memset(&old_sc, 0, sizeof(old_sc));
+    memset(&cur_sc, 0, sizeof(cur_sc));
+    old_sc.gen = 7;
+    cur_sc.gen = 8;
+    net.gen = 8;
+    memset(rp_lseq, 0, sizeof(rp_lseq));
+    memset(rp_lch, 0, sizeof(rp_lch));
+    memset(rp_luid, 0, sizeof(rp_luid));
+    assert(stream_players_chunk(&old_sc, put1, strlen(put1)) == 0);
+    const char *put_seq5 = "event: put\ndata: {\"path\":\"/\",\"data\":{\"0\":{\"uid\":\"u1\",\"nick\":\"Bob\",\"x\":0.75,\"y\":0.25,\"alive\":1,\"seq\":5,\"hp\":12}}}\n\n";
+    const char *put_seq3 = "event: put\ndata: {\"path\":\"/\",\"data\":{\"0\":{\"uid\":\"u1\",\"nick\":\"Bob\",\"x\":0.20,\"y\":0.25,\"alive\":1,\"seq\":3,\"hp\":18}}}\n\n";
+    assert(stream_players_chunk(&cur_sc, put_seq5, strlen(put_seq5)) == 1);
+    assert(fabs(net.players[0].x - 0.75) < 1e-9);
+    assert(stream_players_chunk(&cur_sc, put_seq3, strlen(put_seq3)) == 1);
+    assert(fabs(net.players[0].x - 0.75) < 1e-9);
     net.run = 0;
 }
 int main(int argc, char **argv) {

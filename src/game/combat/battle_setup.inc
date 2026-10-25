@@ -7,6 +7,7 @@ static void reset_battle(void) {
     player->angle = 0;
         /* Reset stored velocity at battle start. */
         player_vel_reset();
+    reset_remote_smooth();
     ball_reset();
     player->max_hp = astra_ability_max_hp_for(player_class, astra_ability_local());
     player->hp = player->max_hp;

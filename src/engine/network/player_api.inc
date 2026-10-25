@@ -1,6 +1,7 @@
-}
 void net_publish_punch(double x, double y, double dx, double dy, double punch) {
     lock();
+    if (net.me.punch != punch)
+        net.urgent = 1;
     net.me.punch_x = x;
     net.me.punch_y = y;
     net.me.punch_dx = dx;
@@ -14,6 +15,8 @@ void net_publish_punch(double x, double y, double dx, double dy, double punch) {
 }
 void net_publish_snow(double x, double y, double dx, double dy, double snow) {
     lock();
+    if (net.me.snow != snow)
+        net.urgent = 1;
     net.me.snow_x = x;
     net.me.snow_y = y;
     net.me.snow_dx = dx;
@@ -28,6 +31,9 @@ void net_publish_snow(double x, double y, double dx, double dy, double snow) {
 void net_publish_turrets(double x1, double y1, double hp1, double x2, double y2, double hp2, double x3, double y3,
                          double hp3, double count) {
     lock();
+    if (net.me.station != count || fabs(net.me.station_hp - hp1) > 0.01 || fabs(net.me.station2_hp - hp2) > 0.01 ||
+        fabs(net.me.station3_hp - hp3) > 0.01)
+        net.urgent = 1;
     net.me.station_x = x1;
     net.me.station_y = y1;
     net.me.station_hp = hp1;
@@ -46,6 +52,8 @@ void net_publish_turrets(double x1, double y1, double hp1, double x2, double y2,
 }
 void net_publish_dash(double x, double y, double dx, double dy, double dash) {
     lock();
+    if (net.me.dash != dash)
+        net.urgent = 1;
     net.me.dash_x = x;
     net.me.dash_y = y;
     net.me.dash_dx = dx;
@@ -60,6 +68,8 @@ void net_publish_dash(double x, double y, double dx, double dy, double dash) {
 
 void net_publish_grab(double x, double y, double dx, double dy, double grab) {
     lock();
+    if (net.me.grab != grab)
+        net.urgent = 1;
     net.me.grab_x = x;
     net.me.grab_y = y;
     net.me.grab_dx = dx;
@@ -73,6 +83,8 @@ void net_publish_grab(double x, double y, double dx, double dy, double grab) {
 }
 void net_publish_universe(double x, double y, double counter) {
     lock();
+    if (net.me.universe != counter)
+        net.urgent = 1;
     net.me.universe_x = x;
     net.me.universe_y = y;
     net.me.universe = counter;
@@ -84,8 +96,11 @@ void net_publish_universe(double x, double y, double counter) {
 }
 
 void net_publish_block(double on) {
+    double b = on ? 1 : 0;
     lock();
-    net.me.block = on ? 1 : 0;
+    if (net.me.block != b)
+        net.urgent = 1;
+    net.me.block = b;
     if (net.slot >= 0) {
         net.players[net.slot] = net.me;
         net.players[net.slot].online = 1;
@@ -94,6 +109,8 @@ void net_publish_block(double on) {
 }
 void net_publish_brick(double x, double y, double dx, double dy, double shot) {
     lock();
+    if (net.me.brick != shot)
+        net.urgent = 1;
     net.me.brick_x = x;
     net.me.brick_y = y;
     net.me.brick_dx = dx;
@@ -107,8 +124,11 @@ void net_publish_brick(double x, double y, double dx, double dy, double shot) {
 }
 
 void net_publish_codecracker_super(double on) {
+    double c = on ? 1 : 0;
     lock();
-    net.me.ccu = on ? 1 : 0;
+    if (net.me.ccu != c)
+        net.urgent = 1;
+    net.me.ccu = c;
     if (net.slot >= 0) {
         net.players[net.slot] = net.me;
         net.players[net.slot].online = 1;
@@ -117,6 +137,8 @@ void net_publish_codecracker_super(double on) {
 }
 void net_publish_thud(double counter) {
     lock();
+    if (net.me.thud != counter)
+        net.urgent = 1;
     net.me.thud = counter;
     if (net.slot >= 0) {
         net.players[net.slot] = net.me;
