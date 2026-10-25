@@ -333,12 +333,10 @@ static double logic_back(void) {
 }
 
 static void logic_touch(double x, double y, double action, double id) {
-    /* Queue per-pointer touch coordinates for button press animations. */
-    if (action == 0 || action == 2) {
+    /* Queue touch-down coordinates for button press animations; ignore drag-over. */
+    if (action == 0) {
         press_points_add(x, y, id);
-    } else if (action == 1) {
-        press_points_drop(id);
-    } else if (action == 3) {
+    } else if (action == 1 || action == 3) {
         press_points_drop(id);
     }
     /* Route touch to admin orb and panel first. */

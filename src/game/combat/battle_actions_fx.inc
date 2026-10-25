@@ -6,8 +6,8 @@ static void start_punch_now(void) {
     punch->active = 1;
     punch->shot = punch->shot + 1;
     punch->hit = 0;
-    punch_left = punch_time;
-    punch_cd = punch_cooldown;
+    punch_left = PUNCH_WINDUP + punch_time;
+    punch_cd = PUNCH_WINDUP + punch_cooldown;
     queued_punch = 0;
     punch_snd();
 }
@@ -51,13 +51,13 @@ static void fire_punch(void) {
         queued_punch = 0;
         return;
     }
-    if (punch_cd > 0 || ultimate_visual_busy() == 1) {
+    if (punch_left > 0 || punch_cd > 0 || ultimate_visual_busy() == 1) {
         queued_punch = 1;
         return;
     }
     start_punch_now();
     if (player_class == 2) {
-        santa_follow = santa_follow_delay;
+        santa_follow = PUNCH_WINDUP + santa_follow_delay;
     }
 }
 
@@ -102,7 +102,7 @@ static void start_dash_now(void) {
 }
 
 static void fire_super(void) {
-    if (player_grabbed() == 1 || player_block == 1) {
+    if (player_grabbed() == 1) {
         queued_super = 0;
         return;
     }
@@ -111,6 +111,8 @@ static void fire_super(void) {
             queued_super = 0;
             return;
         }
+        player_block = 0;
+        blk_id = -1;
         if (astra_grab_ready_t > 0) {
             queued_super = 0;
             start_grab_now();
@@ -122,6 +124,10 @@ static void fire_super(void) {
         }
         queued_super = 0;
         start_astra_parry_now();
+        return;
+    }
+    if (player_block == 1) {
+        queued_super = 0;
         return;
     }
     if (player_class == CLASS_AZUM) {

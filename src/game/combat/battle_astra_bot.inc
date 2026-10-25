@@ -69,7 +69,8 @@ static void enemy_start_grab(void) {
     egrab_t = 0;
     egrab_hits = 0;
     egrab_box_a = 0;
-    egrab_punch_t = 0;
+    enemy_grab_swing();
+    punch_snd();
     egrab_x = enemy->x;
     egrab_y = enemy->y;
     egrab_dx = cos(enemy->angle);
@@ -117,13 +118,8 @@ static void tick_enemy_grab(void) {
     }
     egrab_x = enemy->x;
     egrab_y = enemy->y;
-    double prev_t = egrab_t;
     egrab_t = egrab_t + dt;
-    if (prev_t < ASTRA_STRIKE_DELAY - 1e-9 && egrab_t >= ASTRA_STRIKE_DELAY - 1e-9) {
-        enemy_grab_swing();
-        punch_snd();
-    }
-    if (egrab_t >= ASTRA_STRIKE_DELAY - 1e-9 && egrab_hits == 0) {
+    if (egrab_hits == 0) {
         double target = punch_resolve_target(egrab_x, egrab_y, egrab_dx, egrab_dy, astra_zone_reach(enemy_level),
                                              astra_zone_width(enemy_level));
         if (target == 0) {

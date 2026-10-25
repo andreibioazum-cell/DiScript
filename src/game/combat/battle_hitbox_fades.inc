@@ -47,9 +47,9 @@ static void tick_hitbox_fades(void) {
     double s = 0;
     while (s < max_players) {
         if (s != net_slot()) {
-            arr_set(rpunch_a, s,
-                    hb_fade(arr_get(rpunch_a, s), hb_live(arr_get(remote_punches, s * punch_fields) == 1), aim_fade_in,
-                            aim_fade_out));
+            double rphit = arr_get(remote_punches, s * punch_fields) > 0 &&
+                           arr_get(remote_punches, s * punch_fields + 5) >= PUNCH_WINDUP - 1e-9;
+            arr_set(rpunch_a, s, hb_fade(arr_get(rpunch_a, s), hb_live(rphit), aim_fade_in, aim_fade_out));
             arr_set(rdash_box_a, s,
                     hb_fade(arr_get(rdash_box_a, s), hb_live(remote_dash_get(s, DASH_ACTIVE)), hitbox_fade_in,
                             hitbox_fade_out));

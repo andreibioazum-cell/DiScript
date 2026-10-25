@@ -2736,7 +2736,8 @@ int main(void) {
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
     assert(fabs(ASTRA_PARRY_TIME - 0.4) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.9) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_DELAY - 0.8) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DELAY - 0.0) < 1e-9);
+    assert(fabs(PUNCH_WINDUP - 0.6) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 65);
@@ -3570,14 +3571,8 @@ int main(void) {
         player_class = CLASS_ASTRA;
         player->hp = 18;
         finished = 0;
+        stub_last_snd[0] = 0;
         start_grab_now();
-        assert(strcmp(stub_last_snd, "punch.wav") != 0);
-        {
-            double saved_dt_snd = dt;
-            dt = 0.8;
-            tick_astra();
-            dt = saved_dt_snd;
-        }
         assert(strcmp(stub_last_snd, "punch.wav") == 0);
         astra_state = 0;
         astra_punch_t = 0;
@@ -3694,7 +3689,7 @@ int main(void) {
     player->y = 90;
     astra_punch_t = 0;
     start_grab_now();
-    assert(astra_punch_t == 0);
+    assert(astra_punch_t > 0);
     assert(fabs(player->x - 150) < 1e-9);
     assert(astra_ability_lunge_tx > 150 && astra_ability_lunge_tx - 150 <= astra_ability_lunge_dist + 1e-9);
     assert(fabs(astra_ability_lunge_ty - 90) < 1e-9);
@@ -3739,7 +3734,7 @@ int main(void) {
         astra_state = 0;
         astra_cd = 0;
     }
-    /* Strike winds up for 0.8 s, then triggers punch pose, hitbox/damage, and stun. */
+    /* Astra ult-strike hits immediately without normal punch delay. */
     player->x = 100;
     player->y = 90;
     player->hp = 10;
@@ -3752,14 +3747,8 @@ int main(void) {
         double saved_dt = dt;
         dt = 0.02;
         start_grab_now();
-        assert(player_punching_now() == 0);
-        enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 45;
-        for (int f = 0; f < 39; f++) {
-            tick_astra();
-            tick_astra_fades();
-            assert(player_punching_now() == 0);
-            assert(astra_caught == 0 && astra_box_a == 0 && fabs(enemy->hp - 10.0) < 1e-9 && enemy->stun == 0);
-        }
+        assert(player_punching_now() == 1);
+        enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 10;
         tick_astra();
         tick_astra_fades();
         assert(player_punching_now() == 1);
@@ -3857,12 +3846,7 @@ int main(void) {
     double saved_dt_astra = dt;
     dt = 0.02;
     start_grab_now();
-    assert(fabs(enemy->stun - 0.0) < 1e-9 && player_punching_now() == 0);
-    for (int frame = 0; frame < 39; frame++) {
-        tick_astra();
-        assert(player_punching_now() == 0);
-        assert(enemy->stun == 0 && fabs(enemy->hp - 10.0) < 1e-9);
-    }
+    assert(player_punching_now() == 1);
     tick_astra();
     assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
@@ -3889,14 +3873,9 @@ int main(void) {
     pgrab_active = 0;
     pthrow_t = 0;
     enemy_start_grab();
-    assert(enemy_grab_punching() == 0);
-    for (int frame = 0; frame < 39; frame++) {
-        tick_enemy_grab();
-        tick_astra_fades();
-        assert(enemy_grab_punching() == 0);
-        assert(egrab_box_a == 0 && player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
-    }
+    assert(enemy_grab_punching() == 1);
     tick_enemy_grab();
+    tick_astra_fades();
     assert(enemy_grab_punching() == 1);
     assert(pgrab_active == 0 && pthrow_t == 0);
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
@@ -3924,13 +3903,8 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < 39; frame++) {
-        update_remote_grabs();
-        tick_astra_fades();
-        assert(remote_grab_punching(1) == 0 && arr_get(rgrab_box_a, 1) == 0);
-        assert(player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
-    }
     update_remote_grabs();
+    tick_astra_fades();
     assert(remote_grab_punching(1) == 1);
     assert(pgrab_active == 0 && pthrow_t == 0);
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
@@ -3940,7 +3914,7 @@ int main(void) {
     assert(pgrab_active == 0 && pthrow_t == 0);
     player_stun = 0;
 
-    /* Level 3 remote Astra strike deals +20% damage with Lv3 stun after 0.8 s and no grab/throw. */
+    /* Level 3 remote Astra strike deals +20% damage with Lv3 stun immediately and no grab/throw. */
     finished = 0;
     player->x = 470;
     player->y = 400;
@@ -3949,9 +3923,6 @@ int main(void) {
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
-    for (int frame = 0; frame < 39; frame++)
-        update_remote_grabs();
-    assert(player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
     update_remote_grabs();
     assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - astra_strike_stun_for(3)) < 1e-9);
     dt = saved_dt_astra;
@@ -4674,7 +4645,7 @@ int main(void) {
      * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.2 s. */
     {
         assert(fabs(block_guard - 0.25) < 1e-9);
-        assert(fabs(enemy_windup - 0.20) < 1e-9);
+        assert(fabs(enemy_windup - 0.60) < 1e-9);
         dt = 1.0 / 60.0;
 
         /* 1) Normal frontal block cuts 75% of damage for player and bot. */
@@ -4794,8 +4765,8 @@ int main(void) {
         assert(astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
 
-        /* 2c) Pressing within 0.9 s starts lunge + windup in idle pose, then triggers
-         *     punch animation + damage + 1.0 s stun at 0.8 s. */
+        /* 2c) Pressing within 0.9 s fires Astra's ult-strike immediately:
+         *     instant lunge, punch pose, sound, damage, and 1.0 s stun. */
         astra_cd = 0;
         player->x = 400;
         player->y = 400;
@@ -4813,22 +4784,16 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
-        assert(astra_ability_lunge_tx > 400.0 && player_punching_now() == 0);
+        assert(astra_ability_lunge_tx > 400.0 && player_punching_now() == 1);
         {
             double saved_dt2 = dt;
             dt = 0.02;
-            for (int f = 0; f < 39; f++) {
-                tick_astra();
-                assert(player_punching_now() == 0);
-                assert(enemy->stun == 0 && fabs(enemy->hp - 20.0) < 1e-9);
-            }
             tick_astra();
             assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
             assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
             for (int f = 0; f < 20 && astra_state != 0; f++)
                 tick_astra();
             assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
-            assert(player_punching_now() == 1);
             for (int f = 0; f < 20 && player_punching_now() == 1; f++)
                 tick_astra();
             assert(player_punching_now() == 0);
@@ -4837,7 +4802,7 @@ int main(void) {
         enemy->stun = 0;
         astra_cd = 0;
 
-        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.2 s. */
+        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.6 s. */
         player_class = CLASS_ORDINARY;
         player->x = 460;
         player->y = 400;
@@ -4855,7 +4820,7 @@ int main(void) {
         enemy_punch_a = 0;
         assert(start_enemy_attack() == 1);
         assert(enemy->state == 1 && enemy_punching_now() == 1);
-        for (int f = 0; f < 11; f++) {
+        for (int f = 0; f < 35; f++) {
             update_enemy();
             tick_hitbox_fades();
             assert(enemy->state == 1 && enemy_punching_now() == 1);
@@ -5345,6 +5310,87 @@ int main(void) {
         arr_set(remotes, 1 * remote_fields + 5, 0);
         stub_net_slot = -1;
         finished = 0;
+        game_state = ST_LOBBY;
+    }
+
+    /* Drag-over does not squeeze buttons; normal punches hit after 0.6 s for player & remote. */
+    {
+        /* 1. Dragging/moving over a button (action == 2) never triggers press squeeze. */
+        game_state = ST_LOBBY;
+        t_dir = 0;
+        press_points_clear();
+        press_pulses_clear();
+        logic_touch(menu_x() + btn_w / 2, menu_row(0) + btn_h / 2, 2, 11);
+        assert(press_point_n == 0);
+        assert(button_press_k(menu_x(), menu_row(0), btn_w, btn_h) == 0);
+        assert(press_phase[0] == 0);
+
+        /* 2. Player normal punch: pose immediate, hitbox/damage after 0.6 s. */
+        game_state = ST_SOLO;
+        finished = 0;
+        dt = 0.02;
+        player_class = CLASS_ORDINARY;
+        player_level = 0;
+        player->x = 400;
+        player->y = 400;
+        player->angle = 0;
+        player->hp = player->max_hp = 20;
+        enemy_class = CLASS_ORDINARY;
+        enemy->x = 460;
+        enemy->y = 400;
+        enemy->hp = enemy->max_hp = 20;
+        enemy->stun = 99; /* keep enemy stationary to verify exact 0.6 s timing */
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+        aim_a = 0;
+        fire_punch();
+        assert(punch->active == 1 && player_punching_now() == 1);
+        for (int f = 0; f < 29; f++) {
+            update_game();
+            assert(player_punching_now() == 1 && fabs(enemy->hp - 20.0) < 1e-9);
+        }
+        update_game();
+        assert(enemy->hp < 20.0);
+        enemy->stun = 0;
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+
+        /* 3. Online remote normal punch: pose immediate, damage after 0.6 s. */
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        finished = 0;
+        player->x = 460;
+        player->y = 400;
+        player->hp = player->max_hp = 20;
+        revive_prot = 0;
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 400);
+        arr_set(remotes, 1 * remote_fields + 2, 400);
+        arr_set(remotes, 1 * remote_fields + 3, 0);
+        arr_set(remotes, 1 * remote_fields + 4, 20);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
+        arr_set(remote_punches, 1 * punch_fields, 1);
+        arr_set(remote_punches, 1 * punch_fields + 1, 400);
+        arr_set(remote_punches, 1 * punch_fields + 2, 400);
+        arr_set(remote_punches, 1 * punch_fields + 3, 1);
+        arr_set(remote_punches, 1 * punch_fields + 4, 0);
+        arr_set(remote_punches, 1 * punch_fields + 5, 0);
+        for (int f = 0; f < 29; f++) {
+            tick_remote_punches();
+            update_remote_punches();
+            assert(arr_get(remote_punches, 1 * punch_fields) == 1 && fabs(player->hp - 20.0) < 1e-9);
+        }
+        tick_remote_punches();
+        update_remote_punches();
+        assert(player->hp < 20.0 && arr_get(remote_punches, 1 * punch_fields) == 2);
+        clear_remote_punch(1);
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+        dt = 1.0 / 60.0;
         game_state = ST_LOBBY;
     }
 

@@ -134,18 +134,18 @@ def test_menu_and_battle(assets: Path) -> None:
         assets,
         SCRATCH / "play",
         [
-            "--frames", "700",
+            "--frames", "780",
             "--touch", "220:360:686:0", "--touch", "223:360:686:1",   # accept warning
             "--touch", "400:270:336:0", "--touch", "403:270:336:1",   # Play
             "--touch", "460:270:404:0", "--touch", "463:270:404:1",   # Solo
             "--report", "236",
             "--report", "430",
             "--report", "590",
-            "--stick", "600:0:-1",                                    # W key
-            "--atk", "620:1", "--atk", "640:0",                       # attack
+            "--stick", "600:0:-1", "--stick", "618:0:0",              # face + step toward enemy
+            "--atk", "600:1", "--atk", "620:0",                       # attack (hits after 0.6 s = 36 frames)
             "--report", "650",
-            "--dump", f"690:{shot}",
-            "--report", "699",
+            "--dump", f"740:{shot}",
+            "--report", "775",
         ],
     )
     check("игра дошла до конца без ошибок", result.returncode == 0, result.stderr[-2000:])
@@ -164,11 +164,11 @@ def test_menu_and_battle(assets: Path) -> None:
         f"до удара {before_punch.get('foe')}, после {battle.get('foe')}",
     )
     check("в бою не было ошибок JS-хуков", battle.get("error") == "0", str(battle))
-    end = reports.get(699, {})
+    end = reports.get(775, {})
     check(
         "враг отвечает (игрок получает урон)",
         float(end.get("hp", "inf")) < float(battle.get("hp", "inf")),
-        f"после удара {battle.get('hp')}, к кадру 699 {end.get('hp')}",
+        f"после удара {battle.get('hp')}, к кадру 775 {end.get('hp')}",
     )
     check("кадр боя сохранён", shot.is_file() and shot.stat().st_size > 100_000)
     if shot.is_file():

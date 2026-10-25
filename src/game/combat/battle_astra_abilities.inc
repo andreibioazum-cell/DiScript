@@ -5,7 +5,7 @@ static const double astra_ability_punch_factor = 0.93;
 static const double astra_ability_lunge_dist = 48.0;
 static const double astra_ability_lunge_time = 0.16;
 
-#define ASTRA_STRIKE_DELAY 0.8
+#define ASTRA_STRIKE_DELAY 0.0
 #define ASTRA_STRIKE_ACTIVE 0.2
 #define ASTRA_STRIKE_TIME (ASTRA_STRIKE_DELAY + ASTRA_STRIKE_ACTIVE)
 #define ASTRA_STRIKE_STUN 1.0

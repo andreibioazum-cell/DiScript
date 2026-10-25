@@ -47,7 +47,8 @@ static void remote_grab_begin(double slot) {
     remote_grab_set(slot, GRAB_DY, net_player_grab_dy(slot));
     remote_grab_set(slot, GRAB_ASTRA_KIT, astra_ability_of_slot(slot));
     arr_set(rgrab_box_a, slot, 0);
-    arr_set(rgrab_punch_t, slot, 0);
+    remote_grab_swing(slot);
+    punch_snd();
 }
 
 static double update_remote_grab(double slot) {
@@ -64,21 +65,9 @@ static double update_remote_grab(double slot) {
         return 0;
     }
     double b = slot * remote_fields;
-    double prev_t = remote_grab_get(slot, GRAB_T);
-    double t = prev_t + dt;
+    double t = remote_grab_get(slot, GRAB_T) + dt;
     remote_grab_set(slot, GRAB_T, t);
-    if (prev_t < ASTRA_STRIKE_DELAY - 1e-9 && t >= ASTRA_STRIKE_DELAY - 1e-9) {
-        remote_grab_swing(slot);
-        punch_snd();
-    }
-    if (arr_get(remotes, b) == 1 && arr_get(remotes, b + 5) == 1 && t <= ASTRA_STRIKE_DELAY + dt) {
-        double ra = arr_get(remotes, b + 3);
-        remote_grab_set(slot, GRAB_X, arr_get(remotes, b + 1));
-        remote_grab_set(slot, GRAB_Y, arr_get(remotes, b + 2));
-        remote_grab_set(slot, GRAB_DX, cos(ra));
-        remote_grab_set(slot, GRAB_DY, sin(ra));
-    }
-    if (t >= ASTRA_STRIKE_DELAY - 1e-9 && remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
+    if (remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
         double lv = net_player_level(slot);
         double gx = remote_grab_get(slot, GRAB_X);
         double gy = remote_grab_get(slot, GRAB_Y);
@@ -88,7 +77,12 @@ static double update_remote_grab(double slot) {
         double width = astra_zone_width(lv);
         double target = punch_resolve_target(gx, gy, gdx, gdy, reach, width);
         if (target < 0 && arr_get(remotes, b) == 1) {
-            target = punch_resolve_target(arr_get(remotes, b + 1), arr_get(remotes, b + 2), gdx, gdy, reach, width);
+            double rx = arr_get(remotes, b + 1);
+            double ry = arr_get(remotes, b + 2);
+            target = punch_resolve_target((gx + rx) * 0.5, (gy + ry) * 0.5, gdx, gdy, reach, width);
+            if (target < 0) {
+                target = punch_resolve_target(rx, ry, gdx, gdy, reach, width);
+            }
         }
         if (target == 0) {
             remote_grab_set(slot, GRAB_CAUGHT, 1);

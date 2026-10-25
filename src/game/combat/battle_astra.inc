@@ -89,7 +89,7 @@ static void astra_on_parry_block(void) {
 static double player_grabbed(void) { return pgrab_active; }
 
 static void start_grab_now(void) {
-    /* Start lunge and windup immediately; punch animation and hitbox fire at 0.8 s. */
+    /* Trigger Astra's counter-strike lunge, pose, and hitbox immediately. */
     astra_parry_t = 0;
     astra_parry_blocked = 0;
     astra_grab_ready_t = 0;
@@ -99,7 +99,8 @@ static void start_grab_now(void) {
     astra_hits_done = 0;
     astra_caught = 0;
     astra_box_a = 0;
-    astra_punch_t = 0;
+    astra_swing_now();
+    punch_snd();
     astra_x = player->x;
     astra_y = player->y;
     astra_dx = cos(player->angle);
@@ -252,13 +253,8 @@ static void tick_astra(void) {
     astra_y = player->y;
     astra_dx = cos(player->angle);
     astra_dy = sin(player->angle);
-    double prev_t = astra_t;
     astra_t = astra_t + dt;
-    if (prev_t < ASTRA_STRIKE_DELAY - 1e-9 && astra_t >= ASTRA_STRIKE_DELAY - 1e-9) {
-        astra_swing_now();
-        punch_snd();
-    }
-    if (astra_t >= ASTRA_STRIKE_DELAY - 1e-9 && astra_caught == 0) {
+    if (astra_caught == 0) {
         if (astra_strike_hit_check() == 1) {
             astra_release(1);
             return;

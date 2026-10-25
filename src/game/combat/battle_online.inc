@@ -83,12 +83,20 @@ static void tick_remote_punches(void) {
     double s = 0;
     while (s < max_players) {
         double rb = s * punch_fields;
-        if (arr_get(remote_punches, rb) == 1) {
+        if (arr_get(remote_punches, rb) > 0) {
+            double b = s * remote_fields;
             double t = arr_get(remote_punches, rb + 5) + dt;
-            if (t > punch_time) {
+            if (t > PUNCH_WINDUP + punch_time) {
                 clear_remote_punch(s);
             } else {
                 arr_set(remote_punches, rb + 5, t);
+                if (arr_get(remotes, b) == 1 && arr_get(remotes, b + 5) == 1) {
+                    double ra = arr_get(remotes, b + 3);
+                    arr_set(remote_punches, rb + 1, arr_get(remotes, b + 1));
+                    arr_set(remote_punches, rb + 2, arr_get(remotes, b + 2));
+                    arr_set(remote_punches, rb + 3, cos(ra));
+                    arr_set(remote_punches, rb + 4, sin(ra));
+                }
             }
         }
         s = s + 1;
@@ -99,10 +107,10 @@ static void update_remote_punches(void) {
     double s = 0;
     while (s < max_players) {
         double rb = s * punch_fields;
-        if (arr_get(remote_punches, rb) == 1) {
+        if (arr_get(remote_punches, rb) > 0) {
             if (arr_get(remotes, s * remote_fields + 5) == 0) {
                 clear_remote_punch(s);
-            } else {
+            } else if (arr_get(remote_punches, rb) == 1 && arr_get(remote_punches, rb + 5) >= PUNCH_WINDUP - 1e-9) {
                 double target = punch_resolve_target(arr_get(remote_punches, rb + 1), arr_get(remote_punches, rb + 2),
                                                      arr_get(remote_punches, rb + 3), arr_get(remote_punches, rb + 4),
                                                      punch_reach, punch_width);
@@ -130,7 +138,7 @@ static void update_remote_punches(void) {
                         net_publish_thud(thud_seq);
                         ds_log("remote punch hit turret %g, hp %g", target - 1, arr_get(turret_hp, target - 1));
                     }
-                    clear_remote_punch(s);
+                    arr_set(remote_punches, rb, 2);
                     if (finished != 0) {
                         return;
                     }
@@ -372,11 +380,8 @@ static void update_online(void) {
     tick_turrets();
     tick_universe();
     tick_astra();
-    tick_hitbox_fades();
     tick_status_fades();
     tick_hurt_fades();
-    tick_remote_punches();
-    update_aim();
     if (net_slot() >= 0) {
         if (online_ready == 0) {
             place_online();
@@ -384,6 +389,9 @@ static void update_online(void) {
         read_remotes();
         smooth_remotes();
     }
+    tick_remote_punches();
+    tick_hitbox_fades();
+    update_aim();
     ball_online_tick(); /* Tick ebuC's projectiles against current remote positions. */
     if (finished != 0) {
         return;
@@ -396,11 +404,11 @@ static void update_online(void) {
     }
     move_player();
     tick_dash();
+    punch_left = tick_down(punch_left);
+    follow_punch();
     if (punch->active == 1 && punch_left <= 0) {
         punch->active = 0;
     }
-    punch_left = tick_down(punch_left);
-    follow_punch();
     super_cd = tick_down(super_cd);
     if (admin_cheat_nocd() == 1) {
         super_cd = 0;

@@ -171,7 +171,7 @@ static void draw_online(void) {
             ry = arr_get(remotes, b + 2);
             ra = arr_get(remotes, b + 3);
             punching = 0;
-            if (arr_get(remote_punches, rb) == 1) {
+            if (arr_get(remote_punches, rb) > 0) {
                 punching = 1;
                 ra = atan2(arr_get(remote_punches, rb + 4), arr_get(remote_punches, rb + 3));
             } else if (remote_grab_punching(i) == 1) {
@@ -224,7 +224,7 @@ static void draw_online(void) {
             ry = arr_get(remotes, b + 2);
             ra = arr_get(remotes, b + 3);
             punching = 0;
-            if (arr_get(remote_punches, rb) == 1) {
+            if (arr_get(remote_punches, rb) > 0) {
                 punching = 1;
                 ra = atan2(arr_get(remote_punches, rb + 4), arr_get(remote_punches, rb + 3));
             } else if (remote_grab_punching(i) == 1) {
@@ -378,7 +378,7 @@ static void touch_game(double x, double y, double action, double id) {
         }
         if (class_has_super(player_class) == 1) {
             /* The ult pad belongs to its own finger and fires immediately on press. */
-            if (action == 0 && dsu <= pr && dsu <= dp && player_block == 0) {
+            if (action == 0 && dsu <= pr && dsu <= dp && (player_block == 0 || class_is_astra(player_class) == 1)) {
                 if (player_class == CLASS_EBUC && ball_mode == 1) {
                     if (game_state == ST_SOLO || online_ready == 1) {
                         ball_fire();
