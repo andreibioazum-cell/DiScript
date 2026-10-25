@@ -18,12 +18,12 @@ defaults:
 jobs:
   build-pc:
     name: Build Windows .exe (PC version)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-python@v5
+      - uses: actions/setup-python@v7
         with:
           python-version: '3.11'
 
@@ -44,14 +44,6 @@ jobs:
           test -f build/pc/dist/assets/sounds/lobbymusic.wav
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 
-      - uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: Cubic-Battle-4-PC-Windows
-          path: build/pc/dist/
-          retention-days: 1
-          if-no-files-found: error
-
       - name: Publish Windows .exe to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -65,22 +57,29 @@ jobs:
               --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
               --prerelease || true
           fi
-          gh release upload "$TAG" CubicBattle4-Windows.zip build/pc/CubicBattle4.exe --clobber
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" CubicBattle4-Windows.zip build/pc/CubicBattle4.exe --clobber; then
+              break
+            fi
+            [ "$attempt" -lt 3 ] && sleep 2
+          done
+          gh release edit "$TAG" \
+            --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." >/dev/null 2>&1 || true
           echo "### Windows Build Ready" >> "$GITHUB_STEP_SUMMARY"
           echo "- [CubicBattle4-Windows.zip (EXE + assets)](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4-Windows.zip)" >> "$GITHUB_STEP_SUMMARY"
           echo "- [CubicBattle4.exe](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.exe)" >> "$GITHUB_STEP_SUMMARY"
 
   build-android:
     name: Build Android APK (Android 8-15)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     env:
       CC: clang
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Setup Java for Android build tools
-        uses: actions/setup-java@v5
+        uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: '17'
@@ -172,14 +171,6 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs Game.apk
           cp Game.apk CubicBattle4.apk
 
-      - uses: actions/upload-artifact@v4
-        continue-on-error: true
-        with:
-          name: Cubic-Battle-4-Full-C-APK
-          path: Game.apk
-          retention-days: 1
-          if-no-files-found: error
-
       - name: Publish Android APK to Release
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -193,6 +184,13 @@ jobs:
               --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
               --prerelease || true
           fi
-          gh release upload "$TAG" CubicBattle4.apk --clobber
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" CubicBattle4.apk --clobber; then
+              break
+            fi
+            [ "$attempt" -lt 3 ] && sleep 2
+          done
+          gh release edit "$TAG" \
+            --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." >/dev/null 2>&1 || true
           echo "### Android APK Ready" >> "$GITHUB_STEP_SUMMARY"
           echo "- [CubicBattle4.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.apk)" >> "$GITHUB_STEP_SUMMARY"
