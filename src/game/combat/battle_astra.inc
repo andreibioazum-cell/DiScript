@@ -1,7 +1,7 @@
 /* Astra purple parry shield and stun counter-strike. */
 
-#define ASTRA_PARRY_TIME 0.4
-#define ASTRA_STRIKE_WINDOW 0.9
+#define ASTRA_PARRY_TIME 0.9
+#define ASTRA_STRIKE_WINDOW 0.85
 #define ASTRA_GRAB_WINDOW ASTRA_STRIKE_WINDOW
 
 static double astra_zone_reach(double lv) {
@@ -29,7 +29,7 @@ static double astra_cd_for(double lv) {
     return c;
 }
 
-static void astra_swing_now(void) { astra_punch_t = fmax(punch_time, ASTRA_STRIKE_ACTIVE); }
+static void astra_swing_now(void) { astra_punch_t = fmax(punch_time, ASTRA_STRIKE_TIME); }
 
 static void tick_astra_poses(void) {
     astra_punch_t = tick_down(astra_punch_t);
@@ -89,10 +89,14 @@ static void astra_on_parry_block(void) {
 static double player_grabbed(void) { return pgrab_active; }
 
 static void start_grab_now(void) {
-    /* Trigger Astra's counter-strike lunge, pose, and hitbox immediately. */
+    /* Trigger tiny pullback followed by long forward counter-dash. */
     astra_parry_t = 0;
     astra_parry_blocked = 0;
     astra_grab_ready_t = 0;
+    astra_x = player->x;
+    astra_y = player->y;
+    astra_dx = cos(player->angle);
+    astra_dy = sin(player->angle);
     astra_ability_lunge_start();
     astra_state = 1;
     astra_t = 0;
@@ -101,10 +105,6 @@ static void start_grab_now(void) {
     astra_box_a = 0;
     astra_swing_now();
     punch_snd();
-    astra_x = player->x;
-    astra_y = player->y;
-    astra_dx = cos(player->angle);
-    astra_dy = sin(player->angle);
     astra_seq = astra_seq + 1;
     astra_pub = 0;
     queued_super = 0;
@@ -159,7 +159,10 @@ static void tick_enemy_throw(void) {
     enemy_throw_t = tick_down(enemy_throw_t);
 }
 
-static double astra_strike_hit_check(void) {
+static double astra_strike_hit_check(double step_back) {
+    double f0 = astra_grab_forward_offset - step_back;
+    double f1 = astra_grab_forward_offset + astra_zone_reach(player_level);
+    double hw = astra_zone_width(player_level) / 2;
     if (game_state == ST_ONLINE) {
         double s = 0;
         while (s < max_players) {
@@ -167,10 +170,7 @@ static double astra_strike_hit_check(void) {
             if (s != net_slot() && arr_get(remotes, b + 5) == 1) {
                 double tx = arr_get(remotes, b + 1);
                 double ty = arr_get(remotes, b + 2);
-                if (target_is_forward(astra_x, astra_y, astra_dx, astra_dy, tx, ty) == 1 &&
-                    strip_hits_box(astra_x, astra_y, astra_dx, astra_dy, astra_grab_forward_offset,
-                                   astra_grab_forward_offset + astra_zone_reach(player_level),
-                                   astra_zone_width(player_level) / 2, tx, ty, arr_get(remotes, b + 3),
+                if (strip_hits_box(astra_x, astra_y, astra_dx, astra_dy, f0, f1, hw, tx, ty, arr_get(remotes, b + 3),
                                    player_half()) == 1) {
                     astra_caught = 1;
                     astra_hits_done = 1;
@@ -199,7 +199,7 @@ static double astra_strike_hit_check(void) {
     if (enemy->hp <= 0 || enemy_revive_prot > 0) {
         return 0;
     }
-    if (astra_zone_hits_enemy(astra_x, astra_y, astra_dx, astra_dy, player_level) == 1) {
+    if (strip_hits_enemy(astra_x, astra_y, astra_dx, astra_dy, f0, f1, hw) == 1) {
         astra_caught = 1;
         astra_hits_done = 1;
         astra_box_a = 1;
@@ -216,6 +216,8 @@ static void tick_astra(void) {
         astra_cd = 0;
     }
     tick_astra_poses();
+    double prev_px = player->x;
+    double prev_py = player->y;
     astra_ability_lunge_tick();
     tick_grab_quiet();
     if (game_state != ST_ONLINE) {
@@ -254,8 +256,9 @@ static void tick_astra(void) {
     astra_dx = cos(player->angle);
     astra_dy = sin(player->angle);
     astra_t = astra_t + dt;
-    if (astra_caught == 0) {
-        if (astra_strike_hit_check() == 1) {
+    if (astra_t >= ASTRA_STRIKE_DELAY - 1e-9 && astra_caught == 0) {
+        double step_back = fmax(0.0, (astra_x - prev_px) * astra_dx + (astra_y - prev_py) * astra_dy);
+        if (astra_strike_hit_check(step_back) == 1) {
             astra_release(1);
             return;
         }

@@ -14,5 +14,5 @@ static void start_grab_now(void);
 static void astra_release(double landed);
 static void tick_player_throw(void);
 static void tick_enemy_throw(void);
-static double astra_strike_hit_check(void);
+static double astra_strike_hit_check(double step_back);
 static void tick_astra(void);

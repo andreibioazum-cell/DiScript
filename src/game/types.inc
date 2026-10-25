@@ -7,6 +7,7 @@ typedef struct ScrollTrack ScrollTrack;
 
 /* Windup delay before normal punch hitbox activates across all fighters. */
 #define PUNCH_WINDUP 0.3
+#define ASTRA_PARRY_SPEED_K 0.90
 
 struct ScrollTrack {
     double hist_d[4];

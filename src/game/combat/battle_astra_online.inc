@@ -64,10 +64,9 @@ static double update_remote_grab(double slot) {
     if (remote_grab_get(slot, GRAB_ACTIVE) != 1) {
         return 0;
     }
-    double b = slot * remote_fields;
     double t = remote_grab_get(slot, GRAB_T) + dt;
     remote_grab_set(slot, GRAB_T, t);
-    if (remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
+    if (t >= ASTRA_STRIKE_DELAY - 1e-9 && remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
         double lv = net_player_level(slot);
         double gx = remote_grab_get(slot, GRAB_X);
         double gy = remote_grab_get(slot, GRAB_Y);
@@ -75,13 +74,22 @@ static double update_remote_grab(double slot) {
         double gdy = remote_grab_get(slot, GRAB_DY);
         double reach = astra_zone_reach(lv);
         double width = astra_zone_width(lv);
-        double target = punch_resolve_target(gx, gy, gdx, gdy, reach, width);
-        if (target < 0 && arr_get(remotes, b) == 1) {
-            double rx = arr_get(remotes, b + 1);
-            double ry = arr_get(remotes, b + 2);
-            target = punch_resolve_target((gx + rx) * 0.5, (gy + ry) * 0.5, gdx, gdy, reach, width);
+        double u = clamp((t - ASTRA_PULLBACK_TIME) / ASTRA_DASH_TIME, 0, 1);
+        double q = 1 - u;
+        double p = 1 - q * q * q;
+        double sx = gx - gdx * astra_ability_lunge_dist;
+        double sy = gy - gdy * astra_ability_lunge_dist;
+        double swept = astra_ability_lunge_dist * p;
+        double target = -1;
+        if (strip_hits_player(sx, sy, gdx, gdy, astra_grab_forward_offset - ASTRA_PULLBACK_DIST,
+                              swept + astra_grab_forward_offset + reach, width / 2) == 1) {
+            target = 0;
+        } else {
+            double cx = sx + (gx - sx) * p;
+            double cy = sy + (gy - sy) * p;
+            target = punch_resolve_target(cx, cy, gdx, gdy, reach, width);
             if (target < 0) {
-                target = punch_resolve_target(rx, ry, gdx, gdy, reach, width);
+                target = punch_resolve_target(gx, gy, gdx, gdy, reach, width);
             }
         }
         if (target == 0) {
@@ -130,5 +138,5 @@ static double remote_grab_punching(double slot) {
 }
 
 static void remote_grab_swing(double slot) {
-    arr_set(rgrab_punch_t, slot, fmax(punch_time, ASTRA_STRIKE_ACTIVE));
+    arr_set(rgrab_punch_t, slot, fmax(punch_time, ASTRA_STRIKE_TIME));
 }

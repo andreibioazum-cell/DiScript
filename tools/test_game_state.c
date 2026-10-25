@@ -2734,9 +2734,11 @@ int main(void) {
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 2), tr_class_level_effect(CLASS_ASTRA, 2)) == 0);
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 3), tr_class_level_effect(CLASS_ASTRA, 3)) == 0);
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
-    assert(fabs(ASTRA_PARRY_TIME - 0.4) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_WINDOW - 0.9) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_DELAY - 0.0) < 1e-9);
+    assert(fabs(ASTRA_PARRY_TIME - 0.9) < 1e-9);
+    assert(fabs(ASTRA_PARRY_SPEED_K - 0.90) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_WINDOW - 0.85) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
+    assert(astra_ability_lunge_dist > 250.0 && astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
     assert(fabs(PUNCH_WINDUP - 0.3) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
@@ -3682,31 +3684,32 @@ int main(void) {
     assert(fabs(astra_strike_damage_for(0) - ASTRA_STRIKE_DAMAGE) < 1e-9);
     assert(astra_strike_damage_for(3) > astra_strike_damage_for(0));
     assert(astra_strike_stun_for(3) > astra_strike_stun_for(0));
-    /* Astra counter-strike performs a smooth short forward lunge over 0.16 s. */
+    /* Astra counter-strike does a fast tiny backward recoil, then a long forward dash. */
+    screen_w = 1080;
     player->angle = 0;
     player->size = 45;
-    player->x = 150;
+    player->x = 300;
     player->y = 90;
     astra_punch_t = 0;
     start_grab_now();
     assert(astra_punch_t > 0);
-    assert(fabs(player->x - 150) < 1e-9);
-    assert(astra_ability_lunge_tx > 150 && astra_ability_lunge_tx - 150 <= astra_ability_lunge_dist + 1e-9);
+    assert(fabs(player->x - 300) < 1e-9);
+    assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-9);
     assert(fabs(astra_ability_lunge_ty - 90) < 1e-9);
-    double lunge_prev = player->x;
     astra_ability_lunge_tick();
-    assert(player->x > lunge_prev && player->x < astra_ability_lunge_tx);
-    lunge_prev = player->x;
+    assert(player->x < 300 && player->x >= 300 - ASTRA_PULLBACK_DIST - 1e-9);
     int lunge_frames = 1;
-    while (lunge_frames < 60 && player->x < astra_ability_lunge_tx) {
+    double min_x = player->x;
+    while (lunge_frames < 120 && astra_ability_lunge_active() == 1) {
         astra_ability_lunge_tick();
-        assert(player->x >= lunge_prev);
-        lunge_prev = player->x;
+        if (player->x < min_x)
+            min_x = player->x;
         lunge_frames = lunge_frames + 1;
     }
+    assert(min_x < 300 - 5.0);
     assert(fabs(player->x - astra_ability_lunge_tx) < 1e-9);
     assert(fabs(player->y - astra_ability_lunge_ty) < 1e-9);
-    assert(lunge_frames * dt >= astra_ability_lunge_time);
+    assert(lunge_frames * dt >= astra_ability_lunge_time - 1e-9);
     astra_state = 0;
     astra_cd = 0;
     /* Moving lunge adds walking distance over lunge duration. */
@@ -3715,16 +3718,13 @@ int main(void) {
         double saved_jdy = joy.dy;
         joy.dx = 1;
         joy.dy = 0;
-        player->x = 150;
+        player->x = 300;
         player->y = 90;
         start_grab_now();
-        assert(astra_ability_lunge_tx - 150 >
+        assert(astra_ability_lunge_tx - 300 >
                player_walk_speed() * astra_ability_lunge_time + astra_ability_lunge_dist - 1e-6);
-        double before = player->x;
-        astra_ability_lunge_tick();
-        assert((player->x - before) / dt > player_walk_speed());
         int k = 0;
-        while (k < 60) {
+        while (k < 120) {
             astra_ability_lunge_tick();
             k = k + 1;
         }
@@ -3734,8 +3734,10 @@ int main(void) {
         astra_state = 0;
         astra_cd = 0;
     }
-    /* Astra ult-strike hits immediately without normal punch delay. */
-    player->x = 100;
+    screen_w = 320;
+    /* Astra ult-strike hits along the forward dash right after the tiny recoil. */
+    screen_w = 1080;
+    player->x = 200;
     player->y = 90;
     player->hp = 10;
     enemy->hp = enemy->max_hp = 10;
@@ -3748,16 +3750,18 @@ int main(void) {
         dt = 0.02;
         start_grab_now();
         assert(player_punching_now() == 1);
-        enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 10;
-        tick_astra();
-        tick_astra_fades();
-        assert(player_punching_now() == 1);
+        enemy->x = 200 + 260; /* Farther than old 48 px lunge, reached by new 310 px dash! */
+        for (int f = 0; f < 30 && astra_caught == 0; f++) {
+            tick_astra();
+            tick_astra_fades();
+        }
         assert(astra_caught == 1 && astra_hits_done == 1 && astra_box_a > 0);
         assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
         assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
         astra_release(1);
         dt = saved_dt;
     }
+    screen_w = 320;
     enemy->stun = 0;
     astra_cd = 0;
     /* Astra has no separate skin or developer variant: one ordinary card,
@@ -3847,7 +3851,8 @@ int main(void) {
     dt = 0.02;
     start_grab_now();
     assert(player_punching_now() == 1);
-    tick_astra();
+    for (int frame = 0; frame < 4; frame++)
+        tick_astra();
     assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
         tick_astra();
@@ -3874,8 +3879,10 @@ int main(void) {
     pthrow_t = 0;
     enemy_start_grab();
     assert(enemy_grab_punching() == 1);
-    tick_enemy_grab();
-    tick_astra_fades();
+    for (int frame = 0; frame < 4; frame++) {
+        tick_enemy_grab();
+        tick_astra_fades();
+    }
     assert(enemy_grab_punching() == 1);
     assert(pgrab_active == 0 && pthrow_t == 0);
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
@@ -3903,8 +3910,10 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    update_remote_grabs();
-    tick_astra_fades();
+    for (int frame = 0; frame < 4; frame++) {
+        update_remote_grabs();
+        tick_astra_fades();
+    }
     assert(remote_grab_punching(1) == 1);
     assert(pgrab_active == 0 && pthrow_t == 0);
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
@@ -3914,7 +3923,7 @@ int main(void) {
     assert(pgrab_active == 0 && pthrow_t == 0);
     player_stun = 0;
 
-    /* Level 3 remote Astra strike deals +20% damage with Lv3 stun immediately and no grab/throw. */
+    /* Level 3 remote Astra strike deals +20% damage with Lv3 stun and no grab/throw. */
     finished = 0;
     player->x = 470;
     player->y = 400;
@@ -3923,7 +3932,8 @@ int main(void) {
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
-    update_remote_grabs();
+    for (int frame = 0; frame < 4; frame++)
+        update_remote_grabs();
     assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - astra_strike_stun_for(3)) < 1e-9);
     dt = saved_dt_astra;
     for (int frame = 0; frame < 60; frame++)
@@ -4711,10 +4721,10 @@ int main(void) {
 
         touch_game(atk2_x, atk2_y, 0, 7); /* press only - not released! */
         assert(astra_state == 0);
-        assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.4) < 1e-9);
-        assert(player_freeze == 0 && fabs(player_walk_speed() - joy_speed) < 1e-9);
+        assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.9) < 1e-9);
+        assert(player_freeze == 0 && fabs(player_walk_speed() - joy_speed * 0.90) < 1e-9);
         player_block = 1;
-        assert(fabs(player_walk_speed() - joy_speed) < 1e-9);
+        assert(fabs(player_walk_speed() - joy_speed * 0.90) < 1e-9);
         player_block = 0;
         punch->active = 0;
         punch_left = 0;
@@ -4729,20 +4739,20 @@ int main(void) {
         draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
         assert(stub_circle_color == 0x38B35CFF);
 
-        /* Bot Astra also keeps acting normally while its purple block is active. */
+        /* Bot Astra also keeps acting while its purple block slows walk by 10%. */
         enemy_class = CLASS_ASTRA;
         enemy_start_astra_parry();
         assert(egrab_parry_t > 0 && enemy_tick_class_abilities() == 0);
         egrab_parry_t = 0;
 
-        for (int f = 0; f < 25; f++)
+        for (int f = 0; f < 56; f++)
             tick_astra();
         assert(astra_parry_t == 0 && astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
         touch_game(atk2_x, atk2_y, 1, 7);
 
         /* 2b) Blocking >=1 hit absorbs 100% of damage + stun and unlocks Strike ("Удар")
-         *     for 0.9 s; not pressing within 0.9 s reverts to Block + cooldown. */
+         *     for 0.85 s; not pressing within 0.85 s reverts to Block + cooldown. */
         astra_cd = 0;
         player->hp = 18;
         touch_game(atk2_x, atk2_y, 0, 7);
@@ -4751,13 +4761,13 @@ int main(void) {
         take_damage_at(6.5, 500, 400);
         stun_player(0.55);
         assert(fabs(player->hp - 18.0) < 1e-9 && player_stun == 0);
-        assert(fabs(astra_grab_ready_t - 0.9) < 1e-9);
+        assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);
         adm_reset_log();
         draw_controls();
         assert(adm_has_text("Захват") == 0);
         assert(strcmp(tr_super_astra(), "Удар") == 0);
 
-        for (int f = 0; f < 53; f++)
+        for (int f = 0; f < 50; f++)
             tick_astra();
         assert(astra_grab_ready_t > 0 && astra_cd == 0);
         tick_astra();
@@ -4765,8 +4775,7 @@ int main(void) {
         assert(astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
 
-        /* 2c) Pressing within 0.9 s fires Astra's ult-strike immediately:
-         *     instant lunge, punch pose, sound, damage, and 1.0 s stun. */
+        /* 2c) Pressing within 0.85 s does tiny fast pullback then long forward dash + stun. */
         astra_cd = 0;
         player->x = 400;
         player->y = 400;
@@ -4780,21 +4789,22 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 7);
         touch_game(atk2_x, atk2_y, 1, 7);
         take_damage_at(3.0, 500, 400);
-        assert(fabs(astra_grab_ready_t - 0.9) < 1e-9 && fabs(player->hp - 18.0) < 1e-9);
+        assert(fabs(astra_grab_ready_t - 0.85) < 1e-9 && fabs(player->hp - 18.0) < 1e-9);
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
-        assert(astra_ability_lunge_tx > 400.0 && player_punching_now() == 1);
+        assert(astra_ability_lunge_tx > 650.0 && player_punching_now() == 1);
         {
             double saved_dt2 = dt;
             dt = 0.02;
-            tick_astra();
+            for (int f = 0; f < 4; f++)
+                tick_astra();
             assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
             assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
-            for (int f = 0; f < 20 && astra_state != 0; f++)
+            for (int f = 0; f < 40 && astra_state != 0; f++)
                 tick_astra();
             assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
-            for (int f = 0; f < 20 && player_punching_now() == 1; f++)
+            for (int f = 0; f < 40 && player_punching_now() == 1; f++)
                 tick_astra();
             assert(player_punching_now() == 0);
             dt = saved_dt2;

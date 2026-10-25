@@ -11,7 +11,10 @@ static double player_walk_speed(void) {
         spd = spd * codecracker_speed_mult;
     }
     spd = spd * admin_cheat_speed_mult();
-    if (astra_parry_active() == 0) {
+    if (astra_parry_active() == 1) {
+        /* Reduce movement speed by 10% while Astra's purple shield is active. */
+        spd = spd * ASTRA_PARRY_SPEED_K;
+    } else {
         if (player_freeze > 0) {
             spd = spd * player_freeze_slow;
         }
@@ -212,7 +215,9 @@ static void freeze_enemy(double t, double slow) {
 
 static void enemy_move(double vx, double vy) {
     double f = enemy_freeze_factor() * enemy->speed_var;
-    if (enemy_block_left > 0 && !(class_is_astra(enemy_class) == 1 && egrab_parry_t > 0)) {
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        f = f * ASTRA_PARRY_SPEED_K;
+    } else if (enemy_block_left > 0) {
         /* Reduce enemy movement speed while blocking. */
         f = f * block_speed_k;
     }

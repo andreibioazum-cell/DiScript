@@ -2,11 +2,14 @@
 
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
-static const double astra_ability_lunge_dist = 48.0;
-static const double astra_ability_lunge_time = 0.16;
+#define ASTRA_PULLBACK_DIST 18.0
+#define ASTRA_PULLBACK_TIME 0.07
+#define ASTRA_DASH_TIME 0.34
+static const double astra_ability_lunge_dist = 310.0;
+static const double astra_ability_lunge_time = ASTRA_PULLBACK_TIME + ASTRA_DASH_TIME;
 
-#define ASTRA_STRIKE_DELAY 0.0
-#define ASTRA_STRIKE_ACTIVE 0.2
+#define ASTRA_STRIKE_DELAY ASTRA_PULLBACK_TIME
+#define ASTRA_STRIKE_ACTIVE (ASTRA_DASH_TIME + 0.06)
 #define ASTRA_STRIKE_TIME (ASTRA_STRIKE_DELAY + ASTRA_STRIKE_ACTIVE)
 #define ASTRA_STRIKE_STUN 1.0
 #define ASTRA_STRIKE_DAMAGE 4.5
@@ -59,19 +62,18 @@ static double astra_strike_stun_for(double lv) {
     return s;
 }
 
-/* Visual windup pull-back before 0.8 s and forward punch thrust at impact. */
+/* Physical pullback and forward dash handle sprite motion directly. */
 static double astra_strike_shift(double active, double t) {
-    if (active == 0) {
-        return 0;
-    }
-    if (t < ASTRA_STRIKE_DELAY) {
-        return -8.0 * sin(pi * 0.5 * clamp(t / ASTRA_STRIKE_DELAY, 0, 1));
-    }
-    return 14.0 * (1.0 - clamp((t - ASTRA_STRIKE_DELAY) / ASTRA_STRIKE_ACTIVE, 0, 1));
+    (void)active;
+    (void)t;
+    return 0;
 }
 
 static double astra_ability_lunge_active(void) {
     if (astra_ability_lunge_fx != astra_ability_lunge_tx || astra_ability_lunge_fy != astra_ability_lunge_ty) {
+        return 1;
+    }
+    if (astra_state == 1 && astra_ability_local() == 1 && astra_ability_lunge_t < astra_ability_lunge_time) {
         return 1;
     }
     return 0;
@@ -102,7 +104,7 @@ static double astra_ability_self_damage(void) {
     return astra_ability_punch_damage_for(player_class, player_level, astra_ability_local());
 }
 
-/* Start Astra's short forward lunge for the counter-strike. */
+/* Start Astra's tiny backward recoil followed by long forward dash. */
 static void astra_ability_lunge_start(void) {
     astra_ability_lunge_t = 0;
     astra_ability_lunge_fx = player->x;
@@ -114,6 +116,8 @@ static void astra_ability_lunge_start(void) {
     }
     double dx = cos(player->angle);
     double dy = sin(player->angle);
+    astra_dx = dx;
+    astra_dy = dy;
     double dist = astra_ability_lunge_dist;
     if (sqrt(joy.dx * joy.dx + joy.dy * joy.dy) > 0.15) {
         dist = dist + player_walk_speed() * astra_ability_lunge_time;
@@ -128,6 +132,16 @@ static void astra_ability_lunge_tick(void) {
         return;
     }
     astra_ability_lunge_t = astra_ability_lunge_t + dt;
+    double bx = clamp(astra_ability_lunge_fx - astra_dx * ASTRA_PULLBACK_DIST, player->size, screen_w - player->size);
+    double by = clamp(astra_ability_lunge_fy - astra_dy * ASTRA_PULLBACK_DIST, player->size, screen_h - player->size);
+    if (astra_ability_lunge_t < ASTRA_PULLBACK_TIME) {
+        double u = clamp(astra_ability_lunge_t / ASTRA_PULLBACK_TIME, 0, 1);
+        double q = 1 - u;
+        double p = 1 - q * q;
+        player->x = astra_ability_lunge_fx + (bx - astra_ability_lunge_fx) * p;
+        player->y = astra_ability_lunge_fy + (by - astra_ability_lunge_fy) * p;
+        return;
+    }
     if (astra_ability_lunge_t >= astra_ability_lunge_time) {
         astra_ability_lunge_t = astra_ability_lunge_time;
         astra_ability_lunge_fx = astra_ability_lunge_tx;
@@ -136,9 +150,11 @@ static void astra_ability_lunge_tick(void) {
         player->y = astra_ability_lunge_ty;
         return;
     }
-    /* Cubic ease-out interpolation to lunge target. */
-    double p = 1 - astra_ability_lunge_t / astra_ability_lunge_time;
-    p = 1 - p * p * p;
-    player->x = astra_ability_lunge_fx + (astra_ability_lunge_tx - astra_ability_lunge_fx) * p;
-    player->y = astra_ability_lunge_fy + (astra_ability_lunge_ty - astra_ability_lunge_fy) * p;
+    /* Fast cubic ease-out forward dash from pullback point to target. */
+    double u = clamp((astra_ability_lunge_t - ASTRA_PULLBACK_TIME) / ASTRA_DASH_TIME, 0, 1);
+    double q = 1 - u;
+    double p = 1 - q * q * q;
+    player->x = bx + (astra_ability_lunge_tx - bx) * p;
+    player->y = by + (astra_ability_lunge_ty - by) * p;
+    tick_dust(astra_dx, astra_dy, 1);
 }
