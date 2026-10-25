@@ -329,6 +329,7 @@ static int pc_run_headless(PcArgs *args) {
             (void)pc_step();
     }
     for (frame = 0; frame < args->frames; frame++) {
+        uint64_t t0 = args->pace_ms > 0 ? monotonic_ns() : 0;
         int i;
         for (i = 0; i < pc_event_count; i++)
             if (pc_events[i].frame == frame)
@@ -338,6 +339,21 @@ static int pc_run_headless(PcArgs *args) {
         (void)pc_step();
         if (ds_game_has_error())
             failed = 1;
+        if (args->pace_ms > 0) {
+            uint64_t target = (uint64_t)args->pace_ms * 1000000ull;
+            uint64_t used = monotonic_ns() - t0;
+            if (used < target) {
+                uint64_t rem = target - used;
+#ifdef _WIN32
+                Sleep((DWORD)(rem / 1000000ull));
+#else
+                struct timespec ts;
+                ts.tv_sec = (time_t)(rem / 1000000000ull);
+                ts.tv_nsec = (long)(rem % 1000000000ull);
+                nanosleep(&ts, NULL);
+#endif
+            }
+        }
     }
     {
         int i;

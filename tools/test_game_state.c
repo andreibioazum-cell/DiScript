@@ -2090,12 +2090,12 @@ static void test_eax229_and_rooms(void) {
     assert(strcmp(tr_achievement_buk(), "Подарок буКа") == 0);
     assert(strcmp(tr_skin_elf_hint(), "Подарок буКа") == 0);
     assert(strcmp(tr_skins_note_for(CLASS_EBUC), "Скин «Эльф»: достижение «Подарок буКа»") == 0);
-    assert(strcmp(bp_reward_text(4), "Скин: Эльф-буК") == 0);
+    assert(strcmp(bp_reward_text(4), "+45 кубков") == 0);
     language = 0;
     assert(strcmp(tr_class_ebuc(), "ebuC") == 0);
     assert(strcmp(tr_achievement_buk(), "ebuC's gift") == 0);
     assert(strcmp(tr_skin_elf_hint(), "ebuC's gift") == 0);
-    assert(strcmp(bp_reward_text(4), "Skin: Elf ebuC") == 0);
+    assert(strcmp(bp_reward_text(4), "+45 cups") == 0);
     language = 1;
 
     /* ACH_BUK_GIFT: granted in an online Ded Moroz event as Santa, unlocks Elf ebuC. */
@@ -3469,9 +3469,19 @@ int main(void) {
         fire_super();
         assert(strcmp(stub_last_snd, "station.wav") == 0);
         player_class = CLASS_ASTRA;
+        player->hp = 18;
+        finished = 0;
         start_grab_now();
+        assert(strcmp(stub_last_snd, "punch.wav") != 0);
+        {
+            double saved_dt_snd = dt;
+            dt = 0.8;
+            tick_astra();
+            dt = saved_dt_snd;
+        }
         assert(strcmp(stub_last_snd, "punch.wav") == 0);
         astra_state = 0;
+        astra_punch_t = 0;
         player_class = CLASS_ORDINARY;
         super_windup = 0;
         super_cd = 0;
@@ -3593,7 +3603,7 @@ int main(void) {
     player->y = 90;
     astra_punch_t = 0;
     start_grab_now();
-    assert(fabs(astra_punch_t - ASTRA_STRIKE_TIME) < 1e-9);
+    assert(astra_punch_t == 0);
     assert(fabs(player->x - 150) < 1e-9);
     assert(astra_ability_lunge_tx > 150 && astra_ability_lunge_tx - 150 <= astra_ability_lunge_dist + 1e-9);
     assert(fabs(astra_ability_lunge_ty - 90) < 1e-9);
@@ -3638,7 +3648,7 @@ int main(void) {
         astra_state = 0;
         astra_cd = 0;
     }
-    /* Strike shows punch pose immediately, waits 0.8 s before hitbox/damage, then stuns. */
+    /* Strike winds up for 0.8 s, then triggers punch pose, hitbox/damage, and stun. */
     player->x = 100;
     player->y = 90;
     player->hp = 10;
@@ -3651,20 +3661,21 @@ int main(void) {
         double saved_dt = dt;
         dt = 0.02;
         start_grab_now();
-        assert(player_punching_now() == 1);
+        assert(player_punching_now() == 0);
         enemy->x = 100 + punch_forward_offset + astra_zone_reach(0) + 45;
         for (int f = 0; f < 39; f++) {
             tick_astra();
             tick_astra_fades();
-            assert(player_punching_now() == 1);
+            assert(player_punching_now() == 0);
             assert(astra_caught == 0 && astra_box_a == 0 && fabs(enemy->hp - 10.0) < 1e-9 && enemy->stun == 0);
         }
         tick_astra();
         tick_astra_fades();
+        assert(player_punching_now() == 1);
         assert(astra_caught == 1 && astra_hits_done == 1 && astra_box_a > 0);
         assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
         assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
-        astra_release(0);
+        astra_release(1);
         dt = saved_dt;
     }
     enemy->stun = 0;
@@ -3755,13 +3766,14 @@ int main(void) {
     double saved_dt_astra = dt;
     dt = 0.02;
     start_grab_now();
-    assert(fabs(enemy->stun - 0.0) < 1e-9 && player_punching_now() == 1);
+    assert(fabs(enemy->stun - 0.0) < 1e-9 && player_punching_now() == 0);
     for (int frame = 0; frame < 39; frame++) {
         tick_astra();
+        assert(player_punching_now() == 0);
         assert(enemy->stun == 0 && fabs(enemy->hp - 10.0) < 1e-9);
     }
     tick_astra();
-    assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
+    assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
         tick_astra();
     assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
@@ -3769,6 +3781,7 @@ int main(void) {
     enemy->stun = 0;
 
     astra_state = 0;
+    astra_punch_t = 0;
     player_class = CLASS_ORDINARY;
     game_state = ST_SOLO;
     finished = 0;
@@ -3785,13 +3798,15 @@ int main(void) {
     pgrab_active = 0;
     pthrow_t = 0;
     enemy_start_grab();
-    assert(enemy_grab_punching() == 1);
+    assert(enemy_grab_punching() == 0);
     for (int frame = 0; frame < 39; frame++) {
         tick_enemy_grab();
         tick_astra_fades();
+        assert(enemy_grab_punching() == 0);
         assert(egrab_box_a == 0 && player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
     }
     tick_enemy_grab();
+    assert(enemy_grab_punching() == 1);
     assert(pgrab_active == 0 && pthrow_t == 0);
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && egrab_state != 0; frame++)
@@ -3801,6 +3816,7 @@ int main(void) {
     player_stun = 0;
 
     egrab_state = 0;
+    egrab_punch_t = 0;
     pgrab_active = 0;
     pthrow_t = 0;
     game_state = ST_ONLINE;
@@ -3820,10 +3836,11 @@ int main(void) {
     for (int frame = 0; frame < 39; frame++) {
         update_remote_grabs();
         tick_astra_fades();
-        assert(remote_grab_punching(1) == 1 && arr_get(rgrab_box_a, 1) == 0);
+        assert(remote_grab_punching(1) == 0 && arr_get(rgrab_box_a, 1) == 0);
         assert(player_stun == 0 && fabs(player->hp - 10.0) < 1e-9);
     }
     update_remote_grabs();
+    assert(remote_grab_punching(1) == 1);
     assert(pgrab_active == 0 && pthrow_t == 0);
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60; frame++)
@@ -4541,13 +4558,16 @@ int main(void) {
         bp_claim(2);
         bp_claim(3);
         assert(bp_claimed == 3 && skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
+        double cups_before_t4 = cups;
         bp_claim(4);
-        assert(bp_claimed == 4 && skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
+        assert(bp_claimed == 4 && fabs(cups - (cups_before_t4 + 45)) < 1e-9);
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
         assert(class_owned_of(CLASS_SANTA) == 0);
         bp_claim(5);
         bp_claim(6);
         bp_claim(7);
         assert(bp_claimed == 7 && class_owned_of(CLASS_SANTA) == 1);
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
         assert(stub_last_bp == 7);
         assert(class_visible(CLASS_SANTA) == 1);
         bp_xp = 0;
@@ -4683,11 +4703,13 @@ int main(void) {
         assert(astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
 
-        /* 2c) Pressing within 0.9 s fires counter-strike (lunge + damage + 0.4 s stun). */
+        /* 2c) Pressing within 0.9 s starts lunge + windup in idle pose, then triggers
+         *     punch animation + damage + 1.0 s stun at 0.8 s. */
         astra_cd = 0;
         player->x = 400;
         player->y = 400;
         player->angle = 0;
+        arr_set(fighter_swings, FLOOK_ME, 1);
         enemy_class = CLASS_ORDINARY;
         enemy->x = 470;
         enemy->y = 400;
@@ -4700,21 +4722,27 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
-        assert(astra_ability_lunge_tx > 400.0 && player_punching_now() == 1);
+        assert(astra_ability_lunge_tx > 400.0 && player_punching_now() == 0);
         {
             double saved_dt2 = dt;
             dt = 0.02;
             for (int f = 0; f < 39; f++) {
                 tick_astra();
+                assert(player_punching_now() == 0);
                 assert(enemy->stun == 0 && fabs(enemy->hp - 20.0) < 1e-9);
             }
             tick_astra();
+            assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
             assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
             for (int f = 0; f < 20 && astra_state != 0; f++)
                 tick_astra();
+            assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
+            assert(player_punching_now() == 1);
+            for (int f = 0; f < 20 && player_punching_now() == 1; f++)
+                tick_astra();
+            assert(player_punching_now() == 0);
             dt = saved_dt2;
         }
-        assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
         enemy->stun = 0;
         astra_cd = 0;
 
@@ -4813,9 +4841,12 @@ int main(void) {
         draw_lobby_money();
         assert(adm_has_text("Конфеты") == 0 && fabs(candies - 77.0) < 1e-9);
 
-        /* Previously earned BP rewards (Tier 4 Elf ebuC, Tier 7 Santa) remain unlocked for Sanch. */
+        /* Previously earned BP Tier 7 Santa remains unlocked for Sanch; Elf ebuC requires online ACH_BUK_GIFT. */
         bp_claimed = 4;
-        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
+        achievement_mask = 0;
+        ebuc_skin = SKIN_SPECIAL;
+        progress_normalize();
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0 && ebuc_skin == SKIN_NORMAL);
         bp_claimed = 7;
         player_class = CLASS_SANTA;
         progress_normalize();

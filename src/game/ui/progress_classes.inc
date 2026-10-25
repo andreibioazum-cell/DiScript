@@ -159,11 +159,8 @@ static double skin_unlocked_for(double cls, double skin) {
         return 1;
     }
     if (cls == CLASS_EBUC) {
-        /* Unlock Elf ebuC via ACH_BUK_GIFT or claimed battle pass tier 4. */
-        if ((bpass_rewards_allowed() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
-            return 1;
-        }
-        return 0;
+        /* Unlock Elf ebuC strictly via online ACH_BUK_GIFT. */
+        return has_achievement(ACH_BUK_GIFT) == 1 ? 1 : 0;
     }
     if (cls == CLASS_AZUM && has_achievement(ACH_LEGENDS) == 1) {
         return 1;

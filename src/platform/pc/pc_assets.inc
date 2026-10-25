@@ -92,10 +92,13 @@ int AAsset_close(AAsset *asset) {
 }
 
 /* Mirror log output to cb4.log alongside stderr. */
+#include <pthread.h>
 static FILE *pc_log_file = NULL;
 static int pc_log_tried = 0;
+static pthread_mutex_t pc_log_lock = PTHREAD_MUTEX_INITIALIZER;
 
-static void pc_log_sink(const char *line) {
+static void pc_log_sink(const char *line, int urgent) {
+    pthread_mutex_lock(&pc_log_lock);
     if (!pc_log_tried) {
         char path[1200];
         pc_log_tried = 1;
@@ -112,24 +115,24 @@ static void pc_log_sink(const char *line) {
     }
     if (pc_log_file) {
         fputs(line, pc_log_file);
-        fflush(pc_log_file);
+        if (urgent)
+            fflush(pc_log_file);
     }
+    pthread_mutex_unlock(&pc_log_lock);
 }
 
 static int pc_log_vprint(int prio, const char *tag, const char *fmt, va_list ap) {
     const char *level = prio >= ANDROID_LOG_ERROR ? "E" : prio >= ANDROID_LOG_WARN ? "W" : "I";
     char line[1024];
-    int n;
+    char full[1200];
     vsnprintf(line, sizeof(line), fmt, ap);
-    fprintf(stderr, "[%s/%s] %s\n", level, tag ? tag : "-", line);
+    snprintf(full, sizeof(full), "[%s/%s] %s\n", level, tag ? tag : "-", line);
+#ifndef _WIN32
+    fputs(full, stderr);
     fflush(stderr);
-    {
-        char full[1200];
-        snprintf(full, sizeof(full), "[%s/%s] %s\n", level, tag ? tag : "-", line);
-        pc_log_sink(full);
-    }
-    n = (int)strlen(line);
-    return n;
+#endif
+    pc_log_sink(full, prio >= ANDROID_LOG_ERROR);
+    return (int)strlen(line);
 }
 
 int __android_log_vprint(int prio, const char *tag, const char *fmt, va_list ap) {

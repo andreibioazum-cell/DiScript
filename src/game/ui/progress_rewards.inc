@@ -135,6 +135,9 @@ static void progress_normalize(void) {
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         azum_skin = SKIN_NORMAL;
     }
+    if (ebuc_skin == SKIN_SPECIAL && has_achievement(ACH_BUK_GIFT) == 0) {
+        ebuc_skin = SKIN_NORMAL;
+    }
     double order = 0;
     while (order < class_count) {
         double cls = class_at_order(order);

@@ -32,6 +32,8 @@ static void leave_screen(double state) {
         event_t = 0;
     }
     if (state == ST_SOLO || state == ST_ONLINE) {
+        ds_gfx_gray(0);
+        ds_gfx_shake(0, 0);
         save_progress();
     }
 }

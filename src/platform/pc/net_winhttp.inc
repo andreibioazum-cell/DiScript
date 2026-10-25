@@ -5,16 +5,28 @@
 #include <windows.h>
 #include <winhttp.h>
 
+#ifndef WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY
+#define WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY 4
+#endif
+
 static HINTERNET pc_http_session = NULL;
+static DSMutex pc_http_session_lock = DS_MUTEX_INIT;
 
 static HINTERNET pc_http_session_get(void) {
-    if (pc_http_session)
-        return pc_http_session;
-    pc_http_session = WinHttpOpen(L"CubicBattle4/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME,
-                                  WINHTTP_NO_PROXY_BYPASS, 0);
-    if (!pc_http_session)
-        ds_log_err("http: WinHttpOpen failed (%lu)", (unsigned long)GetLastError());
-    return pc_http_session;
+    HINTERNET s;
+    ds_mutex_lock(pc_http_session_lock);
+    if (!pc_http_session) {
+        pc_http_session = WinHttpOpen(L"CubicBattle4/1.0", WINHTTP_ACCESS_TYPE_AUTOMATIC_PROXY, WINHTTP_NO_PROXY_NAME,
+                                      WINHTTP_NO_PROXY_BYPASS, 0);
+        if (!pc_http_session)
+            pc_http_session = WinHttpOpen(L"CubicBattle4/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME,
+                                          WINHTTP_NO_PROXY_BYPASS, 0);
+        if (!pc_http_session && net_log_ok())
+            ds_log_err("http: WinHttpOpen failed (%lu)", (unsigned long)GetLastError());
+    }
+    s = pc_http_session;
+    ds_mutex_unlock(pc_http_session_lock);
+    return s;
 }
 
 static wchar_t *pc_wide(const char *s) {
@@ -30,16 +42,18 @@ static wchar_t *pc_wide(const char *s) {
 }
 
 static HINTERNET pc_open_request(const char *method, PcUrl *u, const char *header, const char *value,
-                                 const char *override_method, int streaming) {
+                                 const char *override_method, int streaming, HINTERNET *out_conn) {
     HINTERNET session = pc_http_session_get();
     HINTERNET conn = NULL, req = NULL;
     wchar_t *whost = NULL, *wpath = NULL, *wmethod = NULL;
     DWORD flags = u->https ? WINHTTP_FLAG_SECURE : 0;
-    int tmo = streaming ? 60000 : (net_fast ? 1200 : TIMEOUT);
+    int tmo = net_fast ? 1200 : TIMEOUT;
+    int rtmo = streaming ? 15000 : tmo;
 
+    if (out_conn)
+        *out_conn = NULL;
     if (!session)
         return NULL;
-    WinHttpSetTimeouts(session, tmo, tmo, tmo, streaming ? 60000 : tmo);
     whost = pc_wide(u->host);
     wpath = pc_wide(u->path);
     wmethod = pc_wide(method);
@@ -47,14 +61,17 @@ static HINTERNET pc_open_request(const char *method, PcUrl *u, const char *heade
         goto done;
     conn = WinHttpConnect(session, whost, (INTERNET_PORT)u->port, 0);
     if (!conn) {
-        ds_log_err("http: connect to %s:%d failed (%lu)", u->host, u->port, (unsigned long)GetLastError());
+        if (net_log_ok())
+            ds_log_err("http: connect to %s:%d failed (%lu)", u->host, u->port, (unsigned long)GetLastError());
         goto done;
     }
     req = WinHttpOpenRequest(conn, wmethod, wpath, NULL, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!req) {
-        ds_log_err("http: open request failed (%lu)", (unsigned long)GetLastError());
+        if (net_log_ok())
+            ds_log_err("http: open request failed (%lu)", (unsigned long)GetLastError());
         goto done;
     }
+    WinHttpSetTimeouts(req, tmo, tmo, tmo, rtmo);
     {
         char hdrs[1200];
         hdrs[0] = '\0';
@@ -75,7 +92,7 @@ static HINTERNET pc_open_request(const char *method, PcUrl *u, const char *heade
             int ok = wh && WinHttpAddRequestHeaders(req, wh, (DWORD)-1L,
                                                     WINHTTP_ADDREQ_FLAG_ADD | WINHTTP_ADDREQ_FLAG_REPLACE);
             free(wh);
-            if (!ok)
+            if (!ok && net_log_ok())
                 ds_log_err("http: cannot set headers (%lu)", (unsigned long)GetLastError());
         }
     }
@@ -83,8 +100,12 @@ done:
     free(whost);
     free(wpath);
     free(wmethod);
-    if (!req && conn)
-        WinHttpCloseHandle(conn);
+    if (!req) {
+        if (conn)
+            WinHttpCloseHandle(conn);
+    } else if (out_conn) {
+        *out_conn = conn;
+    }
     return req;
 }
 
@@ -127,7 +148,7 @@ static void pc_query_etag(HINTERNET req, char *etag, size_t etag_cap) {
 
 static int pc_http_request(const char *method, PcUrl *u, const char *body, char *out, size_t cap, const char *header,
                            const char *value, const char *override_method, char *etag, size_t etag_cap) {
-    HINTERNET req;
+    HINTERNET conn = NULL, req;
     DWORD code = 0;
     size_t total = 0;
     int ok = 0;
@@ -138,7 +159,7 @@ static int pc_http_request(const char *method, PcUrl *u, const char *body, char 
         out[0] = '\0';
     if (etag && etag_cap)
         etag[0] = '\0';
-    req = pc_open_request(method, u, header, value, override_method, 0);
+    req = pc_open_request(method, u, header, value, override_method, 0, &conn);
     if (!req)
         return 0;
     if (WinHttpSendRequest(req, WINHTTP_NO_ADDITIONAL_HEADERS, 0, (LPVOID)send_body, body_len, body_len, 0) &&
@@ -159,36 +180,39 @@ static int pc_http_request(const char *method, PcUrl *u, const char *body, char 
             ok = 1;
         }
         ok = 1;
-    } else {
+    } else if (net_log_ok()) {
         ds_log_err("http: %s %s://%s%s failed (%lu)", method, u->https ? "https" : "http", u->host, u->path,
                    (unsigned long)GetLastError());
     }
     WinHttpCloseHandle(req);
+    if (conn)
+        WinHttpCloseHandle(conn);
     return ok ? (int)code : 0;
 }
 
 static int pc_http_stream(PcUrl *u, const char *accept, DSStreamChunkFn cb, void *ctx) {
-    HINTERNET req = pc_open_request("GET", u, "Accept", accept, NULL, 1);
+    HINTERNET conn = NULL;
+    HINTERNET req = pc_open_request("GET", u, "Accept", accept, NULL, 1, &conn);
     DWORD code = 0;
-    int stopped = 0;
     if (!req)
         return 0;
     if (WinHttpSendRequest(req, WINHTTP_NO_ADDITIONAL_HEADERS, 0, NULL, 0, 0, 0) && WinHttpReceiveResponse(req, NULL)) {
         code = pc_query_status(req);
-        for (;;) {
-            char buf[4096];
-            DWORD got = 0;
-            if (!WinHttpReadData(req, buf, sizeof(buf), &got) || got == 0)
-                break;
-            if (!cb(ctx, buf, (size_t)got)) {
-                stopped = 1;
-                break;
+        if (code == 200 && cb(ctx, "", 0)) {
+            for (;;) {
+                char buf[4096];
+                DWORD got = 0;
+                if (!WinHttpReadData(req, buf, sizeof(buf), &got) || got == 0)
+                    break;
+                if (!cb(ctx, buf, (size_t)got))
+                    break;
             }
         }
-    } else {
+    } else if (net_log_ok()) {
         ds_log_err("http: stream %s%s failed (%lu)", u->host, u->path, (unsigned long)GetLastError());
     }
     WinHttpCloseHandle(req);
-    (void)stopped;
+    if (conn)
+        WinHttpCloseHandle(conn);
     return (int)code;
 }

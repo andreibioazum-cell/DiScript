@@ -177,7 +177,8 @@ static void draw_online(void) {
             } else if (remote_grab_punching(i) == 1) {
                 punching = 1;
             }
-            draw_fighter_shadow(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
+            double rsh = astra_strike_shift(remote_grab_get(i, GRAB_ACTIVE) == 1, remote_grab_get(i, GRAB_T));
+            draw_fighter_shadow(rx + cos(ra) * rsh, ry + sin(ra) * rsh, ra, fighter_look_of(FLOOK_REMOTE + i),
                                 fighter_pose_of(FLOOK_REMOTE + i, punching));
         }
         i = i + 1;

@@ -1,50 +1,27 @@
 /* Battle screen FX: edge vignette, damage flash, and motion-blur tracking. */
 
-/* Draw soft-edged rectangular band using multi-tap blur offsets. */
-static void vignette_band(double x, double y, double w, double h, double a, double blur) {
-    const double kw[3] = {0.25, 0.09, 0.06};
-    const double kr[3] = {0.0, 0.55, 1.0};
-    int ring = 0;
-    while (ring < 3) {
-        double rr = blur * kr[ring];
-        unsigned ai = (unsigned)(int)(a * kw[ring] * 255.0 + 0.5);
-        if (ai >= 1) {
-            uint32_t c = ((uint32_t)ai) << 24;
-            if (ring == 0) {
-                rect(x, y, w, h, c);
-            } else {
-                double i = 0;
-                while (i < 6) {
-                    double ang = i * pi / 3;
-                    rect(x + cos(ang) * rr, y + sin(ang) * rr, w, h, c);
-                    i = i + 1;
-                }
-            }
-        }
-        ring = ring + 1;
-    }
-}
-
-/* Draw dark edge vignette during active ultimates. */
+/* Draw non-overlapping concentric edge vignette bands around the arena. */
 static void draw_vignette(void) {
-    int steps = 8;
-    double sx = screen_w * 0.08 / steps;
-    double sy = screen_h * 0.08 / steps;
-    double tw = sx * 1.4;
-    double th = sy * 1.4;
+    int steps = 10;
+    double sx = screen_w * 0.085 / steps;
+    double sy = screen_h * 0.085 / steps;
     int i = 0;
     while (i < steps) {
-        double k = (steps - 1 - i) / (double)(steps - 1);
-        double a = 0.26 * k * k;
-        if (a > 0.002) {
+        double k = (steps - i) / (double)steps;
+        unsigned ai = (unsigned)(int)(0.24 * k * k * 255.0 + 0.5);
+        if (ai >= 1) {
+            uint32_t c = ((uint32_t)ai) << 24;
             double x = i * sx;
             double y = i * sy;
             double w = screen_w - 2 * x;
             double h = screen_h - 2 * y;
-            vignette_band(x, y, w, th, a, sy * 1.8);
-            vignette_band(x, y + h - th, w, th, a, sy * 1.8);
-            vignette_band(x, y, tw, h, a, sx * 1.8);
-            vignette_band(x + w - tw, y, tw, h, a, sx * 1.8);
+            double ih = h - 2 * sy;
+            rect(x, y, w, sy, c);
+            rect(x, y + h - sy, w, sy, c);
+            if (ih > 0) {
+                rect(x, y + sy, sx, ih, c);
+                rect(x + w - sx, y + sy, sx, ih, c);
+            }
         }
         i = i + 1;
     }

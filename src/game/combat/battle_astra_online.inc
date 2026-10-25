@@ -19,17 +19,21 @@ static void remote_grab_set(double slot, double field, double value) {
     arr_set(remote_grab, slot * grab_fields + field, value);
 }
 
-static void remote_grab_stop(double slot) {
+static void remote_grab_finish(double slot) {
     remote_grab_set(slot, GRAB_ACTIVE, 0);
     remote_grab_set(slot, GRAB_CAUGHT, 0);
     remote_grab_set(slot, GRAB_HITS, 0);
     remote_grab_set(slot, GRAB_T, 0);
     remote_grab_set(slot, GRAB_ASTRA_KIT, 0);
-    arr_set(rgrab_punch_t, slot, 0);
     if (pgrab_active == 1 && pgrab_slot == slot) {
         pgrab_active = 0;
         pgrab_slot = -1;
     }
+}
+
+static void remote_grab_stop(double slot) {
+    remote_grab_finish(slot);
+    arr_set(rgrab_punch_t, slot, 0);
 }
 
 static void remote_grab_begin(double slot) {
@@ -43,7 +47,7 @@ static void remote_grab_begin(double slot) {
     remote_grab_set(slot, GRAB_DY, net_player_grab_dy(slot));
     remote_grab_set(slot, GRAB_ASTRA_KIT, astra_ability_of_slot(slot));
     arr_set(rgrab_box_a, slot, 0);
-    remote_grab_swing(slot);
+    arr_set(rgrab_punch_t, slot, 0);
 }
 
 static double update_remote_grab(double slot) {
@@ -60,8 +64,13 @@ static double update_remote_grab(double slot) {
         return 0;
     }
     double b = slot * remote_fields;
-    double t = remote_grab_get(slot, GRAB_T) + dt;
+    double prev_t = remote_grab_get(slot, GRAB_T);
+    double t = prev_t + dt;
     remote_grab_set(slot, GRAB_T, t);
+    if (prev_t < ASTRA_STRIKE_DELAY - 1e-9 && t >= ASTRA_STRIKE_DELAY - 1e-9) {
+        remote_grab_swing(slot);
+        punch_snd();
+    }
     if (arr_get(remotes, b) == 1 && arr_get(remotes, b + 5) == 1 && t <= ASTRA_STRIKE_DELAY + dt) {
         double ra = arr_get(remotes, b + 3);
         remote_grab_set(slot, GRAB_X, arr_get(remotes, b + 1));
@@ -100,7 +109,7 @@ static double update_remote_grab(double slot) {
         }
     }
     if (t >= ASTRA_STRIKE_TIME - 1e-9) {
-        remote_grab_stop(slot);
+        remote_grab_finish(slot);
     }
     return 0;
 }
@@ -127,5 +136,5 @@ static double remote_grab_punching(double slot) {
 }
 
 static void remote_grab_swing(double slot) {
-    arr_set(rgrab_punch_t, slot, ASTRA_STRIKE_TIME);
+    arr_set(rgrab_punch_t, slot, fmax(punch_time, ASTRA_STRIKE_ACTIVE));
 }

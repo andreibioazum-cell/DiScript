@@ -44,7 +44,7 @@ static const char *bp_reward_text(double t) {
     if (t == 1) return ds_concat("+10 ", tr_cups_unit());
     if (t == 2) return ds_concat("+20 ", tr_cups_unit());
     if (t == 3) return ds_concat("+30 ", tr_cups_unit());
-    if (t == 4) return language == 1 ? "Скин: Эльф-буК" : "Skin: Elf ebuC";
+    if (t == 4) return ds_concat("+45 ", tr_cups_unit());
     if (t == 5) return ds_concat("+60 ", tr_cups_unit());
     if (t == 6) return ds_concat("+100 ", tr_cups_unit());
     return language == 1 ? "Класс: Дед Мороз" : "Class: Santa";
@@ -57,6 +57,8 @@ static void bp_grant(double t) {
         cups = cups + 20;
     } else if (t == 3) {
         cups = cups + 30;
+    } else if (t == 4) {
+        cups = cups + 45;
     } else if (t == 5) {
         cups = cups + 60;
     } else if (t == 6) {
@@ -64,7 +66,6 @@ static void bp_grant(double t) {
     } else if (t == 7) {
         set_class_owned(CLASS_SANTA, 1);
     }
-    /* Tier 4 unlocks Elf ebuC via bp_claimed >= 4. */
 }
 
 static void bp_claim(double t) {

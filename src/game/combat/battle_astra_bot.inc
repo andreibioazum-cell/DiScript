@@ -7,7 +7,7 @@ static double enemy_grab_active(void) {
     return 0;
 }
 
-static void enemy_grab_swing(void) { egrab_punch_t = ASTRA_STRIKE_TIME; }
+static void enemy_grab_swing(void) { egrab_punch_t = fmax(punch_time, ASTRA_STRIKE_ACTIVE); }
 
 static double enemy_grab_punching(void) {
     if (egrab_punch_t > 0) {
@@ -43,7 +43,18 @@ static void enemy_on_astra_parry_block(void) {
 }
 
 static void enemy_grab_stop(double landed) {
-    enemy_grab_clear();
+    egrab_state = 0;
+    egrab_t = 0;
+    egrab_hits = 0;
+    egrab_parry_t = 0;
+    egrab_ready_t = 0;
+    if (finished != 0 || enemy->hp <= 0) {
+        egrab_punch_t = 0;
+    }
+    if (pgrab_active == 1 && pgrab_slot == grab_slot_bot) {
+        pgrab_active = 0;
+        pgrab_slot = -1;
+    }
     if (landed == 1) {
         enemy_super_cd = enemy_astra_cd_time;
     } else {
@@ -58,11 +69,11 @@ static void enemy_start_grab(void) {
     egrab_t = 0;
     egrab_hits = 0;
     egrab_box_a = 0;
+    egrab_punch_t = 0;
     egrab_x = enemy->x;
     egrab_y = enemy->y;
     egrab_dx = cos(enemy->angle);
     egrab_dy = sin(enemy->angle);
-    enemy_grab_swing();
     ds_log("bot astra strike cast");
 }
 
@@ -106,7 +117,12 @@ static void tick_enemy_grab(void) {
     }
     egrab_x = enemy->x;
     egrab_y = enemy->y;
+    double prev_t = egrab_t;
     egrab_t = egrab_t + dt;
+    if (prev_t < ASTRA_STRIKE_DELAY - 1e-9 && egrab_t >= ASTRA_STRIKE_DELAY - 1e-9) {
+        enemy_grab_swing();
+        punch_snd();
+    }
     if (egrab_t >= ASTRA_STRIKE_DELAY - 1e-9 && egrab_hits == 0) {
         double target = punch_resolve_target(egrab_x, egrab_y, egrab_dx, egrab_dy, astra_zone_reach(enemy_level),
                                              astra_zone_width(enemy_level));

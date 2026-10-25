@@ -273,7 +273,8 @@ def harness_async(assets: Path, data: Path, args: list[str], progress: str = "")
     if progress:
         (data / "progress.dat").write_text(progress, encoding="utf-8")
     return subprocess.Popen(
-        [str(BINARY), "--headless", "--size", "540x960", "--assets", str(assets), "--data", str(data), *args],
+        [str(BINARY), "--headless", "--pace-ms", "16", "--size", "540x960",
+         "--assets", str(assets), "--data", str(data), *args],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -303,7 +304,7 @@ def test_brick_online(assets: Path) -> None:
              "--touch", "1600:408:630:0:7", "--touch", "1608:408:630:1:7",
              "--report", "1615", "--report", "1750", "--report", "2000", "--report", "2300"],
         )
-        time.sleep(5)
+        time.sleep(0.5)
         victim = harness_async(
             assets,
             SCRATCH / "brick_net_b",
@@ -356,7 +357,7 @@ def test_codecracker_online(assets: Path) -> None:
              "--report", "1700", "--report", "2050"],
             progress="500 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
         )
-        time.sleep(5)
+        time.sleep(0.5)
         victim = harness_async(
             assets,
             SCRATCH / "cc_net_b",

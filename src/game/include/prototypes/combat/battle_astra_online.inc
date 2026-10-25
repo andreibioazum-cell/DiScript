@@ -1,6 +1,7 @@
 static void push_astra_grab(void);
 static double remote_grab_get(double slot, double field);
 static void remote_grab_set(double slot, double field, double value);
+static void remote_grab_finish(double slot);
 static void remote_grab_stop(double slot);
 static void remote_grab_begin(double slot);
 static double update_remote_grab(double slot);

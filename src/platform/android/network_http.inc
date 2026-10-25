@@ -77,16 +77,29 @@ static int http_jni_resolve(JNIEnv *env) {
     return 1;
 }
 
-static JNIEnv *http_env(int *attached) {
+static pthread_key_t http_jni_tls_key;
+static pthread_once_t http_jni_tls_once = PTHREAD_ONCE_INIT;
+
+static void http_jni_tls_detach(void *val) {
+    if (val && net.vm)
+        (*net.vm)->DetachCurrentThread(net.vm);
+}
+
+static void http_jni_tls_init(void) {
+    (void)pthread_key_create(&http_jni_tls_key, http_jni_tls_detach);
+}
+
+/* Keep worker threads attached across requests; detach automatically on thread exit. */
+static JNIEnv *http_env(void) {
     JNIEnv *env = NULL;
-    *attached = 0;
     if (!net.vm)
         return NULL;
-    if ((*net.vm)->GetEnv(net.vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
-        if ((*net.vm)->AttachCurrentThread(net.vm, &env, NULL) != JNI_OK)
-            return NULL;
-        *attached = 1;
-    }
+    if ((*net.vm)->GetEnv(net.vm, (void **)&env, JNI_VERSION_1_6) == JNI_OK)
+        return env;
+    (void)pthread_once(&http_jni_tls_once, http_jni_tls_init);
+    if ((*net.vm)->AttachCurrentThread(net.vm, &env, NULL) != JNI_OK)
+        return NULL;
+    (void)pthread_setspecific(http_jni_tls_key, (void *)1);
     return env;
 }
 
@@ -119,13 +132,13 @@ static int http_ex(const char *method, const char *url, const char *body, char *
     jclass urlc, connc, streamc;
     jbyteArray buf;
     jstring ju, jm;
-    int code = 0, attached = 0, ok = 0, cached;
+    int code = 0, ok = 0, cached;
     size_t total = 0;
     if (out && cap)
         out[0] = '\0';
     if (etag && etag_cap)
         etag[0] = '\0';
-    env = http_env(&attached);
+    env = http_env();
     if (!env)
         return 0;
 #define JNI_CHECK()                                                                                                    \
@@ -288,8 +301,6 @@ closeconn:
 done:
     http_log_exception(env, method);
     (*env)->PopLocalFrame(env, NULL);
-    if (attached)
-        (*net.vm)->DetachCurrentThread(net.vm);
     return ok ? code : 0;
 #undef JNI_CHECK
 }
@@ -299,8 +310,8 @@ static int http_stream(const char *url, const char *accept, DSStreamChunkFn cb, 
     JNIEnv *env = NULL;
     jobject conn = NULL, stream = NULL, urlobj = NULL;
     jbyteArray buf;
-    int code = 0, attached = 0, cached;
-    env = http_env(&attached);
+    int code = 0, cached;
+    env = http_env();
     if (!env || !cb)
         return 0;
     if ((*env)->PushLocalFrame(env, 32) != 0)
@@ -360,7 +371,5 @@ static int http_stream(const char *url, const char *accept, DSStreamChunkFn cb, 
 done:
     http_log_exception(env, "STREAM");
     (*env)->PopLocalFrame(env, NULL);
-    if (attached)
-        (*net.vm)->DetachCurrentThread(net.vm);
     return code;
 }

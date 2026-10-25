@@ -9,6 +9,7 @@
 typedef struct {
     int frames;
     int warmup;
+    int pace_ms;
     int width, height;
     int headless;
     char assets[PC_PATH_LEN];
@@ -84,6 +85,11 @@ static void pc_args_parse(const char *cmdline, PcArgs *a) {
             a->warmup = atoi(v);
             if (a->warmup < 0)
                 a->warmup = 0;
+            i++;
+        } else if (strcmp(k, "--pace-ms") == 0) {
+            a->pace_ms = atoi(v);
+            if (a->pace_ms < 0)
+                a->pace_ms = 0;
             i++;
         } else if (strcmp(k, "--size") == 0) {
             int w = 0, h = 0;

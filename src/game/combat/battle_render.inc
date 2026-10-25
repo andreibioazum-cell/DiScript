@@ -71,6 +71,7 @@ static void finish_game(double result) {
     punch->active = 0;
     punch->hit = 0;
     punch_left = 0;
+    astra_punch_t = 0;
     super_windup = 0;
     santa_follow = 0;
     drop_joy();
@@ -241,8 +242,9 @@ static void draw_enemy_shadow(void) {
     double ehw = 25 * cube_scale * enemy_scale;
     double es = cube_scale * enemy_scale;
     double look = fighter_look_of(FLOOK_BOT);
-    double sx = enemy->x - shadow_off;
-    double sy = enemy->y + shadow_off;
+    double esh = astra_strike_shift(egrab_state != 0, egrab_t);
+    double sx = enemy->x + cos(enemy->angle) * esh - shadow_off;
+    double sy = enemy->y + sin(enemy->angle) * esh + shadow_off;
     if (look == LOOK_NONE) {
         draw_shadow_blur_circle(sx, sy, ehw, shadow_alpha * 2.5, ehw * 0.07);
         return;

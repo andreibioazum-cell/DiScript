@@ -1,21 +1,27 @@
-/* Software triangle rasterizer matching Vulkan solid, image, and tint pipelines. */
+/* Software rasterizer matching Vulkan solid, image, and tint pipelines. */
 
-static void pc_blend_pixel(uint32_t *dst, unsigned sr, unsigned sg, unsigned sb, unsigned sa) {
-    unsigned dr, da, ia, oa;
+static inline unsigned pc_div255(unsigned v) {
+    unsigned t = v + 128u;
+    return (t + (t >> 8)) >> 8;
+}
+
+static inline void pc_blend_pixel(uint32_t *dst, unsigned sr, unsigned sg, unsigned sb, unsigned sa) {
+    unsigned dr, da, a256, ia, oa;
     if (sa == 0)
         return;
-    if (sa == 255) {
-        *dst = (sr & 0xff) | ((sg & 0xff) << 8) | ((sb & 0xff) << 16) | 0xff000000u;
+    if (sa >= 255) {
+        *dst = (sr & 0xffu) | ((sg & 0xffu) << 8) | ((sb & 0xffu) << 16) | 0xff000000u;
         return;
     }
     dr = *dst;
-    ia = 255 - sa;
-    sr = (sr * sa + (dr & 0xff) * ia) / 255;
-    sg = (sg * sa + ((dr >> 8) & 0xff) * ia) / 255;
-    sb = (sb * sa + ((dr >> 16) & 0xff) * ia) / 255;
-    da = (dr >> 24) & 0xff;
-    oa = sa + da * ia / 255;
-    *dst = (sr & 0xff) | ((sg & 0xff) << 8) | ((sb & 0xff) << 16) | ((oa & 0xff) << 24);
+    a256 = sa + (sa >> 7);
+    ia = 256u - a256;
+    sr = (sr * a256 + (dr & 0xffu) * ia) >> 8;
+    sg = (sg * a256 + ((dr >> 8) & 0xffu) * ia) >> 8;
+    sb = (sb * a256 + ((dr >> 16) & 0xffu) * ia) >> 8;
+    da = (dr >> 24) & 0xffu;
+    oa = sa + ((da * ia) >> 8);
+    *dst = (sr & 0xffu) | ((sg & 0xffu) << 8) | ((sb & 0xffu) << 16) | ((oa & 0xffu) << 24);
 }
 
 static float pc_edge(float ax, float ay, float bx, float by, float px, float py) {
@@ -151,16 +157,15 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
                     tc = tex[(size_t)tyi * (size_t)tw + txi];
                     ta = (tc >> 24) & 0xff;
                     if (ta == 0) {
-                        /* transparent texel: nothing to blend */
+                        /* Skip transparent texels. */
                     } else if (pipeline == 1) {
-                        sr = sr * ((tc & 0xff)) / 255;
-                        sg = sg * (((tc >> 8) & 0xff)) / 255;
-                        sb = sb * (((tc >> 16) & 0xff)) / 255;
-                        sa = sa * ta / 255;
+                        sr = pc_div255(sr * (tc & 0xffu));
+                        sg = pc_div255(sg * ((tc >> 8) & 0xffu));
+                        sb = pc_div255(sb * ((tc >> 16) & 0xffu));
+                        sa = pc_div255(sa * ta);
                         pc_blend_pixel(&row[x], sr, sg, sb, sa);
                     } else {
-                        /* Pipeline 2 tint shader: vertex RGB modulated by texel alpha. */
-                        sa = sa * ta / 255;
+                        sa = pc_div255(sa * ta);
                         pc_blend_pixel(&row[x], sr, sg, sb, sa);
                     }
                 } else {
@@ -183,15 +188,143 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
     }
 }
 
+/* Fast-path axis-aligned uniform-color quads (solid, alpha, textured, tinted). */
+static int pc_quad_aa(int pipeline, const uint32_t *tex, int tw, int th, GeoVert v0, GeoVert v1, GeoVert v2,
+                      GeoVert v3) {
+    float x0, x1, y0, y1;
+    int minx, maxx, miny, maxy, x, y;
+    uint32_t col = v0.c;
+    unsigned sr, sg, sb, sa;
+    if (v0.c != v1.c || v0.c != v2.c || v0.c != v3.c)
+        return 0;
+    if (fabsf(v0.y - v1.y) > 1e-4f || fabsf(v2.y - v3.y) > 1e-4f || fabsf(v0.x - v3.x) > 1e-4f ||
+        fabsf(v1.x - v2.x) > 1e-4f)
+        return 0;
+    x0 = v0.x;
+    x1 = v1.x;
+    y0 = v0.y;
+    y1 = v2.y;
+    if (!(x1 > x0 && y1 > y0))
+        return 0;
+    if (pipeline != 0 && (fabsf(v0.v - v1.v) > 1e-4f || fabsf(v2.v - v3.v) > 1e-4f || fabsf(v0.u - v3.u) > 1e-4f ||
+                          fabsf(v1.u - v2.u) > 1e-4f))
+        return 0;
+    minx = (int)ceilf(x0 - 0.5001f);
+    maxx = (int)floorf(x1 - 0.4999f);
+    miny = (int)ceilf(y0 - 0.5001f);
+    maxy = (int)floorf(y1 - 0.4999f);
+    if (minx < 0)
+        minx = 0;
+    if (miny < 0)
+        miny = 0;
+    if (maxx > pc_fb_w - 1)
+        maxx = pc_fb_w - 1;
+    if (maxy > pc_fb_h - 1)
+        maxy = pc_fb_h - 1;
+    if (minx > maxx || miny > maxy)
+        return 1;
+    sa = (col >> 24) & 0xffu;
+    if (sa == 0)
+        return 1;
+    sr = col & 0xffu;
+    sg = (col >> 8) & 0xffu;
+    sb = (col >> 16) & 0xffu;
+    if (pipeline == 0) {
+        if (sa == 255) {
+            uint32_t out = col | 0xff000000u;
+            for (y = miny; y <= maxy; y++) {
+                uint32_t *row = pc_fb + (size_t)y * (size_t)pc_fb_w;
+                for (x = minx; x <= maxx; x++)
+                    row[x] = out;
+            }
+        } else {
+            unsigned a256 = sa + (sa >> 7), ia = 256u - a256;
+            unsigned psr = sr * a256, psg = sg * a256, psb = sb * a256;
+            for (y = miny; y <= maxy; y++) {
+                uint32_t *row = pc_fb + (size_t)y * (size_t)pc_fb_w;
+                for (x = minx; x <= maxx; x++) {
+                    uint32_t d = row[x];
+                    unsigned r = (psr + (d & 0xffu) * ia) >> 8;
+                    unsigned g = (psg + ((d >> 8) & 0xffu) * ia) >> 8;
+                    unsigned b = (psb + ((d >> 16) & 0xffu) * ia) >> 8;
+                    unsigned oa = sa + ((((d >> 24) & 0xffu) * ia) >> 8);
+                    row[x] = r | (g << 8) | (b << 16) | (oa << 24);
+                }
+            }
+        }
+        return 1;
+    }
+    if (!tex || tw <= 0 || th <= 0)
+        return 1;
+    {
+        float du = (v1.u - v0.u) / (x1 - x0);
+        float dv = (v2.v - v0.v) / (y1 - y0);
+        float u_start = v0.u + ((float)minx + 0.5f - x0) * du;
+        float v_cur = v0.v + ((float)miny + 0.5f - y0) * dv;
+        int tx_start = (int)(u_start * (float)tw * 65536.0f);
+        int dtx = (int)(du * (float)tw * 65536.0f);
+        int white = (col == 0xffffffffu);
+        for (y = miny; y <= maxy; y++, v_cur += dv) {
+            int tyi = (int)(v_cur * (float)th);
+            const uint32_t *trow;
+            uint32_t *row = pc_fb + (size_t)y * (size_t)pc_fb_w;
+            int txf = tx_start;
+            if (tyi < 0)
+                tyi = 0;
+            else if (tyi >= th)
+                tyi = th - 1;
+            trow = tex + (size_t)tyi * (size_t)tw;
+            if (pipeline == 1 && white) {
+                for (x = minx; x <= maxx; x++, txf += dtx) {
+                    int txi = txf >> 16;
+                    uint32_t tc, ta;
+                    if (txi < 0)
+                        txi = 0;
+                    else if (txi >= tw)
+                        txi = tw - 1;
+                    tc = trow[txi];
+                    ta = (tc >> 24) & 0xffu;
+                    if (ta == 255)
+                        row[x] = tc;
+                    else if (ta != 0)
+                        pc_blend_pixel(&row[x], tc & 0xffu, (tc >> 8) & 0xffu, (tc >> 16) & 0xffu, ta);
+                }
+            } else {
+                for (x = minx; x <= maxx; x++, txf += dtx) {
+                    int txi = txf >> 16;
+                    uint32_t tc;
+                    unsigned ta;
+                    if (txi < 0)
+                        txi = 0;
+                    else if (txi >= tw)
+                        txi = tw - 1;
+                    tc = trow[txi];
+                    ta = (tc >> 24) & 0xffu;
+                    if (ta == 0)
+                        continue;
+                    if (pipeline == 1)
+                        pc_blend_pixel(&row[x], pc_div255(sr * (tc & 0xffu)), pc_div255(sg * ((tc >> 8) & 0xffu)),
+                                       pc_div255(sb * ((tc >> 16) & 0xffu)), pc_div255(sa * ta));
+                    else
+                        pc_blend_pixel(&row[x], sr, sg, sb, pc_div255(sa * ta));
+                }
+            }
+        }
+    }
+    return 1;
+}
+
 static void pc_draw_range(int pipeline, const uint32_t *tex, int tw, int th, size_t first, size_t count) {
-    size_t i;
-    if (!count)
-        return;
-    for (i = first; i + 2 < first + count; i += 3) {
-        GeoVert va = geo_verts[geo_idx[i]];
-        GeoVert vb = geo_verts[geo_idx[i + 1]];
-        GeoVert vc = geo_verts[geo_idx[i + 2]];
-        pc_tri(pipeline, tex, tw, th, va, vb, vc);
+    size_t i = first, end = first + count;
+    while (i + 2 < end) {
+        if (i + 5 < end && geo_idx[i] == geo_idx[i + 3] && geo_idx[i + 2] == geo_idx[i + 4] &&
+            pc_quad_aa(pipeline, tex, tw, th, geo_verts[geo_idx[i]], geo_verts[geo_idx[i + 1]],
+                       geo_verts[geo_idx[i + 2]], geo_verts[geo_idx[i + 5]])) {
+            i += 6;
+            continue;
+        }
+        pc_tri(pipeline, tex, tw, th, geo_verts[geo_idx[i]], geo_verts[geo_idx[i + 1]], geo_verts[geo_idx[i + 2]]);
+        i += 3;
     }
 }
 

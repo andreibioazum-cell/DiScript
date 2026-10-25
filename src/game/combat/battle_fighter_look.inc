@@ -51,48 +51,27 @@ static void shadow_tap_tex(double x, double y, double half_px, double scale, con
     tex_tint(x - half_px, y - half_px, name, ang, scale, ((uint32_t)ai) << 24);
 }
 
-/* Draw multi-tap blurred circular shadow. */
+/* Draw 5-tap blurred circular shadow. */
 static void draw_shadow_blur_circle(double cx, double cy, double r, double alpha, double blur) {
-    const double kw[3] = {0.25, 0.09, 0.06};
-    const double kr[3] = {0.0, 0.55, 1.0};
-    int ring = 0;
-    while (ring < 3) {
-        double a = alpha * kw[ring];
-        double rr = blur * kr[ring];
-        if (ring == 0) {
-            shadow_tap_circle(cx, cy, r, a);
-        } else {
-            double i = 0;
-            while (i < 6) {
-                double t = i * pi / 3;
-                shadow_tap_circle(cx + cos(t) * rr, cy + sin(t) * rr, r, a);
-                i = i + 1;
-            }
-        }
-        ring = ring + 1;
-    }
+    double rr = blur * 0.72 * 0.70710678;
+    double tap = alpha * 0.18;
+    shadow_tap_circle(cx, cy, r, alpha * 0.28);
+    shadow_tap_circle(cx + rr, cy + rr, r, tap);
+    shadow_tap_circle(cx - rr, cy + rr, r, tap);
+    shadow_tap_circle(cx - rr, cy - rr, r, tap);
+    shadow_tap_circle(cx + rr, cy - rr, r, tap);
 }
 
+/* Draw 5-tap blurred sprite shadow. */
 static void draw_shadow_blur_tex(double cx, double cy, double half_px, double scale, const char *name, double ang,
                                  double alpha, double blur) {
-    const double kw[3] = {0.25, 0.09, 0.06};
-    const double kr[3] = {0.0, 0.55, 1.0};
-    int ring = 0;
-    while (ring < 3) {
-        double a = alpha * kw[ring];
-        double rr = blur * kr[ring];
-        if (ring == 0) {
-            shadow_tap_tex(cx, cy, half_px, scale, name, ang, a);
-        } else {
-            double i = 0;
-            while (i < 6) {
-                double t = i * pi / 3;
-                shadow_tap_tex(cx + cos(t) * rr, cy + sin(t) * rr, half_px, scale, name, ang, a);
-                i = i + 1;
-            }
-        }
-        ring = ring + 1;
-    }
+    double rr = blur * 0.72 * 0.70710678;
+    double tap = alpha * 0.18;
+    shadow_tap_tex(cx, cy, half_px, scale, name, ang, alpha * 0.28);
+    shadow_tap_tex(cx + rr, cy + rr, half_px, scale, name, ang, tap);
+    shadow_tap_tex(cx - rr, cy + rr, half_px, scale, name, ang, tap);
+    shadow_tap_tex(cx - rr, cy - rr, half_px, scale, name, ang, tap);
+    shadow_tap_tex(cx + rr, cy - rr, half_px, scale, name, ang, tap);
 }
 
 /* Draw semi-transparent motion-blur sprites along recent movement vector. */
