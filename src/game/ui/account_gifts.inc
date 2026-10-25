@@ -80,8 +80,7 @@ static void acct_gift_scroll_reset(void) {
     acct_gift_drag = -1;
     acct_gift_drag_row = -1;
     acct_gift_vel = 0;
-    acct_gift_drag_frame_d = 0;
-    acct_gift_drag_moved = 0;
+    scroll_track_reset(&acct_gift_track);
 }
 static void acct_gift_scroll_by(double dy) {
     if (acct_gift_scroll_needed() == 0) {
@@ -114,12 +113,8 @@ static void acct_gift_scroll_tick(void) {
     double mx = acct_gift_scroll_max();
     acct_gift_scroll = clamp(acct_gift_scroll, 0, mx);
     if (acct_gift_drag >= 0) {
-        if (acct_gift_drag_moved == 0) {
-            acct_gift_vel = acct_gift_vel * exp(-22.0 * dt);
-            if (fabs(acct_gift_vel) < 8.0) acct_gift_vel = 0;
-        }
-        acct_gift_drag_frame_d = 0;
-        acct_gift_drag_moved = 0;
+        acct_gift_vel = 0;
+        scroll_track_tick(&acct_gift_track);
         return;
     }
     if (fabs(acct_gift_vel) < 0.6) {
@@ -127,7 +122,7 @@ static void acct_gift_scroll_tick(void) {
         return;
     }
     acct_gift_scroll = acct_gift_scroll + acct_gift_vel * dt;
-    acct_gift_vel = acct_gift_vel * exp(-6.0 * dt);
+    acct_gift_vel = acct_gift_vel * exp(-4.8 * dt);
     if (acct_gift_scroll <= 0) {
         acct_gift_scroll = 0;
         acct_gift_vel = 0;
@@ -203,10 +198,10 @@ static void draw_acct_gift_viewer(void) {
 /* Handle collection scroll drag and shop/collection tap selection. */
 static double touch_acct_gift_list(double x, double y, double action, double id) {
     if (acct_open != ACCT_GIFTS) return 0;
-    double px = acct_gift_panel_x(1), pw = acct_gift_panel_w();
+    double px = acct_gift_panel_x(1);
     double ox = acct_gift_x(1), oy = acct_gift_view_top();
     double ow = acct_gift_col_w(), oh = acct_gift_view_h();
-    double inside_panel = x >= px && x <= px + pw + 14 && y >= oy && y <= oy + oh;
+    double inside_scroll = x >= px && x <= screen_w && y >= acct_gift_panel_y() && y <= oy + oh + 12;
     double inside_cards = x >= ox && x <= ox + ow && y >= oy && y <= oy + oh;
     if (action == 2) {
         if (acct_gift_drag < 0 || id != acct_gift_drag) return 0;
@@ -217,24 +212,13 @@ static double touch_acct_gift_list(double x, double y, double action, double id)
         if (acct_gift_drag_move >= 10) press_points_drop(id);
         if (acct_gift_scroll_needed() == 1) {
             acct_gift_scroll_by(d);
-            acct_gift_drag_frame_d = acct_gift_drag_frame_d + d;
-            acct_gift_drag_moved = 1;
-            if (fabs(d) <= 4.5 && fabs(acct_gift_vel) > 120.0 && d * acct_gift_vel < 0) {
-                acct_gift_vel = acct_gift_vel * 0.85;
-            } else {
-                double v = clamp(acct_gift_drag_frame_d / fmax(dt, 0.008) * 0.6, -900.0, 900.0);
-                if (v * acct_gift_vel <= 0 || fabs(v) >= fabs(acct_gift_vel)) {
-                    acct_gift_vel = v;
-                } else {
-                    acct_gift_vel = acct_gift_vel * 0.4 + v * 0.6;
-                }
-            }
+            scroll_track_move(&acct_gift_track, d);
         }
         return 1;
     }
     if (action == 1 || action == 3) {
         if (acct_gift_drag < 0 || id != acct_gift_drag) return 0;
-        if (action == 1 && acct_gift_drag_move < 12 && acct_gift_drag_row >= 0) {
+        if (action == 1 && acct_gift_drag_move < 12 && acct_gift_drag_row >= 0 && acct_gift_busy == 0) {
             double picked = acct_gift_own_id(acct_gift_drag_row);
             if (picked >= 0) {
                 acct_gift_choice = picked;
@@ -245,9 +229,8 @@ static double touch_acct_gift_list(double x, double y, double action, double id)
         }
         acct_gift_drag = -1;
         acct_gift_drag_row = -1;
-        acct_gift_drag_frame_d = 0;
-        acct_gift_drag_moved = 0;
-        if (action == 3) acct_gift_vel = 0;
+        acct_gift_vel = action == 1 && acct_gift_scroll_needed() == 1 ? scroll_track_release(&acct_gift_track, 2200.0) : 0;
+        if (action == 3) scroll_track_reset(&acct_gift_track);
         return 1;
     }
     if (action != 0) return 0;
@@ -255,17 +238,17 @@ static double touch_acct_gift_list(double x, double y, double action, double id)
         press_points_drop(id);
         return 1;
     }
-    if (inside_panel) {
-        if (!inside_cards) press_points_drop(id);
+    if (inside_scroll) {
+        if (!inside_cards || acct_gift_busy != 0) press_points_drop(id);
         acct_gift_drag = id;
         acct_gift_drag_y = y;
         acct_gift_drag_move = 0;
-        acct_gift_drag_frame_d = 0;
-        acct_gift_drag_moved = 0;
-        acct_gift_drag_row = inside_cards ? acct_gift_hit_row(y) : -1;
+        acct_gift_drag_row = inside_cards && acct_gift_busy == 0 ? acct_gift_hit_row(y) : -1;
         acct_gift_vel = 0;
+        scroll_track_reset(&acct_gift_track);
         return 1;
     }
+    if (acct_gift_busy != 0) return 0;
     double i = 0;
     while (i < acct_gift_shop_rows()) {
         if (hit_acct_gift(x, y, i) == 1) {
@@ -370,14 +353,14 @@ static void draw_acct_gifts(void) {
         ds_gfx_scissor(0, 0, 0, 0);
         if (acct_gift_scroll_needed() == 1) {
             double track_w = 5;
-            double track_x = acct_gift_panel_x(1) + acct_gift_panel_w() + 6;
-            if (track_x + track_w > screen_w - 4) {
+            double track_x = acct_gift_panel_x(1) + acct_gift_panel_w() + 8;
+            if (track_x + track_w > screen_w - 6) {
                 track_x = acct_gift_x(1) + acct_gift_col_w() + 2;
             }
             double track_h = vb - vt;
-            uint32_t track_col = track_x > acct_gift_panel_x(1) + acct_gift_panel_w() ? card_bg : locked_shade;
+            uint32_t track_col = track_x > acct_gift_panel_x(1) + acct_gift_panel_w() ? card_bg : card_ring;
             roundrect(track_x, vt, track_w, track_h, 2, track_col);
-            double thumb_h = fmax(24, track_h * acct_gift_view_h() / acct_gift_content_h());
+            double thumb_h = fmax(28, track_h * acct_gift_view_h() / acct_gift_content_h());
             if (thumb_h > track_h) thumb_h = track_h;
             double thumb_y = vt + (track_h - thumb_h) * acct_gift_scroll / acct_gift_scroll_max();
             roundrect(track_x, thumb_y, track_w, thumb_h, 2, text_color);

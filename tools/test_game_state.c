@@ -1376,37 +1376,48 @@ static void test_gifts_page(void) {
     net_gift_count_add(3, -1);
     acct_msg = "";
 
-    /* Collection scrolls like achievements: smooth inertia, scrollbar indicator,
-     * stationary-hold decay, multi-touch guard, and clean scissor restore. */
-    stub_gift_counts[0] = 9;
+    /* Collection scrolls like achievements: smooth sliding-window inertia,
+     * thumb-roll rejection, right-margin thumb zone, stationary-hold stop,
+     * multi-touch guard, and clean scissor restore. */
+    stub_gift_counts[0] = 15;
     assert(acct_gift_scroll_needed() == 1 && acct_gift_scroll_max() > 0);
     acct_gift_scroll = 0;
     acct_gift_vel = 0;
     double sy = acct_gift_view_top() + 40;
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy, 0, 14) == 1);
+    /* Right-margin thumb swipe (outside center column) scrolls smoothly. */
+    assert(touch_acct_gift_list(screen_w - 20, sy, 0, 14) == 1);
     /* Secondary pointer cannot hijack an active collection drag. */
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 50, 0, 19) == 1);
     assert(acct_gift_drag == 14);
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 2, 14) == 1);
+    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 2, 14) == 1);
     /* Duplicate zero-delta move does not wipe velocity. */
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 2, 14) == 1);
+    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 2, 14) == 1);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
-    assert(acct_gift_vel > 100 && fabs(acct_gift_vel) <= 900 + 1e-9);
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 1, 14) == 1);
+    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 1, 14) == 1);
     assert(acct_gift_drag < 0);
+    assert(acct_gift_vel > 100 && fabs(acct_gift_vel) <= 2200 + 1e-9);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
     double before = acct_gift_scroll;
     acct_gift_scroll_tick();
     double moved = acct_gift_scroll - before;
-    assert(moved > 0 && moved <= 900 * dt + 1e-9);
+    assert(moved > 0 && moved <= 2200 * dt + 1e-9);
     assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6);
-    /* Holding finger still before release decays flick velocity to zero. */
+    /* Thumb-lift centroid roll in opposite direction never reverses flick. */
+    acct_gift_scroll = 0;
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 160, 0, 17) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 110, 2, 17) == 1);
+    acct_gift_scroll_tick();
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 55, 2, 17) == 1);
+    acct_gift_scroll_tick();
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 72, 2, 17) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 72, 1, 17) == 1);
+    assert(acct_gift_vel > 200);
+    /* Holding finger still before release stops velocity cleanly at zero. */
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy, 0, 16) == 1);
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 80, 2, 16) == 1);
-    assert(acct_gift_vel > 100);
-    for (int i = 0; i < 30; i++) acct_gift_scroll_tick();
-    assert(acct_gift_vel == 0);
+    for (int i = 0; i < 4; i++) acct_gift_scroll_tick();
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 80, 1, 16) == 1);
+    assert(acct_gift_vel == 0);
     /* Scrolling never leaves the list. */
     acct_gift_scroll = 0;
     acct_gift_vel = -500;
@@ -2385,18 +2396,24 @@ static void test_eax229_and_rooms(void) {
         adm_reset_log();
         draw_achievements();
         assert(adm_has_text("mov eax, 0x229") == 1);
-        /* Drag upward while "mov eax, 0x229" is still locked: scroll works! */
-        logic_touch(ach_x() + 80, ach_view_top() + 300, 0, 92);
+        /* Drag upward from bottom margin on 1080p phone: full-screen scroll works! */
+        screen_w = 2400;
+        screen_h = 1080;
+        logic_touch(screen_w - 60, screen_h - 40, 0, 92);
         /* Secondary touch does not hijack active drag or trigger Back. */
         logic_touch(screen_margin + 10, back_y + 10, 0, 93);
         assert(t_dir == 0 && ach_drag_id == 92);
-        logic_touch(ach_x() + 80, ach_view_top() + 240, 2, 92);
-        /* Duplicate zero-delta move preserves flick velocity and drops press point. */
-        logic_touch(ach_x() + 80, ach_view_top() + 240, 2, 92);
+        logic_touch(screen_w - 60, screen_h - 100, 2, 92);
+        ach_scroll_tick();
+        logic_touch(screen_w - 60, screen_h - 155, 2, 92);
+        ach_scroll_tick();
+        /* Opposite thumb-lift roll + duplicate zero-delta move still flicks forward! */
+        logic_touch(screen_w - 60, screen_h - 140, 2, 92);
+        logic_touch(screen_w - 60, screen_h - 140, 2, 92);
         assert(press_point_n == 0);
-        logic_touch(ach_x() + 80, ach_view_top() + 240, 1, 92);
+        logic_touch(screen_w - 60, screen_h - 140, 1, 92);
         mid = ach_scroll;
-        assert(mid > 50);
+        assert(mid > 80 && ach_vel > 200);
         ach_scroll_tick();
         assert(ach_scroll > mid);
         ach_scroll_by(9999);

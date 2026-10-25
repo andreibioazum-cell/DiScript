@@ -1,7 +1,6 @@
 static double classes_vel;
 static double classes_swipe_travel;
-static double classes_drag_frame_d;
-static double classes_drag_moved;
+static ScrollTrack classes_track;
 
 static void classes_swipe_reset(void) {
     classes_swipe_id = -1;
@@ -9,8 +8,7 @@ static void classes_swipe_reset(void) {
     classes_swipe_moved = 0;
     classes_vel = 0;
     classes_swipe_travel = 0;
-    classes_drag_frame_d = 0;
-    classes_drag_moved = 0;
+    scroll_track_reset(&classes_track);
 }
 
 static void classes_scroll_tick(void) {
@@ -21,12 +19,8 @@ static void classes_scroll_tick(void) {
     }
     classes_scroll_clamp();
     if (classes_swipe_id >= 0) {
-        if (classes_drag_moved == 0) {
-            classes_vel = classes_vel * exp(-22.0 * dt);
-            if (fabs(classes_vel) < 8.0) classes_vel = 0;
-        }
-        classes_drag_frame_d = 0;
-        classes_drag_moved = 0;
+        classes_vel = 0;
+        scroll_track_tick(&classes_track);
         return;
     }
     if (fabs(classes_vel) < 0.6) {
@@ -35,7 +29,7 @@ static void classes_scroll_tick(void) {
     }
     double mx = classes_scroll_max();
     classes_scroll = classes_scroll + classes_vel * dt;
-    classes_vel = classes_vel * exp(-6.0 * dt);
+    classes_vel = classes_vel * exp(-4.8 * dt);
     if (classes_scroll <= 0) {
         classes_scroll = 0;
         classes_vel = 0;
@@ -66,21 +60,10 @@ static void touch_classes(double x, double y, double action, double id) {
         classes_swipe_travel = classes_swipe_travel + fabs(d);
         if (classes_scroll_needed() == 1) {
             classes_scroll_by(d);
-            classes_drag_frame_d = classes_drag_frame_d + d;
-            classes_drag_moved = 1;
+            scroll_track_move(&classes_track, d);
             if (classes_swipe_travel > 12 || fabs(x - classes_swipe_start_x) > classes_swipe_threshold() * 0.35) {
                 classes_swipe_moved = 1;
                 press_points_drop(id);
-            }
-            if (fabs(d) <= 4.5 && fabs(classes_vel) > 120.0 && d * classes_vel < 0) {
-                classes_vel = classes_vel * 0.85;
-            } else {
-                double v = clamp(classes_drag_frame_d / fmax(dt, 0.008) * 0.6, -1200.0, 1200.0);
-                if (v * classes_vel <= 0 || fabs(v) >= fabs(classes_vel)) {
-                    classes_vel = v;
-                } else {
-                    classes_vel = classes_vel * 0.4 + v * 0.6;
-                }
             }
         }
         return;
@@ -93,13 +76,14 @@ static void touch_classes(double x, double y, double action, double id) {
         classes_swipe_card = -1;
         classes_swipe_moved = 0;
         classes_swipe_travel = 0;
-        classes_drag_frame_d = 0;
-        classes_drag_moved = 0;
+        classes_vel = classes_scroll_needed() == 1 ? scroll_track_release(&classes_track, 2400.0) : 0;
         if (moved == 0 && vi >= 0 && hit_class_card(x, y, vi) == 1) {
+            classes_vel = 0;
             pick_class(visible_class_at(vi));
         }
         return;
     }
+    if (action != 0) return;
     if (classes_swipe_id >= 0 && id != classes_swipe_id) {
         press_points_drop(id);
         return;
@@ -122,6 +106,7 @@ static void touch_classes(double x, double y, double action, double id) {
     while (vi < last) {
         if (hit_class_card(x, y, vi) == 1) {
             classes_vel = 0;
+            scroll_track_reset(&classes_track);
             if (hit_class_pill(x, y, vi) == 1) {
                 play_button_click();
                 pick_class(visible_class_at(vi));
@@ -133,8 +118,6 @@ static void touch_classes(double x, double y, double action, double id) {
                 classes_swipe_last_x = x;
                 classes_swipe_moved = 0;
                 classes_swipe_travel = 0;
-                classes_drag_frame_d = 0;
-                classes_drag_moved = 0;
                 classes_swipe_card = vi;
             }
             return;
@@ -143,14 +126,13 @@ static void touch_classes(double x, double y, double action, double id) {
     }
     if (classes_swipe_zone(x, y) == 1) {
         classes_vel = 0;
+        scroll_track_reset(&classes_track);
         classes_swipe_id = id;
         classes_swipe_start_x = x;
         classes_swipe_start_y = y;
         classes_swipe_last_x = x;
         classes_swipe_moved = 0;
         classes_swipe_travel = 0;
-        classes_drag_frame_d = 0;
-        classes_drag_moved = 0;
         classes_swipe_card = -1;
     }
 }

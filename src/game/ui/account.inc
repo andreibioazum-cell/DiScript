@@ -8,7 +8,8 @@ static double acct_gift_is_owned = 0;
 static double acct_gift_own_row = -1;
 static double acct_gift_scroll = 0, acct_gift_vel = 0;
 static double acct_gift_drag = -1, acct_gift_drag_y = 0, acct_gift_drag_move = 0;
-static double acct_gift_drag_row = -1, acct_gift_drag_frame_d = 0, acct_gift_drag_moved = 0;
+static double acct_gift_drag_row = -1;
+static ScrollTrack acct_gift_track;
 static double acct_gift_busy = 0;
 static double acct_gift_busy_mode = 0;
 static double acct_gift_acted = -1;
@@ -281,10 +282,10 @@ static void touch_account(double x, double y, double action, double id) {
         touch_acct_menu(x, y);
         return;
     }
+    if (acct_busy == 0 && acct_done == 0 && touch_acct_gift_list(x, y, action, id) == 1) return;
     if (acct_busy != 0 || acct_done == 1 || acct_gift_busy != 0) {
         return;
     }
-    if (touch_acct_gift_list(x, y, action, id) == 1) return;
     double i = 0;
     while (i < acct_fields()) {
         if (hit_acct_field(x, y, i) == 1) {

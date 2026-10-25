@@ -182,8 +182,9 @@ static void draw_classes(void) {
         double track_x = screen_margin;
         double track_w = classes_viewport_w();
         double track_y = classes_top() - 14;
-        roundrect(track_x, track_y, track_w, 5, 2, locked_shade);
-        double thumb_w = track_w * classes_viewport_w() / classes_strip_w();
+        roundrect(track_x, track_y, track_w, 5, 2, card_bg);
+        double thumb_w = fmax(28, track_w * classes_viewport_w() / classes_strip_w());
+        if (thumb_w > track_w) thumb_w = track_w;
         double thumb_x = track_x + (track_w - thumb_w) * classes_scroll / classes_scroll_max();
         roundrect(thumb_x, track_y, thumb_w, 5, 2, text_color);
     }

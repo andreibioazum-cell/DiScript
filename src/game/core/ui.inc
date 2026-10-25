@@ -342,3 +342,70 @@ static void draw_msg(const char *label, double y, double t) {
         ctext_fade(label, y, text_color, t, msg_fade);
     }
 }
+
+/* Sliding-window touch velocity tracker immune to lift-off thumb roll and batched moves. */
+static void scroll_track_reset(ScrollTrack *st) { memset(st, 0, sizeof(*st)); }
+
+static void scroll_track_move(ScrollTrack *st, double d) {
+    st->frame_d += d;
+    st->frame_moved = 1;
+}
+
+static void scroll_track_push(ScrollTrack *st, double d, double frame_dt) {
+    double step_dt = clamp(frame_dt > 0 ? frame_dt : 0.016, 0.004, 0.05);
+    if (st->hist_n < 4) {
+        st->hist_d[st->hist_n] = d;
+        st->hist_dt[st->hist_n] = step_dt;
+        st->hist_n++;
+    } else {
+        memmove(&st->hist_d[0], &st->hist_d[1], 3 * sizeof(double));
+        memmove(&st->hist_dt[0], &st->hist_dt[1], 3 * sizeof(double));
+        st->hist_d[3] = d;
+        st->hist_dt[3] = step_dt;
+    }
+}
+
+static void scroll_track_tick(ScrollTrack *st) {
+    scroll_track_push(st, st->frame_d, dt);
+    st->frame_d = 0;
+    st->frame_moved = 0;
+}
+
+static double scroll_track_release(ScrollTrack *st, double max_vel) {
+    if (st->frame_moved) {
+        scroll_track_push(st, st->frame_d, dt);
+        st->frame_d = 0;
+        st->frame_moved = 0;
+    }
+    if (st->hist_n <= 0)
+        return 0;
+    int end = st->hist_n;
+    double hold_d = 0, hold_dt = 0;
+    for (int i = end - 1; i >= 0 && hold_dt < 0.032; i--) {
+        hold_d += fabs(st->hist_d[i]);
+        hold_dt += st->hist_dt[i];
+    }
+    if (hold_dt >= 0.028 && hold_d < 2.0) {
+        scroll_track_reset(st);
+        return 0;
+    }
+    if (end >= 2) {
+        double prev = 0;
+        for (int i = 0; i < end - 1; i++)
+            prev += st->hist_d[i];
+        double last = st->hist_d[end - 1];
+        if (st->hist_d[end - 2] * last < 0 && prev * last < 0 && fabs(last) < fabs(prev) * 0.65)
+            end--;
+    }
+    double sum_d = 0, sum_dt = 0, sign_ref = st->hist_d[end - 1];
+    for (int i = end - 1; i >= 0 && sum_dt < 0.09; i--) {
+        if (i < end - 1 && sign_ref * st->hist_d[i] < 0 && fabs(st->hist_d[i]) > 2.0)
+            break;
+        sum_d += st->hist_d[i];
+        sum_dt += st->hist_dt[i];
+    }
+    scroll_track_reset(st);
+    if (fabs(sum_d) < 3.0)
+        return 0;
+    return clamp((sum_d / fmax(sum_dt, 0.012)) * 0.72, -max_vel, max_vel);
+}

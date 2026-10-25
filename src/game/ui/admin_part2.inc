@@ -183,7 +183,7 @@ static void admin_panel_press(double x, double y) {
 static double admin_ball_hit(double x, double y) {
     double dx = x - admin_ball_x;
     double dy = y - admin_ball_y;
-    return sqrt(dx * dx + dy * dy) <= admin_ball_r() + 14;
+    return sqrt(dx * dx + dy * dy) <= admin_ball_r() + 6;
 }
 
 static double admin_touch(double x, double y, double action, double id) {
@@ -335,7 +335,7 @@ static void admin_draw(void) {
     }
     if (admin_ball_x == 0 && admin_ball_y == 0) {
         admin_ball_x = screen_w - (admin_ball_r() + 14);
-        admin_ball_y = screen_h * 0.40;
+        admin_ball_y = back_y + btn_h * 0.5;
     }
     if (admin_panel_open == 1) {
         admin_draw_panel();

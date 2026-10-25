@@ -343,9 +343,7 @@ static void logic_touch(double x, double y, double action, double id) {
     }
     /* Route touch to admin orb and panel first. */
     if (admin_touch(x, y, action, id) == 1) {
-        if (action == 0) {
-            press_points_drop(id);
-        }
+        press_points_drop(id);
         return;
     }
     if (t_dir != 0) {

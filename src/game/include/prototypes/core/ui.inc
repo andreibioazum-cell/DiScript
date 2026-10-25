@@ -40,3 +40,7 @@ static double panel_text(double locked);
 static void hud_bar(double bx, double by, double w, double h, double cur, double max, uint32_t c, double from_right);
 static double tick_down(double t);
 static void draw_msg(const char *label, double y, double t);
+static void scroll_track_reset(ScrollTrack *st);
+static void scroll_track_move(ScrollTrack *st, double d);
+static void scroll_track_tick(ScrollTrack *st);
+static double scroll_track_release(ScrollTrack *st, double max_vel);

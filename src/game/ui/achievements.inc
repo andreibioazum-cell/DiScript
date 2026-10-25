@@ -4,8 +4,7 @@ static double ach_scroll;
 static double ach_vel;
 static double ach_drag_id = -1;
 static double ach_drag_y;
-static double ach_drag_frame_d;
-static double ach_drag_moved;
+static ScrollTrack ach_track;
 
 static double achievement_count(void) {
     return 6;
@@ -133,8 +132,7 @@ static double ach_scroll_needed(void) {
 static void ach_scroll_reset(void) {
     ach_drag_id = -1;
     ach_vel = 0;
-    ach_drag_frame_d = 0;
-    ach_drag_moved = 0;
+    scroll_track_reset(&ach_track);
 }
 
 static void ach_open(void) {
@@ -160,14 +158,8 @@ static void ach_scroll_tick(void) {
     double mx = ach_scroll_max();
     ach_scroll = clamp(ach_scroll, 0, mx);
     if (ach_drag_id >= 0) {
-        if (ach_drag_moved == 0) {
-            ach_vel = ach_vel * exp(-22.0 * dt);
-            if (fabs(ach_vel) < 8.0) {
-                ach_vel = 0;
-            }
-        }
-        ach_drag_frame_d = 0;
-        ach_drag_moved = 0;
+        ach_vel = 0;
+        scroll_track_tick(&ach_track);
         return;
     }
     if (fabs(ach_vel) < 0.6) {
@@ -175,7 +167,7 @@ static void ach_scroll_tick(void) {
         return;
     }
     ach_scroll = ach_scroll + ach_vel * dt;
-    ach_vel = ach_vel * exp(-6.0 * dt);
+    ach_vel = ach_vel * exp(-4.8 * dt);
     if (ach_scroll <= 0) {
         ach_scroll = 0;
         ach_vel = 0;
@@ -204,27 +196,18 @@ static void touch_achievements(double x, double y, double action, double id) {
         }
         if (ach_scroll_needed() == 1) {
             ach_scroll_by(d);
-            ach_drag_frame_d = ach_drag_frame_d + d;
-            ach_drag_moved = 1;
-            if (fabs(d) <= 4.5 && fabs(ach_vel) > 120.0 && d * ach_vel < 0) {
-                ach_vel = ach_vel * 0.85;
-            } else {
-                double v = clamp(ach_drag_frame_d / fmax(dt, 0.008) * 0.6, -900.0, 900.0);
-                if (v * ach_vel <= 0 || fabs(v) >= fabs(ach_vel)) {
-                    ach_vel = v;
-                } else {
-                    ach_vel = ach_vel * 0.4 + v * 0.6;
-                }
-            }
+            scroll_track_move(&ach_track, d);
         }
         return;
     }
     if (action == 1) {
         if (id == ach_drag_id) {
             ach_drag_id = -1;
-            ach_drag_frame_d = 0;
-            ach_drag_moved = 0;
+            ach_vel = ach_scroll_needed() == 1 ? scroll_track_release(&ach_track, 2200.0) : 0;
         }
+        return;
+    }
+    if (action != 0) {
         return;
     }
     if (ach_drag_id >= 0 && id != ach_drag_id) {
@@ -237,14 +220,12 @@ static void touch_achievements(double x, double y, double action, double id) {
         start_transition(ST_LOBBY);
         return;
     }
-    if (ach_scroll_needed() == 1 && x >= screen_margin && x <= screen_w - screen_margin &&
-        y >= ach_view_top() && y <= ach_view_bottom()) {
+    if (ach_scroll_needed() == 1) {
         press_points_drop(id);
         ach_drag_id = id;
         ach_drag_y = y;
-        ach_drag_frame_d = 0;
-        ach_drag_moved = 0;
         ach_vel = 0;
+        scroll_track_reset(&ach_track);
     }
 }
 

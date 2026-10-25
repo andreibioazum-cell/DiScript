@@ -3,6 +3,15 @@ typedef struct Enemy Enemy;
 typedef struct Punch Punch;
 typedef struct Gift Gift;
 typedef struct FighterSpritePair FighterSpritePair;
+typedef struct ScrollTrack ScrollTrack;
+
+struct ScrollTrack {
+    double hist_d[4];
+    double hist_dt[4];
+    int hist_n;
+    double frame_d;
+    int frame_moved;
+};
 
 /* Paired idle and attack texture names for a fighter appearance. */
 struct FighterSpritePair {
