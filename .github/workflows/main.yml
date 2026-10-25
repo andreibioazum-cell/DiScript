@@ -7,6 +7,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 defaults:
   run:
     shell: bash
@@ -50,6 +54,7 @@ jobs:
         with:
           name: Cubic-Battle-4-PC-Windows
           path: build/pc/dist/
+          retention-days: 1
           if-no-files-found: error
 
   build-android:
@@ -219,4 +224,5 @@ jobs:
         with:
           name: Cubic-Battle-4-Full-C-APK
           path: Game.apk
+          retention-days: 1
           if-no-files-found: error
