@@ -190,6 +190,9 @@ static void follow_punch(void) {
 }
 
 static double enemy_freeze_factor(void) {
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        return 1;
+    }
     if (enemy->freeze > 0) {
         return enemy->freeze_slow;
     }
@@ -197,6 +200,9 @@ static double enemy_freeze_factor(void) {
 }
 
 static void freeze_enemy(double t, double slow) {
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        return;
+    }
     if (t > enemy->freeze) {
         enemy->freeze = t;
         enemy->freeze_slow = slow;
@@ -205,7 +211,7 @@ static void freeze_enemy(double t, double slow) {
 
 static void enemy_move(double vx, double vy) {
     double f = enemy_freeze_factor() * enemy->speed_var;
-    if (enemy_block_left > 0) {
+    if (enemy_block_left > 0 && !(class_is_astra(enemy_class) == 1 && egrab_parry_t > 0)) {
         /* Reduce enemy movement speed while blocking. */
         f = f * block_speed_k;
     }

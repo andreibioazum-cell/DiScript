@@ -31,6 +31,8 @@ static void enemy_grab_clear(void) {
 static void enemy_start_astra_parry(void) {
     egrab_parry_t = ASTRA_PARRY_TIME;
     egrab_ready_t = 0;
+    enemy->freeze = 0;
+    enemy_block_left = 0;
     ds_log("bot astra purple shield cast");
 }
 

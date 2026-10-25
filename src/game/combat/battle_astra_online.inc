@@ -1,16 +1,13 @@
 /* Online sync for Astra's counter-strike. */
 
 static void push_astra_grab(void) {
-    if (class_is_astra(player_class) == 0) {
+    if (class_is_astra(player_class) == 0 || astra_seq <= 0) {
         return;
     }
-    if (astra_state != 0 && astra_pub == 0) {
+    if (astra_pub != astra_seq) {
         net_publish_grab(astra_ability_lunge_tx / screen_w, astra_ability_lunge_ty / screen_h, astra_dx, astra_dy,
                          astra_seq);
-        astra_pub = 1;
-    } else if (astra_state == 0 && astra_pub == 1) {
-        net_publish_grab(0, 0, 0, 0, 0);
-        astra_pub = 0;
+        astra_pub = astra_seq;
     }
 }
 

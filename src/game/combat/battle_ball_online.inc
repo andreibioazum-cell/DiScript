@@ -160,6 +160,7 @@ static void baseline_remote_slot(double s) {
     arr_set(remote_snow, s * snow_fields, net_player_snow(s));
     arr_set(remote_universe, s * universe_fields, net_player_universe(s));
     remote_dash_set(s, DASH_GEN, net_player_dash(s));
+    remote_grab_set(s, GRAB_GEN, net_player_grab(s));
     arr_set(remote_thuds, s, net_player_thud(s));
     if (idx >= 0 && idx < REMOTE_BRICKS) {
         rb_shot[idx] = net_player_brick(s);
