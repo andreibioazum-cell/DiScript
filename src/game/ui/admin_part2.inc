@@ -148,22 +148,15 @@ static void admin_panel_press(double x, double y) {
             return;
         }
         if (row_index == 6) {
-            double hue = admin_hue_at(x, y);
-            if (hue >= 0) {
-                admin_gift_hue = hue;
-            }
-            return;
-        }
-        if (row_index == 7) {
             keyboard_clear();
             if (admin_gift_target[0]) keyboard_type(admin_gift_target);
             keyboard_show();
             return;
         }
-        if (row_index == 8) {
+        if (row_index == 7) {
             keyboard_hide();
             if (admin_gift_target[0] && admin_gift_busy != 1) {
-                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, admin_gift_hue) == 0 ? 3 : 1;
+                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, 0) == 0 ? 3 : 1;
             }
             return;
         }
@@ -291,45 +284,6 @@ static void admin_draw_tabs(void) {
     admin_btn(language == 1 ? "Читы" : "Cheats", px, y, w, h, admin_tab == 0, 0.55);
     admin_btn(language == 1 ? "Подарки" : "Gifts", px + w + admin_gap(), y, w, h, admin_tab == 1, 0.55);
 }
-/* Emerald hue row: eight tiles, the current one is outlined. */
-#define ADMIN_HUE_GAP 6
-#define ADMIN_HUE_N 8
-
-static double admin_hue_row_y(void) {
-    double rh = admin_row_h();
-    return admin_content_top() + admin_row_h() + admin_gap() + 5 * (rh + admin_gap());
-}
-
-static double admin_hue_swatch_w(void) {
-    double w = admin_panel_w() - 2 * admin_pad();
-    return (w - (ADMIN_HUE_N - 1) * ADMIN_HUE_GAP) / ADMIN_HUE_N;
-}
-
-/* Which hue is under the finger, -1 if the finger is not on a tile. */
-static double admin_hue_at(double x, double y) {
-    if (admin_gift_choice != 4) {
-        return -1;
-    }
-    double px = admin_panel_x() + admin_pad();
-    double rh = admin_row_h();
-    double hy = admin_hue_row_y();
-    if (y < hy || y > hy + rh) {
-        return -1;
-    }
-    double sw = admin_hue_swatch_w();
-    double rel = x - px;
-    if (rel < 0) {
-        return -1;
-    }
-    int i = (int)floor(rel / (sw + ADMIN_HUE_GAP));
-    if (i < 0 || i >= ADMIN_HUE_N) {
-        return -1;
-    }
-    if (rel - i * (sw + ADMIN_HUE_GAP) > sw) {
-        return -1;
-    }
-    return (double)i;
-}
 
 static void admin_draw_gifts(void) {
     double px = admin_panel_x() + admin_pad();
@@ -342,20 +296,7 @@ static void admin_draw_gifts(void) {
         const char *label = ds_concat(admin_gift_choice == i ? "> " : "", name);
         admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
     }
-        /* The emerald hue only applies when the emerald is selected. */
-    if (admin_gift_choice == 4) {
-        double hy = admin_hue_row_y();
-        double sw = admin_hue_swatch_w();
-        for (int h = 0; h < ADMIN_HUE_N; ++h) {
-            double sx = px + h * (sw + ADMIN_HUE_GAP);
-            double sh = h == 0 ? gift_emerald_phase() : (double)h / ADMIN_HUE_N;
-            roundrect(sx, hy, sw, rh, 8, gift_hue_color(sh));
-            if ((int)admin_gift_hue == h) {
-                roundrect_outline(sx, hy, sw, rh, 8, 3, admin_frame());
-            }
-        }
-    }
-    double target_y = y + 6 * (rh + admin_gap());
+    double target_y = y + 5 * (rh + admin_gap());
     roundrect(px, target_y, w, rh, 8, admin_off());
     roundrect_outline(px, target_y, w, rh, 8, 2, admin_frame());
     const char *target_label = admin_gift_target[0] ? admin_gift_target : (language == 1 ? "Ник получателя" : "Recipient nickname");

@@ -214,6 +214,14 @@ void ds_gfx_shake(double amp, double seconds) {
     (void)amp;
     (void)seconds;
 }
+static int stub_scissor_calls;
+static int stub_scissor_active;
+void ds_gfx_scissor(double x, double y, double w, double h) {
+    (void)x;
+    (void)y;
+    stub_scissor_calls++;
+    stub_scissor_active = (w > 0.0 && h > 0.0) ? 1 : 0;
+}
 double dist(double x, double y, double a, double b) {
     return hypot(x - a, y - b);
 }
@@ -1368,27 +1376,38 @@ static void test_gifts_page(void) {
     net_gift_count_add(3, -1);
     acct_msg = "";
 
-        /* The collection scrolls smoothly: fractional offsets, no snapping, and a
-         * short flick glides instead of flying away. */
+    /* Collection scrolls like achievements: smooth inertia, scrollbar indicator,
+     * stationary-hold decay, multi-touch guard, and clean scissor restore. */
     stub_gift_counts[0] = 9;
-    assert(acct_gift_scroll_max() > 0);
+    assert(acct_gift_scroll_needed() == 1 && acct_gift_scroll_max() > 0);
     acct_gift_scroll = 0;
     acct_gift_vel = 0;
     double sy = acct_gift_view_top() + 40;
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy, 0, 14) == 1);
+    /* Secondary pointer cannot hijack an active collection drag. */
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 50, 0, 19) == 1);
+    assert(acct_gift_drag == 14);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 2, 14) == 1);
+    /* Duplicate zero-delta move does not wipe velocity. */
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 2, 14) == 1);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
-    assert(fabs(acct_gift_vel) <= 22 + 1e-9);
+    assert(acct_gift_vel > 100 && fabs(acct_gift_vel) <= 900 + 1e-9);
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 1, 14) == 1);
     assert(acct_gift_drag < 0);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
     double before = acct_gift_scroll;
     acct_gift_scroll_tick();
     double moved = acct_gift_scroll - before;
-        /* One tick moves no faster than the speed cap: a flick does not fly away. */
-    assert(moved > 0 && moved <= 22 * dt + 1e-9);
-    assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6); /* fractional offset */
-        /* Scrolling never leaves the list. */
+    assert(moved > 0 && moved <= 900 * dt + 1e-9);
+    assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6);
+    /* Holding finger still before release decays flick velocity to zero. */
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy, 0, 16) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 80, 2, 16) == 1);
+    assert(acct_gift_vel > 100);
+    for (int i = 0; i < 30; i++) acct_gift_scroll_tick();
+    assert(acct_gift_vel == 0);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 80, 1, 16) == 1);
+    /* Scrolling never leaves the list. */
     acct_gift_scroll = 0;
     acct_gift_vel = -500;
     for (int i = 0; i < 200; i++) acct_gift_scroll_tick();
@@ -1397,14 +1416,17 @@ static void test_gifts_page(void) {
     acct_gift_vel = 500;
     for (int i = 0; i < 200; i++) acct_gift_scroll_tick();
     assert(fabs(acct_gift_scroll - acct_gift_scroll_max()) < 1e-9);
-        /* After scrolling a tap picks the row under the finger. */
+    /* After scrolling a tap picks the row under the finger. */
     acct_gift_scroll = acct_gift_step() * 3;
     double ty = acct_gift_view_top() + acct_gift_step() / 2;
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, ty, 0, 15) == 1);
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, ty, 1, 15) == 1);
     assert(acct_gift_own_sel() == 3 && acct_gift_sel_id() == 0);
 
+    stub_scissor_calls = 0;
+    stub_scissor_active = 0;
     draw_acct_gifts();
+    assert(stub_scissor_calls >= 2 && stub_scissor_active == 0);
     acct_open = 0;
     acct_gift_choice = -1;
     acct_gift_own_row = -1;
@@ -2365,7 +2387,13 @@ static void test_eax229_and_rooms(void) {
         assert(adm_has_text("mov eax, 0x229") == 1);
         /* Drag upward while "mov eax, 0x229" is still locked: scroll works! */
         logic_touch(ach_x() + 80, ach_view_top() + 300, 0, 92);
+        /* Secondary touch does not hijack active drag or trigger Back. */
+        logic_touch(screen_margin + 10, back_y + 10, 0, 93);
+        assert(t_dir == 0 && ach_drag_id == 92);
         logic_touch(ach_x() + 80, ach_view_top() + 240, 2, 92);
+        /* Duplicate zero-delta move preserves flick velocity and drops press point. */
+        logic_touch(ach_x() + 80, ach_view_top() + 240, 2, 92);
+        assert(press_point_n == 0);
         logic_touch(ach_x() + 80, ach_view_top() + 240, 1, 92);
         mid = ach_scroll;
         assert(mid > 50);
@@ -2373,8 +2401,11 @@ static void test_eax229_and_rooms(void) {
         assert(ach_scroll > mid);
         ach_scroll_by(9999);
         assert(fabs(ach_scroll - ach_scroll_max()) < 1e-6);
+        stub_scissor_calls = 0;
+        stub_scissor_active = 0;
         adm_reset_log();
         draw_achievements();
+        assert(stub_scissor_calls >= 2 && stub_scissor_active == 0);
         assert(adm_has_text("Подарок буКа") == 1);
         screen_w = saved_w;
         screen_h = saved_h;
@@ -3503,8 +3534,7 @@ int main(void) {
         assert(result_face_color() == 0xFF5F10A0);
         finished = 0;
     }
-    /* The emerald: its colour is the one the admin picked, and the picture
-     * shimmers with it. */
+    /* Emerald is strictly rainbow everywhere (even in CCP). */
     {
         stub_gift_hue = 0;
         assert(gift_rarity(4) == 3 && strcmp(gift_tex(4), "gift_emerald.png") == 0);
@@ -3512,32 +3542,25 @@ int main(void) {
         assert(gift_hue_color(0.0) == 0xFFFF0000u);
         assert(gift_hue_color(1.0 / 3.0) == 0xFF00FF00u);
         stub_gift_hue = 4;
-        assert(fabs(gift_emerald_base_hue() - 0.5) < 1e-9);
+        assert(gift_emerald_base_hue() == 0);
         assert(gift_hue_color(0.5) == 0xFF00FFFFu);
         stub_gift_hue = 0;
     }
-    /* The admin picks the emerald's hue: the swatches sit in their own row
-     * and the chosen one is remembered. */
+    /* CCP gift tab has 8 rows (tabs + 5 gifts + nick + grant) without any hue picker. */
     {
         int saved_w = screen_w, saved_h = screen_h;
         screen_w = 1280;
         screen_h = 720;
         admin_tab = 1;
         admin_gift_choice = 4;
-        admin_gift_hue = 0;
-        double sw = admin_hue_swatch_w();
-        double hy = admin_hue_row_y() + admin_row_h() / 2;
-        double hx = admin_panel_x() + admin_pad() + sw / 2;
-        assert(admin_hue_at(hx, hy) == 0);
-        assert(admin_hue_at(hx + 3 * (sw + ADMIN_HUE_GAP), hy) == 3);
-        assert(admin_hue_at(admin_panel_x() + admin_pad() - 5, hy) == -1);
-        admin_panel_press(hx + 3 * (sw + ADMIN_HUE_GAP), hy);
-        assert(admin_gift_hue == 3);
-        /* The hue row belongs to the emerald only. */
-        admin_gift_choice = 1;
-        assert(admin_hue_at(hx, hy) == -1);
-        admin_gift_choice = 4;
-        admin_gift_hue = 0;
+        assert(fabs(admin_content_h() - (8 * admin_row_h() + 7 * admin_gap())) < 1e-9);
+        snprintf(admin_gift_target, sizeof(admin_gift_target), "%s", "tester");
+        admin_gift_busy = 0;
+        double grant_y = admin_content_top() + 7 * (admin_row_h() + admin_gap()) + admin_row_h() / 2;
+        admin_panel_press(admin_panel_x() + admin_pad() + 20, grant_y);
+        assert(admin_gift_busy == 1);
+        admin_gift_busy = 0;
+        admin_gift_target[0] = 0;
         admin_tab = 0;
         screen_w = saved_w;
         screen_h = saved_h;

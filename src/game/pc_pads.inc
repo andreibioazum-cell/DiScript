@@ -88,8 +88,13 @@ double game_pc_block(void) { return player_block; }
 void game_pc_pick_class(double cls) { pick_class(cls); }
 double game_pc_charge(void) { return 0; }
 void game_pc_wheel(float steps) {
-    if (game_state == ST_ACHIEVEMENTS && acct_open == 0 && docs_open == 0 && warn_open == 0 && studio_open == 0) {
+    if (docs_open == 1 || warn_open == 1 || studio_open == 1) return;
+    if (acct_open == ACCT_GIFTS && acct_gift_view_open == 0) {
+        acct_gift_scroll_by(-(double)steps * 64.0);
+    } else if (game_state == ST_ACHIEVEMENTS && acct_open == 0) {
         ach_scroll_by(-(double)steps * 64.0);
+    } else if (game_state == ST_CLASSES && acct_open == 0) {
+        classes_scroll_by(-(double)steps * 80.0);
     }
 }
 

@@ -2,8 +2,31 @@
 
 static uint32_t *pc_fb;
 static int pc_fb_w, pc_fb_h;
+static int pc_clip_x0, pc_clip_y0, pc_clip_x1, pc_clip_y1;
 static uint32_t *pc_font_tex;
 static int pc_font_w, pc_font_h;
+
+static void pc_set_clip(float x, float y, float w, float h) {
+    if (w <= 0.0f || h <= 0.0f) {
+        pc_clip_x0 = 0;
+        pc_clip_y0 = 0;
+        pc_clip_x1 = pc_fb_w - 1;
+        pc_clip_y1 = pc_fb_h - 1;
+        return;
+    }
+    pc_clip_x0 = (int)floorf(x);
+    pc_clip_y0 = (int)floorf(y);
+    pc_clip_x1 = (int)ceilf(x + w) - 1;
+    pc_clip_y1 = (int)ceilf(y + h) - 1;
+    if (pc_clip_x0 < 0)
+        pc_clip_x0 = 0;
+    if (pc_clip_y0 < 0)
+        pc_clip_y0 = 0;
+    if (pc_clip_x1 > pc_fb_w - 1)
+        pc_clip_x1 = pc_fb_w - 1;
+    if (pc_clip_y1 > pc_fb_h - 1)
+        pc_clip_y1 = pc_fb_h - 1;
+}
 
 /* State the shared files expect from the Vulkan backend. */
 static int vk_pending_font = 0;

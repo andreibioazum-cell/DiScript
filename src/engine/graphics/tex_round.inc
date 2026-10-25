@@ -43,3 +43,16 @@ void tex_alpha(float x, float y, const char *name, float a, float s, double alph
     p->v.tx2.tx = t;
     p->v.tx2.c = pack_c((byte << 24) | 0x00FFFFFF);
 }
+
+/* Set pixel clip rectangle in logical screen space; non-positive w/h resets full viewport. */
+void ds_gfx_scissor(double x, double y, double w, double h) {
+    if (!frame_open)
+        return;
+    DSCmd *p = push(DS_CMD_SCISSOR);
+    if (!p)
+        return;
+    p->v.rc.x = (float)x;
+    p->v.rc.y = (float)y;
+    p->v.rc.w = (float)w;
+    p->v.rc.h = (float)h;
+}

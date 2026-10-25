@@ -56,14 +56,10 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
     maxx = (int)ceilf(maxxf);
     miny = (int)floorf(minyf);
     maxy = (int)ceilf(maxyf);
-    if (minx < 0)
-        minx = 0;
-    if (miny < 0)
-        miny = 0;
-    if (maxx > pc_fb_w - 1)
-        maxx = pc_fb_w - 1;
-    if (maxy > pc_fb_h - 1)
-        maxy = pc_fb_h - 1;
+    if (minx < pc_clip_x0) minx = pc_clip_x0;
+    if (miny < pc_clip_y0) miny = pc_clip_y0;
+    if (maxx > pc_clip_x1) maxx = pc_clip_x1;
+    if (maxy > pc_clip_y1) maxy = pc_clip_y1;
     if (minx > maxx || miny > maxy)
         return;
 
@@ -213,14 +209,10 @@ static int pc_quad_aa(int pipeline, const uint32_t *tex, int tw, int th, GeoVert
     maxx = (int)floorf(x1 - 0.4999f);
     miny = (int)ceilf(y0 - 0.5001f);
     maxy = (int)floorf(y1 - 0.4999f);
-    if (minx < 0)
-        minx = 0;
-    if (miny < 0)
-        miny = 0;
-    if (maxx > pc_fb_w - 1)
-        maxx = pc_fb_w - 1;
-    if (maxy > pc_fb_h - 1)
-        maxy = pc_fb_h - 1;
+    if (minx < pc_clip_x0) minx = pc_clip_x0;
+    if (miny < pc_clip_y0) miny = pc_clip_y0;
+    if (maxx > pc_clip_x1) maxx = pc_clip_x1;
+    if (maxy > pc_clip_y1) maxy = pc_clip_y1;
     if (minx > maxx || miny > maxy)
         return 1;
     sa = (col >> 24) & 0xffu;
@@ -339,6 +331,7 @@ static void pc_render_frame(void) {
             return;
     b->pixels = pc_fb;
     b->stride = pc_fb_w;
+    pc_set_clip(0, 0, 0, 0);
 
     geo_reset();
     for (i = 0; i < cmd_n; i++) {
@@ -347,6 +340,10 @@ static void pc_render_frame(void) {
         const uint32_t *tex = NULL;
         int tw = 0, th = 0;
         size_t is = geo_in;
+        if (c->t == DS_CMD_SCISSOR) {
+            pc_set_clip(c->v.rc.x, c->v.rc.y, c->v.rc.w, c->v.rc.h);
+            continue;
+        }
         switch (c->t) {
         case DS_CMD_RECT:
             geo_rect(c->v.rc.x, c->v.rc.y, c->v.rc.w, c->v.rc.h, c->v.rc.c);
@@ -431,6 +428,8 @@ static void pc_render_frame(void) {
                 else
                     geo_text_rainbow(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.sc, c->v.tr.hue, font);
             }
+            break;
+        case DS_CMD_SCISSOR:
             break;
         }
         pc_draw_range(pipeline, tex, tw, th, is, geo_in - is);

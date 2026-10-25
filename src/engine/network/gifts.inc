@@ -3,8 +3,6 @@
  * 6 none owned, 7 invalid target, 8 collection full (999). */
 
 #define GIFT_N 5
-/* Maximum custom emerald hue index (0 = rainbow). */
-#define GIFT_HUE_MAX 7
 
 static volatile int s_gift_status = 0;
 static char s_gift_recipient[24];
@@ -17,8 +15,6 @@ static char s_gift_nick[24];
 static volatile int s_gift_gen = 0;
 static volatile int s_gift_load_gen = -1;
 static volatile int s_gift_cups = -1;
-/* Emerald hue: 0 = rainbow, 1..7 = custom admin hue. */
-static volatile int s_gift_hue = 0;
 
 static const char *gift_id(double gift) {
     static const char *ids[GIFT_N] = {"poop", "cake", "bear", "rocket", "emerald"};
@@ -95,18 +91,6 @@ static int gift_put_one(const char *nick, int id, int value) {
     char url[URL], body[32];
     snprintf(url, sizeof(url), "%s/users/%s/gifts/%s.json", net.base, nick, gift_id(id));
     snprintf(body, sizeof(body), "%d", value);
-    return fb_http("PUT", url, body, NULL, 0);
-}
-
-/* Write custom emerald hue under gifts/emerald_hue. */
-static int gift_put_hue(const char *nick, int hue) {
-    char url[URL], body[32];
-    if (hue < 0)
-        hue = 0;
-    if (hue > GIFT_HUE_MAX)
-        hue = GIFT_HUE_MAX;
-    snprintf(url, sizeof(url), "%s/users/%s/gifts/emerald_hue.json", net.base, nick);
-    snprintf(body, sizeof(body), "%d", hue);
     return fb_http("PUT", url, body, NULL, 0);
 }
 
@@ -211,7 +195,7 @@ static int gift_send(const char *sender, const char *recipient, int id) {
     return 2;
 }
 
-static int gift_grant(const char *recipient, int id, int hue) {
+static int gift_grant(const char *recipient, int id) {
     int theirs[GIFT_N];
     if (!gift_nick_ok(recipient))
         return 4;
@@ -227,19 +211,12 @@ static int gift_grant(const char *recipient, int id, int hue) {
             LOGERR("gift grant for '%s': write failed", recipient);
         return 3;
     }
-    /* Apply selected hue when granting an emerald. */
-    if (id == 4) {
-        gift_put_hue(recipient, hue);
-        s_gift_hue = hue;
-    }
     return 2;
 }
 
-static volatile int s_gift_hue_pick = 0;
-
 static void *gift_action_job(void *arg) {
     char nick[24], sender[24], gift[16];
-    int id, mode, hue, result = 3;
+    int id, mode, result = 3;
     (void)arg;
     snprintf(nick, sizeof(nick), "%s", s_gift_recipient);
     lg_lock();
@@ -247,12 +224,11 @@ static void *gift_action_job(void *arg) {
     lg_unlock();
     id = s_gift_id;
     mode = s_gift_grant;
-    hue = s_gift_hue_pick;
     snprintf(gift, sizeof(gift), "%s", gift_id(id));
     if (!gift[0] || !sender[0] || !fb_enabled() || !fb_ensure_token())
         goto gift_done;
     if (mode == 1)
-        result = gift_grant(nick, id, hue);
+        result = gift_grant(nick, id);
     else if (mode == 2)
         result = gift_buy(sender, id);
     else if (mode == 3)
@@ -268,18 +244,13 @@ gift_done:
 double net_gift_action(double gift, const char *recipient, double grant, double hue) {
     DSThread t;
     int mode = (int)grant;
-    int h = (int)hue;
+    (void)hue;
     if (s_gift_status == 1 || gift < 0 || gift > GIFT_N - 1 || (mode != 1 && mode != 2 && mode != 3 && mode != 0) || !recipient ||
         strlen(recipient) >= sizeof(s_gift_recipient) || (mode == 0 && !*recipient))
         return 0;
-    if (h < 0)
-        h = 0;
-    if (h > GIFT_HUE_MAX)
-        h = GIFT_HUE_MAX;
     snprintf(s_gift_recipient, sizeof(s_gift_recipient), "%s", recipient);
     s_gift_id = (int)gift;
     s_gift_grant = mode;
-    s_gift_hue_pick = h;
     s_gift_status = 1;
     t = ds_thread_start(gift_action_job, NULL);
     if (t) {
@@ -304,8 +275,8 @@ double net_gift_cups(void) {
     return v;
 }
 
-/* Return current emerald hue (0 = rainbow, 1..7 = custom). */
-double net_gift_hue(void) { return (double)s_gift_hue; }
+/* Emerald is always rainbow (hue 0). */
+double net_gift_hue(void) { return 0; }
 
 /* Return number of sticker types. */
 double net_gift_types(void) { return (double)GIFT_N; }
@@ -320,7 +291,7 @@ double net_gift_refund(double gift) {
 
 static void *gift_counts_job(void *arg) {
     char nick[24], plain[URL], url[FB_URL_MAX], resp[8192];
-    int gen = (int)(uintptr_t)arg, ok = 0, n[GIFT_N] = {0, 0, 0, 0, 0}, i, hue = 0;
+    int gen = (int)(uintptr_t)arg, ok = 0, n[GIFT_N] = {0, 0, 0, 0, 0}, i;
     lg_lock();
     snprintf(nick, sizeof(nick), "%s", lg.session_nick);
     lg_unlock();
@@ -333,7 +304,6 @@ static void *gift_counts_job(void *arg) {
             n[2] = num_int(resp, "bear", 0);
             n[3] = num_int(resp, "rocket", 0);
             n[4] = num_int(resp, "emerald", 0);
-            hue = num_int(resp, "emerald_hue", 0);
             ok = 1;
         }
     }
@@ -349,11 +319,6 @@ static void *gift_counts_job(void *arg) {
                 n[i] = 999;
             s_gift_counts[i] = n[i];
         }
-        if (hue < 0)
-            hue = 0;
-        if (hue > GIFT_HUE_MAX)
-            hue = GIFT_HUE_MAX;
-        s_gift_hue = hue;
     }
     return NULL;
 }

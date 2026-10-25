@@ -6,12 +6,9 @@
 static double acct_gift_choice = -1;
 static double acct_gift_is_owned = 0;
 static double acct_gift_own_row = -1;
-static double acct_gift_scroll = 0;
-static double acct_gift_vel = 0;
-static double acct_gift_drag = -1;
-static double acct_gift_drag_y = 0;
-static double acct_gift_drag_move = 0;
-static double acct_gift_drag_row = -1;
+static double acct_gift_scroll = 0, acct_gift_vel = 0;
+static double acct_gift_drag = -1, acct_gift_drag_y = 0, acct_gift_drag_move = 0;
+static double acct_gift_drag_row = -1, acct_gift_drag_frame_d = 0, acct_gift_drag_moved = 0;
 static double acct_gift_busy = 0;
 static double acct_gift_busy_mode = 0;
 static double acct_gift_acted = -1;
@@ -30,6 +27,8 @@ static void acct_gift_sell(void);
 static void draw_acct_gifts(void);
 static void draw_acct_gift_viewer(void);
 static void acct_poll_gifts(void);
+static void acct_gift_scroll_reset(void);
+static void acct_gift_scroll_by(double dy);
 static void acct_gift_scroll_tick(void);
 static double acct_entry;
 static double acct_field;
@@ -81,6 +80,7 @@ static void acct_go(double mode) {
     acct_knob = 0;
     acct_drag = -1;
     acct_gift_view_open = 0;
+    acct_gift_scroll_reset();
     acct_clear_fields();
     ui_nav_gen = ui_nav_gen + 1;
     press_pulses_clear();
@@ -96,6 +96,7 @@ static void acct_close(void) {
     acct_open = 0;
     acct_drag = -1;
     acct_gift_view_open = 0;
+    acct_gift_scroll_reset();
     ui_nav_gen = ui_nav_gen + 1;
     press_pulses_clear();
 }
@@ -268,6 +269,7 @@ static void touch_account(double x, double y, double action, double id) {
         }
         return;
     }
+    if (acct_gift_drag >= 0 && id != acct_gift_drag) { press_points_drop(id); return; }
     if (acct_button_hit(x, y) == 1) {
         play_button_click();
     }

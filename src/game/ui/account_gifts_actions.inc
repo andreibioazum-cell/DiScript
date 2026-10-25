@@ -18,9 +18,7 @@ static void acct_gifts_page(void) {
     acct_gift_clear_pick();
     acct_gift_busy = 0;
     acct_gift_scroll = 0;
-    acct_gift_vel = 0;
-    acct_gift_drag = -1;
-    acct_gift_drag_row = -1;
+    acct_gift_scroll_reset();
     acct_gift_acted = -1;
     net_gift_refresh();
     acct_go(ACCT_GIFTS);

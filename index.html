@@ -221,15 +221,11 @@
     <button id="clearBanner" class="danger">Снять баннер</button>
   </div>
 
-  <h3>Баны и подарки</h3>
+  <h3>Баны</h3>
   <div class="row">
     <input id="banNick" placeholder="ник" size="16">
     <button id="ban" class="danger">Забанить</button>
     <button id="unban" class="ok">Разбанить</button>
-    <span class="sp"></span>
-    <input id="hueNick" placeholder="ник" size="14">
-    <input id="hueVal" type="number" min="0" max="7" step="1" value="0" size="4" title="оттенок изумруда 0..7">
-    <button id="setHue">Оттенок изумруда</button>
   </div>
 
   <h3>Комната</h3>
@@ -1323,15 +1319,6 @@ function boot(){
     if(n) return safe(() => rtdb("bans/" + n, "PUT", true), "бан " + n); }, "Забанить");
   on("#unban", () => { const n = nickOf("#banNick");
     if(n) return safe(() => rtdb("bans/" + n, "DELETE"), "разбан " + n); }, "Разбанить");
-
-  /* Emerald hue (admin-only in RTDB rules) */
-  on("#setHue", () => {
-    const n = nickOf("#hueNick");
-    if(!n) return;
-    const v = parseInt($("#hueVal").value, 10);
-    if(!isFinite(v) || v < 0 || v > 7){ alert("Оттенок изумруда - целое 0..7"); return; }
-    return safe(() => rtdb(`users/${n}/gifts/emerald_hue`, "PUT", v), "оттенок изумруда " + n + " = " + v);
-  }, "Оттенок изумруда");
 
   /* Room maintenance */
   on("#clearChat", () => { const r = roomName();

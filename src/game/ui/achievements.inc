@@ -4,6 +4,8 @@ static double ach_scroll;
 static double ach_vel;
 static double ach_drag_id = -1;
 static double ach_drag_y;
+static double ach_drag_frame_d;
+static double ach_drag_moved;
 
 static double achievement_count(void) {
     return 6;
@@ -120,9 +122,6 @@ static double ach_content_h(void) {
 }
 
 static double ach_scroll_max(void) {
-    if (ach_scroll_allowed() == 0) {
-        return 0;
-    }
     double extra = ach_content_h() - ach_view_h();
     return extra > 0 ? extra : 0;
 }
@@ -134,6 +133,8 @@ static double ach_scroll_needed(void) {
 static void ach_scroll_reset(void) {
     ach_drag_id = -1;
     ach_vel = 0;
+    ach_drag_frame_d = 0;
+    ach_drag_moved = 0;
 }
 
 static void ach_open(void) {
@@ -153,13 +154,20 @@ static void ach_scroll_by(double dy) {
 static void ach_scroll_tick(void) {
     if (ach_scroll_needed() == 0) {
         ach_scroll = 0;
-        ach_vel = 0;
-        ach_drag_id = -1;
+        ach_scroll_reset();
         return;
     }
     double mx = ach_scroll_max();
     ach_scroll = clamp(ach_scroll, 0, mx);
     if (ach_drag_id >= 0) {
+        if (ach_drag_moved == 0) {
+            ach_vel = ach_vel * exp(-22.0 * dt);
+            if (fabs(ach_vel) < 8.0) {
+                ach_vel = 0;
+            }
+        }
+        ach_drag_frame_d = 0;
+        ach_drag_moved = 0;
         return;
     }
     if (fabs(ach_vel) < 0.6) {
@@ -179,25 +187,48 @@ static void ach_scroll_tick(void) {
 
 static void touch_achievements(double x, double y, double action, double id) {
     if (action == 3) {
-        ach_scroll_reset();
+        if (ach_drag_id < 0 || id == ach_drag_id) {
+            ach_scroll_reset();
+        }
         return;
     }
     if (action == 2) {
         if (ach_drag_id < 0 || id != ach_drag_id) {
             return;
         }
-        if (ach_scroll_needed() == 1) {
-            double dy = y - ach_drag_y;
-            ach_scroll_by(-dy);
-            ach_vel = clamp(-dy / fmax(dt, 0.008) * 0.6, -900, 900);
-        }
+        press_points_drop(id);
+        double d = ach_drag_y - y;
         ach_drag_y = y;
+        if (fabs(d) < 1e-6) {
+            return;
+        }
+        if (ach_scroll_needed() == 1) {
+            ach_scroll_by(d);
+            ach_drag_frame_d = ach_drag_frame_d + d;
+            ach_drag_moved = 1;
+            if (fabs(d) <= 4.5 && fabs(ach_vel) > 120.0 && d * ach_vel < 0) {
+                ach_vel = ach_vel * 0.85;
+            } else {
+                double v = clamp(ach_drag_frame_d / fmax(dt, 0.008) * 0.6, -900.0, 900.0);
+                if (v * ach_vel <= 0 || fabs(v) >= fabs(ach_vel)) {
+                    ach_vel = v;
+                } else {
+                    ach_vel = ach_vel * 0.4 + v * 0.6;
+                }
+            }
+        }
         return;
     }
     if (action == 1) {
         if (id == ach_drag_id) {
             ach_drag_id = -1;
+            ach_drag_frame_d = 0;
+            ach_drag_moved = 0;
         }
+        return;
+    }
+    if (ach_drag_id >= 0 && id != ach_drag_id) {
+        press_points_drop(id);
         return;
     }
     if (back_hit(x, y) == 1) {
@@ -211,6 +242,8 @@ static void touch_achievements(double x, double y, double action, double id) {
         press_points_drop(id);
         ach_drag_id = id;
         ach_drag_y = y;
+        ach_drag_frame_d = 0;
+        ach_drag_moved = 0;
         ach_vel = 0;
     }
 }
@@ -224,37 +257,6 @@ static void draw_achievement_card_at(double i, double y) {
     text_scaled(achievement_title(i), x + card_text_pad, y + 14, c, 0.62);
     text_scaled(achievement_desc(i), x + card_text_pad, y + 46, c, 0.46);
     text_scaled(status, x + card_text_pad, y + 70, c, 0.42);
-}
-
-static void draw_achievement_card_clipped(double i, double card_y, double clip_top, double clip_bottom) {
-    double locked = 1 - has_achievement(achievement_bit(i));
-    double x = ach_x();
-    double w = ach_w();
-    double y = card_y > clip_top ? card_y : clip_top;
-    double bottom = card_y + ach_card_h < clip_bottom ? card_y + ach_card_h : clip_bottom;
-    double h = bottom - y;
-    if (h < 2) {
-        return;
-    }
-    uint32_t face = (uint32_t)(locked == 1 ? locked_bg() : ui_purple);
-    uint32_t c = panel_text(locked);
-    const char *status = locked == 1 ? tr_achievement_locked() : tr_achievement_open();
-    roundrect(x, y, w, h, btn_radius, face);
-    if (card_y < clip_top) {
-        rect(x, y, w, fmin(btn_radius, h), face);
-    }
-    if (card_y + ach_card_h > clip_bottom) {
-        rect(x, y + h - fmin(btn_radius, h), w, fmin(btn_radius, h), face);
-    }
-    if (card_y + 8 >= clip_top && card_y + 38 <= clip_bottom) {
-        text_scaled(achievement_title(i), x + card_text_pad, card_y + 14, c, 0.62);
-    }
-    if (card_y + 40 >= clip_top && card_y + 66 <= clip_bottom) {
-        text_scaled(achievement_desc(i), x + card_text_pad, card_y + 46, c, 0.46);
-    }
-    if (card_y + 64 >= clip_top && card_y + 88 <= clip_bottom) {
-        text_scaled(status, x + card_text_pad, card_y + 70, c, 0.42);
-    }
 }
 
 static void draw_achievements(void) {
@@ -274,12 +276,16 @@ static void draw_achievements(void) {
     ach_scroll = clamp(ach_scroll, 0, ach_scroll_max());
     double vt = ach_view_top();
     double vb = ach_view_bottom();
+    ds_gfx_scissor(ach_x() - 2, vt, ach_w() + 4, vb - vt);
     double vi = 0;
     while (vi < count) {
         double cy = vt + vi * ach_step() - ach_scroll;
-        draw_achievement_card_clipped(ach_visible_item(vi), cy, vt, vb);
+        if (cy + ach_card_h > vt && cy < vb) {
+            draw_achievement_card_at(ach_visible_item(vi), cy);
+        }
         vi = vi + 1;
     }
+    ds_gfx_scissor(0, 0, 0, 0);
     double track_w = 5;
     double track_x = ach_x() + ach_w() + 10;
     if (track_x + track_w > screen_w - 6) {

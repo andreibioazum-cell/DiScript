@@ -25,18 +25,11 @@ static void gift_shimmer_tick(void) {
     }
 }
 
-/* Emerald hue: 0 is the plain rainbow, 1..7 a starting offset on the wheel. */
-static double gift_emerald_base_hue(void) {
-    double h = net_gift_hue();
-    if (h < 0) h = 0;
-    if (h > 7) h = 7;
-    return h / 8.0;
-}
+/* Emerald base hue is fixed to 0 (always rainbow). */
+static double gift_emerald_base_hue(void) { return 0.0; }
 
 /* Continuous rainbow shimmer across the full hue wheel over elapsed time. */
-static double gift_emerald_phase(void) {
-    return gift_emerald_base_hue() + gift_shimmer_t * 0.42;
-}
+static double gift_emerald_phase(void) { return gift_shimmer_t * 0.42; }
 
 static double gift_shimmer_time(void) { return gift_shimmer_t; }
 

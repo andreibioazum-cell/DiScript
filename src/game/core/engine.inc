@@ -177,6 +177,8 @@ static void logic_update(void) {
         update_rooms();
     } else if (game_state == ST_ACHIEVEMENTS) {
         ach_scroll_tick();
+    } else if (game_state == ST_CLASSES) {
+        classes_scroll_tick();
     }
     update_newyear();
     update_weather();
@@ -350,6 +352,7 @@ static void logic_touch(double x, double y, double action, double id) {
         press_points_drop(id);
         classes_swipe_reset();
         ach_scroll_reset();
+        acct_gift_scroll_reset();
         return;
     }
     if (game_state != ST_CLASSES || acct_open != 0 || docs_open == 1 || warn_open == 1 || studio_open == 1) {

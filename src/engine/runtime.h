@@ -95,6 +95,7 @@ void tex_round(float x, float y, const char *name, float scale, float radius);
 /* Full-frame grayscale filter and decaying screen shake. */
 void ds_gfx_gray(double on);
 void ds_gfx_shake(double amp, double seconds);
+void ds_gfx_scissor(double x, double y, double w, double h);
 
 int snd_load(const char *name);
 int snd_play(const char *name);

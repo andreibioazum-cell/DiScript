@@ -65,9 +65,31 @@ static double acct_gift_own_id(double row) {
     }
     return -1;
 }
+static double acct_gift_content_h(void) {
+    double total = acct_gift_own_total();
+    return total > 0 ? total * acct_gift_step() - ACCT_GIFT_GAP : 0;
+}
 static double acct_gift_scroll_max(void) {
-    double extra = acct_gift_own_total() * acct_gift_step() - ACCT_GIFT_GAP - acct_gift_view_h();
+    double extra = acct_gift_content_h() - acct_gift_view_h();
     return extra > 0 ? extra : 0;
+}
+static double acct_gift_scroll_needed(void) {
+    return acct_gift_scroll_max() > 0 ? 1 : 0;
+}
+static void acct_gift_scroll_reset(void) {
+    acct_gift_drag = -1;
+    acct_gift_drag_row = -1;
+    acct_gift_vel = 0;
+    acct_gift_drag_frame_d = 0;
+    acct_gift_drag_moved = 0;
+}
+static void acct_gift_scroll_by(double dy) {
+    if (acct_gift_scroll_needed() == 0) {
+        acct_gift_scroll = 0;
+        acct_gift_vel = 0;
+        return;
+    }
+    acct_gift_scroll = clamp(acct_gift_scroll + dy, 0, acct_gift_scroll_max());
 }
 static double acct_gift_own_sel(void) {
     if (acct_gift_is_owned != 1) return -1;
@@ -82,12 +104,24 @@ static double acct_gift_picked(void) {
     if (acct_gift_is_owned == 1) return acct_gift_own_sel() >= 0 ? 1 : 0;
     return acct_gift_choice >= 0 && acct_gift_choice < acct_gift_shop_rows() ? 1 : 0;
 }
-/* Advance inertial collection scroll and clamp to list bounds. */
+/* Advance inertial collection scroll matching achievements scrolling. */
 static void acct_gift_scroll_tick(void) {
-    if (acct_open != ACCT_GIFTS || acct_gift_drag >= 0) return;
+    if (acct_open != ACCT_GIFTS || acct_gift_scroll_needed() == 0) {
+        if (acct_gift_scroll_needed() == 0) acct_gift_scroll = 0;
+        acct_gift_scroll_reset();
+        return;
+    }
     double mx = acct_gift_scroll_max();
-    if (acct_gift_scroll > mx) acct_gift_scroll = mx;
-    if (acct_gift_scroll < 0) acct_gift_scroll = 0;
+    acct_gift_scroll = clamp(acct_gift_scroll, 0, mx);
+    if (acct_gift_drag >= 0) {
+        if (acct_gift_drag_moved == 0) {
+            acct_gift_vel = acct_gift_vel * exp(-22.0 * dt);
+            if (fabs(acct_gift_vel) < 8.0) acct_gift_vel = 0;
+        }
+        acct_gift_drag_frame_d = 0;
+        acct_gift_drag_moved = 0;
+        return;
+    }
     if (fabs(acct_gift_vel) < 0.6) {
         acct_gift_vel = 0;
         return;
@@ -169,42 +203,66 @@ static void draw_acct_gift_viewer(void) {
 /* Handle collection scroll drag and shop/collection tap selection. */
 static double touch_acct_gift_list(double x, double y, double action, double id) {
     if (acct_open != ACCT_GIFTS) return 0;
+    double px = acct_gift_panel_x(1), pw = acct_gift_panel_w();
     double ox = acct_gift_x(1), oy = acct_gift_view_top();
     double ow = acct_gift_col_w(), oh = acct_gift_view_h();
-    double inside_list = x >= ox && x <= ox + ow && y >= oy && y <= oy + oh;
+    double inside_panel = x >= px && x <= px + pw + 14 && y >= oy && y <= oy + oh;
+    double inside_cards = x >= ox && x <= ox + ow && y >= oy && y <= oy + oh;
     if (action == 2) {
         if (acct_gift_drag < 0 || id != acct_gift_drag) return 0;
-        double dy = y - acct_gift_drag_y;
-        acct_gift_scroll = clamp(acct_gift_scroll - dy, 0, acct_gift_scroll_max());
-        /* Dampen flick velocity so short swipes stay controllable. */
-        acct_gift_vel = clamp(-dy / fmax(dt, 0.016) * 0.55, -22, 22);
+        double d = acct_gift_drag_y - y;
         acct_gift_drag_y = y;
-        acct_gift_drag_move = acct_gift_drag_move + fabs(dy);
+        if (fabs(d) < 1e-6) return 1;
+        acct_gift_drag_move = acct_gift_drag_move + fabs(d);
+        if (acct_gift_drag_move >= 10) press_points_drop(id);
+        if (acct_gift_scroll_needed() == 1) {
+            acct_gift_scroll_by(d);
+            acct_gift_drag_frame_d = acct_gift_drag_frame_d + d;
+            acct_gift_drag_moved = 1;
+            if (fabs(d) <= 4.5 && fabs(acct_gift_vel) > 120.0 && d * acct_gift_vel < 0) {
+                acct_gift_vel = acct_gift_vel * 0.85;
+            } else {
+                double v = clamp(acct_gift_drag_frame_d / fmax(dt, 0.008) * 0.6, -900.0, 900.0);
+                if (v * acct_gift_vel <= 0 || fabs(v) >= fabs(acct_gift_vel)) {
+                    acct_gift_vel = v;
+                } else {
+                    acct_gift_vel = acct_gift_vel * 0.4 + v * 0.6;
+                }
+            }
+        }
         return 1;
     }
     if (action == 1 || action == 3) {
         if (acct_gift_drag < 0 || id != acct_gift_drag) return 0;
-        if (action == 1 && acct_gift_drag_move < 14) {
-            /* Select row captured on touch-down rather than drifted release position. */
-            double row = acct_gift_drag_row >= 0 ? acct_gift_drag_row : acct_gift_hit_row(y);
-            double picked = acct_gift_own_id(row);
+        if (action == 1 && acct_gift_drag_move < 12 && acct_gift_drag_row >= 0) {
+            double picked = acct_gift_own_id(acct_gift_drag_row);
             if (picked >= 0) {
                 acct_gift_choice = picked;
                 acct_gift_is_owned = 1;
-                acct_gift_own_row = row;
+                acct_gift_own_row = acct_gift_drag_row;
                 play_button_click();
             }
         }
         acct_gift_drag = -1;
         acct_gift_drag_row = -1;
+        acct_gift_drag_frame_d = 0;
+        acct_gift_drag_moved = 0;
+        if (action == 3) acct_gift_vel = 0;
         return 1;
     }
     if (action != 0) return 0;
-    if (inside_list) {
+    if (acct_gift_drag >= 0 && id != acct_gift_drag) {
+        press_points_drop(id);
+        return 1;
+    }
+    if (inside_panel) {
+        if (!inside_cards) press_points_drop(id);
         acct_gift_drag = id;
         acct_gift_drag_y = y;
         acct_gift_drag_move = 0;
-        acct_gift_drag_row = acct_gift_hit_row(y);
+        acct_gift_drag_frame_d = 0;
+        acct_gift_drag_moved = 0;
+        acct_gift_drag_row = inside_cards ? acct_gift_hit_row(y) : -1;
         acct_gift_vel = 0;
         return 1;
     }
@@ -240,50 +298,40 @@ static void acct_gift_text_right(const char *s, double right, double y, double h
     text_scaled(s, right - tw, y + (h - th) / 2 - tt + 1.5, c, sc);
 }
 
-/* Draw sticker card clipped vertically to [clip_top, clip_bottom]. */
+/* Draw sticker card (clipped by scissor when in scrollable collection). */
 static void acct_gift_card(double id, double owned, double card_y, double clip_top, double clip_bottom, double selected) {
     double full = acct_gift_card_h();
+    if (card_y + full <= clip_top || card_y >= clip_bottom) return;
     double x = acct_gift_x(owned), w = acct_gift_col_w();
-    double y = card_y > clip_top ? card_y : clip_top;
-    double bottom = card_y + full < clip_bottom ? card_y + full : clip_bottom;
-    double h = bottom - y;
-    if (h < 2) return;
-    double cut_top = card_y < clip_top ? 1 : 0;
-    double cut_bottom = card_y + full > clip_bottom ? 1 : 0;
-    double p = cut_top == 0 && cut_bottom == 0 ? button_press_k(x, card_y, w, full) : 0;
+    double dragging = owned == 1 && acct_gift_drag >= 0 && acct_gift_drag_move >= 10 ? 1 : 0;
+    double p = dragging == 0 ? button_press_k(x, card_y, w, full) : 0;
     uint32_t ink = text_color;
     uint32_t face = (uint32_t)shade(ui_purple, 1 - PRESS_SHADE * p);
     const char *name = acct_gift_name(id);
     const char *rarity = gift_rarity_name(id);
     const char *value = owned == 1 ? "" : ds_concat(ds_num_to_string(acct_gift_price(id)), language == 1 ? " куб." : " cups");
-    double r = btn_radius;
-    roundrect(x, y, w, h, r, face);
-    if (cut_top == 1) rect(x, y, w, fmin(r, h), face);
-    if (cut_bottom == 1) rect(x, y + h - fmin(r, h), w, fmin(r, h), face);
+    roundrect(x, card_y, w, full, btn_radius, face);
     if (full < 96) {
-        /* Short cards: picture, name and the price share one narrow row. */
         double isz = clamp(full * 0.62, 18, 44);
         double nx = x + 8 + isz + 8;
         double vw = owned == 1 ? 0 : text_ink_width(value) * 0.44;
         double iy = card_y + (full - isz) / 2;
-        if (iy >= y && iy + isz <= bottom) gift_icon(id, x + 8, iy, isz);
-        if (card_y + 2 >= y && card_y + full - 2 <= bottom) {
-            gift_text_rarity_left(name, nx, card_y, full, id, fit_text_scale(name, w - (nx - x) - vw - 14, 0.58));
-            if (owned == 0) acct_gift_text_right(value, x + w - 8, card_y, full, ink, 0.44);
-        }
+        gift_icon(id, x + 8, iy, isz);
+        gift_text_rarity_left(name, nx, card_y, full, id, fit_text_scale(name, w - (nx - x) - vw - 14, 0.58));
+        if (owned == 0) acct_gift_text_right(value, x + w - 8, card_y, full, ink, 0.44);
     } else {
         double isz = clamp(full * 0.36, 20, 56);
         double iy = card_y + full * 0.10;
         double ny = iy + isz + full * 0.02;
         double ry = ny + 21;
         double py = card_y + full * 0.80;
-        if (iy >= y && iy + isz <= bottom) gift_icon(id, x + (w - isz) / 2, iy, isz);
-        if (ny >= y && ny + 19 <= bottom) gift_text_rarity(name, x, ny, w, 19, id, fit_text_scale(name, w - 12, 0.6));
-        if (ry >= y && ry + 14 <= bottom) gift_text_rarity(rarity, x, ry, w, 14, id, fit_text_scale(rarity, w - 16, 0.34));
-        if (owned == 0 && py >= y && py + 18 <= bottom) text_in_box(value, x, py, w, 18, ink, fit_text_scale(value, w - 12, 0.48));
+        gift_icon(id, x + (w - isz) / 2, iy, isz);
+        gift_text_rarity(name, x, ny, w, 19, id, fit_text_scale(name, w - 12, 0.6));
+        gift_text_rarity(rarity, x, ry, w, 14, id, fit_text_scale(rarity, w - 16, 0.34));
+        if (owned == 0) text_in_box(value, x, py, w, 18, ink, fit_text_scale(value, w - 12, 0.48));
     }
-    if (selected == 1 && cut_top == 0 && cut_bottom == 0) {
-        roundrect_outline(x, y, w, full, r, 3, 0xFFFFD34D);
+    if (selected == 1) {
+        roundrect_outline(x, card_y, w, full, btn_radius, 3, 0xFFFFD34D);
     }
 }
 
@@ -293,6 +341,7 @@ static void acct_gift_panel(double owned) {
 
 static void draw_acct_gifts(void) {
     double vt = acct_gift_view_top(), vb = acct_gift_view_bottom();
+    acct_gift_scroll = clamp(acct_gift_scroll, 0, acct_gift_scroll_max());
     acct_gift_panel(0);
     acct_gift_panel(1);
     double i = 0;
@@ -303,19 +352,35 @@ static void draw_acct_gifts(void) {
     }
     double total = acct_gift_own_total();
     if (total < 1) {
-                /* Draw empty-collection placeholder in right column. */
-                const char *empty = language == 1 ? "Пока нет подарков" : "No stickers yet";
+        const char *empty = language == 1 ? "Пока нет подарков" : "No stickers yet";
         text_in_box(empty, acct_gift_x(1), vt, acct_gift_col_w(), 22, text_color,
                     fit_text_scale(empty, acct_gift_col_w() - 12, 0.5));
     } else {
         double row = floor(acct_gift_scroll / acct_gift_step());
+        if (row < 0) row = 0;
         double cy = vt + row * acct_gift_step() - acct_gift_scroll;
+        ds_gfx_scissor(acct_gift_x(1) - 2, vt, acct_gift_col_w() + 4, vb - vt);
         while (row < total && cy < vb) {
             double id = acct_gift_own_id(row);
             double picked = acct_gift_own_sel() == row ? 1 : 0;
             acct_gift_card(id, 1, cy, vt, vb, picked);
             row = row + 1;
             cy = cy + acct_gift_step();
+        }
+        ds_gfx_scissor(0, 0, 0, 0);
+        if (acct_gift_scroll_needed() == 1) {
+            double track_w = 5;
+            double track_x = acct_gift_panel_x(1) + acct_gift_panel_w() + 6;
+            if (track_x + track_w > screen_w - 4) {
+                track_x = acct_gift_x(1) + acct_gift_col_w() + 2;
+            }
+            double track_h = vb - vt;
+            uint32_t track_col = track_x > acct_gift_panel_x(1) + acct_gift_panel_w() ? card_bg : locked_shade;
+            roundrect(track_x, vt, track_w, track_h, 2, track_col);
+            double thumb_h = fmax(24, track_h * acct_gift_view_h() / acct_gift_content_h());
+            if (thumb_h > track_h) thumb_h = track_h;
+            double thumb_y = vt + (track_h - thumb_h) * acct_gift_scroll / acct_gift_scroll_max();
+            roundrect(track_x, thumb_y, track_w, thumb_h, 2, text_color);
         }
     }
     const char *left = language == 1 ? "МАГАЗИН" : "SHOP";

@@ -1,7 +1,48 @@
+static double classes_vel;
+static double classes_swipe_travel;
+static double classes_drag_frame_d;
+static double classes_drag_moved;
+
 static void classes_swipe_reset(void) {
     classes_swipe_id = -1;
     classes_swipe_card = -1;
     classes_swipe_moved = 0;
+    classes_vel = 0;
+    classes_swipe_travel = 0;
+    classes_drag_frame_d = 0;
+    classes_drag_moved = 0;
+}
+
+static void classes_scroll_tick(void) {
+    if (classes_scroll_needed() == 0) {
+        classes_scroll = 0;
+        classes_swipe_reset();
+        return;
+    }
+    classes_scroll_clamp();
+    if (classes_swipe_id >= 0) {
+        if (classes_drag_moved == 0) {
+            classes_vel = classes_vel * exp(-22.0 * dt);
+            if (fabs(classes_vel) < 8.0) classes_vel = 0;
+        }
+        classes_drag_frame_d = 0;
+        classes_drag_moved = 0;
+        return;
+    }
+    if (fabs(classes_vel) < 0.6) {
+        classes_vel = 0;
+        return;
+    }
+    double mx = classes_scroll_max();
+    classes_scroll = classes_scroll + classes_vel * dt;
+    classes_vel = classes_vel * exp(-6.0 * dt);
+    if (classes_scroll <= 0) {
+        classes_scroll = 0;
+        classes_vel = 0;
+    } else if (classes_scroll >= mx) {
+        classes_scroll = mx;
+        classes_vel = 0;
+    }
 }
 
 static double classes_swipe_threshold(void) { return clamp(screen_w * 0.08, 48, 88); }
@@ -12,35 +53,60 @@ static double classes_button_hit(double x, double y) {
 
 static void touch_classes(double x, double y, double action, double id) {
     if (action == 3) {
-        classes_swipe_reset();
+        if (classes_swipe_id < 0 || id == classes_swipe_id) classes_swipe_reset();
         return;
     }
     if (action == 2) {
-        /* Scroll shop strip on horizontal drag when cards overflow viewport. */
         if (classes_swipe_id != id || classes_swipe_id == -1) {
             return;
         }
+        double d = classes_swipe_last_x - x;
+        classes_swipe_last_x = x;
+        if (fabs(d) < 1e-6) return;
+        classes_swipe_travel = classes_swipe_travel + fabs(d);
         if (classes_scroll_needed() == 1) {
-            classes_scroll_by(classes_swipe_last_x - x);
-            if (fabs(x - classes_swipe_start_x) > classes_swipe_threshold() * 0.35) {
+            classes_scroll_by(d);
+            classes_drag_frame_d = classes_drag_frame_d + d;
+            classes_drag_moved = 1;
+            if (classes_swipe_travel > 12 || fabs(x - classes_swipe_start_x) > classes_swipe_threshold() * 0.35) {
                 classes_swipe_moved = 1;
+                press_points_drop(id);
+            }
+            if (fabs(d) <= 4.5 && fabs(classes_vel) > 120.0 && d * classes_vel < 0) {
+                classes_vel = classes_vel * 0.85;
+            } else {
+                double v = clamp(classes_drag_frame_d / fmax(dt, 0.008) * 0.6, -1200.0, 1200.0);
+                if (v * classes_vel <= 0 || fabs(v) >= fabs(classes_vel)) {
+                    classes_vel = v;
+                } else {
+                    classes_vel = classes_vel * 0.4 + v * 0.6;
+                }
             }
         }
-        classes_swipe_last_x = x;
         return;
     }
     if (action == 1) {
-        /* Select card on release only when touch did not scroll the strip. */
+        if (classes_swipe_id != id) return;
         double vi = classes_swipe_card;
         double moved = classes_swipe_moved;
-        classes_swipe_reset();
+        classes_swipe_id = -1;
+        classes_swipe_card = -1;
+        classes_swipe_moved = 0;
+        classes_swipe_travel = 0;
+        classes_drag_frame_d = 0;
+        classes_drag_moved = 0;
         if (moved == 0 && vi >= 0 && hit_class_card(x, y, vi) == 1) {
             pick_class(visible_class_at(vi));
         }
         return;
     }
+    if (classes_swipe_id >= 0 && id != classes_swipe_id) {
+        press_points_drop(id);
+        return;
+    }
     /* action == 0: every button acts on the touch itself. */
     if (classes_button_hit(x, y) == 1) {
+        classes_swipe_reset();
         play_button_click();
         if (back_hit(x, y) == 1) {
             start_transition(ST_LOBBY);
@@ -55,17 +121,20 @@ static void touch_classes(double x, double y, double action, double id) {
     double last = classes_visible_count();
     while (vi < last) {
         if (hit_class_card(x, y, vi) == 1) {
+            classes_vel = 0;
             if (hit_class_pill(x, y, vi) == 1) {
                 play_button_click();
                 pick_class(visible_class_at(vi));
             } else {
-                /* Defer card selection to release so horizontal drags can scroll. */
                 play_button_click();
                 classes_swipe_id = id;
                 classes_swipe_start_x = x;
                 classes_swipe_start_y = y;
                 classes_swipe_last_x = x;
                 classes_swipe_moved = 0;
+                classes_swipe_travel = 0;
+                classes_drag_frame_d = 0;
+                classes_drag_moved = 0;
                 classes_swipe_card = vi;
             }
             return;
@@ -73,11 +142,15 @@ static void touch_classes(double x, double y, double action, double id) {
         vi = vi + 1;
     }
     if (classes_swipe_zone(x, y) == 1) {
+        classes_vel = 0;
         classes_swipe_id = id;
         classes_swipe_start_x = x;
         classes_swipe_start_y = y;
         classes_swipe_last_x = x;
         classes_swipe_moved = 0;
+        classes_swipe_travel = 0;
+        classes_drag_frame_d = 0;
+        classes_drag_moved = 0;
         classes_swipe_card = -1;
     }
 }

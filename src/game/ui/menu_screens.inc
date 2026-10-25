@@ -162,15 +162,20 @@ static void draw_classes(void) {
         ctext_scaled(language == 1 ? "ФЛЕШ-РАСПРОДАЖА -10%" : "FLASH SALE -10%", classes_top() - 34, 0xFFFF3030, 0.6);
     }
     classes_scroll_clamp();
+    if (classes_scroll_needed() == 1) {
+        ds_gfx_scissor(screen_margin - 2, classes_top() - 8, classes_viewport_w() + 4, class_card_h + 16);
+    }
     double vi = 0;
     double last = classes_visible_count();
     while (vi < last) {
-        /* Only cards at least partly inside the viewport are drawn. */
         double cx = classes_card_x(vi);
         if (cx + classes_card_w() > 0 && cx < screen_w) {
             draw_class_card(vi);
         }
         vi = vi + 1;
+    }
+    if (classes_scroll_needed() == 1) {
+        ds_gfx_scissor(0, 0, 0, 0);
     }
     if (classes_scroll_needed() == 1) {
         /* Draw proportional horizontal scrollbar when strip overflows viewport. */
