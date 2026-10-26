@@ -217,7 +217,7 @@ static void draw_level_row(double n) {
     /* The last, jackpot level is titled in gold so it stands out at once. */
     uint32_t title_c = tc;
     if (n == max_level) {
-        title_c = shade(0xFFFFC94A, 1 - PRESS_SHADE * p);
+        title_c = shade(0xFFFFD54A, 1 - PRESS_SHADE * p);
     }
     card_state(bx, squeeze_y(y, y, rh, s), bw, rh * s, selected, 0, 1 - PRESS_SHADE * p);
     centered_text(ds_concat(ds_concat(tr_level(), " "), ds_num_to_string((double)(n))), bx, bw,
@@ -226,7 +226,7 @@ static void draw_level_row(double n) {
     /* During the flash sale the unlock price is red, like class prices. */
     uint32_t status_c = tc;
     if (n == max_level) {
-        status_c = shade(0xFFFFC94A, 1 - PRESS_SHADE * p);
+        status_c = shade(0xFFFFD54A, 1 - PRESS_SHADE * p);
     }
     if (flash_sale_active == 1 && n == class_unlocked_of(player_class) + 1) {
         status_c = shade(0xFFFF3030, 1 - PRESS_SHADE * p);

@@ -376,6 +376,19 @@ static int run_reinstall_levels(const char *dir) {
     snprintf(big_lb + off, sizeof(big_lb) - off, "}");
     assert(parse_leaderboard(big_lb, top, 10) == 10);
     assert(top[0].cups == 9999 && strcmp(top[0].nick, "u074") == 0);
+
+    /* The fourth (jackpot) level is stored as is, and a corrupt 9 clamps to 4. */
+    net_save_progress_all(500, 80, 1, 1, 0, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2);
+    net_save_astra(1, 4, 4);
+    net_save_codecracker(1, 4, 4);
+    assert(net_load_level() == 4 && net_load_levels_unlocked() == 4);
+    assert(net_load_azum_level() == 4 && net_load_azum_levels_unlocked() == 4);
+    assert(net_load_astra_level() == 4 && net_load_astra_levels_unlocked() == 4);
+    assert(net_load_codecracker_level() == 4 && net_load_codecracker_levels_unlocked() == 4);
+    net_save_progress_all(500, 80, 1, 1, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 4, 2);
+    assert(net_load_level() == 4 && net_load_levels_unlocked() == 4);
+    assert(net_load_ordinary_levels_unlocked() == 4 && net_load_ebuc_levels_unlocked() == 4);
+
     puts("reinstall levels: lower-level select, guest merge, promo sync, canonical nick, >64 leaderboard OK");
     return 0;
 }

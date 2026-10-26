@@ -2754,6 +2754,16 @@ static void test_level_four(void) {
     assert(adm_has_text("Уровень 4") == 1);
     assert(adm_has_text(tr_class_level_effect(CLASS_ORDINARY, 4)) == 1);
     assert(adm_has_text(tr_level_unlock_cost(level_cost(4))) == 1);
+    /* The jackpot title and its price are gold, the other rows stay white. */
+    {
+        int gold = 0;
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if ((adm_colors[ci] & 0xFFFFFFFFu) == 0xFFFFD54Au) {
+                gold = gold + 1;
+            }
+        }
+        assert(gold == 2);
+    }
     game_state = ST_LOBBY;
     language = 1;
     /* Even on a short landscape screen all four rows stay inside the frame. */
