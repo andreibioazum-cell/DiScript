@@ -1824,13 +1824,13 @@ static void test_azum_buff(void) {
     stub_flash_sale = 1;
     update_flash_sale();
     assert(flash_sale_active == 1);
-    assert(class_cost_of(CLASS_AZUM) == 59);  /* 65 - 10% -> 58.5 -> 59 */
-    assert(class_cost_of(CLASS_SANTA) == 90); /* 100 candies - 10% */
-    assert(class_cost_of(CLASS_ASTRA) == 122); /* 135 - 10% -> 121.5 -> 122 */
+    assert(class_cost_of(CLASS_AZUM) == 77);   /* 85 - 10% -> 76.5 -> 77 */
+    assert(class_cost_of(CLASS_SANTA) == 113); /* 125 candies - 10% -> 112.5 -> 113 */
+    assert(class_cost_of(CLASS_ASTRA) == 158); /* 175 - 10% -> 157.5 -> 158 */
     assert(level_cost(1) == 45);              /* 50 - 10% */
     assert(level_cost(3) == 81);              /* 90 - 10% */
     assert(class_cost_of(CLASS_ORDINARY) == 0);
-    cups = 59;
+    cups = 77;
     pick_class(CLASS_AZUM);
     assert(class_owned_of(CLASS_AZUM) == 1 && cups == 0);
     stub_flash_sale = 0;
@@ -2751,10 +2751,10 @@ int main(void) {
     assert(fabs(punch_cooldown - 0.65) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
-    assert(class_cost_of(CLASS_AZUM) == 65);
-    assert(class_cost_of(CLASS_SANTA) == 100);
-    assert(class_cost_of(CLASS_EBUC) == 120);
-    assert(class_cost_of(CLASS_ASTRA) == 135);
+    assert(class_cost_of(CLASS_AZUM) == 85);
+    assert(class_cost_of(CLASS_SANTA) == 125);
+    assert(class_cost_of(CLASS_EBUC) == 155);
+    assert(class_cost_of(CLASS_ASTRA) == 175);
     assert(class_has_super(CLASS_ASTRA) == 1);
     assert(astra_cd_for(0) == 6);
     assert(astra_cd_for(1) < astra_cd_for(0));
@@ -3644,7 +3644,7 @@ int main(void) {
     }
     player_class = CLASS_ORDINARY;
     assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
-    assert(class_base_cost_of(CLASS_CODECRACKER) == 475 && class_cost_of(CLASS_CODECRACKER) == 475);
+    assert(class_base_cost_of(CLASS_CODECRACKER) == 550 && class_cost_of(CLASS_CODECRACKER) == 550);
     assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
     /* Admin gets shop classes without spending cups; persistence still saves ownership. */
     cups = 100;
@@ -3816,12 +3816,12 @@ int main(void) {
     assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
     assert(class_visible_index(CLASS_ASTRA) >= 0 && classes_visible_count() == 5);
     assert(class_visible_index(CLASS_CODECRACKER) == 4);
-    assert(class_cost_of(CLASS_CODECRACKER) == 475);
+    assert(class_cost_of(CLASS_CODECRACKER) == 550);
     assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
-    cups = 474;
+    cups = 549;
     pick_class(CLASS_CODECRACKER);
-    assert(cups == 474 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ASTRA);
-    cups = 500;
+    assert(cups == 549 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ASTRA);
+    cups = 575;
     stub_last_codecracker = 0;
     pick_class(CLASS_CODECRACKER);
     assert(cups == 25 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);

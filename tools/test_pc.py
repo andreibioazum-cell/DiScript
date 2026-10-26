@@ -335,7 +335,7 @@ def test_brick_online(assets: Path) -> None:
 
 
 def test_codecracker_online(assets: Path) -> None:
-    """Non-admin buys CodeCracker for 475 cups and fights with it in an online room."""
+    """Non-admin buys CodeCracker for 550 cups and fights with it in an online room."""
     print("\n== 3k. CodeCracker for everyone in an online fight ==")
     stamp = int(time.time()) % 100000
     room = f"ccr{stamp}"
@@ -355,7 +355,7 @@ def test_codecracker_online(assets: Path) -> None:
              "--stick", "1520:1:0",
              "--super", "1650:1", "--super", "1655:0",
              "--report", "1700", "--report", "2050"],
-            progress="500 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
+            progress="575 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
         )
         time.sleep(0.5)
         victim = harness_async(
@@ -377,7 +377,7 @@ def test_codecracker_online(assets: Path) -> None:
     a1500, a2050 = rep_a.get(1500, {}), rep_a.get(2050, {})
     b1500, b1640, b2050 = rep_b.get(1500, {}), rep_b.get(1640, {}), rep_b.get(2050, {})
     check(
-        "обычный игрок купил CodeCracker за 475 кубков и сохранил в облако",
+        "обычный игрок купил CodeCracker за 550 кубков и сохранил в облако",
         isinstance(cloud_user, dict)
         and cloud_user.get("codecracker") == 1
         and cloud_user.get("cls") == 6
