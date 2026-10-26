@@ -1,6 +1,6 @@
 /* Room directory listing, creation, and FNV-1a password verification. */
 #define ROOM_NAME_MAX 24
-#define ROOM_LIST_MAX 16
+#define ROOM_LIST_MAX 64
 
 static struct {
     DSMutex lock;
@@ -82,7 +82,7 @@ typedef struct {
 
 static void *room_list_job(void *arg) {
     RoomListJob *job = (RoomListJob *)arg;
-    char url[URL], resp[8192];
+    char url[URL], resp[16384];
     char names[ROOM_LIST_MAX][ROOM_NAME_MAX + 1];
     int code, count, i;
     snprintf(url, sizeof(url), "%s/rooms.json?shallow=true", job->base);

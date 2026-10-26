@@ -735,13 +735,14 @@ void tex_alpha(float x, float y, const char *name, float angle, float scale, dou
 
 static int gift_tex_draws;
 static const char *last_gift_tex;
+static double last_tex_scale;
 void tex(float x, float y, const char *name, float angle, float scale) {
     (void)x;
     (void)y;
     (void)angle;
-    (void)scale;
     ground_tiles++;
     last_ground = name;
+    last_tex_scale = scale;
     if (name && strncmp(name, "gift_", 5) == 0) {
         gift_tex_draws++;
         last_gift_tex = name;
@@ -1922,7 +1923,7 @@ static void test_fps_meter(void) {
 
 static int stub_roomlist_status;
 static int stub_roomlist_count;
-static char stub_room_names[6][25];
+static char stub_room_names[32][25];
 static int stub_prep_status;
 static char stub_prep_name[25];
 static char stub_prep_pass[64];
@@ -5474,6 +5475,176 @@ int main(void) {
         arr_set(remotes, 1 * remote_fields + 5, 0);
         stub_net_slot = -1;
         dt = 1.0 / 60.0;
+        game_state = ST_LOBBY;
+    }
+
+    /* Regression suite: room list scroll + search, Event Cube/Santa scale & nicks,
+     * Elf буК custom dispenser + monochrome white beam, and 0-cup purchase guards. */
+    {
+        /* 1. ST_ROOMS vertical scrolling, inertia, wheel, and case-insensitive search. */
+        screen_w = 1280;
+        screen_h = 720;
+        t_dir = 0;
+        acct_open = 0;
+        docs_open = 0;
+        warn_open = 0;
+        studio_open = 0;
+        admin_panel_open = 0;
+        language = 1;
+        stub_roomlist_count = 20;
+        for (int i = 0; i < 20; i++) {
+            snprintf(stub_room_names[i], sizeof(stub_room_names[i]), i % 5 == 0 ? "Alpha-%02d" : "Room-%02d", i);
+        }
+        game_state = ST_ROOMS;
+        rooms_open();
+        assert(rooms_filtered_count() == 20 && rooms_scroll_needed() == 1 && rooms_scroll_max() > 0);
+        int pre_calls = stub_prep_calls;
+        int sc_before = stub_scissor_calls;
+        draw_rooms();
+        assert(stub_scissor_calls >= sc_before + 2 && stub_scissor_active == 0);
+        double sx = rooms_x() + rooms_w() / 2;
+        double sy = rooms_list_y() + 180;
+        logic_touch(sx, sy, 0, 201);
+        logic_touch(sx, sy - 90, 2, 201);
+        update_rooms();
+        logic_touch(sx, sy - 160, 2, 201);
+        logic_touch(sx, sy - 160, 1, 201);
+        assert(stub_prep_calls == pre_calls && rooms_scroll > 100 && rooms_vel > 0);
+        double scrolled = rooms_scroll;
+        update_rooms();
+        assert(rooms_scroll > scrolled);
+        rooms_vel = 0;
+        rooms_scroll_by(5000);
+        assert(fabs(rooms_scroll - rooms_scroll_max()) < 1e-9);
+        /* Tap a visible bottom row after scrolling to join it. */
+        double last_ry = rooms_row_y(19) + rooms_row_h() / 2;
+        assert(last_ry >= rooms_list_y() && last_ry <= rooms_list_bottom());
+        logic_touch(sx, last_ry, 0, 202);
+        logic_touch(sx, last_ry, 1, 202);
+        assert(stub_prep_calls == pre_calls + 1 && strcmp(stub_prep_name, "Room-19") == 0);
+        rooms_waiting = 0;
+        stub_prep_status = 0;
+        /* Search filter + clear button. */
+        logic_touch(rooms_x() + 40, rooms_search_y() + rooms_search_h() / 2, 0, 203);
+        assert(rooms_field == 3 && keyboard_visible() == 1);
+        stub_kb_set("alpha");
+        update_rooms();
+        assert(rooms_filtered_count() == 4 && rooms_scroll_needed() == 0 && rooms_scroll == 0);
+        assert(strcmp(rooms_filtered_name(0), "Alpha-00") == 0 && strcmp(rooms_filtered_name(3), "Alpha-15") == 0);
+        stub_kb_set("no-such-room");
+        update_rooms();
+        assert(rooms_filtered_count() == 0);
+        adm_reset_log();
+        draw_rooms();
+        assert(adm_has_text("Комнаты не найдены") == 1);
+        /* Clear search button restores full list. */
+        logic_touch(rooms_x() + rooms_w() - rooms_search_h() / 2, rooms_search_y() + rooms_search_h() / 2, 0, 204);
+        assert(str_len(rooms_search) == 0 && rooms_filtered_count() == 20);
+        keyboard_hide();
+        keyboard_clear();
+
+        /* 2. Event 4 Cube & Event 3 Santa exact player scale and overhead nicknames. */
+        game_state = ST_ONLINE;
+        event_mode = 4;
+        event_t = 1.0;
+        dice_event_reset();
+        adm_reset_log();
+        draw_dice_event();
+        assert(last_ground && strcmp(last_ground, ORDINARY_TEX) == 0);
+        assert(fabs(last_tex_scale - cube_scale * player_scale) < 1e-6);
+        assert(adm_has_text("Кубик") == 1);
+        event_mode = 3;
+        santa_event_begin();
+        plates_santa_t = 1.0;
+        adm_reset_log();
+        draw_event_santa();
+        assert(last_ground && strcmp(last_ground, SANTA_TEX) == 0);
+        assert(fabs(last_tex_scale - cube_scale * player_scale) < 1e-6);
+        assert(adm_has_text("Дед Мороз") == 1);
+        event_mode = 0;
+        plates_phase = 0;
+
+        /* 3. Elf буК custom dispenser sprite + pure monochrome white beam (local & remote). */
+        assert(strcmp(EBUC_ELF_DESPENSER_TEX, "ebuc_elf_dispenser.png") == 0);
+        finished = 0;
+        player_class = CLASS_EBUC;
+        ebuc_skin = SKIN_SPECIAL;
+        player->hp = 20;
+        player->x = 500;
+        player->y = 300;
+        arr_set(turret_x, 0, 340);
+        arr_set(turret_y, 0, 300);
+        arr_set(turret_hp, 0, 10);
+        arr_set(turret_maxhp, 0, 10);
+        arr_set(turret_spawn_t, 0, 0);
+        last_turret_slot = 0;
+        adm_reset_log();
+        draw_station();
+        assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
+        assert(adm_color_n >= 2);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        /* Normal буК still uses regular dispenser + green beam. */
+        ebuc_skin = SKIN_NORMAL;
+        adm_reset_log();
+        draw_station();
+        assert(last_ground && strcmp(last_ground, DESPENSER_TEX) == 0);
+        assert(adm_color_n >= 2 && (adm_colors[0] & 0xFFFFFFu) != 0xFFFFFFu);
+        arr_set(turret_hp, 0, 0);
+        /* Remote Online Elf буК also renders custom dispenser + monochrome white beam. */
+        stub_net_slot = 0;
+        for (int k = 0; k < (int)(max_players * station_fields); k++) {
+            arr_set(remote_station, k, 0);
+        }
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 520);
+        arr_set(remotes, 1 * remote_fields + 2, 320);
+        arr_set(remotes, 1 * remote_fields + 4, 20);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 10, CLASS_EBUC);
+        arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
+        arr_set(remote_station, 1 * station_fields, 1);
+        arr_set(remote_station, 1 * station_fields + 1, 1);
+        arr_set(remote_station, 1 * station_fields + 2, 360);
+        arr_set(remote_station, 1 * station_fields + 3, 320);
+        arr_set(remote_station, 1 * station_fields + 4, 10);
+        adm_reset_log();
+        draw_remote_station();
+        assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
+        assert(adm_color_n >= 2);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        arr_set(remote_station, 1 * station_fields + 1, 0);
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+
+        /* 4. 0-cup / negative / NaN / fractional balance purchase rejection. */
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "ZeroCupFriend");
+        assert(admin_playing() == 0);
+        set_class_owned(CLASS_AZUM, 0);
+        set_class_owned(CLASS_EBUC, 0);
+        set_class_owned(CLASS_ASTRA, 0);
+        set_class_owned(CLASS_CODECRACKER, 0);
+        player_class = CLASS_ORDINARY;
+        set_class_progress(CLASS_ORDINARY, 0, 0);
+        double bad_balances[5] = {0.0, -50.0, 0.0 / 0.0, 49.99, 84.99};
+        for (int bi = 0; bi < 5; bi++) {
+            cups = bad_balances[bi];
+            candies = 0;
+            pick_class(CLASS_AZUM);
+            pick_class(CLASS_EBUC);
+            pick_class(CLASS_ASTRA);
+            pick_class(CLASS_CODECRACKER);
+            assert(class_owned_of(CLASS_AZUM) == 0 && class_owned_of(CLASS_EBUC) == 0);
+            assert(class_owned_of(CLASS_ASTRA) == 0 && class_owned_of(CLASS_CODECRACKER) == 0);
+            assert(player_class == CLASS_ORDINARY);
+            if (!(cups >= level_cost(1))) {
+                assert(buy_level(CLASS_ORDINARY, 1) == 0 && class_unlocked_of(CLASS_ORDINARY) == 0);
+            }
+        }
+        /* Corrupt non-1 value in class_owned_tbl does not count as owned. */
+        set_class_owned(CLASS_AZUM, 2);
+        assert(class_owned_of(CLASS_AZUM) == 0);
         game_state = ST_LOBBY;
     }
 

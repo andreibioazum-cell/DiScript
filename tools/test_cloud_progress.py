@@ -284,11 +284,20 @@ static int run_text_cmd(const char *dir) {
 
 static int run_rooms_parse(const char *dir) {
     (void)dir;
-    char names[16][25];
-    int n = parse_room_names("{\"main\":true,\"dima-room\":true,\"bad name!\":true,\"ok_2\":false}", names, 16);
+    assert(ROOM_LIST_MAX >= 64);
+    char names[ROOM_LIST_MAX][25];
+    int n = parse_room_names("{\"main\":true,\"dima-room\":true,\"bad name!\":true,\"ok_2\":false}", names, ROOM_LIST_MAX);
     assert(n == 3);
     assert(strcmp(names[0], "main") == 0 && strcmp(names[1], "dima-room") == 0 && strcmp(names[2], "ok_2") == 0);
-    assert(parse_room_names("null", names, 16) == 0);
+    assert(parse_room_names("null", names, ROOM_LIST_MAX) == 0);
+    char many_json[2048];
+    size_t moff = (size_t)snprintf(many_json, sizeof(many_json), "{");
+    for (int i = 0; i < 40; i++) {
+        moff += (size_t)snprintf(many_json + moff, sizeof(many_json) - moff, "%s\"room-%02d\":true", i ? "," : "", i);
+    }
+    snprintf(many_json + moff, sizeof(many_json) - moff, "}");
+    assert(parse_room_names(many_json, names, ROOM_LIST_MAX) == 40);
+    assert(strcmp(names[0], "room-00") == 0 && strcmp(names[39], "room-39") == 0);
     assert(room_name_valid("main") == 1 && room_name_valid("") == 0 && room_name_valid("bad name") == 0);
     char h1[16], h2[16], h3[16];
     room_pass_hash("s3cret", h1, sizeof(h1));
@@ -376,6 +385,15 @@ static int run_http_guards(const char *dir, const char *base_url) {
     assert((int)net_auth(base_url, "VictimEmpty", "pass1234") == NET_ERROR);
     assert((int)net_auth(base_url, "FreshUser", "pass1234") == NET_LOGIN_OK);
     net_logout();
+
+    /* Direct account switch without sign-out must never leak previous account cups/classes. */
+    assert((int)net_auth(base_url, "RichUser", "pass1234") == NET_LOGIN_OK);
+    assert((int)net_load_cups() == 500 && (int)net_load_azum() == 1 && (int)net_load_ebuc() == 1);
+    assert((int)net_auth(base_url, "ZeroFriend", "pass1234") == NET_LOGIN_OK);
+    assert((int)net_load_cups() == 0 && (int)net_load_azum() == 0 && (int)net_load_ebuc() == 0);
+    net_logout();
+    progress_read();
+    assert(pg.cups == 0 && pg.azum == 0 && pg.ebuc == 0);
 
     /* Dead id_token on HTTP 401 when refresh fails clears id_token and retries GET unauthenticated. */
     snprintf(net.base, sizeof(net.base), "%s", base_url);
@@ -569,6 +587,10 @@ def main():
                     self._send(200, "")
                 elif parsed.path == "/users/FreshUser.json":
                     self._send(200, "null")
+                elif parsed.path == "/users/RichUser.json":
+                    self._send(200, '{"nick":"RichUser","pass":"pass1234","cups":500,"candies":50,"cls":3,"azum":1,"ebuc":1}')
+                elif parsed.path == "/users/ZeroFriend.json":
+                    self._send(200, '{"nick":"ZeroFriend","pass":"pass1234","cups":0,"candies":0,"cls":0,"azum":0,"ebuc":0}')
                 elif parsed.path == "/public_probe.json":
                     if "auth" in qs:
                         self._send(401, '{"error":"Auth token is expired"}')

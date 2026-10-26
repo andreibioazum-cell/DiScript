@@ -3,7 +3,7 @@ static void draw_station_beam(double sx, double sy, double px, double py);
 static void draw_turret_shadow_at(double x, double y, double spawn);
 static void draw_turret_shadows(void);
 static void draw_turret_at(double x, double y, double hp, double max_hp, double spawn);
-static void draw_turret_boom(double x, double y, double bt);
+static void draw_turret_boom_skin(double x, double y, double bt, double is_elf);
 static void draw_station(void);
 static double universe_particle_color(double i, double a);
 static void draw_universe_at(double cx, double cy, double seed, double t, double fade);

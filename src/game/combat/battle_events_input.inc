@@ -150,10 +150,10 @@ static void draw_online(void) {
     motion_blur_track();
     draw_arena_background();
     draw_disco();
-    draw_dice_event();
     draw_field();
     draw_event_plates();
     draw_event_candies();
+    draw_dice_cubes();
     draw_dust();
     draw_player_shadow_layer();
     double i = 0;
@@ -249,6 +249,7 @@ static void draw_online(void) {
         }
         i = i + 1;
     }
+    draw_dice_event();
     draw_event_santa();
     draw_chat_bubbles();
     draw_status_aura(player->x, player->y, player->size, freeze_rgb, freeze_rim, pfreeze_a);

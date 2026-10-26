@@ -13,6 +13,7 @@ static void load_textures(void) {
     ebuc_elf_tex_ok = png_load(EBUC_ELF_TEX);
     ebuc_elf_punch_tex_ok = png_load(EBUC_ELF_PUNCH_TEX);
     png_load(DESPENSER_TEX);
+    png_load(EBUC_ELF_DESPENSER_TEX);
     candy_tex_ok = png_load(CANDY_TEX);
     png_load(SNOWFLAKE_TEX);
     tex_reload_t = 0;
@@ -122,6 +123,12 @@ static void reload_textures(void) {
     }
     if (ebuc_elf_punch_tex_ok == 0) {
         ebuc_elf_punch_tex_ok = png_load(EBUC_ELF_PUNCH_TEX);
+    }
+    if (tex_ready(DESPENSER_TEX) == 0) {
+        png_load(DESPENSER_TEX);
+    }
+    if (tex_ready(EBUC_ELF_DESPENSER_TEX) == 0) {
+        png_load(EBUC_ELF_DESPENSER_TEX);
     }
     if (candy_tex_ok == 0) {
         candy_tex_ok = png_load(CANDY_TEX);

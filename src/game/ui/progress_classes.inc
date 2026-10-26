@@ -12,11 +12,11 @@ static double class_owned_of(double cls) {
     if (cls == CLASS_ORDINARY) {
         return 1;
     }
-    return arr_get(class_owned_tbl, cls);
+    return arr_get(class_owned_tbl, cls) == 1 ? 1 : 0;
 }
 
 static void set_class_owned(double cls, double owned) {
-    arr_set(class_owned_tbl, cls, owned);
+    arr_set(class_owned_tbl, cls, owned == 1 ? 1 : 0);
 }
 
 static void set_class_progress(double cls, double lv, double un) {
@@ -318,17 +318,28 @@ static void select_level(double cls, double n) {
     save_progress();
 }
 
+static double balance_can_pay(double bal, double cost) {
+    if (cost != cost || cost <= 0 || bal != bal || bal < 0) {
+        return 0;
+    }
+    return floor(bal + 1e-9) >= cost ? 1 : 0;
+}
+
 static double buy_level(double cls, double n) {
     double cost = level_cost(n);
+    if (cups != cups || cups < 0) {
+        cups = 0;
+    }
         /* Admin cups are never taken: the level opens for free. */
     double free_buy = admin_playing() == 1;
-    if (free_buy == 0 && cups < cost) {
+    if (free_buy == 0 && balance_can_pay(cups, cost) == 0) {
         level_msg_kind = 0;
         level_msg_t = msg_time;
         return 0;
     }
     if (free_buy == 0) {
         cups = cups - cost;
+        if (cups < 0) cups = 0;
     }
     set_class_progress(cls, n, n);
     if (cls == player_class) {
@@ -396,21 +407,25 @@ static void pick_class(double cls) {
         return;
     }
     double cost = class_cost_of(cls);
+    if (cups != cups || cups < 0) cups = 0;
+    if (candies != candies || candies < 0) candies = 0;
     class_msg_kind = class_pays_candies(cls);
     if (class_pays_candies(cls) == 1) {
-        if (candies < cost) {
+        if (balance_can_pay(candies, cost) == 0) {
             class_msg_t = msg_time;
             return;
         }
         candies = candies - cost;
+        if (candies < 0) candies = 0;
     } else if (admin_playing() == 1) {
                 /* Admin cups are never taken: the class is free. */
     } else {
-        if (cups < cost) {
+        if (balance_can_pay(cups, cost) == 0) {
             class_msg_t = msg_time;
             return;
         }
         cups = cups - cost;
+        if (cups < 0) cups = 0;
     }
     set_class_owned(cls, 1);
     select_class(cls);

@@ -98,6 +98,9 @@ static void draw_event_santa(void) {
     draw_shadow_blur_tex(cx - shadow_off, cy + shadow_off, half_px, sc, SANTA_TEX, plates_santa_angle,
                          shadow_alpha * 2.5, half_px * 0.07);
     tex(cx - half_px, cy - half_px + wob, SANTA_TEX, plates_santa_angle, sc);
+    if (pop > 0.35) {
+        draw_overhead_nick(tr_class_santa(), cx, cy + wob - half_px, 0xFFFFFF);
+    }
 }
 
 static void draw_plates_hud(void) {

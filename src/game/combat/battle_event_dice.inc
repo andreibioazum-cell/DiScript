@@ -195,23 +195,10 @@ static void dice_draw_cube(double cx, double cy, double size, double cube, doubl
     }
 }
 
-static void draw_dice_event(void) {
+static void draw_dice_cubes(void) {
     if (event_mode != 4) {
         return;
     }
-    /* Draw rotating central thrower cube. */
-    double cx = screen_w / 2;
-    double cy = screen_h / 2;
-    double sc = plates_santa_size / 50;
-    if (sc < cube_scale * player_scale) {
-        sc = cube_scale * player_scale;
-    }
-    double hw = 25 * sc;
-    double ang = event_t * 1.2;
-    tex_tint(cx - hw + 8, cy - hw + 10, ORDINARY_TEX, ang, sc, 0x55000000);
-    tex(cx - hw, cy - hw, ORDINARY_TEX, ang, sc);
-    ctext_scaled(language == 1 ? "Кубик" : "Cube", cy - hw - 34, 0xFFFFFFFF, 0.55);
-    /* The thrown character cubes. */
     double i = 0;
     while (i < dice_cubes_max) {
         double b = i * dice_fields;
@@ -245,5 +232,32 @@ static void draw_dice_event(void) {
             }
         }
         i = i + 1;
+    }
+}
+
+static void draw_dice_event(void) {
+    if (event_mode != 4) {
+        return;
+    }
+    /* Match Event 3 Santa: standard player fighter scale, blurred shadow, wobble, and overhead nick. */
+    double cx = screen_w / 2;
+    double cy = screen_h / 2;
+    double pop = 1;
+    if (event_t < 0.4) {
+        double p = event_t / 0.4;
+        pop = 1 - (1 - p) * (1 - p);
+    }
+    double sc = cube_scale * player_scale * pop;
+    double hw = 25 * sc;
+    if (sc <= 0.01) {
+        return;
+    }
+    double wob = 6 * pop * sin(event_t * 3);
+    double ang = event_t * 1.2;
+    draw_shadow_blur_tex(cx - shadow_off, cy + shadow_off, hw, sc, ORDINARY_TEX, ang,
+                         shadow_alpha * 2.5, hw * 0.07);
+    tex(cx - hw, cy - hw + wob, ORDINARY_TEX, ang, sc);
+    if (pop > 0.35) {
+        draw_overhead_nick(language == 1 ? "Кубик" : "Cube", cx, cy + wob - hw, 0xFFFFFF);
     }
 }

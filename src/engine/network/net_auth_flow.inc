@@ -61,6 +61,24 @@ static int resolve_canonical_user_nick(const char *typed, char *out, size_t cap)
     return ok;
 }
 
+/* Wipe previous account's local progress cache before switching to another user. */
+static void clear_local_pg_on_account_switch(const char *active_nick) {
+    int switching = 0;
+    lg_lock();
+    if (lg.session_nick[0] && !ascii_ieq_str(lg.session_nick, active_nick))
+        switching = 1;
+    lg_unlock();
+    if (!switching)
+        return;
+    cloud_dirty_set(0);
+    pg_lock();
+    memset(&pg, 0, sizeof(pg));
+    pg.loaded = 1;
+    pg_unlock();
+    pending_cls = pending_level = pending_skin = 0;
+    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+}
+
 double net_auth(const char *url, const char *nick, const char *pass) {
     if (!nick || !nick_valid(nick))
         return (double)NET_LOGIN_BAD_NICK;
@@ -125,11 +143,13 @@ double net_auth(const char *url, const char *nick, const char *pass) {
                     LOGERR("net_auth: create user record failed HTTP %d", put_code);
                 return (double)NET_ERROR;
             }
+            clear_local_pg_on_account_switch(active_nick);
             net_auth_session_ok(active_nick, pass);
             LOG("%s and logged in: '%s'", registered ? "registered" : "account restored", active_nick);
             return (double)NET_LOGIN_OK;
         }
         if (p && *p == '{') {
+            clear_local_pg_on_account_switch(active_nick);
             int restored = apply_user_json_keep_local(resp);
             lg_lock();
             snprintf(lg.session_nick, sizeof(lg.session_nick), "%s", active_nick);
@@ -162,6 +182,7 @@ double net_auth(const char *url, const char *nick, const char *pass) {
                 LOGERR("net_auth: register failed HTTP %d", put_code);
             return (double)NET_ERROR;
         }
+        clear_local_pg_on_account_switch(active_nick);
         net_auth_session_ok(active_nick, pass);
         LOG("registered and logged in: '%s'", active_nick);
         return (double)NET_LOGIN_OK;
@@ -171,6 +192,7 @@ double net_auth(const char *url, const char *nick, const char *pass) {
         char got_pass[64] = "";
         strv(resp, "pass", got_pass, sizeof(got_pass));
         if (strcmp(got_pass, pass) == 0) {
+            clear_local_pg_on_account_switch(active_nick);
             int restored = apply_user_json_keep_local(resp);
             lg_lock();
             snprintf(lg.session_nick, sizeof(lg.session_nick), "%s", active_nick);

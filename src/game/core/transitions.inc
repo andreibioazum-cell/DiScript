@@ -4,6 +4,7 @@ static void start_transition(double target) {
     }
     classes_swipe_reset();
     ach_scroll_reset();
+    rooms_scroll_reset();
     acct_gift_scroll_reset();
     t_target = target;
         /* Hold briefly before fade-out so button squeeze remains visible. */

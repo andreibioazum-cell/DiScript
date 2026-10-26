@@ -228,6 +228,10 @@ static void touch_menu(double x, double y, double action, double id) {
         touch_achievements(x, y, action, id);
         return;
     }
+    if (game_state == ST_ROOMS) {
+        touch_rooms(x, y, action, id);
+        return;
+    }
     if (action != 0) {
         return;
     }
@@ -261,8 +265,5 @@ static void touch_menu(double x, double y, double action, double id) {
     }
     if (game_state == ST_PROMO) {
         touch_promo(x, y, action);
-    }
-    if (game_state == ST_ROOMS) {
-        touch_rooms(x, y, action);
     }
 }

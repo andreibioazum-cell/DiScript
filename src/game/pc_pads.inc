@@ -93,6 +93,8 @@ void game_pc_wheel(float steps) {
         acct_gift_scroll_by(-(double)steps * 64.0);
     } else if (game_state == ST_ACHIEVEMENTS && acct_open == 0) {
         ach_scroll_by(-(double)steps * 64.0);
+    } else if (game_state == ST_ROOMS && rooms_mode == ROOMS_MODE_LIST && acct_open == 0) {
+        rooms_scroll_by(-(double)steps * 64.0);
     } else if (game_state == ST_CLASSES && acct_open == 0) {
         classes_scroll_by(-(double)steps * 80.0);
     }

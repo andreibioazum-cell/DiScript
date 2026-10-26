@@ -92,6 +92,7 @@ ZOMBIE_DASH_SOUND = "zombie_dash.wav";
 AZUM_ZOMBIE_PUNCH_TEX = "zombie_azum_punch.png";
 EBUC_ELF_TEX = "ebuc_elf.png";
 EBUC_ELF_PUNCH_TEX = "ebuc_elf_punch.png";
+EBUC_ELF_DESPENSER_TEX = "ebuc_elf_dispenser.png";
 
 /* Shop card render size and corner radius fraction. */
 CARD_RENDER_PX = 512;
