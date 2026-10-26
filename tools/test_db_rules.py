@@ -11,8 +11,8 @@ RULES = ROOT / "firebase.rules.json"
 def main() -> int:
     rules = json.loads(RULES.read_text(encoding="utf-8"))["rules"]
     event = rules["event"][".validate"]
-    if "<= 4" not in event:
-        print(f"event rule rejects the cube event: {event}", file=sys.stderr)
+    if "<= 5" not in event:
+        print(f"event rule rejects event 5: {event}", file=sys.stderr)
         return 1
     gifts = rules["users"]["$nick"]["gifts"]
     for key in ("poop", "cake", "bear", "rocket", "emerald"):
@@ -48,7 +48,7 @@ def main() -> int:
     if "<= 3" not in skin_rule:
         print(f"azum_skin rule rejects the packed skin flags: {skin_rule}", file=sys.stderr)
         return 1
-    print("db rules: event 0..4, gift keys poop/cake/bear/rocket/emerald, "
+    print("db rules: event 0..5, gift keys poop/cake/bear/rocket/emerald, "
           "emerald hue 0..7 for admins, codecracker levels and packed skins OK")
     return 0
 

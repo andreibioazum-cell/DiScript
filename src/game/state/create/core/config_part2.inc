@@ -75,6 +75,7 @@ AZUM_PUNCH_TEX = "azum_punch.png";
 SANTA_TEX = "santa.png";
 SANTA_PUNCH_TEX = "santa_punch.png";
 CANDY_TEX = "candy.png";
+EVENT_COLUMNS_TEX = "Event columns.png";
 SNOWFLAKE_TEX = "snowflake.png";
 EBUC_TEX = "ebuc.png";
 EBUC_PUNCH_TEX = "ebuc_punch.png";

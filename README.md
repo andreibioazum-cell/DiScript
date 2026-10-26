@@ -26,7 +26,7 @@
 
 Кроме APK в репозитории есть веб-версия - [index.html](index.html): панель
 админа для базы Firebase (вход по нику и паролю от игры, снимок базы, поиск и
-удаление мусора, ивенты 0..4, баннер, флаги магазина, баны, чистка чата и
+удаление мусора, ивенты 0..5, баннер, флаги магазина, баны, чистка чата и
 слотов, резервная копия). Сборка не нужна: открой файл в браузере.
 
 Потренироваться без боевой базы можно так:
@@ -84,7 +84,7 @@ and a keyboard-to-touch bridge. Details: [docs/pc-version.md](docs/pc-version.md
 
 Besides the APK the repository contains a web version - [index.html](index.html):
 the Firebase admin panel (sign in with the game nick and password, database
-snapshot, junk search and cleanup, events 0..4, banner, shop flags, bans, chat
+snapshot, junk search and cleanup, events 0..5, banner, shop flags, bans, chat
 and slot cleanup, backup copy). No build step: open the file in a browser.
 
 To practise without touching the live database run

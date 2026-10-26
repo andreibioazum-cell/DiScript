@@ -389,6 +389,7 @@ double lb_wait;
 double lb_wait_max;
 double banner_show_time;
 double banner_fade;
+double banner_y;
 double banner_seen_ts;
 double banner_t;
 double block_guard;

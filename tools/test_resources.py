@@ -117,6 +117,7 @@ def check_assets() -> None:
         for source in directory.rglob("*.inc"):
             names |= set(re.findall(r'"([A-Za-z0-9_./-]+\.png)"', source.read_text(encoding="utf-8")))
     assert names, "В исходниках не найдены ссылки на текстуры"
+    assert (ROOT / "assets" / "textures" / "Event columns.png").is_file(), "Не найдена текстура дня рождения колонок"
     missing = [
         name for name in sorted(names)
         if not (ROOT / "assets" / "textures" / name.split("/")[-1]).is_file()

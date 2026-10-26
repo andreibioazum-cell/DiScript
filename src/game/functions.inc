@@ -49,6 +49,7 @@
 #include "include/prototypes/combat/battle_event_plates.inc"
 #include "include/prototypes/combat/battle_event_santa.inc"
 #include "include/prototypes/combat/battle_event_dice.inc"
+#include "include/prototypes/combat/battle_event_columns.inc"
 #include "include/prototypes/combat/battle_events_input.inc"
 #include "include/prototypes/fx/weather.inc"
 #include "include/prototypes/fx/newyear.inc"

@@ -124,14 +124,18 @@ static void finish_game(double result) {
     }
 }
 
-/* Apply battle cup payout and win achievements unless an admin cheat was used. */
+/* Apply battle cup payout and win achievements unless an admin cheat was used.
+ * Online battles never move Cups: the cup ladder stays an offline reward. */
 static void award_battle_result(double result) {
+    int online = (game_state == ST_ONLINE);
     if (result == 1) {
         if (admin_cups_allowed() == 0) {
             ds_log("win: no cups, a cheat was used in this battle");
             return;
         }
-        cups = cups + cup_win;
+        if (online == 0) {
+            cups = cups + cup_win;
+        }
         if (candies_on() == 1) {
             candies = candies + candy_win;
         }
@@ -144,11 +148,19 @@ static void award_battle_result(double result) {
         if (player->hp >= player->max_hp && player_was_hit == 0) {
             grant_achievement(ACH_LAST_HP);
         }
-        ds_log("win +%g cups +%g candies", cup_win, candy_win);
+        if (online == 1) {
+            ds_log("win: online battle, cups unchanged (+%g candies)", candy_win);
+        } else {
+            ds_log("win +%g cups +%g candies", cup_win, candy_win);
+        }
         return;
     }
     if (admin_cups_allowed() == 0) {
         ds_log("lose: no cups taken away, a cheat was used in this battle");
+        return;
+    }
+    if (online == 1) {
+        ds_log("lose: online battle, cups unchanged");
         return;
     }
     cups = cups - cup_lose;
@@ -363,7 +375,10 @@ static void draw_result(const char *title) {
         reward = 0 - cup_lose;
     }
     ctext_scaled(title, y + 36, 0xFFFFFF, 1.12);
-    if (admin_cups_allowed() == 0) {
+    if (game_state == ST_ONLINE) {
+        /* An online fight leaves the cup ladder alone: say so instead of a number. */
+        ctext_scaled(tr_cups_online(), y + 126, 0xFFFFFF, 0.9);
+    } else if (admin_cups_allowed() == 0) {
         ctext_scaled(finished == 2 ? tr_cups_admin() : tr_cups_cheated(), y + 126, 0xFFFFFF, 0.9);
     } else if (finished == 2) {
         ctext_scaled(tr_cups_lose(reward), y + 126, 0xFFFFFF, 0.9);

@@ -190,8 +190,8 @@ static void *reader_thread(void *arg) {
                 int ev = num_int(event_resp, "", 0);
                 if (ev < 0)
                     ev = 0;
-                if (ev > 4)
-                    ev = 4;
+                if (ev > 5)
+                    ev = 5;
                 lock();
                 if (now_ms() >= event_local_until_ms)
                     net.event = ev;

@@ -48,26 +48,24 @@ static double admin_modifiers_allowed(void) {
     return 0;
 }
 
+/* Seasonal theme and Battle Pass are available to all three CCP moderators. */
+static double seasonal_admin_allowed(void) {
+    return admin_modifiers_allowed();
+}
+
 /* Return 1 when signed-in player can manage gifts in CCP. */
 static double admin_gifts_allowed(void) {
     return admin_playing();
 }
 
-/* Return 1 when signed-in player has access to the Battle Pass. */
+/* Return 1 when a signed-in CCP moderator has access to the Battle Pass. */
 static double bpass_allowed(void) {
-    return admin_playing();
+    return seasonal_admin_allowed();
 }
 
-/* Return 1 when signed-in player retains claimed Battle Pass rewards. */
+/* Keep Battle Pass rewards available to all CCP moderators. */
 static double bpass_rewards_allowed(void) {
-    if (net_login_status() != 2) {
-        return 0;
-    }
-    if (admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1 ||
-        admin_nick_equal(net_login_nick(), SANCH_NICK) == 1) {
-        return 1;
-    }
-    return 0;
+    return seasonal_admin_allowed();
 }
 
 static const char *admin_nick_of(double slot) {
