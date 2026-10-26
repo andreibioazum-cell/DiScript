@@ -1843,9 +1843,9 @@ static void test_azum_buff(void) {
     assert(class_cost_of(CLASS_AZUM) == 77);   /* 85 - 10% -> 76.5 -> 77 */
     assert(class_cost_of(CLASS_SANTA) == 113); /* 125 candies - 10% -> 112.5 -> 113 */
     assert(class_cost_of(CLASS_ASTRA) == 158); /* 175 - 10% -> 157.5 -> 158 */
-    assert(level_cost(1) == 45);              /* 50 - 10% */
-    assert(level_cost(3) == 81);              /* 90 - 10% */
-    assert(level_cost(4) == 900);             /* the last level: 1000 - 10% */
+    assert(level_cost(1) == 90);              /* 100 - 10% */
+    assert(level_cost(3) == 90);              /* the third level costs 100 too */
+    assert(level_cost(4) == 540);             /* the last level: 600 - 10% */
     assert(class_cost_of(CLASS_ORDINARY) == 0);
     cups = 77;
     pick_class(CLASS_AZUM);
@@ -2664,20 +2664,138 @@ static void test_class_stars(void) {
     puts("classes: all five rating stars restored above the description");
 }
 
-/* The shop sells four levels. The fourth one is the jackpot upgrade: it costs
- * 1000 cups, opens only after the third level and gives every class its own
- * big bonus. */
+/* Old rule sets used to sell level 1 for 900 cups and to hand out characters
+ * that were never bought. The game now takes its prices from its own code and
+ * refuses anything else. */
+static void test_shop_price_guard(void) {
+    game_reset();
+    screen_w = 1280;
+    screen_h = 720;
+    flash_sale_active = 0;
+    /* The price table is fixed in the code, not in a mutable rule set. */
+    assert(level_cost(1) == 100 && level_cost(2) == 100 && level_cost(3) == 100 && level_cost(4) == 600);
+    assert(level_price_ok(1, 900) == 0);      /* an old "level 1 = 900" price */
+    assert(level_price_ok(4, 1000) == 0);     /* an old "level 4 = 1000" price */
+    assert(level_price_ok(1, 0) == 0 && level_price_ok(1, 0.0 / 0.0) == 0);
+    {
+        /* Even if an old config shipped its own numbers, the game ignores them. */
+        double old_base = level_base_cost;
+        double old_last = level_4_cost;
+        level_base_cost = 900;
+        level_4_cost = 1000;
+        assert(level_cost(1) == 100 && level_cost(4) == 600);
+        level_base_cost = old_base;
+        level_4_cost = old_last;
+    }
+    /* A real purchase charges exactly 100, never 900. */
+    player_class = CLASS_ORDINARY;
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    sync_selected_class();
+    cups = 5000;
+    assert(buy_level(CLASS_ORDINARY, 1) == 1);
+    assert(cups == 4900 && class_unlocked_of(CLASS_ORDINARY) == 1);
+    /* A character that was never bought has no levels to sell. */
+    set_class_owned(CLASS_AZUM, 0);
+    set_class_progress(CLASS_AZUM, 0, 0);
+    cups = 5000;
+    assert(buy_level(CLASS_AZUM, 1) == 0);
+    assert(cups == 5000 && class_unlocked_of(CLASS_AZUM) == 0 && level_msg_kind == 3);
+    level_action(CLASS_AZUM, 1);
+    assert(cups == 5000 && class_unlocked_of(CLASS_AZUM) == 0);
+    language = 1;
+    assert(strcmp(level_msg_text(), tr_level_need_class()) == 0);
+    language = 0;
+    /* Old rules that make a character free are refused as well. */
+    {
+        double saved = ebuc_cost;
+        set_class_owned(CLASS_EBUC, 0);
+        ebuc_cost = 0;
+        assert(class_price_ok(CLASS_EBUC) == 0);
+        cups = 5000;
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 0 && cups == 5000 && class_msg_kind == 2);
+        ebuc_cost = -5;
+        assert(class_price_ok(CLASS_EBUC) == 0);
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 0 && cups == 5000);
+        ebuc_cost = 1;
+        assert(class_price_ok(CLASS_EBUC) == 0);
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 0 && cups == 5000);
+        /* The real price works and takes exactly the shown amount. */
+        ebuc_cost = saved;
+        assert(class_price_ok(CLASS_EBUC) == 1);
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 1 && cups == 5000 - class_price_of(CLASS_EBUC));
+        set_class_owned(CLASS_EBUC, 0);
+    }
+    /* Levels of a character you do not own are wiped, never kept for later. */
+    set_class_owned(CLASS_SANTA, 0);
+    set_class_progress(CLASS_SANTA, 3, 4);
+    progress_normalize();
+    assert(class_unlocked_of(CLASS_SANTA) == 0 && class_level_of(CLASS_SANTA) == 0);
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    player_level = 0;
+    levels_unlocked = 0;
+    cups = 0;
+    puts("shop guard: 100-cup levels, 600-cup jackpot, no old-rule overpricing and no unowned characters");
+}
+
+/* Every fighter winds up exactly like the ordinary cube: 0.2 s before the hit
+ * lands and the same swing after it. Azum is no exception. */
+static void test_punch_windup_uniform(void) {
+    game_reset();
+    screen_w = 1280;
+    screen_h = 720;
+    double classes[6] = {CLASS_ORDINARY, CLASS_AZUM, CLASS_SANTA, CLASS_EBUC, CLASS_ASTRA,
+                         CLASS_CODECRACKER};
+    for (int i = 0; i < 6; i++) {
+        double cls = classes[i];
+        assert(class_punch_windup(cls) == class_punch_windup(CLASS_ORDINARY));
+        assert(class_punch_time(cls) == class_punch_time(CLASS_ORDINARY));
+        assert(class_punch_windup(cls) == PUNCH_WINDUP && fabs(PUNCH_WINDUP - 0.2) < 1e-9);
+        player_class = cls;
+        set_class_owned(cls, 1);
+        punch_left = 0;
+        punch_cd = 0;
+        super_windup = 0;
+        unsigned int before = (unsigned int)punch->shot;
+        start_punch_now();
+        assert(punch->active == 1 && (unsigned int)punch->shot == before + 1);
+        assert(fabs(punch_left - (PUNCH_WINDUP + punch_time)) < 1e-9);
+        assert(fabs(punch_cd - (PUNCH_WINDUP + punch_cooldown)) < 1e-9);
+        assert(fabs(punch_left - 0.4) < 1e-9);
+        punch->active = 0;
+        punch->hit = 0;
+        punch_left = 0;
+        punch_cd = 0;
+    }
+    /* The bot winds up with the very same clock whatever class it plays. */
+    assert(fabs(enemy_windup - class_punch_windup(CLASS_ORDINARY)) < 1e-9);
+    assert(fabs(enemy_super_windup_time - class_punch_windup(CLASS_ORDINARY)) < 1e-9);
+    player_class = CLASS_ORDINARY;
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    cups = 0;
+    puts("windup: every class attacks with the ordinary cube's 0.2 s windup");
+}
+
+/* The shop sells four levels. Levels 1-3 cost 100 cups each and the fourth one
+ * is the jackpot upgrade: 600 cups, opens only after the third level and gives
+ * every class its own big bonus. */
 static void test_level_four(void) {
     game_reset();
     screen_w = 1280;
     screen_h = 720;
     flash_sale_active = 0;
-    assert(max_level == 4 && level_4_cost == 1000);
-    assert(level_cost(1) == 50 && level_cost(2) == 70 && level_cost(3) == 90 && level_cost(4) == 1000);
+    assert(max_level == 4 && level_4_cost == 600);
+    assert(level_cost(1) == 100 && level_cost(2) == 100 && level_cost(3) == 100 && level_cost(4) == 600);
     /* The fourth row is drawn and picked exactly like the first three. */
     assert(levels_row_h_fit() == level_row_h);
     assert(levels_row_y(4) + levels_row_h_fit() <= levels_msg_y());
     assert(hit_level_row(levels_x() + 10, levels_row_y(4) + 10, 4) == 1);
+    /* Every level costs 100 cups, the fourth one 600 - never a stray price. */
+    assert(level_price_ok(1, 100) == 1 && level_price_ok(2, 100) == 1 && level_price_ok(3, 100) == 1);
+    assert(level_price_ok(4, 600) == 1 && level_price_ok(4, 100) == 0);
     /* The fourth level is locked until the third one is paid for. */
     player_class = CLASS_ORDINARY;
     set_class_progress(CLASS_ORDINARY, 0, 0);
@@ -2685,15 +2803,15 @@ static void test_level_four(void) {
     cups = 5000;
     level_action(CLASS_ORDINARY, 4);
     assert(class_unlocked_of(CLASS_ORDINARY) == 0 && cups == 5000 && level_msg_kind == 1);
-    /* 50 + 70 + 90 buys the first three levels. */
+    /* 100 + 100 + 100 buys the first three levels. */
     level_action(CLASS_ORDINARY, 1);
     level_action(CLASS_ORDINARY, 2);
     level_action(CLASS_ORDINARY, 3);
-    assert(class_unlocked_of(CLASS_ORDINARY) == 3 && cups == 4790);
-    cups = 999;
+    assert(class_unlocked_of(CLASS_ORDINARY) == 3 && cups == 4700);
+    cups = 599;
     level_action(CLASS_ORDINARY, 4);
-    assert(class_unlocked_of(CLASS_ORDINARY) == 3 && cups == 999 && level_msg_kind == 0);
-    cups = 1000;
+    assert(class_unlocked_of(CLASS_ORDINARY) == 3 && cups == 599 && level_msg_kind == 0);
+    cups = 600;
     level_action(CLASS_ORDINARY, 4);
     assert(class_unlocked_of(CLASS_ORDINARY) == 4 && class_level_of(CLASS_ORDINARY) == 4);
     assert(player_level == 4 && levels_unlocked == 4 && cups == 0);
@@ -2713,7 +2831,7 @@ static void test_level_four(void) {
     assert(fabs(astra_strike_damage_for(4) - ASTRA_STRIKE_DAMAGE * 1.35) < 1e-9);
     assert(astra_strike_damage_for(4) > astra_strike_damage_for(3));
     assert(fabs(astra_strike_stun_for(4) - (ASTRA_STRIKE_STUN + astra_level_stun_bonus + 0.25)) < 1e-9);
-    assert(fabs(codecracker_bite_damage(4) - codecracker_touch_damage * 1.25) < 1e-9);
+    assert(fabs(codecracker_collision_damage(4) - codecracker_touch_damage * 1.25) < 1e-9);
     assert(fabs(codecracker_absorb_for(4) - 0.70) < 1e-9);
     /* The attack heal grows with the fourth level. */
     player_class = CLASS_ORDINARY;
@@ -2748,7 +2866,7 @@ static void test_level_four(void) {
     assert(strcmp(tr_class_level_effect(CLASS_EBUC, 4), tr_class_level_effect(CLASS_EBUC, 3)) != 0);
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 4), tr_class_level_effect(CLASS_ASTRA, 3)) != 0);
     assert(strcmp(tr_class_level_effect(CLASS_CODECRACKER, 4), tr_class_level_effect(CLASS_CODECRACKER, 3)) != 0);
-    /* The levels screen really prints the fourth row and its 1000-cup tag. */
+    /* The levels screen really prints the fourth row and its 600-cup tag. */
     language = 1;
     player_class = CLASS_ORDINARY;
     set_class_progress(CLASS_ORDINARY, 0, 3);
@@ -2781,13 +2899,13 @@ static void test_level_four(void) {
     screen_h = 720;
     /* FlashSale still cuts the jackpot price by 10%. */
     flash_sale_active = 1;
-    assert(level_cost(4) == 900);
+    assert(level_cost(4) == 540);
     flash_sale_active = 0;
     set_class_progress(CLASS_ORDINARY, 0, 0);
     player_level = 0;
     levels_unlocked = 0;
     cups = 0;
-    puts("levels: the fourth jackpot level costs 1000 cups and gives every class a bonus");
+    puts("levels: 100 cups per level, the fourth jackpot one costs 600 and gives every class a bonus");
 }
 
 static void assert_curtain_on_top(void) {
@@ -2945,12 +3063,12 @@ int main(void) {
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 7.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
-    assert(max_level == 4 && level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 &&
-           level_cost(2) == 70 && level_cost(3) == 90);
+    assert(max_level == 4 && level_base_cost == 100 && level_cost_step == 0 && level_cost(1) == 100 &&
+           level_cost(2) == 100 && level_cost(3) == 100);
     /* The fourth level is the jackpot one: it costs many times more than the
      * third and is never sold on the cheap step price. */
-    assert(level_4_cost == 1000 && level_cost(4) == level_4_cost);
-    assert(level_cost(4) > level_cost(3) * 5);
+    assert(level_4_cost == 600 && level_cost(4) == level_4_cost);
+    assert(level_cost(4) == level_cost(3) * 6);
     assert(punch_damage == 1 && santa_damage == 0.25 && ebuc_damage == 1.0);
     assert(ebuc_universe_damage >= ebuc_hp);
     azum_tex_ok = azum_punch_tex_ok = 1;
@@ -3690,12 +3808,13 @@ int main(void) {
         set_class_progress(CLASS_CODECRACKER, 0, 0);
     }
     /* Every CodeCracker level gives a bonus of his own: level 1 - a harder
-     * bite, level 2 - the overclock comes back sooner (4 s -> 3 s), level 3 -
+     * a harder touch collision, level 2 - the overclock comes back sooner
+     * (4 s -> 3 s), level 3 -
      * thicker overclock armour (half of the damage -> 60%). */
     {
-        assert(fabs(codecracker_bite_damage(0) - codecracker_touch_damage) < 1e-9);
-        assert(fabs(codecracker_bite_damage(1) - codecracker_touch_damage * 1.10) < 1e-9);
-        assert(fabs(codecracker_bite_damage(3) - codecracker_bite_damage(1)) < 1e-9);
+        assert(fabs(codecracker_collision_damage(0) - codecracker_touch_damage) < 1e-9);
+        assert(fabs(codecracker_collision_damage(1) - codecracker_touch_damage * 1.10) < 1e-9);
+        assert(fabs(codecracker_collision_damage(3) - codecracker_collision_damage(1)) < 1e-9);
         assert(codecracker_super_cd_for(0) == codecracker_super_cd);
         assert(codecracker_super_cd_for(1) == codecracker_super_cd);
         assert(codecracker_super_cd_for(2) == 3 && codecracker_super_cd_for(3) == 3);
@@ -4830,7 +4949,9 @@ int main(void) {
     test_promo_message();
     test_azum_buff();
     test_class_stars();
+    test_punch_windup_uniform();
     test_level_four();
+    test_shop_price_guard();
     test_codecracker_fx();
     test_fps_meter();
     test_eax229_and_rooms();
@@ -5338,7 +5459,7 @@ int main(void) {
         stub_online[2] = 0;
         stub_online[3] = 0;
 
-        /* 3) rb_burst and online CodeCracker bite respect revive_prot invulnerability. */
+        /* 3) rb_burst and online CodeCracker collision respect revive_prot invulnerability. */
         player->x = 400;
         player->y = 300;
         player->hp = 20;

@@ -104,6 +104,24 @@ static double class_has_super(double cls) {
     return 0;
 }
 
+/* One attack windup for every fighter. Azum, Astra, Santa, ebuC and the
+ * CodeCracker all wind up exactly like the ordinary cube: the same 0.2 s
+ * before the hit lands and the same swing afterwards. Nothing in a class may
+ * stretch or shorten it. */
+static double class_punch_windup(double cls) {
+    (void)cls;
+    return PUNCH_WINDUP;
+}
+
+static double class_punch_time(double cls) {
+    (void)cls;
+    return punch_time;
+}
+
+static double player_punch_windup(void) { return class_punch_windup(player_class); }
+
+static double player_punch_time(void) { return class_punch_time(player_class); }
+
 static double class_punch_damage_for(double cls, double lv) {
     if (cls == CLASS_AZUM) {
         double d = azum_buff_active == 1 ? punch_damage * 1.10 : punch_damage;
@@ -153,8 +171,9 @@ static const double codecracker_lv1_damage_bonus = 0.10;
 static const double codecracker_lv2_cd_bonus = 0.25;
 static const double codecracker_lv3_absorb_bonus = 0.10;
 
-/* Damage of one bite at the given CodeCracker level. */
-static double codecracker_bite_damage(double lv) {
+/* Damage of one touch collision at the given CodeCracker level. There is no
+ * bite ability in the game: the CodeCracker only bumps into the enemy. */
+static double codecracker_collision_damage(double lv) {
     double d = codecracker_touch_damage;
     if (lv >= 4) {
         return d * 1.25;

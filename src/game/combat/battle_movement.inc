@@ -172,7 +172,7 @@ static double enemy_in_punch(void) {
 }
 
 static void update_aim(void) {
-    if (punch->active == 1 && punch_left > 0 && punch_left <= punch_time + 1e-9 && super_windup <= 0 &&
+    if (punch->active == 1 && punch_left > 0 && punch_left <= player_punch_time() + 1e-9 && super_windup <= 0 &&
         finished == 0) {
         aim_a = fade_up_a(aim_a, aim_fade_in);
     } else {

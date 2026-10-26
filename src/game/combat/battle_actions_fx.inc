@@ -6,8 +6,8 @@ static void start_punch_now(void) {
     punch->active = 1;
     punch->shot = punch->shot + 1;
     punch->hit = 0;
-    punch_left = PUNCH_WINDUP + punch_time;
-    punch_cd = PUNCH_WINDUP + punch_cooldown;
+    punch_left = player_punch_windup() + player_punch_time();
+    punch_cd = player_punch_windup() + punch_cooldown;
     queued_punch = 0;
     punch_snd();
 }
@@ -61,7 +61,7 @@ static void fire_punch(void) {
     }
     start_punch_now();
     if (player_class == 2) {
-        santa_follow = PUNCH_WINDUP + santa_follow_delay;
+        santa_follow = player_punch_windup() + santa_follow_delay;
     }
 }
 
@@ -192,8 +192,8 @@ static void fire_super(void) {
     }
     santa_follow = 0;
     queued_super = 0;
-    super_windup = PUNCH_WINDUP;
-    punch_left = PUNCH_WINDUP;
+    super_windup = player_punch_windup();
+    punch_left = player_punch_windup();
     punch->active = 0;
     punch->hit = 0;
     ability_snd(player_class == CLASS_SANTA ? GIFT_SOUND : STATION_SOUND);

@@ -19,6 +19,7 @@
 #include "core/press.inc"
 #include "core/ui.inc"
 #include "ui/progress_classes.inc"
+#include "ui/progress_classes_levels.inc"
 #include "ui/progress_rewards.inc"
 #include "ui/promo.inc"
 #include "ui/layout.inc"

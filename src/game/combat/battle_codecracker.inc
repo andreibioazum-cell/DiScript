@@ -1,4 +1,4 @@
-/* CodeCracker overclock ultimate, contact bite/heal, and spark trail FX. */
+/* CodeCracker overclock ultimate, contact collision/heal, and spark trail FX. */
 
 static const double codecracker_tint_rgb = 0x00E676;
 static const double codecracker_tint_a = 0.35;
@@ -44,7 +44,7 @@ static void codecracker_tick_solo(void) {
     }
     codecracker_touch_cd_left = codecracker_touch_cd;
     codecracker_heal();
-    enemy_apply_damage_at(codecracker_bite_damage(player_level), player->x, player->y);
+    enemy_apply_damage_at(codecracker_collision_damage(player_level), player->x, player->y);
 }
 
 /* Resolve online CodeCracker contact heal and damage across synced slots. */
@@ -74,7 +74,7 @@ static void codecracker_tick_online(void) {
                 arr_get(codecracker_touch_cds, max_players + s) <= 0) {
                 arr_set(codecracker_touch_cds, max_players + s, codecracker_touch_cd);
                 if (revive_prot <= 0 &&
-                    take_damage_at(codecracker_bite_damage(net_player_level(s)),
+                    take_damage_at(codecracker_collision_damage(net_player_level(s)),
                                    arr_get(remotes, b + 1), arr_get(remotes, b + 2)) == 1) {
                     return;
                 }

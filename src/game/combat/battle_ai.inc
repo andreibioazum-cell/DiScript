@@ -15,12 +15,13 @@ static double start_enemy_attack(void) {
         err = err + (rand() % 100 - 50) / 100.0 * 0.35;
     }
     enemy->aim_err = err;
-    double turn_budget = enemy_attack_turn_speed * (enemy_windup - enemy_lock_time);
+    double windup = class_punch_windup(enemy_class);
+    double turn_budget = enemy_attack_turn_speed * (windup - enemy_lock_time);
     if (fabs(da) > turn_budget) {
         return 0;
     }
     enemy->state = 1;
-    enemy->state_time = enemy_windup;
+    enemy->state_time = windup;
     enemy->hit = 0;
     enemy_punch_x = enemy->x;
     enemy_punch_y = enemy->y;

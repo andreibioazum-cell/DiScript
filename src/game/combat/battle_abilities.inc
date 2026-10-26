@@ -352,7 +352,7 @@ static void update_game(void) {
     tick_super_windup();
     tick_santa_follow();
     punch_left = tick_down(punch_left);
-    if (punch->active == 1 && punch->hit == 0 && punch_left <= punch_time + 1e-9) {
+    if (punch->active == 1 && punch->hit == 0 && punch_left <= player_punch_time() + 1e-9) {
         double enemy_turret_target = enemy_punch_turret_target(punch->x, punch->y, punch->dx, punch->dy);
         if (enemy_turret_target >= 1) {
             punch->hit = 1;

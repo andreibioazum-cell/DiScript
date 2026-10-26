@@ -89,7 +89,7 @@ static const char *tr_class_level_effect(double cls, double n) {
     if (cls == CLASS_CODECRACKER) {
         /* CodeCracker level descriptions. */
         if (n == 1) {
-            return language == 1 ? "Укус: урон +10%" : "Bite: damage +10%";
+            return language == 1 ? "Столкновение: урон +10%" : "Collision: damage +10%";
         }
         if (n == 2) {
             return language == 1 ? "Ульта: перезарядка 3 с" : "Ult: cooldown 3 s";
@@ -97,7 +97,8 @@ static const char *tr_class_level_effect(double cls, double n) {
         if (n == 3) {
             return language == 1 ? "Ульта: поглощение урона 60%" : "Ult: damage absorb 60%";
         }
-        return language == 1 ? "Укус: урон +25%, поглощение 70%" : "Bite: dmg +25%, absorb 70%";
+        return language == 1 ? "Столкновение: урон +25%, поглощение 70%"
+                             : "Collision: dmg +25%, absorb 70%";
     }
     if (cls == 1 && n == 4) {
         return language == 1 ? "Рывок и атака +12%, лечение +0.18 HP" : "Dash & attack +12%, heal +0.18 HP";

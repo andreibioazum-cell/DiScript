@@ -3,6 +3,7 @@
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
 #define ASTRA_PULLBACK_DIST 14.0
+/* Astra pulls back for the very same windup as the ordinary cube. */
 #define ASTRA_PULLBACK_TIME PUNCH_WINDUP
 #define ASTRA_DASH_TIME 0.44
 static const double astra_ability_lunge_dist = 245.0;
