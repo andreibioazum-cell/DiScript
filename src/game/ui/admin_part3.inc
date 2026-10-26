@@ -223,6 +223,17 @@ static void admin_draw_gifts(void) {
     admin_btn(grant, px, target_y + rh + admin_gap(), w, rh, 0, fit_text_scale(grant, w - 20, 0.55));
 }
 
+/* Reference key of all events. It is drawn as plain text and cannot be
+ * tapped: the event comes from the typed number in the field above. */
+static const char *admin_event_key_line(int part) {
+    if (language == 1) {
+        return part == 0 ? "0 - выкл · 1 - Диско · 2 - Плиты"
+                         : "3 - Дед Мороз · 4 - Кубик · 5 - Колонки";
+    }
+    return part == 0 ? "0 - off · 1 - Disco · 2 - Plates"
+                     : "3 - Ded Moroz · 4 - Dice · 5 - Columns";
+}
+
 static void admin_draw_events(void) {
     double px = admin_panel_x() + admin_pad();
     double y = admin_content_top() + admin_row_h() + admin_gap();
@@ -230,6 +241,8 @@ static void admin_draw_events(void) {
     double rh = admin_row_h();
     double step = rh + admin_gap();
     int cur = (int)net_event();
+    int typed = admin_event_from_input();
+    /* Row 1: the input field. Nothing else in this tab picks an event. */
     roundrect(px, y, w, rh, 8, admin_off());
     roundrect_outline(px, y, w, rh, 8, 2, admin_frame());
     const char *ev_line;
@@ -240,40 +253,39 @@ static void admin_draw_events(void) {
         const char *pre = language == 1 ? "Ивент №: " : "Event #: ";
         ev_line = ds_concat(pre, admin_event_input);
     } else {
-        ev_line = language == 1 ? "Ввод ивента: 1-5 (0 выкл)" : "Type event: 1-5 (0 off)";
+        ev_line = language == 1 ? "Введите номер ивента: 0-5" : "Type the event number: 0-5";
     }
     text_in_box(ev_line, px + 8, y, w - 16, rh, admin_frame(), fit_text_scale(ev_line, w - 20, 0.55));
 
-    double sb_w = 8;
-    double list_w = w - sb_w - admin_gap();
-    double list_top = y + step;
-    double list_h = ADMIN_EVENT_VIEW * rh + (ADMIN_EVENT_VIEW - 1) * admin_gap();
-    for (int i = 0; i < ADMIN_EVENT_VIEW; ++i) {
-        int ev = admin_event_scroll + 1 + i;
-        const char *base = admin_event_title(ev);
-        const char *pref = admin_event_choice == ev ? "> " : "";
-        const char *suff = cur == ev ? (language == 1 ? " [ВКЛ]" : " [ON]") : "";
-        const char *lab = ds_concat(ds_concat(pref, base), suff);
-        admin_btn(lab, px, list_top + i * step, list_w, rh, cur == ev ? 1 : 0, fit_text_scale(lab, list_w - 16, 0.55));
-    }
-    double max_sc = ADMIN_EVENT_COUNT - ADMIN_EVENT_VIEW;
-    double sb_x = px + list_w + admin_gap();
-    roundrect(sb_x, list_top, sb_w, list_h, 4, admin_off());
-    roundrect_outline(sb_x, list_top, sb_w, list_h, 4, 2, admin_frame());
-    double thumb_h = list_h * ((double)ADMIN_EVENT_VIEW / (double)ADMIN_EVENT_COUNT);
-    double thumb_y = list_top + (max_sc > 0 ? (list_h - thumb_h) * ((double)admin_event_scroll / max_sc) : 0);
-    roundrect(sb_x, thumb_y, sb_w, thumb_h, 4, admin_on());
-    roundrect_outline(sb_x, thumb_y, sb_w, thumb_h, 4, 2, admin_frame());
+    /* Row 2: the whole key of the events, for reading only - no taps here. */
+    double hint_y = y + step;
+    const char *hint0 = admin_event_key_line(0);
+    const char *hint1 = admin_event_key_line(1);
+    centered_text(hint0, px, w, hint_y + rh * 0.18, admin_frame(), fit_text_scale(hint0, w - 8, 0.42));
+    centered_text(hint1, px, w, hint_y + rh * 0.58, admin_frame(), fit_text_scale(hint1, w - 8, 0.42));
 
-    double act_y = list_top + ADMIN_EVENT_VIEW * step;
+    /* Row 3: only two buttons - enable what was typed, or switch everything off. */
+    double act_y = y + 2 * step;
     double hw = (w - admin_gap()) / 2;
-    int sel_active = (admin_event_choice > 0 && cur == admin_event_choice) ? 1 : 0;
-    const char *act_lab = (admin_event_choice <= 0 || sel_active == 1)
-                              ? (language == 1 ? "Выключить" : "Turn off")
-                              : (language == 1 ? "Включить ивент" : "Enable event");
+    int on_now = (typed > 0 && cur == typed) ? 1 : 0;
+    const char *act_lab = on_now == 1 ? (language == 1 ? "Выключить" : "Turn off")
+                                      : (language == 1 ? "Включить ивент" : "Enable event");
     const char *off_lab = language == 1 ? "Выкл (0)" : "Off (0)";
-    admin_btn(act_lab, px, act_y, hw, rh, sel_active, fit_text_scale(act_lab, hw - 12, 0.55));
+    admin_btn(act_lab, px, act_y, hw, rh, on_now, fit_text_scale(act_lab, hw - 12, 0.55));
     admin_btn(off_lab, px + hw + admin_gap(), act_y, hw, rh, cur == 0 ? 1 : 0, fit_text_scale(off_lab, hw - 12, 0.55));
+
+    /* Row 4: what the typed number will do once the button is tapped. */
+    const char *status;
+    if (typed < 0) {
+        status = language == 1 ? "Введите номер ивента в поле выше" : "Type the event number above";
+    } else if (typed == 0) {
+        status = language == 1 ? "0. Выкл - событие выключится" : "0. Off - the event turns off";
+    } else if (cur == typed) {
+        status = ds_concat(language == 1 ? "Сейчас включён: " : "On now: ", admin_event_title(typed));
+    } else {
+        status = ds_concat(language == 1 ? "Включится: " : "Will turn on: ", admin_event_title(typed));
+    }
+    centered_text(status, px, w, act_y + step + rh * 0.3, admin_frame(), fit_text_scale(status, w - 8, 0.46));
 }
 
 static void admin_draw_banner_tab(void) {
@@ -365,7 +377,7 @@ static void admin_tick(void) {
             if (keyboard_enter_pressed() == 1) {
                 if (admin_tab == 2) {
                     admin_keyboard_drop();
-                    admin_set_event_mode(admin_event_choice);
+                    admin_apply_typed_event();
                 } else if (admin_tab == 3) {
                     admin_submit_banner();
                 }

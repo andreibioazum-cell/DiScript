@@ -1,4 +1,4 @@
-/* Admin chat commands, CCP input handling, event scroll, and banner text actions. */
+/* Admin chat commands, CCP input handling, typed event entry, and banner text actions. */
 
 static const char *admin_event_title(int ev) {
     if (language == 1) {
@@ -48,28 +48,39 @@ static void admin_set_event_mode(int ev) {
     }
 }
 
-static void admin_sync_event_scroll(void) {
-    int found = -1;
+/* Read the typed event number: -1 when the field is empty or holds junk. */
+static int admin_event_from_input(void) {
+    int value = 0;
+    int digits = 0;
     int i = 0;
     while (admin_event_input[i] != 0) {
-        if (admin_event_input[i] >= '0' && admin_event_input[i] <= '5') {
-            found = admin_event_input[i] - '0';
+        char c = admin_event_input[i];
+        if (c != ' ') {
+            if (c < '0' || c > '9') {
+                return -1;
+            }
+            value = value * 10 + (c - '0');
+            digits = digits + 1;
+            if (digits > 2) {
+                return -1;
+            }
         }
         i = i + 1;
     }
-    if (found < 0) {
-        return;
+    if (digits < 1 || value > ADMIN_EVENT_COUNT) {
+        return -1;
     }
-    admin_event_choice = found;
-    if (found == 0) {
-        admin_event_scroll = 0;
-    } else {
-        int sc = found - 1;
-        int max_sc = ADMIN_EVENT_COUNT - ADMIN_EVENT_VIEW;
-        if (sc < 0) sc = 0;
-        if (sc > max_sc) sc = max_sc;
-        admin_event_scroll = sc;
+    return value;
+}
+
+/* Apply what was typed. An empty or wrong field changes nothing. */
+static int admin_apply_typed_event(void) {
+    int ev = admin_event_from_input();
+    if (ev < 0) {
+        return 0;
     }
+    admin_set_event_mode((int)net_event() == ev && ev > 0 ? 0 : ev);
+    return 1;
 }
 
 static const char *admin_banner_color_id(int idx) {
@@ -117,7 +128,6 @@ static void admin_kb_flush(void) {
         keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
     } else if (f == 2) {
         keyboard_get_text_to(admin_event_input, sizeof(admin_event_input));
-        admin_sync_event_scroll();
     } else if (f == 3) {
         keyboard_get_text_to(admin_banner_input, sizeof(admin_banner_input));
     }
@@ -282,31 +292,19 @@ static void admin_press_events_tab(double x, double y, double px, double pw) {
     if (x < px + admin_pad() || x > px + pw - admin_pad()) {
         return;
     }
+    /* Row 1 is the one and only way in: the admin types the event number. */
     if (row_index == 1) {
         admin_event_input[0] = 0;
         admin_kb_open(2, "");
         play_button_click();
         return;
     }
-    if (row_index >= 2 && row_index <= 1 + ADMIN_EVENT_VIEW) {
-        int ev = admin_event_scroll + 1 + (row_index - 2);
-        if (ev >= 1 && ev <= ADMIN_EVENT_COUNT) {
-            admin_keyboard_drop();
-            admin_event_choice = ev;
-            admin_event_input[0] = (char)('0' + ev);
-            admin_event_input[1] = 0;
-            admin_set_event_mode((int)net_event() == ev ? 0 : ev);
-            play_button_click();
-        }
-        return;
-    }
-    if (row_index == 2 + ADMIN_EVENT_VIEW) {
+    /* Row 2 is a read-only key of the events, rows 3-4 are the buttons. */
+    if (row_index == 3) {
         admin_keyboard_drop();
         if (x < px + pw / 2) {
-            int target = (admin_event_choice <= 0 || (int)net_event() == admin_event_choice) ? 0 : admin_event_choice;
-            admin_set_event_mode(target);
+            admin_apply_typed_event();
         } else {
-            admin_event_choice = 0;
             admin_event_input[0] = '0';
             admin_event_input[1] = 0;
             admin_set_event_mode(0);

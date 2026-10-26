@@ -14,7 +14,6 @@ static double admin_gap(void) { return 6; }
 static const char *admin_gift_names[5] = {"Poop", "Cake", "Teddy", "Rocket", "Emerald"};
 
 #define ADMIN_EVENT_COUNT 5
-#define ADMIN_EVENT_VIEW 3
 #define ADMIN_BANNER_COLORS 9
 
 static double admin_header_h(void) { return clamp(screen_h * 0.03, 36, 56); }
@@ -49,7 +48,8 @@ static double admin_content_h(void) {
         return 8 * admin_row_h() + 7 * admin_gap();
     }
     if (admin_tab == 2) {
-        return 6 * admin_row_h() + 5 * admin_gap();
+        /* Tab row, the input field, the event key, the two buttons, the status. */
+        return 5 * admin_row_h() + 4 * admin_gap();
     }
     return 5 * admin_row_h() + 4 * admin_gap();
 }

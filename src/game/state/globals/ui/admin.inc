@@ -14,8 +14,6 @@ double admin_gift_choice;
 double admin_gift_busy;
 char admin_gift_target[24];
 int admin_kb_field;
-int admin_event_choice;
-int admin_event_scroll;
 char admin_event_input[16];
 int admin_banner_color_idx;
 double admin_banner_status_t;

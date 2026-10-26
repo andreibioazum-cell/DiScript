@@ -264,7 +264,12 @@ void keyboard_backspace(void) {
     if (len > 0)
         stub_kb[len - 1] = 0;
 }
-int keyboard_enter_pressed(void) { return 0; }
+static int stub_kb_enter;
+int keyboard_enter_pressed(void) {
+    int v = stub_kb_enter;
+    stub_kb_enter = 0;
+    return v;
+}
 int keyboard_uses_editor(void) { return 0; }
 int keyboard_handle_key(int keycode, int action, int meta) {
     (void)keycode;
@@ -5895,36 +5900,57 @@ int main(void) {
         /* Switch to Events tab (tab index 2 of 4). */
         admin_panel_press(admin_panel_x() + admin_panel_w() * 0.62, admin_content_top() + 8);
         assert(admin_tab == 2);
-        /* Tap event number input row (row_index == 1) and type 1, 2, 3 to scroll. */
+        /* The event is picked ONLY by typing its number into the field: the tab
+         * has no event list to scroll and no event row to tap. */
         {
             double step = admin_row_h() + admin_gap();
             double cx = admin_panel_x() + admin_panel_w() * 0.5;
             admin_panel_press(cx, admin_content_top() + step + 6);
             assert(keyboard_visible() == 1 && admin_kb_field == 2);
-            stub_kb_set("1");
+            /* The typed number is parsed and previewed, nothing is applied yet. */
+            stub_kb_set("3");
             admin_tick();
-            assert(admin_event_choice == 1 && admin_event_scroll == 0);
+            assert(strcmp(admin_event_input, "3") == 0 && (int)stub_event_mode == 0);
             adm_reset_log();
             admin_draw();
             assert(adm_all_greyscale() == 1 && adm_all_flat() == 1 && adm_no_white_fill() == 1);
-            assert(adm_has_text("1. Диско") == 1 && adm_has_text("3. Дед Мороз") == 1);
-            stub_kb_set("2");
+            assert(adm_has_text("Ивент № (0-5): 3|") == 1);
+            assert(adm_has_text("Включится: 3. Дед Мороз") == 1);
+            /* The event key is drawn as plain text - it is not a list of rows. */
+            assert(adm_has_text("0 - выкл · 1 - Диско · 2 - Плиты") == 1);
+            assert(adm_has_text("3 - Дед Мороз · 4 - Кубик · 5 - Колонки") == 1);
+            /* Junk and out-of-range numbers are refused: nothing changes. */
+            stub_kb_set("9");
             admin_tick();
-            assert(admin_event_choice == 2 && admin_event_scroll == 1);
             adm_reset_log();
             admin_draw();
-            assert(adm_has_text("2. Плиты") == 1 && adm_has_text("4. Кубик") == 1);
+            assert(adm_has_text("Введите номер ивента в поле выше") == 1);
+            stub_kb_set("буК");
+            admin_tick();
+            adm_reset_log();
+            admin_draw();
+            assert(adm_has_text("Введите номер ивента в поле выше") == 1);
+            /* Tap Enable event button (row 3, left half): applies the typed 3. */
             stub_kb_set("3");
             admin_tick();
-            assert(admin_event_choice == 3 && admin_event_scroll == 2);
-            adm_reset_log();
-            admin_draw();
-            assert(adm_has_text("3. Дед Мороз") == 1 && adm_has_text("5. Колонки") == 1);
-            /* Tap Enable event button on bottom left (row_index == 5). */
-            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.28, admin_content_top() + 5 * step + 6);
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.28, admin_content_top() + 3 * step + 6);
             assert(keyboard_visible() == 0 && (int)stub_event_mode == 3);
-            /* Tap Off (0) button on bottom right. */
-            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.72, admin_content_top() + 5 * step + 6);
+            /* The same number typed again turns it off. */
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            assert(keyboard_visible() == 1);
+            stub_kb_set("3");
+            admin_tick();
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.28, admin_content_top() + 3 * step + 6);
+            assert((int)stub_event_mode == 0);
+            /* Enter applies the typed number as well. */
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            stub_kb_set("5");
+            admin_tick();
+            stub_kb_enter = 1;
+            admin_tick();
+            assert(keyboard_visible() == 0 && (int)stub_event_mode == 5);
+            /* Tap Off (0) button on the right half of the same row. */
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.72, admin_content_top() + 3 * step + 6);
             assert((int)stub_event_mode == 0);
 
             /* Switch to Top Banner Text tab (tab index 3 of 4). */
