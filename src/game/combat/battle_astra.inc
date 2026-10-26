@@ -59,7 +59,7 @@ static double astra_locked(void) {
     if (class_is_astra(player_class) == 0) {
         return 0;
     }
-    if (astra_state == 1 && astra_ability_lunge_active() == 1) {
+    if (astra_state == 1) {
         return 1;
     }
     return 0;

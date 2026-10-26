@@ -126,6 +126,9 @@ static void tick_enemy_grab(void) {
         double rem = dt;
         double cur = egrab_t;
         if (cur < ASTRA_PULLBACK_TIME) {
+            enemy_face_player();
+            egrab_dx = cos(enemy->angle);
+            egrab_dy = sin(enemy->angle);
             double s1 = rem;
             if (cur + s1 > ASTRA_PULLBACK_TIME) {
                 s1 = ASTRA_PULLBACK_TIME - cur;

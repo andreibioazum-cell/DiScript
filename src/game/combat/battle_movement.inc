@@ -118,6 +118,9 @@ static void move_player(void) {
         return;
     }
     if (astra_locked() == 1) {
+        player_vx = 0;
+        player_vy = 0;
+        player_stop_from = 0;
         double jml = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
         if (jml > 0.15) {
             player_dir_x = joy.dx / jml;

@@ -117,10 +117,12 @@ double astra_parry_t;
 double astra_parry_blocked;
 double astra_strike_unlock_t;
 double astra_grab_ready_t;
-/* Astra forward lunge timer, start point, and target/grab origin. */
+/* Astra forward lunge timer, start point, dash direction, and target. */
 double astra_ability_lunge_t;
 double astra_ability_lunge_fx;
 double astra_ability_lunge_fy;
+double astra_ability_lunge_dx;
+double astra_ability_lunge_dy;
 double astra_ability_lunge_tx;
 double astra_ability_lunge_ty;
 double pgrab_active;

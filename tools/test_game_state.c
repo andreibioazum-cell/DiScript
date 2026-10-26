@@ -607,10 +607,14 @@ void rect(float x, float y, float width, float height, uint32_t color) {
 
 /* Added for the admin panel: the game only needs these on screen, the host
  * test just records what was drawn. */
+static double stub_enemy_hp_fill_x;
 void roundrect(float x, float y, float w, float h, float rad, uint32_t color) {
     (void)rad;
     adm_record_color(color);
     adm_record_rr_color(color);
+    if ((color & 0xFFFFFFu) == 0xE94560u) {
+        stub_enemy_hp_fill_x = x;
+    }
     if (adm_rr_n == 0) {
         adm_rr_x = x;
         adm_rr_y = y;
@@ -2738,10 +2742,11 @@ int main(void) {
     assert(fabs(ASTRA_PARRY_SPEED_K - 0.90) < 1e-9);
     assert(fabs(ASTRA_STRIKE_UNLOCK_DELAY - 0.30) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.85) < 1e-9);
-    assert(fabs(ASTRA_PULLBACK_TIME - 0.18) < 1e-9);
-    assert(fabs(ASTRA_DASH_TIME - 0.58) < 1e-9);
+    assert(fabs(ASTRA_PULLBACK_TIME - 0.09) < 1e-9);
+    assert(fabs(ASTRA_DASH_TIME - 0.40) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
-    assert(astra_ability_lunge_dist > 250.0 && astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
+    assert(fabs(astra_ability_lunge_dist - 185.0) < 1e-9);
+    assert(astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
     assert(fabs(PUNCH_WINDUP - 0.2) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
@@ -3715,33 +3720,51 @@ int main(void) {
     assert(lunge_frames * dt >= astra_ability_lunge_time - 1e-9);
     astra_state = 0;
     astra_cd = 0;
-    /* Moving lunge adds walking distance over lunge duration. */
+    /* Running when casting Strike does NOT fly farther; walking is locked, turning during 0.09s aims the dash. */
     {
         double saved_jdx = joy.dx;
         double saved_jdy = joy.dy;
+        double saved_sh = screen_h;
+        screen_h = 720;
         joy.dx = 1;
         joy.dy = 0;
+        player_vx = 220;
+        player_vy = 0;
         player->x = 300;
-        player->y = 90;
+        player->y = 200;
+        player->angle = 0;
         start_grab_now();
-        assert(astra_ability_lunge_tx - 300 >
-               player_walk_speed() * astra_ability_lunge_time + astra_ability_lunge_dist - 1e-6);
+        assert(player_vx == 0 && player_vy == 0 && astra_locked() == 1);
+        assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-9);
+        /* Turn joystick downward during the 0.09s windup: cannot walk, redirects dash downward! */
+        joy.dx = 0;
+        joy.dy = 1;
+        move_player();
+        assert(player_vx == 0 && player_vy == 0);
+        astra_ability_lunge_tick();
+        assert(fabs(player->angle - pi / 2) < 1e-6);
+        assert(fabs(astra_ability_lunge_tx - 300) < 1e-6);
+        assert(fabs(astra_ability_lunge_ty - (200 + astra_ability_lunge_dist)) < 1e-6);
         int k = 0;
-        while (k < 120) {
+        while (k < 120 && astra_ability_lunge_active() == 1) {
             astra_ability_lunge_tick();
             k = k + 1;
         }
-        assert(fabs(player->x - astra_ability_lunge_tx) < 1e-9);
+        assert(fabs(player->x - 300) < 1e-6);
+        assert(fabs(player->y - (200 + astra_ability_lunge_dist)) < 1e-6);
         joy.dx = saved_jdx;
         joy.dy = saved_jdy;
+        screen_h = saved_sh;
+        player->angle = 0;
         astra_state = 0;
         astra_cd = 0;
     }
     screen_w = 320;
-    /* Astra ult-strike hits along the forward dash right after the tiny recoil. */
+    /* Astra ult-strike hits along the forward dash right after the 0.09s recoil. */
     screen_w = 1080;
     player->x = 200;
     player->y = 90;
+    player->angle = 0;
     player->hp = 10;
     enemy->hp = enemy->max_hp = 10;
     enemy->stun = 0;
@@ -3753,7 +3776,7 @@ int main(void) {
         dt = 0.02;
         start_grab_now();
         assert(player_punching_now() == 1);
-        enemy->x = 200 + 260; /* Farther than old 48 px lunge, reached by new 310 px dash! */
+        enemy->x = 200 + 170; /* Reached by the 185 px forward dash! */
         for (int f = 0; f < 50 && astra_caught == 0; f++) {
             tick_astra();
             tick_astra_fades();
@@ -3854,7 +3877,7 @@ int main(void) {
     dt = 0.02;
     start_grab_now();
     assert(player_punching_now() == 1);
-    for (int frame = 0; frame < 9; frame++)
+    for (int frame = 0; frame < 5; frame++)
         tick_astra();
     assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
@@ -3882,7 +3905,7 @@ int main(void) {
     pthrow_t = 0;
     enemy_start_grab();
     assert(enemy_grab_punching() == 1);
-    for (int frame = 0; frame < 9; frame++) {
+    for (int frame = 0; frame < 5; frame++) {
         tick_enemy_grab();
         tick_astra_fades();
     }
@@ -3913,7 +3936,7 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < 9; frame++) {
+    for (int frame = 0; frame < 5; frame++) {
         update_remote_grabs();
         tick_astra_fades();
     }
@@ -3935,7 +3958,7 @@ int main(void) {
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
-    for (int frame = 0; frame < 9; frame++)
+    for (int frame = 0; frame < 5; frame++)
         update_remote_grabs();
     assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - astra_strike_stun_for(3)) < 1e-9);
     dt = saved_dt_astra;
@@ -4810,11 +4833,11 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
-        assert(astra_ability_lunge_tx > 650.0 && player_punching_now() == 1);
+        assert(fabs(astra_ability_lunge_tx - (400.0 + astra_ability_lunge_dist)) < 1e-6 && player_punching_now() == 1);
         {
             double saved_dt2 = dt;
             dt = 0.02;
-            for (int f = 0; f < 9; f++)
+            for (int f = 0; f < 5; f++)
                 tick_astra();
             assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
             assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
@@ -4826,6 +4849,12 @@ int main(void) {
             assert(player_punching_now() == 0);
             dt = saved_dt2;
         }
+        /* Enemy HP bar fills left-to-right like player's HP bar. */
+        enemy->hp = 10;
+        enemy->max_hp = 20;
+        stub_enemy_hp_fill_x = -1;
+        draw_game();
+        assert(fabs(stub_enemy_hp_fill_x - (screen_w - screen_w / 4 - 20 + 4)) < 0.05);
         enemy->stun = 0;
         astra_cd = 0;
 

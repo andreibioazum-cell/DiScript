@@ -415,7 +415,7 @@ static void draw_game(void) {
         draw_screen_fx();
     double w = screen_w / 4;
     hud_bar(20, 20, w, 28, player->hp, player->max_hp, 0x7ED321, 0);
-    hud_bar(screen_w - w - 20, 20, w, 28, enemy->hp, enemy->max_hp, 0xE94560, 1);
+    hud_bar(screen_w - w - 20, 20, w, 28, enemy->hp, enemy->max_hp, 0xE94560, 0);
     draw_controls();
         /* Red tint on damage - over everything, but very weak. */
     draw_hurt_flash();
