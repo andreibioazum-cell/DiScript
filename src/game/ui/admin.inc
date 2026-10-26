@@ -1,4 +1,4 @@
-/* Draggable monochrome admin orb and two-tab control panel. */
+/* Draggable monochrome admin orb and four-tab CCP control panel. */
 
 static double admin_a(double rgb, double a) {
     return (1 + floor(a * 254)) * 0x1000000 + rgb;
@@ -11,11 +11,11 @@ static double admin_in_battle(void) {
 /* Admin panel layout metrics. */
 static double admin_pad(void) { return 10; }
 static double admin_gap(void) { return 6; }
-static double admin_tab = 0;
-static double admin_gift_choice = 0;
-static double admin_gift_busy = 0;
-static char admin_gift_target[24];
 static const char *admin_gift_names[5] = {"Poop", "Cake", "Teddy", "Rocket", "Emerald"};
+
+#define ADMIN_EVENT_COUNT 5
+#define ADMIN_EVENT_VIEW 3
+#define ADMIN_BANNER_COLORS 9
 
 static double admin_header_h(void) { return clamp(screen_h * 0.03, 36, 56); }
 
@@ -42,8 +42,16 @@ static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
 static double admin_content_h(void) {
-    return (admin_tab == 0 || admin_gifts_allowed() == 0) ? admin_grid_h() + admin_row_h() + admin_gap()
-                                                          : 8 * admin_row_h() + 7 * admin_gap();
+    if (admin_gifts_allowed() == 0 || admin_tab == 0) {
+        return admin_grid_h() + admin_row_h() + admin_gap();
+    }
+    if (admin_tab == 1) {
+        return 8 * admin_row_h() + 7 * admin_gap();
+    }
+    if (admin_tab == 2) {
+        return 6 * admin_row_h() + 5 * admin_gap();
+    }
+    return 5 * admin_row_h() + 4 * admin_gap();
 }
 
 static double admin_cheat_row_h(void) {

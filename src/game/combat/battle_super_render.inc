@@ -41,7 +41,7 @@ static void draw_station_beam_skin(double sx, double sy, double px, double py, d
     double y1 = sy;
     double x2 = px - nx * pull;
     double y2 = py - ny * pull;
-    uint32_t rgb = is_elf == 1 ? 0x00FFFFFFu : (unsigned)(int)station_beam_rgb;
+    uint32_t rgb = is_elf == 1 ? 0x009E9E9Eu : (unsigned)(int)station_beam_rgb;
     uint32_t core_rgb = is_elf == 1 ? 0x00FFFFFFu : (unsigned)(int)station_beam_core_rgb;
     uint32_t outer = (((unsigned)(int)station_beam_alpha) << 24) | rgb;
     uint32_t core = (((unsigned)(int)station_beam_core_alpha) << 24) | core_rgb;
@@ -146,9 +146,9 @@ static void draw_turret_boom_skin(double x, double y, double bt, double is_elf) 
     if (a <= 0) {
         return;
     }
-    uint32_t c1 = is_elf == 1 ? 0x00FFFFFFu : 0x0000E676u;
+    uint32_t c1 = is_elf == 1 ? 0x009E9E9Eu : 0x0000E676u;
     uint32_t c2 = is_elf == 1 ? 0x00FFFFFFu : 0x00B9F6CAu;
-    uint32_t c3 = is_elf == 1 ? 0x00FFFFFFu : 0x0076FF03u;
+    uint32_t c3 = is_elf == 1 ? 0x00CFCFCFu : 0x0076FF03u;
     double r = 30 + 95 * p;
     ring(x, y, r, 9, (((unsigned)(int)a) << 24) | c1);
     double a85 = floor(a * 0.85);

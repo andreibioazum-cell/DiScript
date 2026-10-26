@@ -125,16 +125,16 @@ void net_event_set(double mode) {
     /* Event modes: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns. */
     if (m > 5)
         m = 5;
+    lock();
+    net.event = m;
+    event_local_until_ms = now_ms() + EVENT_LOCAL_HOLD_MS;
+    unlock();
     if (!net.base[0])
         return;
     char url[URL], body[32];
     snprintf(url, sizeof(url), "%s/event.json", net.base);
     snprintf(body, sizeof(body), "%d", m);
     event_write_async(url, body);
-    lock();
-    net.event = m;
-    event_local_until_ms = now_ms() + EVENT_LOCAL_HOLD_MS;
-    unlock();
     LOG("event set %d", m);
 }
 
@@ -213,7 +213,11 @@ const char *net_chat_text_cmd_color(const char *msg) {
 
 void net_banner_clear(void) {
     char url[URL];
-    if (!net.started || !net.run)
+    lock();
+    net.banner_ts = 0;
+    net.banner_text[0] = 0;
+    unlock();
+    if (!net.base[0])
         return;
     snprintf(url, sizeof(url), "%s/banner.json", net.base);
     event_write_async(url, "null");
@@ -222,16 +226,23 @@ void net_banner_clear(void) {
 
 void net_banner_send(const char *text, const char *color) {
     char url[URL], body[BODY], esc[CHAT_TEXT_MAX * 2], ecol[BANNER_COLOR_MAX * 2];
-    if (!net.started || !net.run)
-        return;
+    long long ts;
     if (!text || !*text)
         return;
     if (!color || !*color)
         color = "white";
+    ts = now_ms();
+    lock();
+    snprintf(net.banner_text, sizeof(net.banner_text), "%s", text);
+    snprintf(net.banner_color, sizeof(net.banner_color), "%s", color);
+    net.banner_ts = ts;
+    unlock();
+    if (!net.base[0])
+        return;
     json_escape(text, esc, sizeof(esc));
     json_escape(color, ecol, sizeof(ecol));
     snprintf(url, sizeof(url), "%s/banner.json", net.base);
-    snprintf(body, sizeof(body), "{\"ts\":%lld,\"text\":\"%s\",\"color\":\"%s\"}", now_ms(), esc, ecol);
+    snprintf(body, sizeof(body), "{\"ts\":%lld,\"text\":\"%s\",\"color\":\"%s\"}", ts, esc, ecol);
     event_write_async(url, body);
     LOG("banner send: %s (%s)", text, color);
 }

@@ -36,6 +36,7 @@
 #include "ui/menu_input_part2.inc"
 #include "ui/admin.inc"
 #include "ui/admin_part2.inc"
+#include "ui/admin_part3.inc"
 #include "fx/ability_sounds.inc"
 #include "combat/battle_rules.inc"
 #include "combat/hit_geometry.inc"

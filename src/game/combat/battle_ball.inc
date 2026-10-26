@@ -12,7 +12,7 @@
 #define BALL_TRAIL 12
 
 typedef struct {
-    double active;
+    double active, elf;
     double x, y, vx, vy;
     double bounces, t, spin, shot;
     double boom_x, boom_y, boom_t;
@@ -55,6 +55,7 @@ static void draw_ult_mode(void) {
 static void ult_ball_clear(UltBall *b) {
     double i = 0;
     b->active = 0;
+    b->elf = 0;
     b->x = 0;
     b->y = 0;
     b->vx = 0;
@@ -117,6 +118,7 @@ static void ball_fire(void) {
     ball.bounces = 0;
     ball.t = 0;
     ball.spin = 0;
+    ball.elf = ebuc_elf_local();
     ball.active = 1;
     ball.shot = ball.shot + 1;
     if (game_state == ST_ONLINE) {
@@ -266,24 +268,60 @@ static void ball_tick(void) { ult_ball_step(&ball, 0); }
 
 static void enemy_ball_tick(void) { ult_ball_step(&enemy_ball, 1); }
 
-static void ult_ball_draw_body(UltBall *b) {
+static void draw_ball_sphere(double x, double y, double is_elf) {
+    if (is_elf == 1) {
+        if ((int)shadow_alpha > 0) {
+            circle(x - shadow_off * 0.45, y + shadow_off * 0.45, BALL_RADIUS, (((unsigned)(int)shadow_alpha) << 24));
+        }
+        circle(x, y, BALL_RADIUS, 0xFFFFFFFFu);
+        ring(x, y, BALL_RADIUS, 2.5, 0xFFCFCFCFu);
+        return;
+    }
+    circle(x, y, BALL_RADIUS, 0xFF3A8BFFu);
+}
+
+static void draw_ball_boom_skin(double x, double y, double bt, double rad, double is_elf) {
+    if (is_elf != 1) {
+        draw_boom_at_r(x, y, bt, rad);
+        return;
+    }
+    if (bt <= 0) {
+        return;
+    }
+    double p = 1 - bt / boom_time;
+    double r = rad * p;
+    double fade_in = clamp(p / boom_fade_in, 0, 1);
+    double fade_out = clamp(bt / (boom_time * boom_fade_out), 0, 1);
+    double a = floor(fade_in * fade_out * 255);
+    if (a <= 0) {
+        return;
+    }
+    uint32_t c0 = (((unsigned)(int)a) << 24) | 0x00FFFFFFu;
+    uint32_t c1 = (((unsigned)(int)a) << 24) | 0x00DCDCDCu;
+    ring(x, y, r, 9, c0);
+    ring(x, y, r * 0.6, 6, c1);
+    circle(x, y, rad * 0.3, c0);
+}
+
+static void ult_ball_draw_body_skin(UltBall *b, double is_elf) {
     double i = 0;
     while (i < BALL_TRAIL) {
         if (b->trail_a[(int)i] > 0) {
             double a = b->trail_a[(int)i];
-            circle(b->trail_x[(int)i], b->trail_y[(int)i], BALL_RADIUS * (0.12 + 0.45 * a),
-                   ((unsigned)(int)(a * 170) << 24) | 0x003A8BFF);
+            uint32_t tcol = is_elf == 1 ? (((unsigned)(int)(a * 195) << 24) | 0x00FFFFFFu)
+                                        : (((unsigned)(int)(a * 170) << 24) | 0x003A8BFFu);
+            circle(b->trail_x[(int)i], b->trail_y[(int)i], BALL_RADIUS * (0.12 + 0.45 * a), tcol);
         }
         i = i + 1;
     }
     if (b->active == 1) {
-        circle(b->x, b->y, BALL_RADIUS, 0xFF3A8BFFu);
+        draw_ball_sphere(b->x, b->y, is_elf);
         if (show_hitboxes == 1) {
             draw_hit_circle(b->x, b->y, BALL_RADIUS, 1);
         }
     }
     if (b->boom_t > 0) {
-        draw_boom_at_r(b->boom_x, b->boom_y, b->boom_t, BALL_BOOM_RADIUS);
+        draw_ball_boom_skin(b->boom_x, b->boom_y, b->boom_t, BALL_BOOM_RADIUS, is_elf);
         if (show_hitboxes == 1) {
             draw_hit_circle(b->boom_x, b->boom_y, BALL_BOOM_RADIUS, b->boom_t / boom_time);
         }
@@ -291,6 +329,7 @@ static void ult_ball_draw_body(UltBall *b) {
 }
 
 static void draw_ball(void) {
+    double is_elf = (ball.elf == 1 || ebuc_elf_local() == 1) ? 1 : 0;
     if (admin_cheat_ball_path() == 1) {
         if (ball.active == 1) {
             draw_ball_path_from(ball.x, ball.y, ball.vx, ball.vy, ball.bounces, ball.t, 0x0056CCF2u, 1, 0);
@@ -299,7 +338,7 @@ static void draw_ball(void) {
                                 0, 0, 0x0056CCF2u, 1, 26 * player_scale);
         }
     }
-    ult_ball_draw_body(&ball);
+    ult_ball_draw_body_skin(&ball, is_elf);
 }
 
 static void draw_enemy_ball(void) {
@@ -315,7 +354,7 @@ static void draw_enemy_ball(void) {
                                 0, 0, 0x00FFD54Fu, 0, 26 * enemy_scale);
         }
     }
-    ult_ball_draw_body(&enemy_ball);
+    ult_ball_draw_body_skin(&enemy_ball, 0);
 }
 
 static void ult_ball_fade(UltBall *b) {

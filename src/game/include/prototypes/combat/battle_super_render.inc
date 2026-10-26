@@ -1,4 +1,6 @@
 static double station_beam_visible(double owner_hp);
+static double ebuc_elf_local(void);
+static double ebuc_elf_slot(double slot);
 static void draw_station_beam(double sx, double sy, double px, double py);
 static void draw_turret_shadow_at(double x, double y, double spawn);
 static void draw_turret_shadows(void);

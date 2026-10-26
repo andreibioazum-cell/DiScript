@@ -152,6 +152,13 @@ static void logic_update(void) {
     gift_shimmer_tick();
     update_button_press();
     admin_tick();
+    if (game_state != ST_ONLINE && banner_t > 0) {
+        double before = banner_t;
+        banner_t = tick_down(banner_t);
+        if (before > 0 && banner_t <= 0) {
+            net_banner_clear();
+        }
+    }
     if (game_state == ST_LOBBY) {
         cube_npc_bob_t = cube_npc_bob_t + dt;
         cube_npc_tick();
@@ -234,6 +241,9 @@ static void logic_draw(void) {
         draw_account();
     }
     draw_achievement_toast();
+    if (game_state != ST_ONLINE && warn_open == 0 && studio_open == 0 && banner_t > 0) {
+        draw_banner();
+    }
     if (t_fade > 0) {
         double a = t_fade * t_fade * (3 - 2 * t_fade);
         rect(0, 0, screen_w, screen_h, (1 + floor(a * 254)) * 0x1000000);

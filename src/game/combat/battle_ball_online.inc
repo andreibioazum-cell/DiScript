@@ -1,7 +1,7 @@
 /* Remote ebuC's projectile simulation and admin bounce-path preview. */
 #define REMOTE_BRICKS 4
 
-static double rb_on[REMOTE_BRICKS], rb_shot[REMOTE_BRICKS];
+static double rb_on[REMOTE_BRICKS], rb_shot[REMOTE_BRICKS], rb_elf[REMOTE_BRICKS];
 static double rb_x[REMOTE_BRICKS], rb_y[REMOTE_BRICKS], rb_vx[REMOTE_BRICKS], rb_vy[REMOTE_BRICKS];
 static double rb_bounces[REMOTE_BRICKS], rb_t[REMOTE_BRICKS], rb_spin[REMOTE_BRICKS];
 static double rb_boom_x[REMOTE_BRICKS], rb_boom_y[REMOTE_BRICKS], rb_boom_t[REMOTE_BRICKS];
@@ -147,6 +147,7 @@ static void remote_bricks_reset(void) {
     while (i < REMOTE_BRICKS) {
         rb_on[i] = 0;
         rb_shot[i] = 0;
+        rb_elf[i] = 0;
         rb_boom_x[i] = 0;
         rb_boom_y[i] = 0;
         rb_boom_t[i] = 0;
@@ -227,6 +228,7 @@ static void remote_bricks_tick(void) {
             rb_shot[(int)s] = shot;
             if (shot > 0) {
                 rb_on[(int)s] = 1;
+                rb_elf[(int)s] = ebuc_elf_slot(s);
                 rb_x[(int)s] = net_player_brick_x(s) * screen_w;
                 rb_y[(int)s] = net_player_brick_y(s) * screen_h;
                 rb_vx[(int)s] = net_player_brick_dx(s) * BALL_SPEED;
@@ -308,21 +310,23 @@ static void remote_bricks_tick(void) {
 static void draw_remote_bricks(void) {
     int s = 0, k;
     while (s < REMOTE_BRICKS) {
+        double is_elf = (rb_elf[s] == 1 || ebuc_elf_slot(s) == 1) ? 1 : 0;
         if (rb_on[s] == 1 && admin_cheat_ball_path() == 1) {
             draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FFD54Fu, 0, 0);
         }
         for (k = 0; k < BALL_TRAIL; k++) {
             if (rb_trail_a[s][k] > 0) {
                 double a = rb_trail_a[s][k];
-                circle(rb_trail_x[s][k], rb_trail_y[s][k], BALL_RADIUS * (0.12 + 0.45 * a),
-                       ((unsigned)(int)(a * 170) << 24) | 0x003A8BFF);
+                uint32_t tcol = is_elf == 1 ? (((unsigned)(int)(a * 195) << 24) | 0x00FFFFFFu)
+                                            : (((unsigned)(int)(a * 170) << 24) | 0x003A8BFFu);
+                circle(rb_trail_x[s][k], rb_trail_y[s][k], BALL_RADIUS * (0.12 + 0.45 * a), tcol);
             }
         }
         if (rb_on[s] == 1) {
-            circle(rb_x[s], rb_y[s], BALL_RADIUS, 0xFF3A8BFFu);
+            draw_ball_sphere(rb_x[s], rb_y[s], is_elf);
         }
         if (rb_boom_t[s] > 0) {
-            draw_boom_at_r(rb_boom_x[s], rb_boom_y[s], rb_boom_t[s], BALL_BOOM_RADIUS);
+            draw_ball_boom_skin(rb_boom_x[s], rb_boom_y[s], rb_boom_t[s], BALL_BOOM_RADIUS, is_elf);
             if (show_hitboxes == 1) {
                 draw_hit_circle(rb_boom_x[s], rb_boom_y[s], BALL_BOOM_RADIUS, rb_boom_t[s] / boom_time);
             }

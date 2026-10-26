@@ -9,6 +9,17 @@ double admin_ball_grab_dx;
 double admin_ball_grab_dy;
 double admin_ball_t;
 double admin_panel_open;
+double admin_tab;
+double admin_gift_choice;
+double admin_gift_busy;
+char admin_gift_target[24];
+int admin_kb_field;
+int admin_event_choice;
+int admin_event_scroll;
+char admin_event_input[16];
+int admin_banner_color_idx;
+double admin_banner_status_t;
+char admin_banner_input[72];
 /* Set when any cheat was enabled during the active battle (disables payout). */
 double cheat_stain;
 double cheat_god;

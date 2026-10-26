@@ -32,8 +32,8 @@ def main() -> int:
     if "<= 7" not in hue.get(".validate", ""):
         print(f"emerald_hue rule is missing or too narrow: {hue}", file=sys.stderr)
         return 1
-    if "dimasi4ek229@cb4.game" not in hue.get(".write", ""):
-        print(f"emerald_hue must be written by an admin only: {hue}", file=sys.stderr)
+    if "dimasi4ek229@cb4.game" not in hue.get(".write", "") or "qwertyuiopaj1234@cb4.game" not in hue.get(".write", ""):
+        print(f"emerald_hue must be written by admins only: {hue}", file=sys.stderr)
         return 1
     profile = rules["users"]["$nick"]
     # The CodeCracker keeps a level branch of its own, so the profile has to

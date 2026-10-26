@@ -240,22 +240,22 @@ static int run_admin_ban_guard(const char *dir) {
     FILE *f = fopen(path, "r");
     assert(f == NULL);
 
-    /* Non-admin accounts (including Sanch and qwertyuiopaj1234) are not ban-exempt. */
+    /* Admin accounts (Dimasi4ek229 and qwertyuiopaj1234) are ban-exempt; Sanch and ordinary accounts are not. */
+    net_ban_set("qwertyuiopaj1234", 1);
+    assert(net_is_banned("qwertyuiopaj1234") == 0);
+    net_ban_set("QWERTYUIOPAJ1234", 1);
+    assert(net_is_banned("qwertyuiopaj1234") == 0);
+
     net_ban_set("Sanch", 1);
     assert(net_is_banned("Sanch") == 1);
     net_ban_set("Sanch", 0);
     assert(net_is_banned("Sanch") == 0);
 
-    net_ban_set("qwertyuiopaj1234", 1);
-    assert(net_is_banned("qwertyuiopaj1234") == 1);
-    net_ban_set("qwertyuiopaj1234", 0);
-    assert(net_is_banned("qwertyuiopaj1234") == 0);
-
     net_ban_set("ordinary_player", 1);
     assert(net_is_banned("ordinary_player") == 1);
     net_ban_set("ordinary_player", 0);
     assert(net_is_banned("ordinary_player") == 0);
-    puts("moderation: Dimasi4ek229 cannot be banned; qwertyuiopaj1234 and ordinary bans work");
+    puts("moderation: Dimasi4ek229 and qwertyuiopaj1234 cannot be banned; ordinary bans work");
     return 0;
 }
 
@@ -451,13 +451,13 @@ int main(int argc, char **argv) {
 
 def check_balance_rules():
     rules_text = (ROOT / "firebase.rules.json").read_text(encoding="utf-8")
-    assert "qwertyuiopaj1234" not in rules_text.lower()
+    assert "qwertyuiopaj1234@cb4.game" in rules_text.lower()
     rules = json.loads(rules_text)["rules"]
     for key in ("cups", "candies"):
         rule = rules["users"]["$nick"][key][".validate"]
         assert "data.val() + 1000" in rule, f"{key}: no per-write growth cap"
-        assert "dimasi4ek229@cb4.game" in rule, \
-            f"{key}: administrator cannot correct a balance"
+        assert "dimasi4ek229@cb4.game" in rule and "qwertyuiopaj1234@cb4.game" in rule, \
+            f"{key}: administrators cannot correct a balance"
         assert rule.count("(") == rule.count(")")
 
 

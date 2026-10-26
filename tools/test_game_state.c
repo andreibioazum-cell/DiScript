@@ -989,10 +989,20 @@ const char *net_chat_text_cmd_color(const char *msg) {
     (void)msg;
     return "";
 }
+static char stub_banner_text_buf[128];
+static char stub_banner_color_buf[24] = "white";
+static double stub_banner_ts_val;
 void net_banner_send(const char *text, const char *color) {
-    (void)text;
-    (void)color;
+    snprintf(stub_banner_text_buf, sizeof(stub_banner_text_buf), "%s", text ? text : "");
+    snprintf(stub_banner_color_buf, sizeof(stub_banner_color_buf), "%s", (color && color[0]) ? color : "white");
+    stub_banner_ts_val += 1.0;
 }
+void net_banner_clear(void) {
+    stub_banner_text_buf[0] = 0;
+    snprintf(stub_banner_color_buf, sizeof(stub_banner_color_buf), "white");
+    stub_banner_ts_val = 0;
+}
+double net_banner_ts(void) { return stub_banner_ts_val; }
 void net_chat_trim(double keep) { (void)keep; }
 int png_load(const char *name) {
     (void)name;
@@ -2038,6 +2048,8 @@ static void test_dice_alone_and_bubbles(void) {
     assert(strcmp(stub_admin_reset_new, "secret1") == 0);
     assert(admin_handle("passwd Dimasi4ek229 secret1") == 1);
     assert(stub_admin_reset_calls == 1); /* protected admin account */
+    assert(admin_handle("passwd qwertyuiopaj1234 secret1") == 1);
+    assert(stub_admin_reset_calls == 1); /* protected admin account */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "x");
 
@@ -2612,8 +2624,8 @@ const char *net_leaderboard_nick(double idx) { (void)idx; return ""; }
 double net_leaderboard_cups(double idx) { (void)idx; return 0; }
 double net_player_codecracker_super(double slot) { return stub_cc_super[(int)slot]; }
 double net_player_block(double slot) { (void)slot; return 0; }
-const char *net_banner_text(void) { return ""; }
-const char *net_banner_color(void) { return "white"; }
+const char *net_banner_text(void) { return stub_banner_text_buf; }
+const char *net_banner_color(void) { return stub_banner_color_buf; }
 
 static void test_class_stars(void) {
     game_reset();
@@ -3431,8 +3443,8 @@ int main(void) {
     assert(astra_ability_of(CLASS_ASTRA, SKIN_SPECIAL) == 1);
     assert(astra_ability_of(CLASS_AZUM, SKIN_SPECIAL) == 0);
     assert(admin_slot("DIMASI4EK229") == 1);
-    assert(admin_slot("QWERTYUIOPAJ1234") == 0);
-    assert(admin_slot("qwertyuiopaj1234") == 0);
+    assert(admin_slot("QWERTYUIOPAJ1234") == 2);
+    assert(admin_slot("qwertyuiopaj1234") == 2);
     assert(admin_slot("regular_player") == 0);
         /* Dev rights come from the profile (nick), not the password: the password
          * can be changed as often as you like, the right stays; only nick and login
@@ -3453,8 +3465,8 @@ int main(void) {
     assert(acct_is_admin_nick() == 0);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
     astra_ability_refresh();
-    assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0 && is_admin() == 0);
-    assert(acct_is_admin_nick() == 0);
+    assert(astra_ability_allowed() == 1 && astra_ability_is_dev() == 1 && is_admin() == 1);
+    assert(acct_is_admin_nick() == 1);
     stub_login_status = 0;
     astra_ability_refresh();
     assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0);
@@ -4093,12 +4105,14 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and seven cheat labels. */
-    assert(adm_text_n == 12);
+    /* The title, close button, orb, four tabs and seven cheat labels. */
+    assert(adm_text_n == 14);
     assert(adm_has_text(tr_admin_title()) == 1);
     assert(adm_has_text(admin_orb_label()) == 1);
     assert(adm_has_text(language == 1 ? "Читы" : "Cheats") == 1);
     assert(adm_has_text(language == 1 ? "Подарки" : "Gifts") == 1);
+    assert(adm_has_text(language == 1 ? "Ивенты" : "Events") == 1);
+    assert(adm_has_text(language == 1 ? "Текст" : "Text") == 1);
     assert(adm_has_text("ADMIN") == 0);
     assert(adm_has_text(ADMIN_NICK) == 0);
     assert(adm_has_text(": ") == 0);
@@ -4689,13 +4703,13 @@ int main(void) {
     test_gifts_page();
     test_admin_keyboard();
 
-    /* New Year theme and Battle Pass are available to all CCP moderators;
-     * only the primary admin has the wider CCP/Gifts panel. */
+    /* New Year theme and Battle Pass are available to CCP moderators;
+     * Dimasi4ek229 and qwertyuiopaj1234 share full admin rights and full CCP tabs. */
     {
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0 && admin_modifiers_allowed() == 1);
+        assert(is_admin() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 1);
         assert(seasonal_admin_allowed() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         bp_xp = 0;
         bp_claimed = 0;
@@ -4990,13 +5004,14 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* All three CCP moderators get the seasonal theme and Battle Pass; only Dimasi4ek229
-     * keeps admin-panel Gifts access. */
+    /* All three CCP moderators get the seasonal theme and Battle Pass; Dimasi4ek229
+     * and qwertyuiopaj1234 share full admin rights and full 4-tab CCP access. */
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
-        assert(admin_slot("qwertyuiopaj1234") == 0 && admin_slot("QWERTYUIOPAJ1234") == 0);
+        assert(admin_slot("qwertyuiopaj1234") == 2 && admin_slot("QWERTYUIOPAJ1234") == 2);
         assert(strcmp(admin_nick_of(1), "Dimasi4ek229") == 0);
+        assert(strcmp(admin_nick_of(2), "qwertyuiopaj1234") == 0);
         assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
         assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFDD33u);
         assert((uint32_t)admin_color_of("qwertyuiopaj1234", 0xFFFFFFFF) == 0xFF4FC3F7u);
@@ -5006,16 +5021,16 @@ int main(void) {
         assert(nick_shimmers("Dimasi4ek229") == 1 && nick_shimmers("Sanch") == 1 &&
                nick_shimmers("qwertyuiopaj1234") == 1 && nick_shimmers("Player2") == 0);
 
-        /* qwertyuiopaj1234: sky-blue shimmering nick and modifier-only CCP (no gift management). */
+        /* qwertyuiopaj1234: sky-blue shimmering nick + full Dimasi4ek229-parity admin & CCP. */
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(is_admin() == 1 && admin_playing() == 1);
         winter_theme = 1;
         candy_enabled = 1;
-        assert(dev_access() == 0 && seasonal_admin_allowed() == 1);
+        assert(dev_access() == 1 && seasonal_admin_allowed() == 1);
         assert(winter_theme_on() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
-        assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+        assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 1);
         shimmer_text_n = 0;
         draw_lobby_nick();
         assert(shimmer_text_n == 1);
@@ -5023,13 +5038,14 @@ int main(void) {
         language = 1;
         game_state = ST_LOBBY;
         admin_panel_open = 1;
-        admin_tab = 1;
-        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
-        assert(admin_tab == 0);
+        admin_tab = 0;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.38, admin_content_top() + 8);
+        assert(admin_tab == 1);
         adm_reset_log();
         admin_draw();
-        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
-        assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Читы") == 1 && adm_has_text("Подарки") == 1);
+        assert(adm_has_text("Ивенты") == 1 && adm_has_text("Текст") == 1 && adm_has_text("Выдать подарок") == 1);
+        admin_tab = 0;
         admin_panel_open = 0;
 
         stub_login_status = 2;
@@ -5637,7 +5653,7 @@ int main(void) {
         event_mode = 0;
         plates_phase = 0;
 
-        /* 3. Elf буК custom dispenser sprite + pure monochrome white beam (local & remote). */
+        /* 3. Elf буК custom dispenser sprite + monochrome core-effect beam (local & remote). */
         assert(strcmp(EBUC_ELF_DESPENSER_TEX, "ebuc_elf_dispenser.png") == 0);
         finished = 0;
         player_class = CLASS_EBUC;
@@ -5655,15 +5671,15 @@ int main(void) {
         draw_station();
         assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
         assert(adm_color_n >= 2);
-        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0x9E9E9Eu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
         /* Normal буК still uses regular dispenser + green beam. */
         ebuc_skin = SKIN_NORMAL;
         adm_reset_log();
         draw_station();
         assert(last_ground && strcmp(last_ground, DESPENSER_TEX) == 0);
-        assert(adm_color_n >= 2 && (adm_colors[0] & 0xFFFFFFu) != 0xFFFFFFu);
+        assert(adm_color_n >= 2 && (adm_colors[0] & 0xFFFFFFu) != 0x9E9E9Eu);
         arr_set(turret_hp, 0, 0);
-        /* Remote Online Elf буК also renders custom dispenser + monochrome white beam. */
+        /* Remote Online Elf буК also renders custom dispenser + monochrome core-effect beam. */
         stub_net_slot = 0;
         for (int k = 0; k < (int)(max_players * station_fields); k++) {
             arr_set(remote_station, k, 0);
@@ -5684,11 +5700,133 @@ int main(void) {
         draw_remote_station();
         assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
         assert(adm_color_n >= 2);
-        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0x9E9E9Eu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
         arr_set(remote_station, 1 * station_fields + 1, 0);
         arr_set(remotes, 1 * remote_fields, 0);
         arr_set(remotes, 1 * remote_fields + 5, 0);
         stub_net_slot = -1;
+
+        /* 3b. Elf буК white snowball projectile (local & remote) vs regular буК blue ball. */
+        show_hitboxes = 0;
+        player_class = CLASS_EBUC;
+        ebuc_skin = SKIN_SPECIAL;
+        ball_reset();
+        ball.active = 1;
+        ball.elf = ebuc_elf_local();
+        ball.x = 420;
+        ball.y = 260;
+        adm_reset_log();
+        draw_ball();
+        assert((stub_circle_color & 0xFFFFFFu) == 0xFFFFFFu);
+        {
+            int has_rim = 0;
+            for (int ci = 0; ci < adm_color_n; ci++) {
+                if ((adm_colors[ci] & 0xFFFFFFu) == 0xCFCFCFu) has_rim = 1;
+            }
+            assert(has_rim == 1);
+        }
+        ebuc_skin = SKIN_NORMAL;
+        ball.elf = ebuc_elf_local();
+        adm_reset_log();
+        draw_ball();
+        assert((stub_circle_color & 0xFFFFFFu) == 0x3A8BFFu);
+        ball_reset();
+        /* Remote Online Elf буК snowball. */
+        stub_net_slot = 0;
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 10, CLASS_EBUC);
+        arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
+        rb_on[1] = 1;
+        rb_elf[1] = ebuc_elf_slot(1);
+        rb_x[1] = 430;
+        rb_y[1] = 270;
+        adm_reset_log();
+        draw_remote_bricks();
+        assert((stub_circle_color & 0xFFFFFFu) == 0xFFFFFFu);
+        rb_on[1] = 0;
+        rb_elf[1] = 0;
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+
+        /* 3c. CCP Events tab (scroll by typing 1/2/3 & launch event) and Top Banner Text tab. */
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
+        astra_ability_refresh();
+        screen_w = 1080;
+        screen_h = 2400;
+        language = 1;
+        game_state = ST_LOBBY;
+        admin_panel_open = 1;
+        stub_event_mode = 0;
+        /* Switch to Events tab (tab index 2 of 4). */
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.62, admin_content_top() + 8);
+        assert(admin_tab == 2);
+        /* Tap event number input row (row_index == 1) and type 1, 2, 3 to scroll. */
+        {
+            double step = admin_row_h() + admin_gap();
+            double cx = admin_panel_x() + admin_panel_w() * 0.5;
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            assert(keyboard_visible() == 1 && admin_kb_field == 2);
+            stub_kb_set("1");
+            admin_tick();
+            assert(admin_event_choice == 1 && admin_event_scroll == 0);
+            adm_reset_log();
+            admin_draw();
+            assert(adm_all_greyscale() == 1 && adm_all_flat() == 1 && adm_no_white_fill() == 1);
+            assert(adm_has_text("1. Диско") == 1 && adm_has_text("3. Дед Мороз") == 1);
+            stub_kb_set("2");
+            admin_tick();
+            assert(admin_event_choice == 2 && admin_event_scroll == 1);
+            adm_reset_log();
+            admin_draw();
+            assert(adm_has_text("2. Плиты") == 1 && adm_has_text("4. Кубик") == 1);
+            stub_kb_set("3");
+            admin_tick();
+            assert(admin_event_choice == 3 && admin_event_scroll == 2);
+            adm_reset_log();
+            admin_draw();
+            assert(adm_has_text("3. Дед Мороз") == 1 && adm_has_text("5. Колонки") == 1);
+            /* Tap Enable event button on bottom left (row_index == 5). */
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.28, admin_content_top() + 5 * step + 6);
+            assert(keyboard_visible() == 0 && (int)stub_event_mode == 3);
+            /* Tap Off (0) button on bottom right. */
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.72, admin_content_top() + 5 * step + 6);
+            assert((int)stub_event_mode == 0);
+
+            /* Switch to Top Banner Text tab (tab index 3 of 4). */
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.86, admin_content_top() + 8);
+            assert(admin_tab == 3);
+            adm_reset_log();
+            admin_draw();
+            assert(adm_all_greyscale() == 1 && adm_all_flat() == 1 && adm_no_white_fill() == 1);
+            /* Tap banner text input row (row_index == 1), type text, pick color, and send. */
+            net_banner_clear();
+            banner_t = 0;
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            assert(keyboard_visible() == 1 && admin_kb_field == 3);
+            stub_kb_set("Привет буК!");
+            admin_tick();
+            /* Cycle color once -> "red". */
+            admin_panel_press(cx, admin_content_top() + 2 * step + 6);
+            assert(admin_banner_color_idx == 1);
+            /* Tap Send button (row_index == 3). */
+            admin_panel_press(cx, admin_content_top() + 3 * step + 6);
+            assert(keyboard_visible() == 0);
+            assert(strcmp(net_banner_text(), "qwertyuiopaj1234: Привет буК!") == 0);
+            assert(strcmp(net_banner_color(), "red") == 0);
+            assert(banner_t > 0);
+            banner_t = banner_show_time - banner_fade;
+            adm_reset_log();
+            draw_banner();
+            assert(adm_has_text("qwertyuiopaj1234: Привет буК!") == 1);
+            /* Tap Clear button (row_index == 4). */
+            admin_panel_press(cx, admin_content_top() + 4 * step + 6);
+            assert(net_banner_text()[0] == 0 && banner_t == 0);
+        }
+        admin_panel_close();
+        stub_kb_set("");
 
         /* 4. 0-cup / negative / NaN / fractional balance purchase rejection. */
         stub_login_status = 2;
