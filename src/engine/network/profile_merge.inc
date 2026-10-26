@@ -6,7 +6,8 @@ static int apply_user_json_keep_local(const char *resp) {
     int local_atl = 0, local_atu = 0;
     int local_ccl = 0, local_ccu = 0;
     int local_cups = 0, local_candies = 0, local_ol = 0, local_ou = 0, local_sk = 0;
-    int local_lv = 0, local_lu = 0, local_bp = 0;
+    int local_lv = 0, local_lu = 0, local_bp = 0, local_bpx = 0;
+    int cloud_bpx = num_int(resp, "bpx", -1);
     progress_read();
     pg_lock();
     if (pg.loaded) {
@@ -32,6 +33,7 @@ static int apply_user_json_keep_local(const char *resp) {
         local_lv = pg.level;
         local_lu = pg.levels_unlocked;
         local_bp = pg.bp_level;
+        local_bpx = pg.bp_xp;
         local_ol = pg.ordinary_level;
         local_ou = pg.ordinary_levels_unlocked;
         local_sk = pg.azum_skin;
@@ -40,14 +42,12 @@ static int apply_user_json_keep_local(const char *resp) {
     apply_user_json(resp);
     if (!had)
         return 0;
-    /* A device with nothing on it (a fresh install, or the zeroed profile a
-     * sign-out leaves behind) must never overwrite the account: adopt the
-     * cloud copy and drop any stale "waiting for the cloud" marker. */
+    /* Do not overwrite cloud profile from an empty local state. */
     int local_has_progress = local_cups > 0 || local_candies > 0 || local_azum || local_santa || local_ebuc ||
-                             local_astra || local_cc || local_cls != 0 || local_bp > 0 || local_lv > 0 ||
-                             local_lu > 0 || local_ol > 0 || local_ou > 0 || local_al > 0 || local_au > 0 ||
-                             local_sl > 0 || local_su > 0 || local_el > 0 || local_eu > 0 || local_atl > 0 ||
-                             local_atu > 0 || local_ccl > 0 || local_ccu > 0 || local_sk != 0;
+                             local_astra || local_cc || local_cls != 0 || local_bp > 0 || local_bpx > 0 ||
+                             local_lv > 0 || local_lu > 0 || local_ol > 0 || local_ou > 0 || local_al > 0 ||
+                             local_au > 0 || local_sl > 0 || local_su > 0 || local_el > 0 || local_eu > 0 ||
+                             local_atl > 0 || local_atu > 0 || local_ccl > 0 || local_ccu > 0 || local_sk != 0;
     if (!local_has_progress) {
         cloud_dirty_set(0);
         return 0;
@@ -61,9 +61,7 @@ static int apply_user_json_keep_local(const char *resp) {
     cloud_cc = pg.codecracker;
 
     if (dirty) {
-        /* Cups are only ever spent through the shop, which writes the new
-         * balance straight to the database; a smaller local number is a stale
-         * copy (or a wiped device), so it may not drag the account down. */
+        /* Keep the higher cup count between local and cloud. */
         if (local_cups > pg.cups) {
             pg.cups = local_cups;
             restored = 1;
@@ -72,16 +70,28 @@ static int apply_user_json_keep_local(const char *resp) {
             pg.candies = local_candies;
             restored = 1;
         }
-        if (local_ou > pg.ordinary_levels_unlocked) {
-            pg.ordinary_levels_unlocked = local_ou;
-            restored = 1;
-        }
-        if (local_ol > pg.ordinary_level) {
-            pg.ordinary_level = local_ol;
-            restored = 1;
-        }
-        if (pg.azum_skin != local_sk) {
-            pg.azum_skin = local_sk;
+    }
+    if (local_ol > pg.ordinary_level) {
+        pg.ordinary_level = local_ol;
+        restored = 1;
+    }
+    if (local_ou > pg.ordinary_levels_unlocked) {
+        pg.ordinary_levels_unlocked = local_ou;
+        restored = 1;
+    }
+    if (local_bp > pg.bp_level) {
+        pg.bp_level = local_bp;
+        restored = 1;
+    }
+    if (local_bpx > 0 && local_bpx > cloud_bpx) {
+        if (local_bpx > pg.bp_xp)
+            pg.bp_xp = local_bpx;
+        restored = 1;
+    }
+    {
+        int merged_sk = (pg.azum_skin | local_sk) & SKIN_FLAGS_MAX;
+        if (merged_sk != pg.azum_skin) {
+            pg.azum_skin = merged_sk;
             restored = 1;
         }
     }

@@ -6,6 +6,8 @@ static void tick_remote_punches(void);
 static void update_remote_punches(void);
 static void update_remote_thuds(void);
 static void update_remote_snow(void);
+static void reset_remote_smooth_slot(int si);
+static void reset_remote_smooth(void);
 static void smooth_remotes(void);
 static double count_living_remotes(void);
 static double count_online_remotes(void);

@@ -1,5 +1,4 @@
-/* Game renderer: Vulkan on Android, the software rasterizer on PC (CB_PC). The
- * shared layers (commands, geometry, text, assets) are the same for both. */
+/* Renderer entry point: Vulkan on Android, software rasterizer on PC. */
 #include "engine/graphics/types.inc"
 #include "engine/graphics/geometry.inc"
 #include "engine/graphics/text.inc"

@@ -28,6 +28,7 @@ static void enemy_reset_class_state(void) {
     egrab_punch_t = 0;
     egrab_box_a = 0;
     enemy_last_turret_slot = 0;
+    enemy_ball_reset();
     arr_clear(enemy_turret_x);
     arr_clear(enemy_turret_y);
     arr_clear(enemy_turret_hp);
@@ -57,8 +58,7 @@ static void enemy_pick_random_class(void) {
     } else if (roll < ebuc_to) {
         enemy_class = CLASS_EBUC;
     } else if (roll < santa_to) {
-        /* Santa is developer-only for now, so the bot does not roll him
-         * for anyone else either. */
+        /* Restrict bot Santa spawns to developer accounts. */
         enemy_class = dev_access() == 1 ? CLASS_SANTA : CLASS_ORDINARY;
     } else if (roll < astra_to) {
         enemy_class = CLASS_ASTRA;
@@ -79,7 +79,7 @@ static void enemy_pick_random_class(void) {
     ds_log("enemy class %g hp %g", enemy_class, enemy->max_hp);
 }
 
-/* The enemy's guard is directional too: only frontal strikes hit the shield. */
+/* Return 1 when enemy guard faces the incoming damage source. */
 static double enemy_block_covers(void) {
     if (dmg_from_k == 0) {
         return 1;
@@ -100,13 +100,20 @@ static double enemy_apply_damage(double dmg) {
         dmg_from_k = 0;
         return 1;
     }
-    /* Damage x5 from the admin panel multiplies everything the enemy takes. */
+    /* Apply admin damage multiplier. */
     dmg = dmg * admin_cheat_damage_mult();
     if (enemy_revive_prot > 0) {
         dmg_from_k = 0;
         return 0;
     }
-    /* A raised guard eats part of any frontal ability, like the player's. */
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        dmg_from_k = 0;
+        if (dmg > 0) {
+            enemy_on_astra_parry_block();
+        }
+        return 0;
+    }
+    /* Reduce frontal damage while enemy is blocking. */
     if (enemy_block_left > 0 && enemy_block_covers() == 1) {
         dmg = dmg * block_guard;
     }
@@ -117,10 +124,10 @@ static double enemy_apply_damage(double dmg) {
     if (dmg > 0) {
         enemy_hurt_a = 1;
         damage_taken_shake(dmg);
-        /* Humans flinch into a guard after eating a hit - sometimes. */
-        if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
-            rand() % 100 < 18) {
-            enemy_block_left = 0.5 + (rand() % 100) / 100.0 * 0.4;
+    /* Chance to raise guard after taking a hit. */
+    if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
+            rand() % 100 < 10) {
+            enemy_block_left = 0.4 + (rand() % 100) / 100.0 * 0.3;
         }
     }
     enemy->hp = enemy->hp - dmg;
@@ -184,6 +191,8 @@ static double enemy_try_revive(void) {
 static void enemy_start_snow(void) {
     enemy_gift->x = enemy->x;
     enemy_gift->y = enemy->y;
+    enemy_gift->x0 = enemy->x;
+    enemy_gift->y0 = enemy->y;
     double a = atan2(player->y - enemy->y, player->x - enemy->x);
     enemy_gift->dx = cos(a);
     enemy_gift->dy = sin(a);
@@ -201,11 +210,11 @@ static void enemy_snow_explode(void) {
     enemy_boom_t = boom_time;
     if (circle_hits_player(enemy_boom_x, enemy_boom_y, super_radius) == 1) {
         if (revive_prot <= 0) {
-            if (player_freeze < santa_freeze_time_for(enemy_level)) {
+            if (astra_parry_active() == 0 && player_freeze < santa_freeze_time_for(enemy_level)) {
                 player_freeze = santa_freeze_time_for(enemy_level);
                 player_freeze_slow = super_freeze_slow;
             }
-            take_damage_at(santa_super_damage, enemy_boom_x, enemy_boom_y);
+            take_damage_at(santa_super_damage * enemy_damage_mult_for(enemy_class), enemy_boom_x, enemy_boom_y);
         }
     }
 }
@@ -221,12 +230,16 @@ static void tick_enemy_gift(void) {
         enemy_gift->active = 0;
         return;
     }
+    if (enemy_gift->t == 0) {
+        enemy_gift->x0 = enemy_gift->x;
+        enemy_gift->y0 = enemy_gift->y;
+    }
     enemy_gift->t = enemy_gift->t + dt;
-    enemy_gift->x = enemy_gift->x + enemy_gift->dx * super_speed * dt;
-    enemy_gift->y = enemy_gift->y + enemy_gift->dy * super_speed * dt;
+    snow_step_pos(enemy_gift->x0, enemy_gift->y0, enemy_gift->dx, enemy_gift->dy, enemy_gift->t, enemy_gift->shot,
+                  &enemy_gift->x, &enemy_gift->y);
     snow_chip_player_turrets();
     double touched = 0;
-    if (circle_hits_player(enemy_gift->x, enemy_gift->y, snow_ball_r) == 1) {
+    if (circle_hits_player(enemy_gift->x, enemy_gift->y, snow_radius_for(enemy_gift->shot)) == 1) {
         touched = 1;
     }
     if (enemy_gift->t > super_range / super_speed) {
@@ -241,9 +254,10 @@ static void draw_enemy_gift(void) {
     if (enemy_gift->active == 0) {
         return;
     }
-    double hw = 16;
+    double sc = snow_scale_for(enemy_gift->shot);
+    double hw = 16 * sc;
     double rot = enemy_gift->t * 3;
-    tex(enemy_gift->x - hw, enemy_gift->y - hw, SNOWFLAKE_TEX, rot, 0.5);
+    tex(enemy_gift->x - hw, enemy_gift->y - hw, SNOWFLAKE_TEX, rot, 0.5 * sc);
 }
 
 static void draw_enemy_boom(void) {

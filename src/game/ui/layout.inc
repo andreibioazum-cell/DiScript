@@ -28,8 +28,7 @@ static double hit_menu_row(double px, double py, double i) {
 
 static double settings_stride(void) {
     double s = menu_stride();
-        /* The list starts at the height of the Play button, so only the room under it
-         * counts - otherwise the last rows run off a short screen. */
+    /* Fit all settings rows below menu_top() on short screens. */
     double fit = (screen_h - 16 - menu_top()) / SETTINGS_ROWS;
     if (fit < s) {
         s = fit;
@@ -61,9 +60,7 @@ static double hit_settings_row(double px, double py, double i) {
 
 static double lobby_title_y(void) { return menu_top() - 70; }
 
-/* Lobby captions (title, greeting, cups) sit exactly in the middle of the button
- * column: the middle of the screen in the new theme, the middle of the left-hand
- * column in the old one, not its left edge. */
+/* Center lobby caption horizontally over the button column. */
 static double lobby_label_x(double w) {
     return menu_x() + (btn_w - w) / 2;
 }
@@ -87,21 +84,7 @@ static double classes_card_x(double vi) {
     return classes_row_x() + vi * (classes_card_w() + class_gap);
 }
 
-/* On-screen size (in px) of the shop card render. Bumped up from the old
- * tiny 50*1.55 = 77.5px pixel sprite so the higher-resolution character art
- * in the shop reads as a proper picture rather than a cube icon;
- * class_title_y/class_desc_y/class_level_y below are shifted down to match,
- * keeping the same clearance to the buy button as before.
- *
- * classes_card_w() shrinks toward class_card_min_w on narrow screens (small
- * phones with a low-resolution screen_w), while the render kept a fixed
- * 108px box - on those phones it filled most of the card's width and almost
- * reached the name/description text below it. Scale the render down together
- * with the card width so small screens keep a comfortable gap above the
- * text, while wide/high-res screens still get the full-size 108px render.
- *
- * The 0.88 factor on top shrinks the whole render by another ~12% - the
- * renders still read as too big for the card at full size. */
+/* Compute shop card portrait render size scaled to card width. */
 static double class_render_px(void) {
     double w = classes_card_w();
     double t = (w - class_card_min_w) / (class_card_max_w - class_card_min_w);
@@ -129,17 +112,13 @@ static double hit_class_card(double px, double py, double vi) {
     return hit_button(px, py, classes_card_x(vi), classes_top(), classes_card_w(), class_card_h);
 }
 
-/* The price / pick pill drawn at the bottom of a shop card. It is part of the
- * card, but it is a button in its own right: pressing it buys or picks on the
- * touch itself, while the rest of the card waits for the finger to lift so a
- * swipe can still page the list. */
+/* Test whether point hits the buy/select pill inside shop card `vi`. */
 static double hit_class_pill(double px, double py, double vi) {
     return hit_button(px, py, classes_card_x(vi) + class_pick_inset(), class_pick_y(), class_pick_w(), class_pick_h);
 }
 
 static double classes_swipe_zone(double px, double py) {
-    /* Dragging only exists when the strip is wider than the screen; when
-     * everything fits there is nothing to scroll and touches just pick. */
+    /* Enable horizontal strip dragging only when cards overflow viewport. */
     return classes_scroll_needed() == 1 && px >= screen_margin && px <= screen_w - screen_margin &&
            py >= classes_top() && py <= classes_top() + class_card_h;
 }
@@ -268,10 +247,7 @@ static double hit_promo_corner(double px, double py) {
     return hit_button(px, py, promo_corner_x(), promo_corner_y(), promo_corner_w(), btn_h);
 }
 
-/* The battle pass lives in the bottom-right corner of the lobby, like the
- * promo corner on the modes screen: it is an entry point, not a game mode,
- * and keeps the central column for Play, Shop, Settings, Account and
- * Achievements. */
+/* Lobby bottom-right battle pass button width. */
 static double bpass_corner_w(void) { return fit_w(240); }
 
 static double bpass_corner_x(void) { return screen_w - screen_margin - bpass_corner_w(); }

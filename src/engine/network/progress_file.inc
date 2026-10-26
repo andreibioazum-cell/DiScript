@@ -28,8 +28,8 @@ static void progress_read(void) {
     int ebuc_level = -1, ebuc_levels_unlocked = -1;
     int bp_level = 0, azum_skin = 0;
     int astra = 0, astra_level = -1, astra_levels_unlocked = -1;
-    int bp_xp = 0; /* Trailing field: battle-pass XP (was an ignored 0 in old saves). */
-    /* Trailing fields after it: the CodeCracker's own level track and ownership. */
+    int bp_xp = 0;
+    /* Optional trailing CodeCracker ownership and level fields. */
     int codecracker_level = -1, codecracker_levels_unlocked = -1, codecracker = 0;
     int legacy_astra_class = 0;
     pg_lock();

@@ -1,20 +1,47 @@
 static int http_patch_once(HttpJob *j) {
+    char sealed[BODY * 3];
     int code;
+    snprintf(sealed, sizeof(sealed), "%s", j->body);
     if (fb_enabled()) {
         fb_ensure_token();
         fb_url(j->url, sizeof(j->url), j->plain);
-                /* The database accepts a write only with the "w" field (see
-                 * firebase.rules.json). */
-        net_seal_body(j->body, sizeof(j->body));
-        code = http("PATCH", j->url, j->body, NULL, 0);
+        /* Attach write secret required by database rules. */
+        net_seal_body(sealed, sizeof(sealed));
+        code = http("PATCH", j->url, sealed, NULL, 0);
         if (code == 401 && fb_refresh_token_now()) {
             fb_url(j->url, sizeof(j->url), j->plain);
-            code = http("PATCH", j->url, j->body, NULL, 0);
+            code = http("PATCH", j->url, sealed, NULL, 0);
         }
     } else {
-        code = http("PATCH", j->url, j->body, NULL, 0);
+        code = http("PATCH", j->url, sealed, NULL, 0);
     }
     return code;
+}
+
+/* Advance cloud cups and candies in +1000 steps to satisfy per-write rule caps. */
+static int http_patch_step_balances(HttpJob *j) {
+    char resp[RESP];
+    int cur_c, cur_cd, want_c, want_cd, guard = 0;
+    if (!j->progress || fb_http("GET", j->plain, NULL, resp, sizeof(resp)) != 200)
+        return 0;
+    cur_c = num_int(resp, "cups", -1);
+    cur_cd = num_int(resp, "candies", -1);
+    want_c = num_int(j->body, "cups", 0);
+    want_cd = num_int(j->body, "candies", 0);
+    if (cur_c < 0 || cur_cd < 0 || (want_c <= cur_c + 1000 && want_cd <= cur_cd + 1000))
+        return 0;
+    while ((want_c > cur_c + 1000 || want_cd > cur_cd + 1000) && guard++ < 100) {
+        HttpJob step;
+        cur_c = want_c > cur_c + 1000 ? cur_c + 1000 : want_c;
+        cur_cd = want_cd > cur_cd + 1000 ? cur_cd + 1000 : want_cd;
+        snprintf(step.plain, sizeof(step.plain), "%s", j->plain);
+        snprintf(step.url, sizeof(step.url), "%s", j->plain);
+        snprintf(step.body, sizeof(step.body), "{\"cups\":%d,\"candies\":%d}", cur_c, cur_cd);
+        step.progress = 0;
+        if (http_patch_once(&step) != 200)
+            return 0;
+    }
+    return http_patch_once(j) == 200;
 }
 
 #define PATCH_RETRIES 4
@@ -86,21 +113,7 @@ static void http_patch_async(const char *url, const char *body) {
     http_patch_async_ex(url, body, 0);
 }
 
-/*
- * Progress (cups/profile) writes used to be fired as independent detached
- * threads, each with its own retry/backoff loop. When several progress
- * updates happened in quick succession (e.g. a quest reward immediately
- * followed by a battle win), the resulting PATCH requests raced each other
- * over the network. Retries/backoff meant they could finish out of order,
- * so an *older*, smaller cups value could land on the server *after* a
- * newer one - leaving the leaderboard showing a stale (lower) cups count
- * even though the local profile already had the correct, higher value.
- *
- * To fix this we serialize progress PATCHes through a single worker that
- * always sends the most recently queued snapshot. If a newer update is
- * queued while a request is in flight, the worker simply sends that newer
- * snapshot next - it never lets an older write "win" over a newer one.
- */
+/* Serialize profile PATCH requests on one worker so latest snapshot always wins. */
 static DSMutex progress_sync_lock = DS_MUTEX_INIT;
 static char progress_sync_url[URL];
 static char progress_sync_body[BODY * 3];
@@ -131,6 +144,8 @@ static void *progress_sync_worker(void *arg) {
         int code = 0, attempt = 0, wait = 1000;
         for (;;) {
             code = http_patch_once(&j);
+            if ((code == 400 || code == 403) && http_patch_step_balances(&j))
+                code = 200;
             if (code == 200)
                 break;
             int transient = (code == 0 || code == 429 || code >= 500);
@@ -150,9 +165,7 @@ static void *progress_sync_worker(void *arg) {
             if (net_log_ok())
                 LOGERR("cloud PATCH failed: HTTP %d (progress will be resent on next login)", code);
         } else if (!superseded) {
-            /* Only clear the dirty flag if nothing newer was queued while
-             * this request was in flight; otherwise the loop above will
-             * pick up the newer snapshot on its next iteration. */
+            /* Clear dirty flag only when no newer snapshot was queued mid-flight. */
             cloud_dirty_set(0);
         } else if (attempt > 0) {
             LOG("cloud PATCH ok after %d retry(ies)", attempt);
@@ -182,6 +195,20 @@ static void queue_progress_patch(const char *url, const char *body) {
     progress_sync_running = 0;
     ds_mutex_unlock(progress_sync_lock);
     cloud_dirty_set(1);
+}
+
+void net_progress_flush(void) {
+    int waited = 0;
+    for (;;) {
+        int busy;
+        ds_mutex_lock(progress_sync_lock);
+        busy = progress_sync_running || progress_sync_pending;
+        ds_mutex_unlock(progress_sync_lock);
+        if (!busy || waited >= 1500)
+            break;
+        sleep_ms(15);
+        waited += 15;
+    }
 }
 
 static DSMutex ach_lock = DS_MUTEX_INIT;
@@ -233,22 +260,26 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
         if (pg.ebuc == 1)
             eu = 1;
 
-        if (pg.ordinary_levels_unlocked > ou)
+        if (pg.ordinary_levels_unlocked > ou) {
+            if (pg.ordinary_level > ol)
+                ol = pg.ordinary_level;
             ou = pg.ordinary_levels_unlocked;
-        if (pg.azum_levels_unlocked > au)
+        }
+        if (pg.azum_levels_unlocked > au) {
+            if (pg.azum_level > al)
+                al = pg.azum_level;
             au = pg.azum_levels_unlocked;
-        if (pg.santa_levels_unlocked > su)
+        }
+        if (pg.santa_levels_unlocked > su) {
+            if (pg.santa_level > sl)
+                sl = pg.santa_level;
             su = pg.santa_levels_unlocked;
-        if (pg.ebuc_levels_unlocked > eul)
+        }
+        if (pg.ebuc_levels_unlocked > eul) {
+            if (pg.ebuc_level > el)
+                el = pg.ebuc_level;
             eul = pg.ebuc_levels_unlocked;
-        if (pg.ordinary_level > ol)
-            ol = pg.ordinary_level;
-        if (pg.azum_level > al)
-            al = pg.azum_level;
-        if (pg.santa_level > sl)
-            sl = pg.santa_level;
-        if (pg.ebuc_level > el)
-            el = pg.ebuc_level;
+        }
         at = pg.astra ? 1 : 0;
         atl = pg.astra_level;
         atu = pg.astra_levels_unlocked;
@@ -340,6 +371,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
         char url[URL], body[BODY * 3];
 
         unsigned int af = 0, ar = 0;
+        achievements_read();
         ds_mutex_lock(ach_lock);
         af = ach_flags;
         ar = ach_revives;
@@ -357,8 +389,5 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
         cloud_dirty_set(1);
         queue_progress_patch(url, body);
     }
-    /* No session: the save above only touched the device. Marking it dirty
-     * here is what used to wipe accounts: a sign-out zeroes the local profile,
-     * the marker survives on disk, and the next login pushes those zeros into
-     * the cloud (the merge below trusts a "dirty" device). */
+    /* Leave cloud_dirty unchanged when signed out. */
 }

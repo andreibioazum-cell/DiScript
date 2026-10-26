@@ -1,13 +1,14 @@
 static int parse_leaderboard(const char *json, LeaderboardEntry *out, int max_out) {
     const char *p;
-    LeaderboardEntry parsed[64];
-    int count = 0;
+    LeaderboardEntry top[64];
+    int count = 0, cap;
     if (!json || !out || max_out <= 0)
         return 0;
+    cap = max_out > 64 ? 64 : max_out;
     p = skip_ws(json);
     if (!p || *p != '{')
         return 0;
-    for (p = skip_ws(p + 1); p && *p && *p != '}' && count < 64;) {
+    for (p = skip_ws(p + 1); p && *p && *p != '}';) {
         const char *kend = skip_str(p);
         if (!kend)
             break;
@@ -33,37 +34,40 @@ static int parse_leaderboard(const char *json, LeaderboardEntry *out, int max_ou
             int cups = num_int(obj, "cups", 0);
             if (cups < 0)
                 cups = 0;
-            snprintf(parsed[count].nick, sizeof(parsed[count].nick), "%s", nick);
-            parsed[count].cups = cups;
-            count++;
+            if (count < cap || cups > top[count - 1].cups) {
+                int pos = count < cap ? count++ : cap - 1;
+                while (pos > 0 && top[pos - 1].cups < cups) {
+                    top[pos] = top[pos - 1];
+                    pos--;
+                }
+                snprintf(top[pos].nick, sizeof(top[pos].nick), "%s", nick);
+                top[pos].cups = cups;
+            }
         }
         p = skip_ws(p);
         if (p && *p == ',')
             p = skip_ws(p + 1);
     }
-    for (int i = 0; i < count - 1; i++) {
-        for (int j = 0; j < count - 1 - i; j++) {
-            if (parsed[j].cups < parsed[j + 1].cups) {
-                LeaderboardEntry tmp = parsed[j];
-                parsed[j] = parsed[j + 1];
-                parsed[j + 1] = tmp;
-            }
-        }
-    }
-    if (count > max_out)
-        count = max_out;
     for (int i = 0; i < count; i++)
-        out[i] = parsed[i];
+        out[i] = top[i];
     return count;
 }
 
 static void *lb_fetch_job(void *arg) {
     char *base = (char *)arg;
-    char url[URL], resp[65536];
+    char url[URL];
+    char *resp = (char *)malloc(262144);
     snprintf(url, sizeof(url), "%s/users.json", base);
     free(base);
-    int code = fb_http("GET", url, NULL, resp, sizeof(resp));
+    if (!resp) {
+        ds_mutex_lock(lb.lock);
+        lb.status = 4;
+        ds_mutex_unlock(lb.lock);
+        return NULL;
+    }
+    int code = fb_http("GET", url, NULL, resp, 262144);
     if (code != 200) {
+        free(resp);
         ds_mutex_lock(lb.lock);
         lb.status = 4;
         ds_mutex_unlock(lb.lock);
@@ -71,6 +75,7 @@ static void *lb_fetch_job(void *arg) {
     }
     LeaderboardEntry tmp[64];
     int cnt = parse_leaderboard(resp, tmp, 10);
+    free(resp);
     ds_mutex_lock(lb.lock);
     lb.count = cnt;
     for (int i = 0; i < cnt; i++) lb.entries[i] = tmp[i];
@@ -139,10 +144,12 @@ double net_leaderboard_cups(double idx) {
 static void *http_post_job(void *arg) {
     HttpJob *j = (HttpJob *)arg;
     if (j) {
-                /* Chat in the room: the database accepts a write only with the "w" field. */
-        if (fb_enabled())
-            net_seal_body(j->body, sizeof(j->body));
-        http("POST", j->url, j->body, NULL, 0);
+        char sealed[BODY * 3];
+        snprintf(sealed, sizeof(sealed), "%s", j->body);
+    /* Attach write secret required by database rules. */
+    if (fb_enabled())
+            net_seal_body(sealed, sizeof(sealed));
+        fb_http("POST", j->plain, sealed, NULL, 0);
         free(j);
     }
     return NULL;
@@ -152,7 +159,8 @@ static void http_post_async(const char *url, const char *body) {
     DSThread t;
     if (!j)
         return;
-    fb_url(j->url, sizeof(j->url), url);
+    snprintf(j->plain, sizeof(j->plain), "%s", url);
+    snprintf(j->url, sizeof(j->url), "%s", url);
     snprintf(j->body, sizeof(j->body), "%s", body);
     t = ds_thread_start(http_post_job, j);
     if (t) {

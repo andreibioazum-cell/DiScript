@@ -1,15 +1,24 @@
-/* Astra's current ability tuning. These values describe its grab ultimate
- * in solo and online battles. */
+/* Astra counter-strike tuning, developer access gate, and lunge motion. */
 
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
-static const double astra_ability_interval_factor = 0.8;
-static const double astra_ability_final_delay = 0.4;
-static const double astra_ability_throw_factor = 1.10;
-static const double astra_ability_lunge_dist = 37.4;
-static const double astra_ability_lunge_time = 0.16;
-static const double astra_ability_catch_buffer = 0.06;
-/* The normal Astra class always uses this kit, including remote players. */
+#define ASTRA_PULLBACK_DIST 14.0
+#define ASTRA_PULLBACK_TIME PUNCH_WINDUP
+#define ASTRA_DASH_TIME 0.44
+static const double astra_ability_lunge_dist = 245.0;
+static const double astra_ability_lunge_time = ASTRA_PULLBACK_TIME + ASTRA_DASH_TIME;
+
+#define ASTRA_STRIKE_DELAY ASTRA_PULLBACK_TIME
+#define ASTRA_STRIKE_ACTIVE (ASTRA_DASH_TIME + 0.06)
+#define ASTRA_STRIKE_TIME (ASTRA_STRIKE_DELAY + ASTRA_STRIKE_ACTIVE)
+#define ASTRA_STRIKE_STUN 1.0
+#define ASTRA_STRIKE_DAMAGE 4.5
+
+static double astra_dash_progress(double u) {
+    double q = 1 - u;
+    return 0.35 * u + 0.65 * (1 - q * q);
+}
+
 static double astra_ability_of(double cls, double skin) {
     (void)skin;
     return cls == CLASS_ASTRA;
@@ -20,9 +29,7 @@ static double astra_ability_of_slot(double slot) {
     return astra_ability_of(arr_get(remotes, b + 10), arr_get(remotes, b + 11));
 }
 
-/* Dev rights belong to the profile, not the password (see is_admin in
- * ui/chat.inc): the nick of the signed-in account decides, a password change
- * changes nothing. */
+/* Check whether signed-in account has developer access. */
 static double astra_ability_is_dev(void) {
     if (net_login_status() != 2) {
         return 0;
@@ -30,113 +37,51 @@ static double astra_ability_is_dev(void) {
     return admin_slot(net_login_nick()) != 0 ? 1 : 0;
 }
 
-/* Cached permission bit. Refreshed when the account changes (login, profile
- * load, battle start), never while drawing or ticking, so the dev check does
- * not run a single time per frame. */
+/* Refresh cached developer-access flag on account or battle changes. */
 static void astra_ability_refresh(void) { astra_ability_ok = astra_ability_is_dev(); }
 
 static double astra_ability_allowed(void) { return astra_ability_ok; }
 
-/* Developer-only features: for now the winter theme, Santa and candies are
- * available only to the administrator account (Dimasi4ek229).
- * Everyone else sees the winter button greyed out, no Santa in the shop and
- * no candies anywhere; when the features open for all, this one function is
- * the only switch to flip. */
+/* Gate developer-restricted seasonal content. */
 static double dev_access(void) { return astra_ability_allowed(); }
 
 static double candies_on(void) { return candy_enabled == 1 && dev_access() == 1; }
 
-/* Astra is an ordinary purchasable class now, so its kit is not developer-gated. */
 static double astra_ability_on(void) { return player_class == CLASS_ASTRA; }
 
 static double astra_ability_local(void) { return astra_ability_on(); }
 
-static double astra_ability_hit_interval_for(double kit) {
-    if (kit == 1) {
-        return astra_hit_interval * astra_ability_interval_factor;
-    }
-    return astra_hit_interval;
-}
-
-static double astra_ability_lunge_time_for(double kit) {
-    if (kit == 1) {
-        return astra_ability_lunge_time;
-    }
-    return 0;
-}
-
-/* Keep a short catch window after the body completes its lunge. This stops the
- * initial zone from grabbing someone during the visual dash while still giving
- * online clients 0.10 s to register the catch. */
-static double astra_ability_catch_time_for(double kit) {
-    if (kit == 1) {
-        return astra_ability_lunge_time_for(kit) + astra_ability_catch_buffer;
-    }
-    return astra_catch_time;
-}
-
-static double astra_ability_beat_time_for(double i, double kit) {
-    return astra_ability_catch_time_for(kit) + astra_ability_hit_interval_for(kit) * i;
-}
-
-static double astra_ability_final_delay_for(double kit) {
-    if (kit == 1) {
-        return astra_ability_final_delay;
-    }
-    return astra_final_delay;
-}
-
-static double astra_ability_final_time_for(double kit) {
-    return astra_ability_catch_time_for(kit) + astra_ability_hit_interval_for(kit) * astra_hit_count + astra_ability_final_delay_for(kit);
-}
-
-static double astra_ability_grab_time_for(double kit) { return astra_ability_final_time_for(kit) + astra_throw_time; }
-
-static double astra_ability_beats_done_for(double t, double kit) {
-    double n = 0;
-    double i = 1;
-    while (i <= astra_hit_count) {
-        if (t >= astra_ability_beat_time_for(i, kit)) {
-            n = n + 1;
-        }
-        i = i + 1;
-    }
-    return n;
-}
-
-static double astra_ability_zone_live_for(double t, double caught, double kit) {
-    if (t >= astra_ability_lunge_time_for(kit) && t <= astra_ability_catch_time_for(kit)) {
-        return 1;
-    }
-    if (caught != 1) {
-        return 0;
-    }
-    double i = 1;
-    while (i <= astra_hit_count) {
-        double bt = astra_ability_beat_time_for(i, kit);
-        if (t >= bt && t <= bt + astra_hit_show) {
-            return 1;
-        }
-        i = i + 1;
-    }
-    double ft = astra_ability_final_time_for(kit);
-    if (t >= ft && t <= ft + astra_hit_show) {
-        return 1;
-    }
-    return 0;
-}
-
-static double astra_ability_throw_dist_for(double lv, double kit) {
-    double d = astra_throw_dist_for(lv);
-    if (kit == 1) {
-        d = d * astra_ability_throw_factor;
+static double astra_strike_damage_for(double lv) {
+    double d = ASTRA_STRIKE_DAMAGE;
+    if (lv >= 3) {
+        d = d * (1 + astra_level_throw_bonus);
     }
     return d;
 }
 
-static double astra_ability_throw_stun_for(double lv, double kit) {
-    (void)kit;
-    return astra_throw_stun_for(lv);
+static double astra_strike_stun_for(double lv) {
+    double s = ASTRA_STRIKE_STUN;
+    if (lv >= 3) {
+        s = s + astra_level_stun_bonus;
+    }
+    return s;
+}
+
+/* Physical pullback and forward dash handle sprite motion directly. */
+static double astra_strike_shift(double active, double t) {
+    (void)active;
+    (void)t;
+    return 0;
+}
+
+static double astra_ability_lunge_active(void) {
+    if (astra_ability_lunge_fx != astra_ability_lunge_tx || astra_ability_lunge_fy != astra_ability_lunge_ty) {
+        return 1;
+    }
+    if (astra_state == 1 && astra_ability_local() == 1 && astra_ability_lunge_t < astra_ability_lunge_time) {
+        return 1;
+    }
+    return 0;
 }
 
 static double astra_ability_max_hp_for(double cls, double kit) {
@@ -155,8 +100,7 @@ static double astra_ability_punch_damage_for(double cls, double lv, double kit) 
     return d;
 }
 
-/* Punch damage of a fighter as the receiving client must apply it: cls + skin
- * come from the same synced snapshot the rest of the fight is built on. */
+/* Compute punch damage from synced class, level, and skin snapshot. */
 static double astra_ability_punch_damage_net(double cls, double lv, double skin) {
     return astra_ability_punch_damage_for(cls, lv, astra_ability_of(cls, skin));
 }
@@ -165,46 +109,77 @@ static double astra_ability_self_damage(void) {
     return astra_ability_punch_damage_for(player_class, player_level, astra_ability_local());
 }
 
-/* The forward step Astra takes when the ultimate is pressed.
- *
- * It is short and smooth: the body bursts off and glides to the target over
- * astra_ability_lunge_time with an ease-out instead of jumping there in one
- * frame. On the move the step is lengthened by the ground the walk would
- * have covered, so it always reads as a dash. The grab origin - the hitbox
- * and the zone published to the other clients - is the end of the step,
- * captured at cast time, so the grab stays identical for everyone and no
- * extra network write is needed. The glide itself is ordinary local movement
- * (a few pixels per frame, movement is locked during the grab anyway). */
+/* Start Astra's 0.2s backward windup followed by fixed-length forward dash. */
 static void astra_ability_lunge_start(void) {
     astra_ability_lunge_t = 0;
     astra_ability_lunge_fx = player->x;
     astra_ability_lunge_fy = player->y;
     astra_ability_lunge_tx = player->x;
     astra_ability_lunge_ty = player->y;
+    player_vx = 0;
+    player_vy = 0;
+    player_stop_from = 0;
     if (astra_ability_local() == 0) {
         return;
     }
+    double jm = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
+    if (jm > 0.15) {
+        player_dir_x = joy.dx / jm;
+        player_dir_y = joy.dy / jm;
+        player->angle = atan2(joy.dy, joy.dx);
+    }
     double dx = cos(player->angle);
     double dy = sin(player->angle);
-    /* On the move the step has to beat the walk, or it is no dash at all:
-     * 37 px in 0.16 s is just about walking pace, so a walking Astra used to
-     * simply stop and ease forward. The ground the walk would have covered
-     * in that time is added on top, so the lunge always carries her
-     * astra_ability_lunge_dist further than walking would. */
-    double dist = astra_ability_lunge_dist;
-    if (sqrt(joy.dx * joy.dx + joy.dy * joy.dy) > 0.15) {
-        dist = dist + player_walk_speed() * astra_ability_lunge_time;
-    }
-    astra_ability_lunge_tx = clamp(player->x + dx * dist, player->size, screen_w - player->size);
-    astra_ability_lunge_ty = clamp(player->y + dy * dist, player->size, screen_h - player->size);
-    dust_trail(astra_ability_lunge_tx, astra_ability_lunge_ty, dx, dy);
+    astra_dx = dx;
+    astra_dy = dy;
+    astra_ability_lunge_dx = dx;
+    astra_ability_lunge_dy = dy;
+    astra_ability_lunge_tx = clamp(player->x + dx * astra_ability_lunge_dist, player->size, screen_w - player->size);
+    astra_ability_lunge_ty = clamp(player->y + dy * astra_ability_lunge_dist, player->size, screen_h - player->size);
 }
 
 static void astra_ability_lunge_tick(void) {
-    if (astra_ability_lunge_fx == astra_ability_lunge_tx && astra_ability_lunge_fy == astra_ability_lunge_ty) {
+    if (astra_ability_lunge_active() == 0) {
         return;
     }
+    player_vx = 0;
+    player_vy = 0;
+    player_stop_from = 0;
+    double jm = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
+    if (jm > 0.15) {
+        player_dir_x = joy.dx / jm;
+        player_dir_y = joy.dy / jm;
+        player->angle = atan2(joy.dy, joy.dx);
+    }
+    double prev_t = astra_ability_lunge_t;
     astra_ability_lunge_t = astra_ability_lunge_t + dt;
+    /* Allow aiming direction to follow rotation during the 0.2s windup. */
+    if (prev_t < ASTRA_PULLBACK_TIME) {
+        double dx = cos(player->angle);
+        double dy = sin(player->angle);
+        astra_dx = dx;
+        astra_dy = dy;
+        astra_ability_lunge_dx = dx;
+        astra_ability_lunge_dy = dy;
+        astra_ability_lunge_tx =
+            clamp(astra_ability_lunge_fx + dx * astra_ability_lunge_dist, player->size, screen_w - player->size);
+        astra_ability_lunge_ty =
+            clamp(astra_ability_lunge_fy + dy * astra_ability_lunge_dist, player->size, screen_h - player->size);
+        if (astra_ability_lunge_t >= ASTRA_PULLBACK_TIME) {
+            dust_trail(astra_ability_lunge_tx, astra_ability_lunge_ty, dx, dy);
+        }
+    }
+    double bx = clamp(astra_ability_lunge_fx - astra_ability_lunge_dx * ASTRA_PULLBACK_DIST, player->size,
+                      screen_w - player->size);
+    double by = clamp(astra_ability_lunge_fy - astra_ability_lunge_dy * ASTRA_PULLBACK_DIST, player->size,
+                      screen_h - player->size);
+    if (astra_ability_lunge_t < ASTRA_PULLBACK_TIME) {
+        double u = clamp(astra_ability_lunge_t / ASTRA_PULLBACK_TIME, 0, 1);
+        double p = sin(pi * 0.5 * u);
+        player->x = astra_ability_lunge_fx + (bx - astra_ability_lunge_fx) * p;
+        player->y = astra_ability_lunge_fy + (by - astra_ability_lunge_fy) * p;
+        return;
+    }
     if (astra_ability_lunge_t >= astra_ability_lunge_time) {
         astra_ability_lunge_t = astra_ability_lunge_time;
         astra_ability_lunge_fx = astra_ability_lunge_tx;
@@ -213,11 +188,10 @@ static void astra_ability_lunge_tick(void) {
         player->y = astra_ability_lunge_ty;
         return;
     }
-    /* Ease-out: the lunge bursts off at three times its average speed and
-     * settles onto the grab origin. The old smoothstep started from a dead
-     * stop, which on the move read as braking rather than a dash. */
-    double p = 1 - astra_ability_lunge_t / astra_ability_lunge_time;
-    p = 1 - p * p * p;
-    player->x = astra_ability_lunge_fx + (astra_ability_lunge_tx - astra_ability_lunge_fx) * p;
-    player->y = astra_ability_lunge_fy + (astra_ability_lunge_ty - astra_ability_lunge_fy) * p;
+    /* Smooth forward dash from pullback point to aimed target. */
+    double u = clamp((astra_ability_lunge_t - ASTRA_PULLBACK_TIME) / ASTRA_DASH_TIME, 0, 1);
+    double p = astra_dash_progress(u);
+    player->x = bx + (astra_ability_lunge_tx - bx) * p;
+    player->y = by + (astra_ability_lunge_ty - by) * p;
+    tick_dust(astra_ability_lunge_dx, astra_ability_lunge_dy, 1);
 }

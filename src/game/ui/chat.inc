@@ -31,10 +31,7 @@ static void chat_sync_input(void) {
     chat_input = chat_input_buf;
 }
 
-/* Admin rights come from the profile (account nick), not the password. Signing in
- * already went through Firebase Auth, and a nick cannot be faked: it is a taken
- * e-mail <nick>@cb4.game. So no password is compared here - the owner may change
- * it a hundred times and the admin panel stays. */
+/* Return 1 when signed-in account nick is an admin. */
 static double is_admin(void) {
     if (net_login_status() != 2) {
         return 0;
@@ -89,8 +86,7 @@ static void chat_set_open(double v) {
     keyboard_hide();
 }
 
-/* Stickers are gone from the chat. Leftover "/sticker ..." messages are not
- * printed, so players never see a service command. */
+/* Return 1 for legacy "/sticker ..." service messages hidden from chat. */
 static double chat_is_sticker_msg(const char *msg) {
     return str_starts_with(msg, "/sticker ") == 1;
 }

@@ -5,4 +5,5 @@ static const char *dice_cube_tex(double cube);
 static const char *dice_cube_name(double cube);
 static void dice_throw_cube(void);
 static void update_dice_event(void);
+static void draw_dice_cubes(void);
 static void draw_dice_event(void);

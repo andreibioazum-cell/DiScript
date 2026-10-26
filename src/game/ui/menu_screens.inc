@@ -1,7 +1,6 @@
 static void draw_menu_button(double row, const char *label) {
     double w = menu_btn_w();
-    /* Use the native lobby label scale for every action. Do not fit the font
-     * independently per label: short labels were appearing much larger. */
+    /* Draw lobby button at uniform text scale. */
     button(label, menu_x(), menu_row(row), w, btn_h);
 }
 
@@ -22,7 +21,7 @@ static void draw_lobby_nick(void) {
     double x = lobby_label_x(pw + nw + qw);
     double y = lobby_hello_y();
     text_scaled(pre, x, y, text_color, scale);
-    text_scaled(nick, x + pw, y, admin_color_of(nick, text_color), scale);
+    draw_styled_nick(nick, x + pw, y, text_color, scale);
     text_scaled(post, x + pw + nw, y, text_color, scale);
 }
 
@@ -53,16 +52,14 @@ static void draw_lobby(void) {
     draw_menu_button(2, tr_settings());
     draw_menu_button(3, tr_account());
     draw_menu_button(4, tr_achievements());
-    /* The battle pass sits in the bottom-right corner, out of the column.
-     * It is admin-only: nobody else even sees the button. */
-    if (is_admin() == 1) {
+    if (bpass_allowed() == 1) {
         button(language == 1 ? "Баттл-пасс" : "Battle Pass", bpass_corner_x(), bpass_corner_y(),
                bpass_corner_w(), btn_h);
     }
     draw_lobby_nick();
     draw_lobby_money();
     if (new_theme == 1) {
-        draw_lobby_npc_cube(); /* the NPC cube belongs to the new theme */
+        draw_lobby_npc_cube();
     }
     if (str_len(banned_msg) > 0) {
         ctext(banned_msg, lobby_msg_y(), text_color);
@@ -105,15 +102,7 @@ static void draw_card_look(double look, double x, double y, double scale) {
     rect(x, y, side, side, fighter_fallback_rgb);
 }
 
-/* Draws the shop/lobby render for a class+skin combo into a target_px square
- * at (x, y), the same box the old tiny battle sprite used to occupy. Prefers
- * the high-resolution card art; while it hasn't finished uploading (or is
- * missing) it falls back to the familiar small pixel sprite scaled to fill
- * the same box, so the shop never shows a blank hole.
- *
- * The card art itself is a plain square PNG - tex_round() rounds its corners
- * at draw time (same silhouette the card background panel already uses),
- * so the source art can stay a simple square image. */
+/* Draw rounded class portrait, falling back to battle sprite until card art uploads. */
 static void draw_class_render(double cls, double skin, double x, double y, double target_px) {
     if (class_card_render_ready(cls, skin) == 1) {
         tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX, target_px * card_render_radius_frac);
@@ -122,10 +111,7 @@ static void draw_class_render(double cls, double skin, double x, double y, doubl
     draw_card_look(card_look(cls, skin), x, y, target_px / 50);
 }
 
-/* The shop card is one control: wherever the finger lands - on the art, on
- * the name or on the price pill - the whole card squeezes and darkens as a
- * piece. It is the card that is pressed, not the pill inside it, and the pill
- * keeps its old job of showing the price or the pick label. */
+/* Draw shop class card with unified press squeeze. */
 static void draw_class_card(double vi) {
     double cls = visible_class_at(vi);
     double x = classes_card_x(vi);
@@ -143,9 +129,7 @@ static void draw_class_card(double vi) {
     card_state(bx, squeeze_y(top, top, class_card_h, s), bw, class_card_h * s, selected, 0, 1 - PRESS_SHADE * p);
     double sprite = class_render_px() * s;
     double sx = bx + (bw - sprite) / 2;
-    /* The shop card always shows the class's base look, regardless of which
-     * skin is currently equipped - picking a skin in the Skins screen should
-     * not change what the character looks like in the class list. */
+    /* Render base class appearance in shop regardless of equipped skin. */
     draw_class_render(cls, SKIN_NORMAL, sx, squeeze_y(class_sprite_y(), top, class_card_h, s), sprite);
     centered_text(class_name_of(cls), bx, bw, squeeze_y(class_title_y(), top, class_card_h, s),
                   cls == CLASS_AZUM && azum_buff_active == 1 ? shade(0xFFFF3030, 1 - PRESS_SHADE * p) : tc,
@@ -178,10 +162,12 @@ static void draw_classes(void) {
         ctext_scaled(language == 1 ? "ФЛЕШ-РАСПРОДАЖА -10%" : "FLASH SALE -10%", classes_top() - 34, 0xFFFF3030, 0.6);
     }
     classes_scroll_clamp();
+    if (classes_scroll_needed() == 1) {
+        ds_gfx_scissor(screen_margin - 2, classes_top() - 8, classes_viewport_w() + 4, class_card_h + 16);
+    }
     double vi = 0;
     double last = classes_visible_count();
     while (vi < last) {
-        /* Only cards at least partly inside the viewport are drawn. */
         double cx = classes_card_x(vi);
         if (cx + classes_card_w() > 0 && cx < screen_w) {
             draw_class_card(vi);
@@ -189,13 +175,16 @@ static void draw_classes(void) {
         vi = vi + 1;
     }
     if (classes_scroll_needed() == 1) {
-        /* A slim scrollbar, shown only while the strip actually overflows:
-         * the thumb's share of the track is the visible share of the strip. */
+        ds_gfx_scissor(0, 0, 0, 0);
+    }
+    if (classes_scroll_needed() == 1) {
+        /* Draw proportional horizontal scrollbar when strip overflows viewport. */
         double track_x = screen_margin;
         double track_w = classes_viewport_w();
         double track_y = classes_top() - 14;
-        roundrect(track_x, track_y, track_w, 5, 2, locked_shade);
-        double thumb_w = track_w * classes_viewport_w() / classes_strip_w();
+        roundrect(track_x, track_y, track_w, 5, 2, card_bg);
+        double thumb_w = fmax(28, track_w * classes_viewport_w() / classes_strip_w());
+        if (thumb_w > track_w) thumb_w = track_w;
         double thumb_x = track_x + (track_w - thumb_w) * classes_scroll / classes_scroll_max();
         roundrect(thumb_x, track_y, thumb_w, 5, 2, text_color);
     }
@@ -289,102 +278,6 @@ static void draw_skins(void) {
     draw_back();
 }
 
-static double achievement_count(void) {
-    return 6;
-}
-
-static double achievement_bit(double i) {
-    if (i == 0) {
-        return ACH_LEGENDS;
-    }
-    if (i == 1) {
-        return ACH_FIRST_WIN;
-    }
-    if (i == 2) {
-        return ACH_ALL_CHARACTERS;
-    }
-    if (i == 3) {
-        return ACH_LAST_HP;
-    }
-    if (i == 4) {
-        return ACH_EAX229;
-    }
-    if (i == 5) {
-        return ACH_BUK_GIFT;
-    }
-    return ACH_LEGENDS;
-}
-
-static const char *achievement_title(double i) {
-    if (i == 0) {
-        return tr_achievement_legends();
-    }
-    if (i == 1) {
-        return tr_achievement_first_win();
-    }
-    if (i == 2) {
-        return tr_achievement_grass();
-    }
-    if (i == 3) {
-        return tr_achievement_last_hp();
-    }
-    if (i == 4) {
-        return tr_achievement_eax229();
-    }
-    if (i == 5) {
-        return tr_achievement_buk();
-    }
-    return tr_achievement_legends();
-}
-
-static const char *achievement_desc(double i) {
-    if (i == 0) {
-        return tr_achievement_legends_desc();
-    }
-    if (i == 1) {
-        return tr_achievement_first_win_desc();
-    }
-    if (i == 2) {
-        return tr_achievement_grass_desc();
-    }
-    if (i == 3) {
-        return tr_achievement_last_hp_desc();
-    }
-    if (i == 4) {
-        return tr_achievement_eax229_desc();
-    }
-    if (i == 5) {
-        return tr_achievement_buk_desc();
-    }
-    return tr_achievement_legends_desc();
-}
-
-static void draw_achievement_card(double i) {
-    double locked = 1 - has_achievement(achievement_bit(i));
-    double x = ach_x();
-    double y = ach_card_y(i);
-    panel(x, y, ach_w(), ach_card_h, locked);
-    uint32_t c = panel_text(locked);
-    const char *status = tr_achievement_open();
-    if (locked == 1) {
-        status = tr_achievement_locked();
-    }
-    text_scaled(achievement_title(i), x + card_text_pad, y + 14, c, 0.62);
-    text_scaled(achievement_desc(i), x + card_text_pad, y + 46, c, 0.46);
-    text_scaled(status, x + card_text_pad, y + 70, c, 0.42);
-}
-
-static void draw_achievements(void) {
-    check_achievements();
-    screen_fill();
-    double i = 0;
-    while (i < achievement_count()) {
-        draw_achievement_card(i);
-        i = i + 1;
-    }
-    draw_back();
-}
-
 static double lb_place_bg(double i) {
     if (i == 0) {
         return 0xFF3D3215;
@@ -411,7 +304,7 @@ static void draw_lb_row(double i) {
     double tt = text_ink_top(place) * scale;
     double ty = y + (lb_row_h - th) / 2 - tt + 1;
     text_scaled(place, x + card_text_pad, ty, text_color, scale);
-    text_scaled(nick, x + 70, ty, text_color, scale);
+    draw_styled_nick(nick, x + 70, ty, text_color, scale);
     double cw = text_ink_width(cup_s) * scale;
     text_scaled(cup_s, x + w - card_text_pad - cw, ty, text_color, scale);
 }

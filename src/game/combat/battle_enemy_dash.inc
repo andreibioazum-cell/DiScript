@@ -102,7 +102,7 @@ static void tick_dash_solo_hit(void) {
                 dash_hit = 1;
                 enemy_damage_turret(ti, azum_dash_damage_for());
                 if (revive_prot <= 0) {
-                    take_damage(turret_counter_damage);
+                    take_damage(turret_counter_damage * enemy_damage_mult_for(enemy_class));
                     ds_log("dash hit enemy turret");
                 }
             }
@@ -135,6 +135,8 @@ static void tick_enemy_class(void) {
     tick_enemy_gift();
     tick_enemy_dash();
     tick_enemy_grab();
+    enemy_ball_tick();
+    enemy_ball_fade_tick();
 }
 
 static double enemy_tick_class_abilities(void) {
@@ -161,6 +163,8 @@ static double enemy_tick_class_abilities(void) {
                 enemy_place_turret();
             } else if (enemy_super_kind == 3) {
                 enemy_start_grab();
+            } else if (enemy_super_kind == 4) {
+                enemy_ball_fire();
             }
             enemy_super_kind = 0;
         }
@@ -180,13 +184,30 @@ static double enemy_tick_class_abilities(void) {
             return 1;
         }
     } else if (enemy_class == CLASS_EBUC) {
-        if (enemy_super_cd <= 0 && enemy_turret_count_alive() < turret_max) {
-            enemy_super_kind = 2;
-            enemy_super_windup = enemy_super_windup_time;
-            enemy_super_cd = enemy_station_cd_time;
-            enemy->state = 0;
-            enemy->state_time = 0;
-            return 1;
+        if (enemy_super_cd <= 0) {
+            if (enemy_turret_count_alive() >= turret_max) {
+                enemy_ball_mode = 1;
+            } else if (enemy_ball_active() == 1) {
+                enemy_ball_mode = 0;
+            }
+            if (enemy_ball_mode == 1 && enemy_ball_active() == 0) {
+                enemy_super_kind = 4;
+                enemy_super_windup = enemy_super_windup_time;
+                enemy_super_cd = enemy_station_cd_time;
+                enemy_ball_mode = 0;
+                enemy->state = 0;
+                enemy->state_time = 0;
+                return 1;
+            }
+            if (enemy_turret_count_alive() < turret_max) {
+                enemy_super_kind = 2;
+                enemy_super_windup = enemy_super_windup_time;
+                enemy_super_cd = enemy_station_cd_time;
+                enemy_ball_mode = 1;
+                enemy->state = 0;
+                enemy->state_time = 0;
+                return 1;
+            }
         }
     } else if (enemy_class == CLASS_AZUM) {
         if (enemy_dash_cd <= 0 && d >= enemy_dash_min_range && d <= enemy_dash_max_range) {
@@ -197,12 +218,9 @@ static double enemy_tick_class_abilities(void) {
         }
     } else if (class_is_astra(enemy_class) == 1) {
         if (enemy_wants_grab() == 1) {
-            enemy_super_kind = 3;
-            enemy_super_windup = enemy_super_windup_time;
-            enemy_super_cd = enemy_astra_cd_time;
             enemy->state = 0;
             enemy->state_time = 0;
-            return 1;
+            enemy_start_astra_parry();
         }
     }
     return 0;

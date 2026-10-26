@@ -1,17 +1,6 @@
-/* Button hitboxes and the press feedback. The same shape test decides whether a
- * button fired and whether it squashed, so a press without feedback (or
- * feedback without a press) cannot happen. Kept in its own file so core/ui.inc
- * does not grow.
- *
- * Everything here is multi-touch: four fingers can rest on four controls and
- * each one squeezes its own button. The old version kept a single pending
- * touch and a single pulse, so the second finger stole the first one's
- * squeeze and a two-handed grip looked dead. */
+/* Multi-touch rounded-rectangle hit testing and button squeeze animations. */
 
-/* The exact shape of a rounded rectangle, the same one roundrect() and
- * cb_button_gradient() draw. The radius shrinks the same way as when drawing, so
- * a narrow pill button and a round battle button are tested against their real
- * outline, and the transparent corners press nothing. */
+/* Test whether point lies inside a rounded rectangle. */
 static double hit_round(double px, double py, double x, double y, double w, double h, double rad) {
     if (hit_rect(px, py, x, y, w, h) == 0) {
         return 0;
@@ -32,23 +21,12 @@ static double hit_round(double px, double py, double x, double y, double w, doub
     return dx * dx + dy * dy <= rad * rad ? 1 : 0;
 }
 
-/* The hitbox is exactly what is on screen, no invisible border around it. The
- * press effect (button_press_k) uses the same test, so a button either fires and
- * squashes or does neither. */
+/* Test whether point hits a standard rounded button. */
 static double hit_button(double px, double py, double x, double y, double w, double h) {
     return hit_round(px, py, x, y, w, h, btn_radius);
 }
 
-/* Press feedback: a button answers the touch itself, not the release. The
- * press squeezes it by 5% and darkens it by 25%, and the squeeze then springs
- * back on its own - the finger does not have to lift, stay put or be let go
- * gently, the pulse always runs to the end. That is what makes a press feel
- * like a press instead of a hold.
- *
- * A pulse is owned by the control the finger landed on: the first one drawn
- * under that touch claims it, so a card claims it before the pill inside it.
- * press_k ramps 0 -> 1 -> 0 (update_button_press), and every edge is
- * smoothstepped, so the squeeze eases in and eases back out. */
+/* Button press squeeze and shade constants. */
 #define PRESS_IN_TIME 0.06
 #define PRESS_OUT_TIME 0.13
 #define PRESS_SQUEEZE 0.05
@@ -72,14 +50,10 @@ static double press_btn_w[PRESS_PULSES];
 static double press_btn_h[PRESS_PULSES];
 static double press_btn_gen[PRESS_PULSES];
 
-/* Input layer of the control being drawn: 0 screen, 1 warning/chat,
- * 2 documents, 3 account. Hidden overlays must not steal the press either. */
+/* Active overlay layer (0 screen, 1 warning/chat, 2 docs, 3 account). */
 static double press_overlay;
 
-/* A control hidden under something drawn later never takes the squeeze: the
- * touch belongs to what is on top (the consent warning, the open chat, the
- * intro card or the results). An overlay that has buttons of its own raises
- * press_overlay while it draws them. */
+/* Return 1 when current draw layer is occluded by an active modal or transition. */
 static double press_covered(void) {
     if (acct_open != 0) {
         return press_overlay != 3;
@@ -99,8 +73,7 @@ static double press_covered(void) {
     return 0;
 }
 
-/* A finger went down, or slid: keep its point in the queue, one entry per
- * pointer, so the controls can claim their own fingers. */
+/* Record or update active touch point for pointer `id`. */
 static void press_points_add(double x, double y, double id) {
     double i = 0;
     while (i < press_point_n) {
@@ -142,8 +115,7 @@ static void press_points_drop(double id) {
 
 static void press_points_clear(void) { press_point_n = 0; }
 
-/* Drop every squeeze at once: a screen that closes may not leave a half
- * finished pulse that a look-alike button would pick up later. */
+/* Clear all active squeeze pulses on screen change. */
 static void press_pulses_clear(void) {
     double i = 0;
     while (i < PRESS_PULSES) {
@@ -153,8 +125,7 @@ static void press_pulses_clear(void) {
     }
 }
 
-/* Starts a pulse on this control: the same one squeezes again from wherever it
- * is now, otherwise a free slot takes it. */
+/* Claim or restart a squeeze pulse for the given control bounds. */
 static void press_pulse_claim(double x, double y, double w, double h) {
     double i = 0;
     double slot = -1;
@@ -183,11 +154,7 @@ static void press_pulse_claim(double x, double y, double w, double h) {
     press_phase[(int)slot] = 1;
 }
 
-/* Same pulse, but the control's silhouette has its own corner radius (a round
- * combat pad passes its radius, so its corners do not count). The claim test
- * is the very hitbox the touch handlers use, so a press either fires and
- * squeezes or does neither. Two fingers on two controls each get their own
- * pulse; a second finger on the same control squeezes it again. */
+/* Claim touch points inside rounded control bounds and return smoothstepped squeeze factor. */
 static double button_press_k_round(double x, double y, double w, double h, double rad) {
     double i = 0;
     double best = 0;

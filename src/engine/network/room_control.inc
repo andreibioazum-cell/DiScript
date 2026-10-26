@@ -33,9 +33,8 @@ static void ban_write_async(const char *url, const char *nick, int banned) {
     DSThread t;
     if (!j)
         return;
-        /* Store a clean URL: fb_http appends the token on its own thread and refreshes
-         * it on 401. */
-    snprintf(j->url, sizeof(j->url), "%s", url);
+        /* Store plain URL; fb_http attaches and refreshes auth token. */
+        snprintf(j->url, sizeof(j->url), "%s", url);
     snprintf(j->nick, sizeof(j->nick), "%s", nick);
     j->banned = banned;
     t = ds_thread_start(ban_write_job, j);
@@ -80,10 +79,7 @@ void net_ban_set(const char *nick, double banned) {
     }
 }
 
-/* One flaky request used to lose the switch: the local value expired after a
- * few seconds, the poller restored the previous event and, for example, the
- * cube event turned back into plates. Retry a couple of times before giving
- * up, so a short network hiccup no longer changes which event is running. */
+/* Write active event mode to Firebase with bounded retries. */
 static void *event_write_job(void *arg) {
     HttpJob *j = (HttpJob *)arg;
     int code = 0, attempt;
@@ -118,10 +114,7 @@ static void event_write_async(const char *url, const char *body) {
     free(j);
 }
 
-/* The event poller runs every EVENT_TICK and would happily put the old value
- * back while this client's own write is still in flight, so a freshly
- * switched event blinked off again for a moment (or, with a slow write,
- * looked like it never happened). The local value wins for a short hold. */
+/* Hold locally selected event mode briefly while server write is in flight. */
 #define EVENT_LOCAL_HOLD_MS 3000
 static long long event_local_until_ms;
 
@@ -129,11 +122,7 @@ void net_event_set(double mode) {
     int m = (int)mode;
     if (m < 0)
         m = 0;
-    /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube. The clamp used to stop at
-     * 3, and 3 had no handler, so "event 4" looked like it did nothing while
-     * the chat announced it. firebase.rules.json must allow the same range:
-     * a rule that stopped at 3 silently rejected the cube event, and the
-     * poller then brought the previous event (often the plates) back. */
+    /* Event modes: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube. */
     if (m > 4)
         m = 4;
     if (!net.base[0])
@@ -167,8 +156,7 @@ double net_chat_is_text_cmd(const char *msg) {
         const char *t = msg + 5;
         while (*t == ' ' || *t == '\t') t++;
         if (*t == '"') {
-            /* Quoted form: text "" is not a command, an unterminated quote
-             * is not a command either. */
+            /* Reject empty or unterminated quoted banner text. */
             const char *close = strchr(t + 1, '"');
             return close && close > t + 1;
         }
@@ -190,11 +178,7 @@ static void banner_split_cmd(const char *msg, char *text_out, size_t tcap, char 
     while (*t == ' ' || *t == '\t') t++;
 
     if (*t == '"') {
-        /* Canonical form: text "the banner text" [color]. Everything up to
-         * the closing quote is the text (spaces inside are fine); the word
-         * after the quote, if it names a color, is the color. This used to
-         * fall through to the last-word heuristic, which kept the quotes in
-         * the banner and could mistake a word inside the text for a color. */
+        /* Parse quoted banner text and optional trailing color name. */
         const char *close = strchr(t + 1, '"');
         if (close) {
             n = (size_t)(close - (t + 1));
@@ -235,8 +219,7 @@ static void banner_split_cmd(const char *msg, char *text_out, size_t tcap, char 
         }
     }
     snprintf(text_out, tcap, "%s", t);
-    /* text "message" is the convenient admin form. Store only the contents,
-     * not the quote characters themselves. */
+    /* Strip surrounding quotes before storing banner text. */
     n = strlen(text_out);
     if (n >= 2 && text_out[0] == '"' && text_out[n - 1] == '"') {
         memmove(text_out, text_out + 1, n - 2);

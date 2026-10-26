@@ -75,14 +75,11 @@ double mb_edy;
 double mb_ok;
 double player_was_hit;
 double player_block;
-/* Cube speed in px/s: the stick sets the target and this pair chases it with a
- * ramp; player_stop_from is the speed the braking started at, so stopping takes
- * exactly walk_stop_time. */
+/* Player velocity and initial speed at braking start. */
 double player_vx;
 double player_vy;
 double player_stop_from;
-/* Where the cube faces while moving: the stick changes it in the same frame, so
- * turning never drifts sideways. */
+/* Player facing unit vector. */
 double player_dir_x;
 double player_dir_y;
 double dmg_from_x;
@@ -116,11 +113,16 @@ double astra_cd;
 double astra_seq;
 double astra_pub;
 double astra_box_a;
-/* Astra lunge: elapsed time, step start and step end. The end
- * point doubles as the grab origin captured when the ultimate is cast. */
+double astra_parry_t;
+double astra_parry_blocked;
+double astra_strike_unlock_t;
+double astra_grab_ready_t;
+/* Astra forward lunge timer, start point, dash direction, and target. */
 double astra_ability_lunge_t;
 double astra_ability_lunge_fx;
 double astra_ability_lunge_fy;
+double astra_ability_lunge_dx;
+double astra_ability_lunge_dy;
 double astra_ability_lunge_tx;
 double astra_ability_lunge_ty;
 double pgrab_active;
@@ -134,6 +136,9 @@ double egrab_dx;
 double egrab_dy;
 double egrab_punch_t;
 double egrab_box_a;
+double egrab_parry_t;
+double egrab_unlock_t;
+double egrab_ready_t;
 double pthrow_t;
 double pthrow_dx;
 double pthrow_dy;

@@ -1,9 +1,4 @@
-/* Event 3: Ded Moroz. The same Santa round the plates event ends with, but
- * nothing has to be charged first: Santa appears in the middle of the arena,
- * spins and throws candies, then flies away and whatever is left melts. The
- * plates event (2) keeps its two-plate preamble and then runs this exact
- * round, so both events share the candy state in battle_event_plates.inc and
- * can never run at the same time. */
+/* Event 3 (Ded Moroz): standalone Santa candy throw sharing plates candy state. */
 
 static void santa_event_begin(void) {
     plates_phase = 3;
@@ -93,10 +88,8 @@ static void draw_event_santa(void) {
         double p = plates_santa_t / 0.4;
         pop = 1 - (1 - p) * (1 - p);
     }
-        /* Santa is drawn like a normal fighter: the same cube size
-         * (25 * cube_scale * player_scale) and the same real blurred shadow
-         * (draw_shadow_blur_tex), not a hard grey copy with an offset. */
-    double half_px = 25 * cube_scale * player_scale * pop;
+        /* Draw Santa at standard fighter scale with blurred shadow. */
+        double half_px = 25 * cube_scale * player_scale * pop;
     double sc = cube_scale * player_scale * pop;
     if (sc <= 0.01) {
         return;
@@ -105,6 +98,9 @@ static void draw_event_santa(void) {
     draw_shadow_blur_tex(cx - shadow_off, cy + shadow_off, half_px, sc, SANTA_TEX, plates_santa_angle,
                          shadow_alpha * 2.5, half_px * 0.07);
     tex(cx - half_px, cy - half_px + wob, SANTA_TEX, plates_santa_angle, sc);
+    if (pop > 0.35) {
+        draw_overhead_nick(tr_class_santa(), cx, cy + wob - half_px, 0xFFFFFF);
+    }
 }
 
 static void draw_plates_hud(void) {

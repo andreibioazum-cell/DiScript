@@ -1,4 +1,5 @@
-static int ds_vk_batch_push(int pipeline, const void *desc, size_t first, size_t count) {
+static int ds_vk_batch_push(int pipeline, const void *desc, size_t first, size_t count, int sx, int sy, int sw,
+                            int sh) {
     if (count == 0)
         return 1;
     if (vk_batch_n == vk_batch_cap) {
@@ -18,11 +19,16 @@ static int ds_vk_batch_push(int pipeline, const void *desc, size_t first, size_t
     b->desc = desc;
     b->first = (uint32_t)first;
     b->count = (uint32_t)count;
+    b->sx = sx;
+    b->sy = sy;
+    b->sw = sw;
+    b->sh = sh;
     return 1;
 }
 
 static int ds_vk_build_geometry(void) {
-
+    uint32_t lw = vk_log_w ? vk_log_w : vk_off_w, lh = vk_log_h ? vk_log_h : vk_off_h;
+    int sx = 0, sy = 0, sw = (int)vk_off_w, sh = (int)vk_off_h, clip_empty = 0;
     ds_vk_process_pending_uploads();
     geo_reset();
     vk_batch_n = 0;
@@ -32,6 +38,38 @@ static int ds_vk_build_geometry(void) {
         int pipeline = 0;
         const void *desc = NULL;
         size_t is = geo_in;
+        if (c->t == DS_CMD_SCISSOR) {
+            if (c->v.rc.w <= 0.0f || c->v.rc.h <= 0.0f || lw == 0 || lh == 0) {
+                sx = 0;
+                sy = 0;
+                sw = (int)vk_off_w;
+                sh = (int)vk_off_h;
+                clip_empty = 0;
+            } else {
+                float scale_x = (float)vk_off_w / (float)lw;
+                float scale_y = (float)vk_off_h / (float)lh;
+                int x0 = (int)floorf(c->v.rc.x * scale_x);
+                int y0 = (int)floorf(c->v.rc.y * scale_y);
+                int x1 = (int)ceilf((c->v.rc.x + c->v.rc.w) * scale_x);
+                int y1 = (int)ceilf((c->v.rc.y + c->v.rc.h) * scale_y);
+                if (x0 < 0) x0 = 0;
+                if (y0 < 0) y0 = 0;
+                if (x1 > (int)vk_off_w) x1 = (int)vk_off_w;
+                if (y1 > (int)vk_off_h) y1 = (int)vk_off_h;
+                if (x1 <= x0 || y1 <= y0) {
+                    clip_empty = 1;
+                } else {
+                    sx = x0;
+                    sy = y0;
+                    sw = x1 - x0;
+                    sh = y1 - y0;
+                    clip_empty = 0;
+                }
+            }
+            continue;
+        }
+        if (clip_empty)
+            continue;
         switch (c->t) {
         case DS_CMD_RECT:
             geo_rect(c->v.rc.x, c->v.rc.y, c->v.rc.w, c->v.rc.h, c->v.rc.c);
@@ -104,11 +142,16 @@ static int ds_vk_build_geometry(void) {
             if (font && font_desc) {
                 pipeline = 1;
                 desc = font_desc;
-                geo_text_rainbow(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.sc, c->v.tr.hue, font);
+                if (c->v.tr.c)
+                    geo_text_shimmer(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.c, c->v.tr.sc, c->v.tr.hue, font);
+                else
+                    geo_text_rainbow(c->v.tr.s, c->v.tr.x, c->v.tr.y, c->v.tr.sc, c->v.tr.hue, font);
             }
             break;
+        case DS_CMD_SCISSOR:
+            break;
         }
-        if (!ds_vk_batch_push(pipeline, desc, is, geo_in - is))
+        if (!ds_vk_batch_push(pipeline, desc, is, geo_in - is, sx, sy, sw, sh))
             return 0;
     }
     return 1;
@@ -122,15 +165,27 @@ static void ds_vk_record_draws(VkCommandBuffer cmd) {
     float pc[4] = {2.0f / (float)lw, 2.0f / (float)lh, -1.0f, -1.0f};
     int cur_pipe = -1;
     const void *cur_desc = NULL;
+    int cur_sx = 0, cur_sy = 0, cur_sw = (int)vk_off_w, cur_sh = (int)vk_off_h;
     size_t i = 0;
     while (i < vk_batch_n) {
         int pipe = vk_batches[i].pipeline;
         const void *desc = (pipe == 1 || pipe == 2) ? vk_batches[i].desc : NULL;
+        int bsx = vk_batches[i].sx, bsy = vk_batches[i].sy, bsw = vk_batches[i].sw, bsh = vk_batches[i].sh;
         uint32_t first = vk_batches[i].first, count = 0;
         size_t j = i;
-        while (j < vk_batch_n && vk_batches[j].pipeline == pipe && (desc == NULL || vk_batches[j].desc == desc)) {
+        while (j < vk_batch_n && vk_batches[j].pipeline == pipe && (desc == NULL || vk_batches[j].desc == desc) &&
+               vk_batches[j].sx == bsx && vk_batches[j].sy == bsy && vk_batches[j].sw == bsw &&
+               vk_batches[j].sh == bsh) {
             count += vk_batches[j].count;
             j++;
+        }
+        if (bsx != cur_sx || bsy != cur_sy || bsw != cur_sw || bsh != cur_sh) {
+            VkRect2D sc = {{bsx, bsy}, {(uint32_t)bsw, (uint32_t)bsh}};
+            vkCmdSetScissor(cmd, 0, 1, &sc);
+            cur_sx = bsx;
+            cur_sy = bsy;
+            cur_sw = bsw;
+            cur_sh = bsh;
         }
         if (pipe != cur_pipe) {
             VkPipelineLayout layout = pipe == 0   ? vk_layout_solid
@@ -185,8 +240,7 @@ static void ds_vk_record_present_blit(VkCommandBuffer cmd) {
         bl.dstOffsets[1].y = (int32_t)vk_sw_extent.height;
         bl.dstOffsets[1].z = 1;
 
-        /* Nearest everywhere: a scaled up frame must stay crisp pixels, the
-         * linear filter turned every edge and letter into a smear. */
+        /* Blit with nearest filtering to preserve sharp pixel edges. */
         vkCmdBlitImage(cmd, vk_off_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sw_image,
                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bl, VK_FILTER_NEAREST);
     } else {

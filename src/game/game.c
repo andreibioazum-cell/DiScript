@@ -1,4 +1,4 @@
-/* All of the Cubic Battle 4 game logic in C. */
+/* Cubic Battle 4 game logic. */
 #include "game/game.h"
 #include "engine/runtime.h"
 #include "engine/network.h"
@@ -29,6 +29,7 @@
 #include "ui/npc_cube.inc"
 #include "ui/class_stars.inc"
 #include "ui/menu_screens.inc"
+#include "ui/achievements.inc"
 #include "ui/battle_pass.inc"
 #include "ui/rooms.inc"
 #include "ui/menu_input.inc"
@@ -64,7 +65,6 @@
 #include "combat/battle_fighter_look.inc"
 #include "combat/battle_screen_fx.inc"
 #include "combat/battle_render.inc"
-#include "combat/battle_chaos.inc"
 #include "combat/battle_ball.inc"
 #include "combat/battle_ball_online.inc"
 #include "combat/battle_event_plates.inc"
@@ -82,6 +82,6 @@
 #include "lifecycle.inc"
 
 #ifdef CB_PC
-/* Bridge for the keyboard and mouse: see platform/pc/pc_main.c. */
+/* PC keyboard/mouse input bridge. */
 #include "pc_pads.inc"
 #endif

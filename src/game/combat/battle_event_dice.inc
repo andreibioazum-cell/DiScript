@@ -1,13 +1,4 @@
-/* Event 4: the Cube. A big cube in the middle of the arena throws out
- * other cubes - character cubes, not dice: every class in the game is
- * in the pool for everyone (Santa and CodeCracker are NOT admin-only
- * here - the event is a lottery, not the shop). A thrown cube flies to
- * a random spot and lies there; whoever walks over it collects its
- * candy prize:
-  *   Ordinary 2, Azum 5, Astra 9, ebuc 15, Santa 30, CodeCracker 60,
- *   Legendary Azum 95 - the best cube, chance 0.08%.
- * Chances are rolled in 0.001% units (roll 0..99999). The event replaces
- * the old infection event on the same admin command, event 4. */
+/* Event 4 (Cube): central cube spawns collectible character cubes worth candies. */
 
 #define DICE_CUBE_ORDINARY 0
 #define DICE_CUBE_AZUM 1
@@ -140,9 +131,7 @@ static void dice_throw_cube(void) {
            dice_prize_of(arr_get(dice_cubes, b + 1)));
 }
 
-/* How long the round survives with the event turned off. A poll that still
- * sees the previous event while the admin's write is in flight used to wipe
- * every cube in one frame; a blink shorter than this keeps the round. */
+/* Grace period before clearing active cubes when event mode drops off. */
 #define DICE_OFF_GRACE 1.0
 
 static void update_dice_event(void) {
@@ -206,24 +195,10 @@ static void dice_draw_cube(double cx, double cy, double size, double cube, doubl
     }
 }
 
-static void draw_dice_event(void) {
+static void draw_dice_cubes(void) {
     if (event_mode != 4) {
         return;
     }
-    /* The thrower: a big cube in the centre, at least the size of a
-     * normal player cube, slowly turning as it throws. */
-    double cx = screen_w / 2;
-    double cy = screen_h / 2;
-    double sc = plates_santa_size / 50;
-    if (sc < cube_scale * player_scale) {
-        sc = cube_scale * player_scale;
-    }
-    double hw = 25 * sc;
-    double ang = event_t * 1.2;
-    tex_tint(cx - hw + 8, cy - hw + 10, ORDINARY_TEX, ang, sc, 0x55000000);
-    tex(cx - hw, cy - hw, ORDINARY_TEX, ang, sc);
-    ctext_scaled(language == 1 ? "Кубик" : "Cube", cy - hw - 34, 0xFFFFFFFF, 0.55);
-    /* The thrown character cubes. */
     double i = 0;
     while (i < dice_cubes_max) {
         double b = i * dice_fields;
@@ -257,5 +232,32 @@ static void draw_dice_event(void) {
             }
         }
         i = i + 1;
+    }
+}
+
+static void draw_dice_event(void) {
+    if (event_mode != 4) {
+        return;
+    }
+    /* Match Event 3 Santa: standard player fighter scale, blurred shadow, wobble, and overhead nick. */
+    double cx = screen_w / 2;
+    double cy = screen_h / 2;
+    double pop = 1;
+    if (event_t < 0.4) {
+        double p = event_t / 0.4;
+        pop = 1 - (1 - p) * (1 - p);
+    }
+    double sc = cube_scale * player_scale * pop;
+    double hw = 25 * sc;
+    if (sc <= 0.01) {
+        return;
+    }
+    double wob = 6 * pop * sin(event_t * 3);
+    double ang = event_t * 1.2;
+    draw_shadow_blur_tex(cx - shadow_off, cy + shadow_off, hw, sc, ORDINARY_TEX, ang,
+                         shadow_alpha * 2.5, hw * 0.07);
+    tex(cx - hw, cy - hw + wob, ORDINARY_TEX, ang, sc);
+    if (pop > 0.35) {
+        draw_overhead_nick(language == 1 ? "Кубик" : "Cube", cx, cy + wob - hw, 0xFFFFFF);
     }
 }

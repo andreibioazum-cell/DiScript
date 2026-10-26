@@ -1,13 +1,4 @@
-// Vertical-gradient rounded buttons for Cubic Battle 4.
-//
-// This is the one spot where C++ earns its place: the gradient needs a little
-// analytic geometry per scanline (the row inset of a rounded silhouette) plus
-// per-channel ARGB blending, and inline helpers / constexpr keep that math
-// readable instead of spilling scratch doubles into the C include chain.
-//
-// The exported entry point has C linkage and no C++ runtime requirements
-// (no exceptions, RTTI, static locals or STL), so it links into the plain
-// -std=c99 shared library unchanged.
+// Scanline-clipped vertical gradient renderer for rounded buttons.
 
 #include <math.h>
 #include <stdint.h>
@@ -16,7 +7,6 @@ extern "C" void rect(float x, float y, float w, float h, uint32_t color);
 
 namespace {
 
-// Classic glossy look: a lighter sheen at the top fading into a deeper base.
 constexpr float kTopShade = 1.24f;
 constexpr float kBottomShade = 0.72f;
 
@@ -54,12 +44,7 @@ uint32_t lerp_argb(uint32_t top, uint32_t bottom, float t) {
     return (top & kAlphaMask) | (r << 16) | (g << 8) | b;
 }
 
-// Horizontal inset of the rounded silhouette at |dy| from a corner-circle
-// center: the exact half-chord of the corner arc, so every strip stays
-// inside the same outline roundrect() would produce. Only rows inside the
-// corner bands ask for it, so |dy| == rad is the flat top or bottom edge
-// itself: the inset there is the whole radius, never zero (a zero inset
-// would paint the edge row full width, past both corners).
+// Compute horizontal corner-arc inset at vertical distance |dy| from arc center.
 inline float row_inset(float dy, float rad) {
     float d = fabsf(dy);
     if (d >= rad) {
@@ -92,11 +77,7 @@ extern "C" void cb_button_gradient(float x, float y, float w, float h, float rad
     const float cy_top = y + rad;
     const float cy_bottom = y + h - rad;
     const float y_end = y + h;
-    // Strips follow the pixel grid and are clipped to [y, y + h]. A pressed
-    // button is squeezed to a fractional height, and the old loop stepped
-    // ceil(h) whole rows from y: the last row then hung below the button,
-    // its centre fell past the corner arcs and it was drawn full width - two
-    // thin stripes flashing out of the bottom corners on every press.
+    // Emit pixel-aligned scanline strips clipped to [y, y + h].
     const int first = static_cast<int>(floorf(y));
     const int last = static_cast<int>(ceilf(y_end));
     for (int py = first; py < last; ++py) {
@@ -105,14 +86,11 @@ extern "C" void cb_button_gradient(float x, float y, float w, float h, float rad
         if (r1 <= r0) {
             continue;
         }
-        // The pixel centre decides what the rasterizer fills; clamped into
-        // the clipped strip it never leaves the silhouette, so the inset is
-        // always taken inside the corner arcs.
+        // Sample row center clamped to the clipped scanline bounds.
         const float rc = fminf(fmaxf(static_cast<float>(py) + 0.5f, r0), r1);
         const float t = (h > 1.0f) ? (rc - y) / h : 0.0f;
         const uint32_t c = lerp_argb(top, bottom, t);
-        // Straight sides between the two corner-circle centers; the arcs
-        // clip only the rows above/below them.
+        // Apply corner-arc inset outside straight side segments.
         float inset = 0.0f;
         if (rc < cy_top) {
             inset = row_inset_for(rc, cy_top, rad);

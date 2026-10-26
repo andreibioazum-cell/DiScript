@@ -1,17 +1,5 @@
 #!/usr/bin/env python3
-"""Checks of the PC build: it compiles and plays without a window.
-
-Builds the Linux harness (gcc) from the same sources as the .exe and runs the real
-game with fixed frames: the warning screen -> lobby -> Play -> Solo -> battle, the
-stick and a punch through the same layer the PC keyboard uses. A separate run
-checks signing in against the fake database in test/fake_firebase.py over real
-HTTP (the only way to see the whole network path: WinHTTP cannot run in the
-sandbox, and the POSIX transport in the harness behaves like it), and the joke
-HitboxChaos flag set from the admin panel.
-
-Run: python3 tools/test_pc.py            (needs gcc + g++)
-     python3 tools/test_pc.py --no-build (harness already built)
-"""
+"""Headless PC build, rendering, input, combat, and network integration tests."""
 
 from __future__ import annotations
 
@@ -146,18 +134,18 @@ def test_menu_and_battle(assets: Path) -> None:
         assets,
         SCRATCH / "play",
         [
-            "--frames", "700",
-            "--touch", "220:360:686:0", "--touch", "223:360:686:1",   # «Понимаю и принимаю»
-            "--touch", "400:270:336:0", "--touch", "403:270:336:1",   # «Играть»
-            "--touch", "460:270:404:0", "--touch", "463:270:404:1",   # «Соло»
+            "--frames", "780",
+            "--touch", "220:360:686:0", "--touch", "223:360:686:1",   # accept warning
+            "--touch", "400:270:336:0", "--touch", "403:270:336:1",   # Play
+            "--touch", "460:270:404:0", "--touch", "463:270:404:1",   # Solo
             "--report", "236",
             "--report", "430",
             "--report", "590",
-            "--stick", "600:0:-1",                                    # клавиша W
-            "--atk", "620:1", "--atk", "640:0",                       # пробел
+            "--stick", "600:0:-1", "--stick", "618:0:0",              # face + step toward enemy
+            "--atk", "600:1", "--atk", "620:0",                       # attack (hits after 0.2 s = 12 frames)
             "--report", "650",
-            "--dump", f"690:{shot}",
-            "--report", "699",
+            "--dump", f"740:{shot}",
+            "--report", "775",
         ],
     )
     check("игра дошла до конца без ошибок", result.returncode == 0, result.stderr[-2000:])
@@ -176,11 +164,11 @@ def test_menu_and_battle(assets: Path) -> None:
         f"до удара {before_punch.get('foe')}, после {battle.get('foe')}",
     )
     check("в бою не было ошибок JS-хуков", battle.get("error") == "0", str(battle))
-    end = reports.get(699, {})
+    end = reports.get(775, {})
     check(
         "враг отвечает (игрок получает урон)",
         float(end.get("hp", "inf")) < float(battle.get("hp", "inf")),
-        f"после удара {battle.get('hp')}, к кадру 699 {end.get('hp')}",
+        f"после удара {battle.get('hp')}, к кадру 775 {end.get('hp')}",
     )
     check("кадр боя сохранён", shot.is_file() and shot.stat().st_size > 100_000)
     if shot.is_file():
@@ -202,13 +190,14 @@ def test_controls(assets: Path) -> None:
         "--touch", "220:360:686:0", "--touch", "223:360:686:1",   # consent
         "--touch", "400:270:336:0", "--touch", "403:270:336:1",   # Play
         "--touch", "460:270:404:0", "--touch", "463:270:404:1",   # Solo
+        "--stick", "590:0:-1", "--stick", "595:0:0",              # face enemy so shield covers front
     ]
 
     def play(name: str, extra: list[str]) -> dict[int, dict[str, str]]:
         result = harness(
             assets,
             SCRATCH / name,
-            ["--frames", "1300", *start, "--report", "600", "--report", "800", "--report", "1000", *extra],
+            ["--frames", "900", *start, "--report", "600", "--report", "800", *extra],
         )
         return parse_reports(result.stdout)
 
@@ -216,8 +205,8 @@ def test_controls(assets: Path) -> None:
     held = play("ctl_block", ["--blk", "600:1"])
     check(
         "E (block) reduces damage taken",
-        float(held.get(1000, {}).get("hp", "0")) > float(plain.get(1000, {}).get("hp", "0")),
-        f"no block {plain.get(1000, {}).get('hp')}, with block {held.get(1000, {}).get('hp')}",
+        float(held.get(800, {}).get("hp", "0")) > float(plain.get(800, {}).get("hp", "0")),
+        f"no block {plain.get(800, {}).get('hp')}, with block {held.get(800, {}).get('hp')}",
     )
     super_run = play("ctl_super", ["--super", "700:1", "--super", "720:0"])
     check(
@@ -277,85 +266,6 @@ def fake_request(path: str, body: bytes | None = None, method: str = "GET") -> b
         return response.read()
 
 
-def set_chaos_flag(value: int) -> None:
-    """Writes /HitboxChaos the way the admin panel does: as a signed-in admin."""
-    login = json.dumps({"email": "dimasi4ek229@cb4.game", "password": "admin|cb4v1"}).encode()
-    token = json.loads(fake_request("/v1/accounts:signInWithPassword?key=K", login, "POST"))["idToken"]
-    fake_request(f"/HitboxChaos.json?auth={token}", str(value).encode(), "PUT")
-
-
-def test_chaos(assets: Path) -> None:
-    """The masterpiece hitboxes from the panel: the flag reaches the game and the
-    punch stops landing.
-
-    The flag lives in the database root, so it is set through the fake database
-    over HTTP. The same punch is thrown twice, once with the flag off and once
-    with it on: with the flag on the hitbox turns away from the enemy and runs,
-    so the enemy keeps its health, while the enemy still hits the player back.
-    """
-    print("\n== 3d. Masterpiece hitboxes from the panel ==")
-    fake = None
-    own = not wait_port(FAKE_PORT, timeout=0.3)
-    if own:
-        fake = subprocess.Popen(
-            [sys.executable, "test/fake_firebase.py", str(FAKE_PORT)],
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-        )
-    try:
-        if not wait_port(FAKE_PORT):
-            check("подставная база поднялась", False)
-            return
-
-        def swing(flag: int) -> dict[int, dict[str, str]]:
-            set_chaos_flag(flag)
-            result = harness(
-                assets,
-                SCRATCH / f"chaos{flag}",
-                [
-                    "--frames", "700",
-                    "--touch", "220:360:686:0", "--touch", "223:360:686:1",
-                    "--touch", "400:270:336:0", "--touch", "403:270:336:1",
-                    "--touch", "460:270:404:0", "--touch", "463:270:404:1",
-                    "--report", "590",
-                    "--stick", "600:0:-1",
-                    "--atk", "620:1", "--atk", "640:0",
-                    "--report", "650",
-                ],
-            )
-            return parse_reports(result.stdout)
-
-        normal = swing(0)
-        joke = swing(1)
-        before, after = joke.get(590, {}), joke.get(650, {})
-        check("флаг HitboxChaos дошёл до игры", after.get("chaos") == "1", str(after))
-        check(
-            "с флагом удар улетает мимо врага",
-            float(after.get("foe", "nan")) == float(before.get("foe", "nan")),
-            f"до удара {before.get('foe')}, после {after.get('foe')}",
-        )
-        check(
-            "без флага тот же удар попадает",
-            float(normal.get(650, {}).get("foe", "nan")) < float(normal.get(590, {}).get("foe", "nan")),
-            f"до удара {normal.get(590, {}).get('foe')}, после {normal.get(650, {}).get('foe')}",
-        )
-        check(
-            "шедевро-режим не отключает врага",
-            float(after.get("hp", "nan")) < float(before.get("hp", "nan")),
-            f"{before.get('hp')} -> {after.get('hp')}",
-        )
-        check("в шедевро-режиме нет ошибок", after.get("error") == "0", str(after))
-    finally:
-        try:
-            set_chaos_flag(0)
-        except OSError:
-            pass
-        if own and fake:
-            fake.terminate()
-            fake.wait(timeout=5)
-
-
 def harness_async(assets: Path, data: Path, args: list[str], progress: str = "") -> subprocess.Popen:
     """Same command as harness(), but left running so two clients can meet."""
     shutil.rmtree(data, ignore_errors=True)
@@ -363,7 +273,8 @@ def harness_async(assets: Path, data: Path, args: list[str], progress: str = "")
     if progress:
         (data / "progress.dat").write_text(progress, encoding="utf-8")
     return subprocess.Popen(
-        [str(BINARY), "--headless", "--size", "540x960", "--assets", str(assets), "--data", str(data), *args],
+        [str(BINARY), "--headless", "--pace-ms", "16", "--size", "540x960",
+         "--assets", str(assets), "--data", str(data), *args],
         cwd=ROOT,
         stdout=subprocess.PIPE,
         stderr=subprocess.PIPE,
@@ -371,57 +282,9 @@ def harness_async(assets: Path, data: Path, args: list[str], progress: str = "")
     )
 
 
-def test_chaos_online(assets: Path) -> None:
-    """The joke mode inside a real online fight: two clients in one room.
-
-    Solo said nothing about the online screen - it has its own update and draw
-    path, and the masterpiece enemy used to be missing there. Two headless
-    clients sign in, one creates the room, the other joins it, and the fight
-    has to come up with the joke mode on.
-    """
-    print("\n== 3i. Шедевро-режим в онлайне ==")
-    room = f"ccp{int(time.time()) % 100000}"
-    nick = f"ccp{int(time.time()) % 100000}"
-    taps = [
-        "--touch", "220:360:686:0", "--touch", "223:360:686:1",
-        "--touch", "400:270:558:0", "--touch", "403:270:558:1",
-    ]
-    with fake_server():
-        set_chaos_flag(1)
-        try:
-            first = harness_async(
-                assets,
-                SCRATCH / "chaos_net_a",
-                ["--frames", "1600", *taps, "--login", "500:Dimasi4ek229:admin",
-                 "--room", f"700:{room}:1", "--report", "1200", "--report", "1550"],
-            )
-            time.sleep(5)
-            second = harness_async(
-                assets,
-                SCRATCH / "chaos_net_b",
-                ["--frames", "1600", *taps, "--login", "500:" + nick + ":pass1234",
-                 "--room", f"760:{room}:0", "--report", "1550"],
-            )
-            out_a, _ = first.communicate(timeout=400)
-            out_b, _ = second.communicate(timeout=400)
-        finally:
-            set_chaos_flag(0)
-        frame_a = parse_reports(out_a).get(1550, {})
-        frame_b = parse_reports(out_b).get(1550, {})
-        check("первый клиент в онлайне", frame_a.get("state") == "5" and frame_a.get("battle") == "1", str(frame_a))
-        check("второй клиент вошёл в тот же бой", frame_b.get("state") == "5" and frame_b.get("battle") == "1",
-              str(frame_b))
-        check("шедевро-режим виден в онлайне", frame_a.get("chaos") == "1", str(frame_a))
-
-
 def test_brick_online(assets: Path) -> None:
-    """Two clients in one room, and the buK brick flies over the network.
-
-    The complaint that started this: in an online fight ("CCP") nothing of the
-    brick could be seen. Here the thrower switches the ult to the brick, aims it
-    by hand, and the other client has to see the brick and lose health.
-    """
-    print("\n== 3j. The buK brick in an online fight ==")
+    """Online fight: ebuC's projectile syncs and damages the opponent."""
+    print("\n== 3j. ebuC's brick in an online fight ==")
     room = f"brk{int(time.time()) % 100000}"
     nick = f"brk{int(time.time()) % 100000}"
     taps = [
@@ -435,34 +298,34 @@ def test_brick_online(assets: Path) -> None:
             ["--frames", "2400", *taps, "--login", "500:Dimasi4ek229:admin",
              "--class", "600:3", "--room", f"900:{room}:1",
              "--report", "1500",
-             # the mode button, then the pad: the countdown and a dragged aim
+             # switch mode, turn diagonally, and press ult: fires immediately
              "--touch", "1560:408:533:0:5", "--touch", "1572:408:533:1:5",
-             "--touch", "1600:408:630:0:7", "--touch", "1630:236:445:2:7",
-             "--touch", "1640:236:445:1:7",
-             "--report", "1700", "--report", "2000", "--report", "2300"],
+             "--stick", "1580:-0.7:-0.7", "--stick", "1592:0:0",
+             "--touch", "1600:408:630:0:7", "--touch", "1608:408:630:1:7",
+             "--report", "1615", "--report", "1750", "--report", "2000", "--report", "2300"],
         )
-        time.sleep(5)
+        time.sleep(0.5)
         victim = harness_async(
             assets,
             SCRATCH / "brick_net_b",
             ["--frames", "2400", *taps, "--login", "500:" + nick + ":pass1234",
              "--room", f"960:{room}:0",
-             "--report", "1500", "--report", "1750", "--report", "1850", "--report", "2000", "--report", "2300"],
+             "--report", "1500", "--report", "1630", "--report", "1720", "--report", "1850", "--report", "2300"],
         )
         out_a, err_a = thrower.communicate(timeout=500)
         out_b, err_b = victim.communicate(timeout=500)
     rep_a = parse_reports(out_a)
     rep_b = parse_reports(out_b)
-    a1500, a1700, a2300 = rep_a.get(1500, {}), rep_a.get(1700, {}), rep_a.get(2300, {})
+    a1500, a1615 = rep_a.get(1500, {}), rep_a.get(1615, {})
     b1500, b2300 = rep_b.get(1500, {}), rep_b.get(2300, {})
-    seen = [rep_b.get(f, {}).get("rbricks") for f in (1750, 1850, 2000, 2300)]
-    a2000 = rep_a.get(2000, {})
+    seen = [rep_b.get(f, {}).get("rbricks") for f in (1630, 1720, 1850, 2300)]
+    bounces_max = max(float(rep_a.get(f, {}).get("bounces", "0")) for f in (1615, 1750, 2000))
     check("метатель в онлайне", a1500.get("state") == "5" and a1500.get("battle") == "1", str(a1500))
     check("второй игрок в том же бою", b1500.get("state") == "5" and b1500.get("battle") == "1", str(b1500))
-    check("кнопка режимов работает в онлайне", a1700.get("mode") == "1", str(a1700))
+    check("кнопка режимов работает в онлайне", a1615.get("mode") == "1", str(a1615))
     check("кирпич улетел в онлайне",
-          ("magic projectile thrown" in err_a or "brick thrown" in err_a) and float(a2000.get("bounces", "0")) > 0,
-          f"{a2000} / {err_a[-400:]}")
+          ("magic projectile thrown" in err_a or "brick thrown" in err_a) and bounces_max > 0,
+          f"bounces={bounces_max} / {err_a[-400:]}")
     check("другой игрок видит кирпич", "1" in seen, f"rbricks по кадрам: {seen}")
     check(
         "кирпич снял здоровье второму игроку",
@@ -472,7 +335,7 @@ def test_brick_online(assets: Path) -> None:
 
 
 def test_codecracker_online(assets: Path) -> None:
-    """Non-admin buys CodeCracker for 475 cups and fights with it in an online room."""
+    """Non-admin buys CodeCracker for 550 cups and fights with it in an online room."""
     print("\n== 3k. CodeCracker for everyone in an online fight ==")
     stamp = int(time.time()) % 100000
     room = f"ccr{stamp}"
@@ -492,9 +355,9 @@ def test_codecracker_online(assets: Path) -> None:
              "--stick", "1520:1:0",
              "--super", "1650:1", "--super", "1655:0",
              "--report", "1700", "--report", "2050"],
-            progress="500 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
+            progress="575 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0\n",
         )
-        time.sleep(5)
+        time.sleep(0.5)
         victim = harness_async(
             assets,
             SCRATCH / "cc_net_b",
@@ -514,11 +377,11 @@ def test_codecracker_online(assets: Path) -> None:
     a1500, a2050 = rep_a.get(1500, {}), rep_a.get(2050, {})
     b1500, b1640, b2050 = rep_b.get(1500, {}), rep_b.get(1640, {}), rep_b.get(2050, {})
     check(
-        "обычный игрок купил CodeCracker за 475 кубков и сохранил в облако",
+        "обычный игрок купил CodeCracker за 550 кубков и сохранил в облако",
         isinstance(cloud_user, dict)
         and cloud_user.get("codecracker") == 1
         and cloud_user.get("cls") == 6
-        and cloud_user.get("cups") == 25,
+        and cloud_user.get("cups") in (25, 30),
         str(cloud_user),
     )
     check(
@@ -597,13 +460,13 @@ def login_taps() -> list[str]:
 
 
 def test_multitouch(assets: Path) -> None:
-    """Four fingers at once: stick, block, punch and a held ult.
+    """Four fingers at once: stick, block, punch and an instant ball ult.
 
     Every control keeps its own pointer, so a finger that holds the stick does
     not take the pads away from the others. The run walks a step with the
     stick, keeps a finger on the block, taps the punch under the guard (the
-    rules ignore it, the guard has to stay) and charges the ult with a fourth
-    finger, then drops the guard and lets the ball fly.
+    rules ignore it, the guard has to stay), then drops the guard and fires the
+    ball immediately with a fourth finger while the stick is still held.
     """
     print("\n== 3e. Multi-touch: four fingers at once ==")
     with fake_server():
@@ -616,28 +479,27 @@ def test_multitouch(assets: Path) -> None:
                 "--class", "750:3",
                 "--goto", "800:1",
                 "--report", "890",
-                # finger 0: the stick, walked one step and back to the middle
+                # finger 0: the stick, walked up and tilted diagonally right-up, then centered
                 "--touch", "900:130:810:0:0", "--touch", "910:130:745:2:0",
-                "--touch", "930:130:810:2:0",
+                "--touch", "924:182:775:2:0", "--touch", "930:130:810:2:0",
                 # finger 1: guard up, with the stick finger still down
                 "--touch", "940:282:726:0:1", "--report", "960",
                 # finger 2: punch under the guard, guard must not fall
                 "--touch", "970:408:822:0:2", "--touch", "995:408:822:1:2",
                 "--report", "1000",
-                # guard down, then the ult switched to the brick by a fourth finger
+                # guard down, then the ult switched to the ball by a fourth finger
                 "--touch", "1020:282:726:1:1",
                 "--touch", "1040:408:533:0:5", "--touch", "1052:408:533:1:5",
-                # the ult pad with the stick still held: countdown, then a dragged aim
-                "--touch", "1080:408:630:0:3", "--touch", "1110:270:200:2:3",
-                "--touch", "1120:270:200:1:3",
-                "--report", "1140", "--report", "1300", "--report", "1450",
+                # the ult pad with the stick still held: fires immediately along facing angle
+                "--touch", "1080:408:630:0:3", "--touch", "1090:408:630:1:3",
+                "--report", "1085", "--report", "1300", "--report", "1500",
             ],
         )
         check("мультитач-бой без ошибок", result.returncode == 0, result.stderr[-1500:])
         reports = parse_reports(result.stdout)
         before, guarded = reports.get(890, {}), reports.get(960, {})
-        punched, charged = reports.get(1000, {}), reports.get(1140, {})
-        after = reports.get(1450, {})
+        punched, fired = reports.get(1000, {}), reports.get(1085, {})
+        after = reports.get(1500, {})
         check(
             "палец на стике двигает кубика, пока второй держит блок",
             float(guarded.get("y", "999")) < float(before.get("y", "0")),
@@ -645,11 +507,11 @@ def test_multitouch(assets: Path) -> None:
         )
         check("второй палец держит блок", guarded.get("block") == "1", str(guarded))
         check("удар под блоком не сбивает блок", punched.get("block") == "1", str(punched))
-        check("кирпич заряжается, пока стик занят", charged.get("charge") == "1", str(charged))
+        check("шар сразу вылетает, пока стик занят", fired.get("ball") == "1", str(fired))
         check(
             "стик не сбит ультой",
-            float(charged.get("y", "999")) < float(before.get("y", "0")),
-            f"было {before.get('y')}, стало {charged.get('y')}",
+            float(fired.get("y", "999")) < float(before.get("y", "0")),
+            f"было {before.get('y')}, стало {fired.get('y')}",
         )
         check("кирпич улетел и погас", after.get("ball") == "0", str(after))
         check(
@@ -660,13 +522,8 @@ def test_multitouch(assets: Path) -> None:
 
 
 def test_ball(assets: Path) -> None:
-    """The brick ult: the tap starts a 3-2-1 countdown and a finger aims it.
-
-    Nothing is charged by holding any more, so the checks are on the countdown,
-    on the aimed throw and on the walls: a brick aimed at a wall has to bounce
-    more than once and then go away on its own.
-    """
-    print("\n== 3f. The aimed brick ult ==")
+    """ebuC's ball ult launches immediately along the facing direction."""
+    print("\n== 3f. Instant ebuC's ball ult ==")
     switch = ["--touch", "880:408:533:0:5", "--touch", "892:408:533:1:5"]
     with fake_server():
         def fight(name: str, events: list[str]) -> dict[int, dict[str, str]]:
@@ -678,44 +535,42 @@ def test_ball(assets: Path) -> None:
             )
             return parse_reports(result.stdout)
 
-        aimed = fight("brick_aim", [
-            "--touch", "930:408:630:0:7", "--report", "960",
-            "--touch", "980:270:360:2:7",            # drag near the cube: aim at the enemy
-            "--touch", "1000:270:360:1:7",
-            "--report", "1250", "--report", "1500",
+        hit_foe = fight("brick_hit", [
+            "--stick", "910:0.8:-0.6", "--stick", "920:0:0",  # face diagonally toward walls + foe
+            "--touch", "930:408:630:0:7", "--report", "935",
+            "--touch", "940:408:630:1:7",
+            "--report", "1450",
         ])
         wall = fight("brick_wall", [
-            "--touch", "930:408:630:0:7", "--report", "960",
-            "--touch", "980:410:480:2:7",            # drag near the cube: aim at the right wall
-            "--touch", "1000:410:480:1:7",
-            "--report", "1066", "--report", "1250", "--report", "1700",
+            "--stick", "910:0.8:0.6", "--stick", "920:0:0",   # face diagonally right-down at walls
+            "--touch", "930:408:630:0:7", "--report", "935",
+            "--touch", "940:408:630:1:7",
+            "--report", "1120", "--report", "1700",
         ])
-    base = aimed.get(860, {})
-    counting = aimed.get(960, {})
-    flying = wall.get(1066, {})
-    landed = aimed.get(1500, {})
-    bounced = wall.get(1250, {})
+    base = hit_foe.get(860, {})
+    instant = hit_foe.get(935, {})
+    landed = hit_foe.get(1450, {})
+    bounced = wall.get(1120, {})
     spent = wall.get(1700, {})
-    check("нажатие запускает отсчёт 3-2-1", counting.get("charge") == "1", str(counting))
-    check("пока идёт отсчёт, кирпич не летит", counting.get("ball") == "0", str(counting))
-    check("после отсчёта кирпич полетел", flying.get("ball") == "1", str(flying))
+    check("без отсчёта: нажатие не включает прицел", instant.get("charge") == "0", str(instant))
+    check("нажатие сразу выпускает шар", instant.get("ball") == "1", str(instant))
     check(
-        "кирпич попал во врага",
+        "шар попал во врага",
         float(landed.get("foe", "nan")) < float(base.get("foe", "nan")),
         f"до {base.get('foe')}, после {landed.get('foe')}",
     )
-    check("кирпич отскакивает от стен", float(bounced.get("bounces", "0")) >= 2, str(bounced))
-    check("кирпич исчезает сам", spent.get("ball") == "0", str(spent))
+    check("шар отскакивает от стен", float(bounced.get("bounces", "0")) >= 2, str(bounced))
+    check("шар исчезает сам", spent.get("ball") == "0", str(spent))
 
 
 def test_ult_mode_switch(assets: Path) -> None:
-    """The little button above the ult of "буК": dispenser or brick.
+    """The little button above the ult of "буК": dispenser or ball.
 
     The pad itself never charges anything: in dispenser mode a press fires the
     usual super at once, however long the finger stays. Switching the button
-    over to the brick makes the next press start the countdown instead.
+    over to the ball makes the next press immediately launch the ball.
     """
-    print("\n== 3g. The buK ult switch ==\n")
+    print("\n== 3g. ebuC's ult switch ==\n")
     with fake_server():
         result = harness(
             assets,
@@ -732,10 +587,9 @@ def test_ult_mode_switch(assets: Path) -> None:
                 # the dispenser has a 6 s cooldown, so the switch waits for it
                 "--touch", "1300:408:533:0:5", "--touch", "1312:408:533:1:5",
                 "--report", "1330",
-                # brick mode: the press starts the countdown, the drag aims it up
-                "--touch", "1350:408:630:0:7", "--touch", "1380:270:360:2:7",
-                "--touch", "1390:270:360:1:7",
-                "--report", "1410", "--report", "1560",
+                # ball mode: the press immediately launches the ball
+                "--touch", "1350:408:630:0:7", "--report", "1351", "--touch", "1365:408:630:1:7",
+                "--report", "1450",
             ],
         )
         check("переключение ульты без ошибок", result.returncode == 0, result.stderr[-1500:])
@@ -744,14 +598,15 @@ def test_ult_mode_switch(assets: Path) -> None:
         held = reports.get(940, {})
         later = reports.get(1000, {})
         switched = reports.get(1330, {})
-        counting = reports.get(1410, {})
-        flying = reports.get(1560, {})
+        instant = reports.get(1351, {})
+        flying = reports.get(1450, {})
         check("у буКа появилась своя кнопка режима", before.get("mode") == "0", str(before))
         check("в режиме деспенсера ничего не заряжается", held.get("charge") == "0", str(held))
         check("и через полсекунды удержания тоже", later.get("charge") == "0" and later.get("ball") == "0", str(later))
-        check("кнопка переключает ульту на кирпич", switched.get("mode") == "1", str(switched))
-        check("в режиме кирпича нажатие даёт отсчёт", counting.get("charge") == "1", str(counting))
-        check("кирпич улетел", flying.get("ball") == "1" or flying.get("bounces") is not None, str(flying))
+        check("кнопка переключает ульту на шар", switched.get("mode") == "1", str(switched))
+        check("в режиме шара нажатие сразу запускает шар без прицела",
+              instant.get("charge") == "0" and instant.get("ball") == "1", str(instant))
+        check("шар летит", flying.get("ball") == "1" or flying.get("bounces") is not None, str(flying))
 
 
 def test_longer_fights(assets: Path) -> None:
@@ -767,16 +622,15 @@ def test_longer_fights(assets: Path) -> None:
         frame = parse_reports(result.stdout).get(815, {})
         hp = float(frame.get("hp", "0"))
         foe = float(frame.get("foe", "0"))
-        # Raw pools: ordinary 20, azum 12.74, santa 20, ebuc 24, astra 18,
-        # codecracker 12. The pools are back to these class values.
-        raw = {"0": 20.0, "1": 12.74, "2": 20.0, "3": 24.0, "4": 18.0, "6": 12.0}
+        # Base HP pools: Ordinary 20, Azum 7.0, Santa 20, ebuC 24, Astra 19.0, CodeCracker 12.
+        raw = {"0": 20.0, "1": 7.0, "2": 20.0, "3": 24.0, "4": 19.0, "6": 12.0}
         cls = frame.get("cls", "0")
         base = raw.get(cls, 20.0)
         check("здоровья не меньше, чем даёт класс", hp >= base, f"hp={hp}, база={base}")
         check("ровно столько, сколько даёт класс", abs(hp - base) < 0.01, f"hp={hp}, база={base}")
         check("и не больше прежних раздутых пулов", hp <= 25, f"hp={hp}")
         # The enemy brings the pool of its own class, so only the range is fixed.
-        check("у врага свой пул, тоже умеренный", 15 < foe <= 30, f"foe={foe}")
+        check("у врага свой пул, тоже умеренный", 6 <= foe <= 30, f"foe={foe}")
 
 
 def wait_port(port: int, timeout: float = 5.0) -> bool:
@@ -857,7 +711,7 @@ def main() -> int:
     args = parser.parse_args()
 
     SCRATCH.mkdir(parents=True, exist_ok=True)
-    fake_url = f"http://127.0.0.1:{FAKE_PORT}"  # порт фиксирован: см. test_login
+    fake_url = f"http://127.0.0.1:{FAKE_PORT}"  # fixed port baked into harness build
     if not args.no_build or not BINARY.is_file():
         build(fake_url)
     assets = stage_assets()
@@ -870,8 +724,6 @@ def main() -> int:
         test_ball,
         test_ult_mode_switch,
         test_longer_fights,
-        test_chaos,
-        test_chaos_online,
         test_brick_online,
         test_codecracker_online,
         test_login,

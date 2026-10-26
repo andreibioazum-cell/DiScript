@@ -30,10 +30,8 @@ static int parse_chat_list(const char *json, ChatMsg *tmp, int cap) {
         strv(obj, "uid", tmp[tmp_cnt].uid, sizeof(tmp[tmp_cnt].uid));
         strv(obj, "nick", tmp[tmp_cnt].nick, sizeof(tmp[tmp_cnt].nick));
         strv(obj, "text", tmp[tmp_cnt].text, sizeof(tmp[tmp_cnt].text));
-                /* A message with no text (a broken record in the database, an old
-                 * command with no body) is not shown at all: it used to leave a bare nick
-                 * on the line as "Broken". */
-        if (tmp[tmp_cnt].text[0]) {
+                /* Skip chat records with empty message text. */
+                if (tmp[tmp_cnt].text[0]) {
             tmp[tmp_cnt].valid = 1;
             tmp_cnt++;
         }

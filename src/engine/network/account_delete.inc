@@ -1,19 +1,5 @@
-/* Deleting the account and all player data on request.
- *
-  * 152-FZ, art. 9 part 2 and art. 21 part 5: the subject may withdraw consent,
-  * and then the operator stops processing and destroys the personal data. In the
-  * game this is Account -> Delete account: the player types the password and
-  * drags the knob right. Deletion runs on its own thread:
-  *   0. the typed password must match the session password;
-  *   1. a fresh sign-in with that password (Firebase deletes an account only
-  *      after a recent login, and the server checks the password once more);
-  *   2. the users/<nick> profile is deleted from the database; if the server
-  *      still has old rules without self-deletion, the profile is zeroed;
-  *   3. the Firebase Auth account is deleted (accounts:delete);
-  *   4. on the device the session, progress, achievements, promo code and the
-  *      consent mark are erased.
-  * Status: 0 - idle, 1 - running, 2 - deleted, 3 - network or server error
-  * (nothing was erased, a retry is fine), 4 - wrong password. */
+/* Asynchronous account and profile deletion.
+ * Status: 0 idle, 1 running, 2 deleted, 3 error, 4 wrong password. */
 
 static volatile int s_acct_del_status = 0;
 static char s_acct_del_pass[64];
@@ -46,7 +32,7 @@ static void acct_wipe_local(void) {
 
 static void *acct_delete_job(void *arg) {
     char nick[LOGIN_NICK_MAX + 2] = "", pass[64] = "", typed[64], url[URL], body[512], resp[1024];
-    char email[96], epass[192], idt[FB_ID_MAX];
+    char idt[FB_ID_MAX];
     int code;
     (void)arg;
     snprintf(typed, sizeof(typed), "%s", s_acct_del_pass);
@@ -57,28 +43,26 @@ static void *acct_delete_job(void *arg) {
     lg_unlock();
     if (nick[0] && (!pass[0] || strcmp(pass, typed) != 0)) {
         memset(typed, 0, sizeof(typed));
+        memset(pass, 0, sizeof(pass));
         s_acct_del_status = 4;
         return NULL;
     }
     memset(typed, 0, sizeof(typed));
     if (nick[0] && net.base[0]) {
         if (fb_enabled()) {
-            int r;
-            fb_email_of(nick, email, sizeof(email));
-            snprintf(epass, sizeof(epass), "%s%s", pass, net_pass_suffix());
-            r = fb_try_sign_in(email, epass, NULL);
-            memset(epass, 0, sizeof(epass));
+            int r = fb_verify_current_pass(nick, pass);
             if (r != 0) {
+                memset(pass, 0, sizeof(pass));
                 s_acct_del_status = r == 1 ? 4 : 3;
                 return NULL;
             }
         }
+        memset(pass, 0, sizeof(pass));
         snprintf(url, sizeof(url), "%s/users/%s.json", net.base, nick);
         code = fb_http("DELETE", url, NULL, NULL, 0);
         if (code != 200) {
-                        /* Old database rules do not allow deleting your own profile: then
-                         * nothing is left in it but the nick and zeroes. */
-            if (code == 0 || put_default_user(url, nick, NULL) != 200) {
+                        /* Fallback when rules disallow DELETE: overwrite profile with zeroes. */
+                        if (code == 0 || put_default_user(url, nick, NULL) != 200) {
                 if (net_log_ok())
                     LOGERR("account delete: profile HTTP %d", code);
                 s_acct_del_status = 3;
@@ -119,7 +103,7 @@ void net_delete_account(const char *password) {
     s_acct_del_status = 3;
 }
 
-/* Read the status; a finished result (2, 3 or 4) is returned once. */
+/* Poll deletion status; terminal results (2..4) reset to idle. */
 double net_delete_account_status(void) {
     int s = s_acct_del_status;
     if (s >= 2)

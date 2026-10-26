@@ -41,9 +41,9 @@ static void read_remotes(void) {
                 arr_set(remotes, b + 8, y);
                 arr_set(remotes, b + 9, a);
                 arr_set(remotes, b + 6, net_player_punch(s));
-                /* Class and skin cannot change during a battle. Snapshot them
-                 * together when the remote joins instead of reading partially
-                 * updated network fields every render frame. */
+                reset_remote_smooth_slot((int)s);
+                baseline_remote_slot(s);
+                /* Snapshot class and skin on join. */
                 double rcls = finite_or(net_player_class(s), CLASS_ORDINARY);
                 double rskin = finite_or(net_player_skin(s), SKIN_NORMAL);
                 if (rcls < CLASS_ORDINARY || rcls > CLASS_CODECRACKER) {
@@ -83,12 +83,20 @@ static void tick_remote_punches(void) {
     double s = 0;
     while (s < max_players) {
         double rb = s * punch_fields;
-        if (arr_get(remote_punches, rb) == 1) {
+        if (arr_get(remote_punches, rb) > 0) {
+            double b = s * remote_fields;
             double t = arr_get(remote_punches, rb + 5) + dt;
-            if (t > punch_time) {
+            if (t > PUNCH_WINDUP + punch_time) {
                 clear_remote_punch(s);
             } else {
                 arr_set(remote_punches, rb + 5, t);
+                if (arr_get(remotes, b) == 1 && arr_get(remotes, b + 5) == 1) {
+                    double ra = arr_get(remotes, b + 3);
+                    arr_set(remote_punches, rb + 1, arr_get(remotes, b + 1));
+                    arr_set(remote_punches, rb + 2, arr_get(remotes, b + 2));
+                    arr_set(remote_punches, rb + 3, cos(ra));
+                    arr_set(remote_punches, rb + 4, sin(ra));
+                }
             }
         }
         s = s + 1;
@@ -99,17 +107,16 @@ static void update_remote_punches(void) {
     double s = 0;
     while (s < max_players) {
         double rb = s * punch_fields;
-        if (arr_get(remote_punches, rb) == 1) {
+        if (arr_get(remote_punches, rb) > 0) {
             if (arr_get(remotes, s * remote_fields + 5) == 0) {
                 clear_remote_punch(s);
-            } else {
+            } else if (arr_get(remote_punches, rb) == 1 && arr_get(remote_punches, rb + 5) >= PUNCH_WINDUP - 1e-9) {
                 double target = punch_resolve_target(arr_get(remote_punches, rb + 1), arr_get(remote_punches, rb + 2),
                                                      arr_get(remote_punches, rb + 3), arr_get(remote_punches, rb + 4),
                                                      punch_reach, punch_width);
                 if (target == 0 || (target >= 1 && target <= turret_max)) {
                     double rcls = arr_get(remotes, s * remote_fields + 10);
-                    /* Apply the attacker's class kit from the same snapshot
-                     * used for its appearance. */
+                    /* Compute remote punch damage from synced class, level, and skin. */
                     double rdmg = astra_ability_punch_damage_net(rcls, net_player_level(s),
                                                             arr_get(remotes, s * remote_fields + 11));
                     double rlevel = net_player_level(s);
@@ -117,7 +124,7 @@ static void update_remote_punches(void) {
                         if (revive_prot <= 0) {
                             take_damage_at(rdmg, arr_get(remotes, s * remote_fields + 1),
                                            arr_get(remotes, s * remote_fields + 2));
-                            if (rcls == CLASS_SANTA) {
+                            if (astra_parry_active() == 0 && rcls == CLASS_SANTA) {
                                 if (player_poison <= 0) {
                                     player_poison_tick = santa_poison_tick_interval;
                                 }
@@ -131,7 +138,7 @@ static void update_remote_punches(void) {
                         net_publish_thud(thud_seq);
                         ds_log("remote punch hit turret %g, hp %g", target - 1, arr_get(turret_hp, target - 1));
                     }
-                    clear_remote_punch(s);
+                    arr_set(remote_punches, rb, 2);
                     if (finished != 0) {
                         return;
                     }
@@ -179,26 +186,26 @@ static void update_remote_snow(void) {
             double cnt = net_player_snow(s);
             double prev = arr_get(remote_snow, b);
             if (cnt != prev && cnt > 0) {
+                double sx0 = net_player_snow_x(s) * screen_w;
+                double sy0 = net_player_snow_y(s) * screen_h;
                 arr_set(remote_snow, b, cnt);
                 arr_set(remote_snow, b + 1, 1);
                 arr_set(remote_snow, b + 2, 0);
-                arr_set(remote_snow, b + 3, net_player_snow_x(s) * screen_w);
-                arr_set(remote_snow, b + 4, net_player_snow_y(s) * screen_h);
+                arr_set(remote_snow, b + 3, sx0);
+                arr_set(remote_snow, b + 4, sy0);
+                arr_set(remote_snow, b + 8, sx0);
+                arr_set(remote_snow, b + 9, sy0);
             }
             if (arr_get(remote_snow, b + 1) == 1) {
                 double t = arr_get(remote_snow, b + 2) + dt;
-                double x = arr_get(remote_snow, b + 3) + net_player_snow_dx(s) * super_speed * dt;
-                double y = arr_get(remote_snow, b + 4) + net_player_snow_dy(s) * super_speed * dt;
+                double x = 0, y = 0;
+                snow_step_pos(arr_get(remote_snow, b + 8), arr_get(remote_snow, b + 9), net_player_snow_dx(s),
+                              net_player_snow_dy(s), t, arr_get(remote_snow, b), &x, &y);
                 arr_set(remote_snow, b + 2, t);
                 arr_set(remote_snow, b + 3, x);
                 arr_set(remote_snow, b + 4, y);
-                double hit = 0;
-                if (circle_hits_player(x, y, snow_ball_r) == 1) {
-                    hit = 1;
-                }
-                if (t > super_range / super_speed) {
-                    hit = 1;
-                }
+                double hit = circle_hits_player(x, y, snow_radius_for(arr_get(remote_snow, b))) == 1 ||
+                             t > super_range / super_speed ? 1 : 0;
                 if (hit == 1) {
                     arr_set(remote_snow, b + 1, 0);
                     arr_set(remote_snow, b + 5, boom_time);
@@ -211,7 +218,7 @@ static void update_remote_snow(void) {
                         if (rcls == CLASS_SANTA) {
                             freeze_time = santa_freeze_time_for(rlevel);
                         }
-                        if (player_freeze < freeze_time) {
+                        if (astra_parry_active() == 0 && player_freeze < freeze_time) {
                             player_freeze = freeze_time;
                             player_freeze_slow = super_freeze_slow;
                         }
@@ -273,8 +280,7 @@ static void check_online_finish(void) {
         return;
     }
     if (count_online_remotes() > 0 && match_seen_foe == 1) {
-        /* Opponents are still in the room but all dead: the match is
-         * really over, finish as before. */
+        /* Finish match when all connected opponents are eliminated. */
         alone_t = 0;
         foes_gone_t = foes_gone_t + dt;
         if (foes_gone_t >= foes_dead_min) {
@@ -282,9 +288,7 @@ static void check_online_finish(void) {
         }
         return;
     }
-    /* Nobody else to fight in this room. Do not kick instantly: give
-     * other players alone_wait_time seconds to join (the countdown is
-     * drawn by draw_alone_wait), and only then leave to the room list. */
+    /* Wait alone_wait_time seconds for opponents before returning to room list. */
     foes_gone_t = 0;
     alone_t = alone_t + dt;
     if (alone_t >= alone_wait_time) {
@@ -315,26 +319,16 @@ static void push_self(void) {
     if (net_slot() < 0) {
         return;
     }
-    double alive = 1;
-    if (player->hp <= 0) {
-        alive = 0;
-    }
+    double alive = player->hp <= 0 ? 0 : 1;
     progress_push_to_net();
-    net_publish(player->x / screen_w, player->y / screen_h, player->angle, player->hp, alive);
-    /* The block is synced: others draw the guard, the victim cuts the hit. */
+    /* Sync guard, abilities, and turrets before committing fighter state. */
     net_publish_block(player_block);
-    net_publish_codecracker_super(codecracker_super_t > 0 ? 1 : 0);
+    net_publish_codecracker_super((codecracker_super_t > 0 || astra_parry_active() == 1) ? 1 : 0);
     net_publish_punch(punch->x / screen_w, punch->y / screen_h, punch->dx, punch->dy, punch->shot);
     if (player_class == CLASS_EBUC) {
-        double x1 = 0;
-        double y1 = 0;
-        double h1 = 0;
-        double x2 = 0;
-        double y2 = 0;
-        double h2 = 0;
-        double x3 = 0;
-        double y3 = 0;
-        double h3 = 0;
+        double x1 = 0, y1 = 0, h1 = 0;
+        double x2 = 0, y2 = 0, h2 = 0;
+        double x3 = 0, y3 = 0, h3 = 0;
         if (turret_alive(0) == 1) {
             x1 = arr_get(turret_x, 0) / screen_w;
             y1 = arr_get(turret_y, 0) / screen_h;
@@ -367,6 +361,7 @@ static void push_self(void) {
             dash_pub = 0;
         }
     }
+    net_publish(player->x / screen_w, player->y / screen_h, player->angle, player->hp, alive);
 }
 
 static void update_online(void) {
@@ -385,13 +380,19 @@ static void update_online(void) {
     tick_turrets();
     tick_universe();
     tick_astra();
-    tick_hitbox_fades();
     tick_status_fades();
     tick_hurt_fades();
+    if (net_slot() >= 0) {
+        if (online_ready == 0) {
+            place_online();
+        }
+        read_remotes();
+        smooth_remotes();
+    }
     tick_remote_punches();
+    tick_hitbox_fades();
     update_aim();
-    chaos_tick(); /* joke mode runs online too */
-    ball_online_tick(); /* буК magic projectile */
+    ball_online_tick(); /* Tick ebuC's projectiles against current remote positions. */
     if (finished != 0) {
         return;
     }
@@ -403,11 +404,11 @@ static void update_online(void) {
     }
     move_player();
     tick_dash();
+    punch_left = tick_down(punch_left);
+    follow_punch();
     if (punch->active == 1 && punch_left <= 0) {
         punch->active = 0;
     }
-    punch_left = tick_down(punch_left);
-    follow_punch();
     super_cd = tick_down(super_cd);
     if (admin_cheat_nocd() == 1) {
         super_cd = 0;
@@ -422,11 +423,6 @@ static void update_online(void) {
         return;
     }
     if (net_slot() >= 0) {
-        if (online_ready == 0) {
-            place_online();
-        }
-        read_remotes();
-        smooth_remotes();
         codecracker_tick_online();
         if (finished != 0) {
             return;

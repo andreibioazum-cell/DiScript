@@ -1,7 +1,4 @@
-/* Pure part of the background presence check: no I/O and no globals.
- * rooms/main/players holds one object per slot with the account "nick".
- * The per-connection "uid" is random (make_uid), so our own slot is found by
- * nick, compared without case, the same way accounts are keyed in Firebase. */
+/* Pure classifier for rooms/main/players presence snapshots. */
 
 static int presence_same_nick(const char *slot, size_t len, const char *own) {
     size_t i;
@@ -20,9 +17,7 @@ static int presence_same_nick(const char *slot, size_t len, const char *own) {
     return 1;
 }
 
-/* 2 = our account is in the room, 1 = another account is, 0 = room is empty,
- * -1 = bad input. Our own slot wins even when other players are present, since
- * then the player is already online and needs no call. */
+/* Classify snapshot: 2 own account present, 1 other player present, 0 empty, -1 invalid JSON. */
 static int presence_classify(const char *json, const char *own_nick) {
     static const char key[] = "\"nick\":\"";
     const char *p = json;

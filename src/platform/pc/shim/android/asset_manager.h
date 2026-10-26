@@ -1,6 +1,4 @@
-/* PC shim: assets are plain files under a root directory (./assets by
- * default). The engine keeps using the AAssetManager API unchanged; the
- * implementation lives in platform/pc/pc_assets.inc and reads with stdio. */
+/* PC shim for Android AAssetManager file access. */
 #ifndef PC_SHIM_ANDROID_ASSET_MANAGER_H
 #define PC_SHIM_ANDROID_ASSET_MANAGER_H
 #include <stddef.h>

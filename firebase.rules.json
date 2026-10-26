@@ -9,12 +9,6 @@
       ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
     },
 
-    "HitboxChaos": {
-      ".read": true,
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
-      ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
-    },
-
     "FlashSale": {
       ".read": true,
       ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
@@ -126,10 +120,11 @@
     "rooms": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
       "$room": {
+        ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
         ".validate": "$room.matches(/^[A-Za-z0-9_-]{1,24}$/)",
         "meta": {
           ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
-          ".write": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && (!data.exists() || data.child('owner').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', ''))",
+          ".write": "(auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && (!data.exists() || data.child('owner').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')))",
           ".validate": "newData.hasChildren(['owner','ph','w'])",
           "owner": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
           "ph": { ".validate": "newData.isString() && newData.val().length <= 8" },

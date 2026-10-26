@@ -76,8 +76,7 @@ void keyboard_type(const char *text);
 void keyboard_backspace(void);
 void rect(float x, float y, float w, float h, uint32_t color);
 void roundrect(float x, float y, float w, float h, float r, uint32_t color);
-/* C++-implemented glossy vertical gradient drawn as per-scanline strips
- * clipped to the rounded silhouette (src/game/cpp/ui_fx.cpp). */
+/* Draw rounded vertical gradient button fill. */
 void cb_button_gradient(float x, float y, float w, float h, float r, uint32_t color);
 
 void rect_rot(float x, float y, float w, float h, float angle, uint32_t color);
@@ -93,10 +92,10 @@ void tex_tint(float x, float y, const char *name, float angle, float scale, uint
 void tex_alpha(float x, float y, const char *name, float angle, float scale, double alpha);
 void tex_round(float x, float y, const char *name, float scale, float radius);
 
-/* Grayscale filter for the whole frame (1 = black and white, 0 = normal) and
- * a small decaying screen shake (amplitude in pixels, duration in seconds). */
+/* Full-frame grayscale filter and decaying screen shake. */
 void ds_gfx_gray(double on);
 void ds_gfx_shake(double amp, double seconds);
+void ds_gfx_scissor(double x, double y, double w, double h);
 
 int snd_load(const char *name);
 int snd_play(const char *name);
@@ -117,19 +116,17 @@ void ds_sound_set_java_vm(void *vm);
 #define DS_FONT_PIXEL_HEIGHT 32
 void text(const char *string, float x, float y, uint32_t color);
 void text_scaled(const char *string, float x, float y, uint32_t color, float scale);
-/* Same as text_scaled, but every glyph takes the next hue step, so the line
- * reads as a rainbow that starts at `hue` (0..1). */
+/* Draw scaled text with per-glyph rainbow hue starting at `hue` in [0, 1). */
 void text_rainbow(const char *string, float x, float y, float scale, float hue);
+/* Draw scaled text with subtle per-glyph shimmer around `color`. */
+void text_shimmer(const char *string, float x, float y, uint32_t color, float scale, float phase);
 
 int text_ink_width(const char *string);
 int text_ink_height(const char *string);
 int text_ink_top(const char *string);
 
 void ds_graphics_report_frame_interval(double seconds);
-/* How long the last real frame took, in seconds: from the start of the previous
- * loop iteration to the start of this one, including the present wait. Nothing is
- * clamped, unlike the game dt (which is capped at 0.1 s). 0 means the frame is not
- * measured yet, the window was just restored or the clock did not answer. */
+/* Unclamped duration of the last presented frame in seconds (0 if unavailable). */
 double ds_frame_seconds(void);
 int ds_graphics_pixel_scale(void);
 

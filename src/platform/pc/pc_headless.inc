@@ -1,12 +1,8 @@
-/* Headless harness: fixed-step loop, scripted touches, BMP dumps and a final
- * state report. CI builds this for Linux and drives the real game code with
- * it - the same .c files that make the Windows binary. */
+/* Headless fixed-step simulation loop, scripted input runner, and BMP dumper. */
 
 typedef struct {
     int frame;
-    int kind; /* 0 touch, 1 goto, 2 type, 3 enter, 4 back, 5 dump, 6 report,
-               * 7 stick, 8 atk, 9 blk, 10 super, 11 login, 12 logininfo,
-               * 13 class, 14 room */
+    int kind; /* 0..14 scripted harness event code */
     float x, y;
     int action, id;
     double state;
@@ -102,9 +98,7 @@ static void pc_event_parse(PcArgs *a) {
             e->kind = 6;
             e->frame = atoi(rest);
         } else if (strcmp(name, "login") == 0) {
-            /* login FRAME:NICK:PASSWORD - the login fields move with the
-             * screen size, so the harness asks the game where they are
-             * instead of guessing coordinates. */
+            /* Parse login FRAME:NICK:PASSWORD event. */
             int frame = 0;
             char nick[64];
             const char *p = rest;
@@ -173,10 +167,7 @@ static void pc_report_state(int frame) {
 static int pc_login_retry_at = 0;
 static int pc_login_retries = 0;
 
-/* A sign-in can lose the race with a busy machine: the fake database runs on
- * the same box as the harness, and a dropped connection leaves the screen with
- * "no connection". The fields keep what was typed, so the retry is one more tap
- * on the submit button instead of a whole failed scenario. */
+/* Retry login submit tap when local test server connection transiently drops. */
 static void pc_login_retry_tick(int frame) {
     float nx = 0, ny = 0, px = 0, py = 0, bx = 0, by = 0, bw = 0, bh = 0;
     if (pc_login_retries <= 0 || pc_login_retry_at == 0 || frame < pc_login_retry_at)
@@ -251,9 +242,7 @@ static void pc_apply_event(PcEvent *e, int frame) {
             fprintf(stderr, "harness: login needs NICK:PASSWORD\n");
             break;
         }
-        /* Same taps a finger would make: consent box, nick field, password
-         * field, button. Without the consent box the game refuses to send
-         * anything at all (login_status 8), so it is part of the form. */
+        /* Tap consent checkbox, fill nick and password fields, and submit. */
         {
             float cx = 0, cy = 0, cs = 0;
             game_pc_login_consent(&cx, &cy, &cs);
@@ -295,10 +284,7 @@ static void pc_apply_event(PcEvent *e, int frame) {
 }
 
 #ifndef _WIN32
-/* Draws a few known primitives without the game: proves the software
- * rasterizer end to end (shapes, texture sampling, text, blending). The
- * Windows entry point only knows window/headless modes, so this helper is
- * compiled for the Linux test harness. */
+/* Render standalone primitives and text to verify software rasterizer output. */
 static int pc_gfx_test(const PcArgs *args, const char *bmp) {
     pc_fixed_step_ms = 16;
     pc_boot(args);
@@ -336,14 +322,14 @@ static int pc_run_headless(PcArgs *args) {
         fprintf(stderr, "harness: renderer did not start: %s\n", ds_graphics_failure());
         return 2;
     }
-    /* Menu timings (the "I understand" countdown) start on the first update,
-     * so a script that goes straight to a fight can skip that wait here. */
+    /* Advance optional warmup frames before running scripted events. */
     if (args->warmup) {
         int i;
         for (i = 0; i < args->warmup; i++)
             (void)pc_step();
     }
     for (frame = 0; frame < args->frames; frame++) {
+        uint64_t t0 = args->pace_ms > 0 ? monotonic_ns() : 0;
         int i;
         for (i = 0; i < pc_event_count; i++)
             if (pc_events[i].frame == frame)
@@ -353,6 +339,21 @@ static int pc_run_headless(PcArgs *args) {
         (void)pc_step();
         if (ds_game_has_error())
             failed = 1;
+        if (args->pace_ms > 0) {
+            uint64_t target = (uint64_t)args->pace_ms * 1000000ull;
+            uint64_t used = monotonic_ns() - t0;
+            if (used < target) {
+                uint64_t rem = target - used;
+#ifdef _WIN32
+                Sleep((DWORD)(rem / 1000000ull));
+#else
+                struct timespec ts;
+                ts.tv_sec = (time_t)(rem / 1000000000ull);
+                ts.tv_nsec = (long)(rem % 1000000000ull);
+                nanosleep(&ts, NULL);
+#endif
+            }
+        }
     }
     {
         int i;

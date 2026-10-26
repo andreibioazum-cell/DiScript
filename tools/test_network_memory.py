@@ -149,31 +149,29 @@ static void check_progress(void) {
 }
 static void check_unescape(void) {
     char out[64];
-    /* Firebase отдаёт кириллицу как \uXXXX: раньше такие строки попадали на
-     * экран буквально ("u043f"), и чат/ники/баннер были мусором. */
+    /* Decode JSON \uXXXX escapes into UTF-8 Cyrillic. */
     strv("{\"nick\":\"\\u0414\\u0438\\u043c\\u0430\"}", "nick", out, sizeof(out));
     assert(strcmp(out, "Дима") == 0);
     strv("{\"text\":\"\\u043f\\u0440\\u0438\\u0432\\u0435\\u0442\"}", "text", out, sizeof(out));
     assert(strcmp(out, "привет") == 0);
-    /* Обычные escape-последовательности. */
+    /* Decode standard backslash escapes. */
     strv("{\"s\":\"a\\\"b\\\\c\\/d\\ne\\tf\"}", "s", out, sizeof(out));
     assert(strcmp(out, "a\"b\\c/d\ne\tf") == 0);
-    /* Суррогатная пара - один символ UTF-8 (эмодзи). */
+    /* Decode UTF-16 surrogate pair into 4-byte UTF-8. */
     strv("{\"s\":\"\\ud83d\\ude00\"}", "s", out, sizeof(out));
     assert(strcmp(out, "\xf0\x9f\x98\x80") == 0);
-    /* Одиночный суррогат и битый escape не ломают разбор. */
+    /* Handle lone surrogates and invalid hex digits safely. */
     strv("{\"s\":\"\\ud83d!\"}", "s", out, sizeof(out));
     assert(strcmp(out, "\xef\xbf\xbd!") == 0);
     strv("{\"s\":\"\\uZZZZ\"}", "s", out, sizeof(out));
     assert(strcmp(out, "uZZZZ") == 0);
-    /* Усечение по размеру буфера не выходит за границу. */
+    /* Respect output buffer capacity on multi-byte characters. */
     memset(out, 'x', sizeof(out));
     strv("{\"s\":\"\\u0414\\u0414\\u0414\\u0414\"}", "s", out, sizeof(out));
     assert(strlen(out) + 1 <= sizeof(out));
 }
 static void check_broken_chat(void) {
-    /* Сообщение без текста (битая запись) в ленту не попадает: раньше на
-     * экране оставался голый ник строкой «Broken». */
+    /* Skip malformed chat entries missing text field. */
     ChatMsg chats[4];
     const char *json = "{\"-1\":{\"nick\":\"Broken\"},"
                        "\"-2\":{\"uid\":\"u\",\"nick\":\"Bob\",\"text\":\"hi\"}}";
@@ -289,6 +287,24 @@ static void check_stream(void) {
     const char *del = "event: put\ndata: {\"path\":\"/0\",\"data\":null}\n\n";
     assert(stream_players_chunk(NULL, del, strlen(del)) == 1);
     assert(net.players[0].online == 0);
+
+    /* Isolated per-thread SseStreamCtx stops stale generations and read_players ignores older seq. */
+    SseStreamCtx old_sc, cur_sc;
+    memset(&old_sc, 0, sizeof(old_sc));
+    memset(&cur_sc, 0, sizeof(cur_sc));
+    old_sc.gen = 7;
+    cur_sc.gen = 8;
+    net.gen = 8;
+    memset(rp_lseq, 0, sizeof(rp_lseq));
+    memset(rp_lch, 0, sizeof(rp_lch));
+    memset(rp_luid, 0, sizeof(rp_luid));
+    assert(stream_players_chunk(&old_sc, put1, strlen(put1)) == 0);
+    const char *put_seq5 = "event: put\ndata: {\"path\":\"/\",\"data\":{\"0\":{\"uid\":\"u1\",\"nick\":\"Bob\",\"x\":0.75,\"y\":0.25,\"alive\":1,\"seq\":5,\"hp\":12}}}\n\n";
+    const char *put_seq3 = "event: put\ndata: {\"path\":\"/\",\"data\":{\"0\":{\"uid\":\"u1\",\"nick\":\"Bob\",\"x\":0.20,\"y\":0.25,\"alive\":1,\"seq\":3,\"hp\":18}}}\n\n";
+    assert(stream_players_chunk(&cur_sc, put_seq5, strlen(put_seq5)) == 1);
+    assert(fabs(net.players[0].x - 0.75) < 1e-9);
+    assert(stream_players_chunk(&cur_sc, put_seq3, strlen(put_seq3)) == 1);
+    assert(fabs(net.players[0].x - 0.75) < 1e-9);
     net.run = 0;
 }
 int main(int argc, char **argv) {

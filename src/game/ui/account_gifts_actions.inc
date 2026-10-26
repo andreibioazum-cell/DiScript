@@ -1,11 +1,8 @@
-/* ---- actions ---------------------------------------------------------- */
+/* Gift purchase, transfer, and sell actions. */
 
-/* The action was refused (another one is running): the page must not stay on
- * "Selling..." forever. */
+/* Reset busy state when a concurrent gift action is rejected. */
 static void acct_gift_refused(void) {
     acct_gift_busy = 0;
-        /* The request never went out: forget the sticker too, or the next, successful
-         * action would apply to it. */
     acct_gift_acted = -1;
     acct_msg_set(language == 1 ? "Другая операция с подарками ещё идёт"
                                : "Another gift operation is still running");
@@ -21,9 +18,7 @@ static void acct_gifts_page(void) {
     acct_gift_clear_pick();
     acct_gift_busy = 0;
     acct_gift_scroll = 0;
-    acct_gift_vel = 0;
-    acct_gift_drag = -1;
-    acct_gift_drag_row = -1;
+    acct_gift_scroll_reset();
     acct_gift_acted = -1;
     net_gift_refresh();
     acct_go(ACCT_GIFTS);
@@ -31,8 +26,7 @@ static void acct_gifts_page(void) {
 static void acct_gift_buy(void) {
     keyboard_hide();
     if (acct_gift_picked() != 1 || acct_gift_is_owned == 1) return;
-        /* A sticker is free for the admin (gifts.inc never touches cups in the
-         * database). */
+    /* Admins purchase stickers without spending cups. */
     if (admin_playing() == 0 && cups < acct_gift_price(acct_gift_choice)) { acct_msg_set(language == 1 ? "Не хватает кубков" : "Not enough cups"); return; }
     acct_gift_acted = acct_gift_choice;
     acct_gift_busy = 1; acct_gift_busy_mode = 2;
@@ -67,18 +61,13 @@ static void acct_poll_gifts(void) {
         if (gift_status >= 2) {
             acct_gift_busy = 0;
             if (gift_status == 2) {
-                /* The sticker the request was sent for: the selection may
-                 * have moved on while the network was busy. */
+                /* Apply result to the sticker captured when the request started. */
                 double acted = acct_gift_acted >= 0 ? acct_gift_acted : acct_gift_sel_id();
                 acct_gift_acted = -1;
                 if (acct_gift_busy_mode == 2) {
                     acct_msg_set(language == 1 ? "Стикер добавлен в коллекцию!" : "Sticker added to your collection!");
-                    /* The purchase already wrote the new balance; take the
-                     * server's number instead of subtracting from a local
-                     * copy that may have been stale. */
+                    /* Sync local cups with updated server balance. */
                     double left = net_gift_cups();
-                    /* What was bought (acted), not what happens to be chosen
-                     * right now: the selection may have moved on. */
                     cups = left >= 0 ? left : cups - acct_gift_price(acted);
                     if (cups < 0) cups = 0;
                     save_progress();
@@ -89,8 +78,6 @@ static void acct_poll_gifts(void) {
                     double left = net_gift_cups();
                     cups = left >= 0 ? left : cups + acct_gift_refund(acted);
                     save_progress();
-                    /* Only the sold sticker leaves the collection; the rest of
-                     * it (the emerald, for one) stays on screen. */
                     net_gift_count_add(acted, -1);
                     acct_gift_clear_pick();
                 } else {

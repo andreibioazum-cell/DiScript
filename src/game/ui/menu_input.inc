@@ -86,10 +86,8 @@ static void login_open(void) {
     login_status = 0;
     login_nick = "";
     login_pass = "";
-        /* The box resets on EVERY visit to the login or sign-up screen (an operator
-         * requirement, and 152-FZ art. 9 too: consent must not be pre-ticked just
-         * because it was given once). */
-    login_consent = 0;
+        /* Reset consent checkbox on every login screen entry. */
+        login_consent = 0;
     keyboard_clear();
     keyboard_hide();
 }
@@ -199,9 +197,7 @@ static void touch_lobby(double x, double y, double action) {
         cube_npc_tap();
         return;
     }
-    /* With the dialogue open, tapping anywhere else on the screen is its
-     * skip action: the talk advances or closes and the menu rows behind it
-     * stay untouched. */
+    /* Advance or close active NPC dialogue without triggering underlying menu rows. */
     if (new_theme == 1 && cube_npc_dialogue_active == 1) {
         play_button_click();
         cube_npc_tap();
@@ -220,14 +216,9 @@ static void touch_lobby(double x, double y, double action) {
         return;
     }
     if (hit_menu_row(x, y, 3) == 1) {
-                /* A signed-in player lands in their own account (password change, sign
-                 * out, deletion), everyone else on the login screen. */
-        if (net_login_status() == 2) {
-                        /* Like the other screens: the transition first, the account at its
-                         * end. The request is only raised when the transition really starts:
-                         * otherwise it outlives a refusal (another transition is already
-                         * running) and opens the account later, back in the lobby. */
-            if (t_dir == 0) {
+                /* Open account panel when signed in, or login screen otherwise. */
+                if (net_login_status() == 2) {
+                    if (t_dir == 0) {
                 acct_pending = 1;
                 start_transition(ST_LOBBY);
             }
@@ -240,7 +231,7 @@ static void touch_lobby(double x, double y, double action) {
     if (hit_menu_row(x, y, 4) == 1) {
         start_transition(ST_ACHIEVEMENTS);
     }
-    if (is_admin() == 1 && hit_bpass_corner(x, y) == 1) {
+    if (bpass_allowed() == 1 && hit_bpass_corner(x, y) == 1) {
         start_transition(ST_BPASS);
     }
 }
@@ -342,15 +333,6 @@ static void touch_skins(double x, double y, double action) {
             return;
         }
         skin = skin + 1;
-    }
-}
-
-static void touch_achievements(double x, double y, double action) {
-    if (action != 0) {
-        return;
-    }
-    if (back_hit(x, y) == 1) {
-        start_transition(ST_LOBBY);
     }
 }
 

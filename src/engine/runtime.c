@@ -1,4 +1,4 @@
-/* Base functions of the game runtime. */
+/* Core runtime functions. */
 #include "engine/runtime/core.inc"
 #include "engine/runtime/values.inc"
 #ifdef CB_PC

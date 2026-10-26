@@ -1,3 +1,4 @@
+static double nick_is_dimasi229(const char *nick);
 static double has_achievement(double bit);
 static void show_achievement_toast(double bit);
 static double grant_achievement(double bit);

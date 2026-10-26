@@ -8,7 +8,23 @@ static double station_beam_visible(double owner_hp) {
     return 1;
 }
 
-static void draw_station_beam(double sx, double sy, double px, double py) {
+static double ebuc_elf_local(void) {
+    return player_class == CLASS_EBUC && current_skin() == SKIN_SPECIAL ? 1 : 0;
+}
+
+static double ebuc_elf_slot(double slot) {
+    double rb = slot * remote_fields;
+    return arr_get(remotes, rb + 10) == CLASS_EBUC && arr_get(remotes, rb + 11) == SKIN_SPECIAL ? 1 : 0;
+}
+
+static const char *dispenser_tex_of(double is_elf) {
+    if (is_elf == 1 && tex_ready(EBUC_ELF_DESPENSER_TEX) == 1) {
+        return EBUC_ELF_DESPENSER_TEX;
+    }
+    return DESPENSER_TEX;
+}
+
+static void draw_station_beam_skin(double sx, double sy, double px, double py, double is_elf) {
     double dx = px - sx;
     double dy = py - sy;
     double d = sqrt(dx * dx + dy * dy);
@@ -25,27 +41,39 @@ static void draw_station_beam(double sx, double sy, double px, double py) {
     double y1 = sy;
     double x2 = px - nx * pull;
     double y2 = py - ny * pull;
-    uint32_t outer = (((unsigned)(int)station_beam_alpha) << 24) | ((unsigned)(int)station_beam_rgb);
-    uint32_t core = (((unsigned)(int)station_beam_core_alpha) << 24) | ((unsigned)(int)station_beam_core_rgb);
+    uint32_t rgb = is_elf == 1 ? 0x00FFFFFFu : (unsigned)(int)station_beam_rgb;
+    uint32_t core_rgb = is_elf == 1 ? 0x00FFFFFFu : (unsigned)(int)station_beam_core_rgb;
+    uint32_t outer = (((unsigned)(int)station_beam_alpha) << 24) | rgb;
+    uint32_t core = (((unsigned)(int)station_beam_core_alpha) << 24) | core_rgb;
     line(x1, y1, x2, y2, station_beam_w, outer);
     line(x1, y1, x2, y2, station_beam_core_w, core);
 }
 
-static void draw_turret_shadow_at(double x, double y, double spawn) {
+static void draw_station_beam(double sx, double sy, double px, double py) {
+    draw_station_beam_skin(sx, sy, px, py, 0);
+}
+
+static void draw_turret_shadow_skin(double x, double y, double spawn, double is_elf) {
     double scale = station_scale;
     if (spawn > 0) {
         double sp = clamp(spawn / station_spawn_time, 0, 1);
         scale = station_scale * (1.0 + 0.25 * sp);
     }
     double hw = 25 * scale;
-    tex_tint(x - hw - shadow_off, y - hw + shadow_off, DESPENSER_TEX, 0, scale, (((unsigned)(int)shadow_alpha) << 24));
+    tex_tint(x - hw - shadow_off, y - hw + shadow_off, dispenser_tex_of(is_elf), 0, scale,
+             (((unsigned)(int)shadow_alpha) << 24));
+}
+
+static void draw_turret_shadow_at(double x, double y, double spawn) {
+    draw_turret_shadow_skin(x, y, spawn, 0);
 }
 
 static void draw_turret_shadows(void) {
     double i = 0;
+    double local_elf = ebuc_elf_local();
     while (i < turret_max) {
         if (turret_alive(i) == 1) {
-            draw_turret_shadow_at(arr_get(turret_x, i), arr_get(turret_y, i), arr_get(turret_spawn_t, i));
+            draw_turret_shadow_skin(arr_get(turret_x, i), arr_get(turret_y, i), arr_get(turret_spawn_t, i), local_elf);
         }
         i = i + 1;
     }
@@ -68,12 +96,13 @@ static void draw_turret_shadows(void) {
     double s = 0;
     while (s < max_players) {
         if (s != net_slot()) {
+            double rem_elf = ebuc_elf_slot(s);
             double b = s * station_fields;
             double o = b + 1;
             double k = 0;
             while (k < turret_max) {
                 if (arr_get(remote_station, o) == 1) {
-                    draw_turret_shadow_at(arr_get(remote_station, o + 1), arr_get(remote_station, o + 2), 0);
+                    draw_turret_shadow_skin(arr_get(remote_station, o + 1), arr_get(remote_station, o + 2), 0, rem_elf);
                 }
                 o = o + 5;
                 k = k + 1;
@@ -83,20 +112,24 @@ static void draw_turret_shadows(void) {
     }
 }
 
-static void draw_turret_at(double x, double y, double hp, double max_hp, double spawn) {
+static void draw_turret_at_skin(double x, double y, double hp, double max_hp, double spawn, double is_elf) {
     double scale = station_scale;
     if (spawn > 0) {
         double sp = clamp(spawn / station_spawn_time, 0, 1);
         scale = station_scale * (1.0 + 0.25 * sp);
     }
     double hw = 25 * scale;
-    tex(x - hw, y - hw, DESPENSER_TEX, 0, scale);
+    tex(x - hw, y - hw, dispenser_tex_of(is_elf), 0, scale);
     double bw = 46 * scale;
     double bh = 7;
     hud_bar(x - bw / 2, y - hw - 12, bw, bh, hp, max_hp, 0x7ED321, 0);
 }
 
-static void draw_turret_boom(double x, double y, double bt) {
+static void draw_turret_at(double x, double y, double hp, double max_hp, double spawn) {
+    draw_turret_at_skin(x, y, hp, max_hp, spawn, 0);
+}
+
+static void draw_turret_boom_skin(double x, double y, double bt, double is_elf) {
     if (bt <= 0) {
         return;
     }
@@ -113,19 +146,22 @@ static void draw_turret_boom(double x, double y, double bt) {
     if (a <= 0) {
         return;
     }
+    uint32_t c1 = is_elf == 1 ? 0x00FFFFFFu : 0x0000E676u;
+    uint32_t c2 = is_elf == 1 ? 0x00FFFFFFu : 0x00B9F6CAu;
+    uint32_t c3 = is_elf == 1 ? 0x00FFFFFFu : 0x0076FF03u;
     double r = 30 + 95 * p;
-    ring(x, y, r, 9, (((unsigned)(int)a) << 24) | 0x0000E676);
+    ring(x, y, r, 9, (((unsigned)(int)a) << 24) | c1);
     double a85 = floor(a * 0.85);
     if (a85 > 0) {
-        ring(x, y, r * 0.66, 6, (((unsigned)(int)a85) << 24) | 0x00B9F6CA);
+        ring(x, y, r * 0.66, 6, (((unsigned)(int)a85) << 24) | c2);
     }
     double a65 = floor(a * 0.65);
     if (a65 > 0) {
-        ring(x, y, r * 0.36, 5, (((unsigned)(int)a65) << 24) | 0x0076FF03);
+        ring(x, y, r * 0.36, 5, (((unsigned)(int)a65) << 24) | c3);
     }
     double a70 = floor(a * 0.7);
     if (a70 > 0) {
-        circle(x, y, r * 0.22 + 6 * (1 - p), (((unsigned)(int)a70) << 24) | 0x0000E676);
+        circle(x, y, r * 0.22 + 6 * (1 - p), (((unsigned)(int)a70) << 24) | c1);
     }
     double i = 0;
     while (i < 18) {
@@ -138,7 +174,7 @@ static void draw_turret_boom(double x, double y, double bt) {
         double sz = 2 + 4 * (1 - p);
         double aa = floor(a * (0.7 + 0.3 * h2));
         if (aa > 0) {
-            circle(px, py, sz, (((unsigned)(int)aa) << 24) | 0x0000E676);
+            circle(px, py, sz, (((unsigned)(int)aa) << 24) | c1);
         }
         i = i + 1;
     }
@@ -160,14 +196,15 @@ static void draw_station(void) {
             }
         }
     }
+    double local_elf = ebuc_elf_local();
     if (beam >= 0) {
-        draw_station_beam(arr_get(turret_x, beam), arr_get(turret_y, beam), player->x, player->y);
+        draw_station_beam_skin(arr_get(turret_x, beam), arr_get(turret_y, beam), player->x, player->y, local_elf);
     }
     double i = 0;
     while (i < turret_max) {
         if (turret_alive(i) == 1) {
-            draw_turret_at(arr_get(turret_x, i), arr_get(turret_y, i), arr_get(turret_hp, i), arr_get(turret_maxhp, i),
-                           arr_get(turret_spawn_t, i));
+            draw_turret_at_skin(arr_get(turret_x, i), arr_get(turret_y, i), arr_get(turret_hp, i),
+                                arr_get(turret_maxhp, i), arr_get(turret_spawn_t, i), local_elf);
         }
         i = i + 1;
     }
@@ -175,7 +212,7 @@ static void draw_station(void) {
     while (bi < arr_len(station_boom_ts)) {
         double bt = arr_get(station_boom_ts, bi);
         if (bt > 0) {
-            draw_turret_boom(arr_get(station_boom_xs, bi), arr_get(station_boom_ys, bi), bt);
+            draw_turret_boom_skin(arr_get(station_boom_xs, bi), arr_get(station_boom_ys, bi), bt, local_elf);
         }
         bi = bi + 1;
     }
@@ -293,9 +330,10 @@ static void draw_remote_station(void) {
                     }
                 }
             }
+            double rem_elf = ebuc_elf_slot(s);
             if (beam >= 0) {
                 double bo = b + 1 + beam * 5;
-                draw_station_beam(arr_get(remote_station, bo + 1), arr_get(remote_station, bo + 2), ox, oy);
+                draw_station_beam_skin(arr_get(remote_station, bo + 1), arr_get(remote_station, bo + 2), ox, oy, rem_elf);
             }
             double o = b + 1;
             double st = 0;
@@ -304,11 +342,11 @@ static void draw_remote_station(void) {
                 st = arr_get(remote_station, o);
                 if (st == 1) {
                     double rl = net_player_level(s);
-                    draw_turret_at(arr_get(remote_station, o + 1), arr_get(remote_station, o + 2),
-                                   arr_get(remote_station, o + 3), ebuc_station_hp_for(rl), 0);
+                    draw_turret_at_skin(arr_get(remote_station, o + 1), arr_get(remote_station, o + 2),
+                                        arr_get(remote_station, o + 3), ebuc_station_hp_for(rl), 0, rem_elf);
                 } else if (st == 2) {
-                    draw_turret_boom(arr_get(remote_station, o + 1), arr_get(remote_station, o + 2),
-                                     arr_get(remote_station, o + 4));
+                    draw_turret_boom_skin(arr_get(remote_station, o + 1), arr_get(remote_station, o + 2),
+                                          arr_get(remote_station, o + 4), rem_elf);
                 }
                 o = o + 5;
                 i = i + 1;

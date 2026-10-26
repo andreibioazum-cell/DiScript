@@ -1,11 +1,7 @@
-/* PC keyboard: the game keeps its Android vocabulary (a text buffer it reads
- * with keyboard_get_text_to(), an enter flag, show/hide), but the source is
- * the physical keyboard - pc_main feeds WM_CHAR text and key presses here.
- * Single-threaded: only the main loop touches this file, so no mutex. */
+/* Single-threaded PC keyboard state implementing runtime keyboard hooks. */
 #define KB_BUF 512
 
-/* Android key codes for the few keys keyboard_handle_key() understands; the
- * full enum lives in the NDK header, which the PC build does not have. */
+/* Subset of Android keycodes handled by keyboard_handle_key(). */
 enum {
     PC_KEY_ENTER = 66,
     PC_KEY_DEL = 67,
@@ -23,8 +19,6 @@ static int kb_enter = 0;
 
 void ds_set_activity(void *act) { (void)act; }
 
-/* On the phone the Java IME decides whether a field uses the editor; on PC
- * the editor is simply "a text field is open". */
 int keyboard_uses_editor(void) { return kb_show; }
 
 void keyboard_show(void) { kb_show = 1; }
@@ -34,9 +28,7 @@ void keyboard_hide(void) {
     kb_enter = 0;
 }
 
-/* Keyboard text goes into the caller's own buffer: the chat field, login,
- * password and promo code keep it longer than one frame, and each keeps its own
- * (as on the phone). */
+/* Copy current text input buffer into caller-owned storage. */
 void keyboard_get_text_to(char *dst, size_t cap) {
     if (!dst || cap == 0)
         return;
@@ -108,8 +100,7 @@ void keyboard_type(const char *text) {
             p++;
             continue;
         }
-                /* Control characters are not text: Enter and Backspace arrive as their
-                 * own keys, the rest is not typed into the field. */
+        /* Ignore ASCII/C1 control characters; Enter and Backspace use key events. */
         if (cp < 0x20 || (cp >= 0x7F && cp <= 0x9F))
             continue;
         kb_append_cp(cp);
@@ -119,7 +110,7 @@ void keyboard_type(const char *text) {
 void keyboard_backspace(void) {
     if (kb_len <= 0)
         return;
-        /* Chop the last UTF-8 character: the lead byte is recognised by its mask. */
+    /* Delete trailing UTF-8 codepoint. */
     int n = 1;
     while (n < kb_len && n < 4 && (kb_text[kb_len - n] & 0xC0) == 0x80)
         n++;
@@ -129,8 +120,7 @@ void keyboard_backspace(void) {
     kb_text[kb_len] = '\0';
 }
 
-/* Enter as a "keyboard action": the flag is taken by keyboard_enter_pressed().
- * pc_main calls it for VK_RETURN and for the Android key codes. */
+/* Process Android-numbered key events and Enter key presses. */
 int keyboard_handle_key(int keycode, int action, int meta) {
     (void)meta;
     if (action != 0 && action != 2) /* down / multiple only */

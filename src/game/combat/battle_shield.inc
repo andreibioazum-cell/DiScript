@@ -71,6 +71,7 @@ static double enemy_shield_absorb(double dmg) {
 
 static void snow_chip_turrets(DSArray *xs, DSArray *ys, DSArray *hps, double mine, double x, double y) {
     double i = 0;
+    double sr = snow_radius_for(mine == 1 ? gift->shot : enemy_gift->shot);
     while (i < turret_max) {
         if (arr_get(hps, i) > 0) {
             double bit = turret_pierce_bit(i);
@@ -79,14 +80,14 @@ static void snow_chip_turrets(DSArray *xs, DSArray *ys, DSArray *hps, double min
                 pierce = gift->pierce;
             }
             if (pierce_has(pierce, bit) == 0) {
-                if (circle_hits_turret(x, y, snow_ball_r, arr_get(xs, i), arr_get(ys, i)) == 1) {
+                if (circle_hits_turret(x, y, sr, arr_get(xs, i), arr_get(ys, i)) == 1) {
                     if (mine == 1) {
                         gift->pierce = gift->pierce + bit;
                         enemy_damage_turret(i, santa_super_damage);
                         ds_log("snow pierced enemy turret %g", i);
                     } else {
                         enemy_gift->pierce = enemy_gift->pierce + bit;
-                        damage_turret(i, santa_super_damage);
+                        damage_turret(i, santa_super_damage * enemy_damage_mult_for(enemy_class));
                         ds_log("enemy snow pierced turret %g", i);
                     }
                 }

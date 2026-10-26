@@ -3,9 +3,21 @@ typedef struct Enemy Enemy;
 typedef struct Punch Punch;
 typedef struct Gift Gift;
 typedef struct FighterSpritePair FighterSpritePair;
+typedef struct ScrollTrack ScrollTrack;
 
-/* A fighter appearance is an immutable idle/attack pair. Keeping both names
- * together prevents a class or skin update from mixing sprites mid-frame. */
+/* Windup delay before normal punch hitbox activates across all fighters. */
+#define PUNCH_WINDUP 0.2
+#define ASTRA_PARRY_SPEED_K 0.90
+
+struct ScrollTrack {
+    double hist_d[4];
+    double hist_dt[4];
+    int hist_n;
+    double frame_d;
+    int frame_moved;
+};
+
+/* Paired idle and attack texture names for a fighter appearance. */
 struct FighterSpritePair {
     const char *idle;
     const char *punch;
@@ -66,6 +78,8 @@ struct Punch {
 struct Gift {
     double x;
     double y;
+    double x0;
+    double y0;
     double dx;
     double dy;
     double active;

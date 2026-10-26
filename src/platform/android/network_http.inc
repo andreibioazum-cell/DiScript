@@ -2,16 +2,7 @@ void net_set_java_vm(JavaVM *vm) {
     net.vm = vm;
 }
 
-/* HTTP transport over Java's HttpURLConnection, tuned for speed:
- * - Connections are NEVER disconnect()ed. The response is always read to
- *   EOF, so the platform returns the TCP/TLS connection to its per-host
- *   pool and the next request reuses it - the persistent-connection model
- *   (the old code paid a full TCP+TLS handshake for every single call).
- * - Class and method IDs are resolved ONCE into global refs. The old
- *   code ran ~15 FindClass/GetMethodID lookups per request, which cost
- *   more CPU than the request itself at 60 ms ticks.
- * - http_stream() is a long-lived streaming GET (Firebase REST SSE):
- *   the server pushes changes, no polling. */
+/* Persistent HttpURLConnection JNI transport and SSE stream reader. */
 typedef int (*DSStreamChunkFn)(void *ctx, const char *data, size_t len);
 
 typedef struct {
@@ -86,16 +77,29 @@ static int http_jni_resolve(JNIEnv *env) {
     return 1;
 }
 
-static JNIEnv *http_env(int *attached) {
+static pthread_key_t http_jni_tls_key;
+static pthread_once_t http_jni_tls_once = PTHREAD_ONCE_INIT;
+
+static void http_jni_tls_detach(void *val) {
+    if (val && net.vm)
+        (*net.vm)->DetachCurrentThread(net.vm);
+}
+
+static void http_jni_tls_init(void) {
+    (void)pthread_key_create(&http_jni_tls_key, http_jni_tls_detach);
+}
+
+/* Keep worker threads attached across requests; detach automatically on thread exit. */
+static JNIEnv *http_env(void) {
     JNIEnv *env = NULL;
-    *attached = 0;
     if (!net.vm)
         return NULL;
-    if ((*net.vm)->GetEnv(net.vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
-        if ((*net.vm)->AttachCurrentThread(net.vm, &env, NULL) != JNI_OK)
-            return NULL;
-        *attached = 1;
-    }
+    if ((*net.vm)->GetEnv(net.vm, (void **)&env, JNI_VERSION_1_6) == JNI_OK)
+        return env;
+    (void)pthread_once(&http_jni_tls_once, http_jni_tls_init);
+    if ((*net.vm)->AttachCurrentThread(net.vm, &env, NULL) != JNI_OK)
+        return NULL;
+    (void)pthread_setspecific(http_jni_tls_key, (void *)1);
     return env;
 }
 
@@ -128,13 +132,13 @@ static int http_ex(const char *method, const char *url, const char *body, char *
     jclass urlc, connc, streamc;
     jbyteArray buf;
     jstring ju, jm;
-    int code = 0, attached = 0, ok = 0, cached;
+    int code = 0, ok = 0, cached;
     size_t total = 0;
     if (out && cap)
         out[0] = '\0';
     if (etag && etag_cap)
         etag[0] = '\0';
-    env = http_env(&attached);
+    env = http_env();
     if (!env)
         return 0;
 #define JNI_CHECK()                                                                                                    \
@@ -279,38 +283,35 @@ static int http_ex(const char *method, const char *url, const char *body, char *
         JNI_CHECK();
         if (n <= 0)
             break;
-        if (out && cap && total + (size_t)n < cap) {
-            (*env)->GetByteArrayRegion(env, buf, 0, n, (jbyte *)(out + total));
-            total += (size_t)n;
-            out[total] = '\0';
+        if (out && cap && total + 1 < cap) {
+            jsize take = (total + (size_t)n < cap) ? n : (jsize)(cap - 1 - total);
+            if (take > 0) {
+                (*env)->GetByteArrayRegion(env, buf, 0, take, (jbyte *)(out + total));
+                total += (size_t)take;
+                out[total] = '\0';
+            }
         }
     }
     (*env)->CallVoidMethod(env, stream,
                            cached ? http_jni.i_close : (*env)->GetMethodID(env, streamc, "close", "()V"));
     JNI_CHECK();
 closeconn:
-    /* No disconnect(): the fully-read connection returns to the platform
-     * keep-alive pool and the next request reuses the same TCP/TLS
-     * session instead of paying a new handshake. */
+    /* Drain and close stream without disconnect() so keep-alive reuses the socket. */
     ok = 1;
 done:
     http_log_exception(env, method);
     (*env)->PopLocalFrame(env, NULL);
-    if (attached)
-        (*net.vm)->DetachCurrentThread(net.vm);
     return ok ? code : 0;
 #undef JNI_CHECK
 }
 
-/* Long-lived streaming GET (Server-Sent Events). Returns the HTTP status
- * once the stream ends, 0 on transport failure. The callback returning 0
- * stops the stream early. */
+/* Stream Server-Sent Events via GET; returns HTTP status or 0 on transport error. */
 static int http_stream(const char *url, const char *accept, DSStreamChunkFn cb, void *ctx) {
     JNIEnv *env = NULL;
     jobject conn = NULL, stream = NULL, urlobj = NULL;
     jbyteArray buf;
-    int code = 0, attached = 0, cached;
-    env = http_env(&attached);
+    int code = 0, cached;
+    env = http_env();
     if (!env || !cb)
         return 0;
     if ((*env)->PushLocalFrame(env, 32) != 0)
@@ -331,8 +332,7 @@ static int http_stream(const char *url, const char *accept, DSStreamChunkFn cb, 
         jstring jm = (*env)->NewStringUTF(env, "GET");
         (*env)->CallVoidMethod(env, conn, http_jni.c_method, jm);
         (*env)->CallVoidMethod(env, conn, http_jni.c_ctmo, TIMEOUT);
-        /* Streams are supposed to live: generous read timeout, the
-         * caller reconnects when the stream eventually drops. */
+        /* Use long read timeout for persistent SSE stream; caller reconnects on drop. */
         (*env)->CallVoidMethod(env, conn, http_jni.c_rtmo, 120000);
         (*env)->CallVoidMethod(env, conn, http_jni.c_cache, JNI_FALSE);
         if (accept) {
@@ -371,7 +371,5 @@ static int http_stream(const char *url, const char *accept, DSStreamChunkFn cb, 
 done:
     http_log_exception(env, "STREAM");
     (*env)->PopLocalFrame(env, NULL);
-    if (attached)
-        (*net.vm)->DetachCurrentThread(net.vm);
     return code;
 }

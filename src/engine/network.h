@@ -15,11 +15,9 @@
 #define NET_LOGIN_WRONG_PASS 6
 #define NET_LOGIN_BAD_PASS 7
 
-/* Firebase endpoint, web key and room. config.inc and the background presence
- * check (presence.inc) both read these, so the job works in a cold process. */
+/* Firebase endpoint, web API key, and default room. */
 #ifndef NET_FIREBASE_URL
-/* The PC test harness overrides this at build time to point at
- * test/fake_firebase.py (plain http on localhost). */
+/* Overridden at build time by PC test harnesses. */
 #define NET_FIREBASE_URL "https://cubicbattleserver-19ae2-default-rtdb.firebaseio.com"
 #endif
 #ifndef NET_FIREBASE_KEY
@@ -27,22 +25,8 @@
 #endif
 #define NET_DEFAULT_ROOM "main"
 
-/* Two secrets. Both are 32 random [A-Za-z0-9] chars and never appear in the
- * sources in the clear: the pieces are encoded (every byte xored with 0x5a)
- * and rebuilt at runtime by net_write_secret() and net_pass_suffix().
- *
-  * NET_WRITE_SECRET is the "write password". firebase.rules.json accepts a
-  * write only when the body carries a "w" field with this value, so a script
-  * that has just the API key and an account changes nothing. The value sits in
-  * the database in the open, so it must NOT equal the second secret.
- *
-  * NET_PASS_SECRET is the account password suffix (player password + this
-  * suffix). It used to be "|cb4v1", easy to guess: with it anyone could brute
-  * force another nick's password. It never reaches the database.
- *
-  * Change both at once with tools/rotate_db_secret.py: it generates new values,
-  * rewrites these macros and firebase.rules.json. Do not edit by hand: the
-  * database and the client must stay in sync. */
+/* XOR-encoded database write secret and password suffix.
+ * Rotate both together with tools/rotate_db_secret.py. */
 #define NET_SECRET_XOR 0x5a
 
 #define NET_WRITE_SECRET_LEN 32
@@ -62,7 +46,7 @@ void net_set_java_vm(JavaVM *vm);
 void net_connect(const char *url, const char *room);
 void net_disconnect(void);
 void net_set_data_path(const char *path);
-/* Phone language (ISO 639-1, e.g. "ru"): it picks the language of a fresh install. */
+/* Set device ISO 639-1 language code for initial install defaults. */
 void net_set_system_language(const char *code);
 
 void net_set_firebase_key(const char *key);
@@ -88,18 +72,16 @@ void net_publish_universe(double x, double y, double counter);
 
 void net_publish_thud(double counter);
 void net_publish_block(double on);
-/* The buK brick: origin, direction and the shot number of the throw. */
+/* Publish ebuC's projectile state. */
 void net_publish_brick(double x, double y, double dx, double dy, double shot);
 void net_publish_codecracker_super(double on);
 void net_set_class(double cls);
 double net_status(void);
 double net_slot(void);
-/* Live root flags (AzumBuff, FlashSale); each defaults to off without a
- * fresh successful read of its own Firebase node. */
+/* Live server flags (AzumBuff, FlashSale). */
 double net_azum_buff(void);
 double net_flash_sale(void);
-double net_hitbox_chaos(void);
-/* Force an immediate re-read of both live flags (entering the shop). */
+/* Refresh both live server flags immediately. */
 void net_live_flags_refresh(void);
 double net_event(void);
 void net_event_set(double mode);
@@ -184,13 +166,14 @@ double net_load_astra_level(void);
 double net_load_astra_levels_unlocked(void);
 void net_save_astra(double owned, double level, double levels_unlocked);
 
-/* CodeCracker ownership and level branch: its own, not shared with the ordinary cube. */
+/* CodeCracker ownership and level state. */
 double net_load_codecracker(void);
 double net_load_codecracker_level(void);
 double net_load_codecracker_levels_unlocked(void);
 void net_save_codecracker(double owned, double level, double levels_unlocked);
-/* Forget a pending cloud save: the device holds nothing worth pushing. */
+/* Clear local cloud-dirty flag. */
 void net_mark_progress_synced(void);
+void net_progress_flush(void);
 void net_save_progress_all(double cups, double candies, double cls, double azum, double santa, double ebuc,
                            double level, double levels_unlocked, double ordinary_level, double ordinary_levels_unlocked,
                            double azum_level, double azum_levels_unlocked, double santa_level,
@@ -208,14 +191,13 @@ double net_promo_2027_used(void);
 void net_promo_2027_mark_used(void);
 
 
-/* Room directory: many rooms instead of one shared "main", with optional
- * password protection (hashed in rooms/<name>/meta). */
+/* Room directory and password-protected room creation/joining. */
 void net_roomlist_fetch(const char *url);
 double net_roomlist_status(void);
 double net_roomlist_count(void);
 const char *net_roomlist_name(double idx);
-/* create=1 creates the room (fails if it exists), create=0 checks joining.
- * Status: 0 idle, 1 busy, 2 ok, 3 wrong/needed password, 4 exists, 5 error, 6 bad name. */
+/* Prepare room create (create=1) or join (create=0).
+ * Status: 0 idle, 1 busy, 2 ok, 3 password needed/wrong, 4 exists, 5 error, 6 invalid name. */
 void net_room_prepare(const char *url, const char *name, const char *pass, double create);
 const char *net_current_room(void);
 double net_room_prep_status(void);
@@ -239,52 +221,35 @@ void net_save_new_theme(double on);
 
 void settings_mark_legal(void);
 double settings_legal_ts(void);
-/* Personal data consent (152-FZ): version 0 means withdrawn. */
+/* Personal data consent version (0 = withdrawn). */
 void settings_set_pd_consent(double version);
 double settings_pd_consent_version(void);
 void net_pd_consent_upload(void);
-/* Delete the account, the cloud profile and the data on the device; the account
- * password is required. Status: 0 - nothing, 1 - running, 2 - deleted, 3 -
- * network error, 4 - wrong password (the result is returned once). */
+/* Delete account, cloud profile, and local data.
+ * Status: 0 idle, 1 running, 2 deleted, 3 error, 4 wrong password. */
 void net_delete_account(const char *password);
 double net_delete_account_status(void);
-/* Change the account password. Status: 0 - nothing, 1 - running, 2 - changed,
- * 3 - network error, 4 - wrong current password, 5 - the new password is not
- * accepted, 6 - not signed in (the result is returned once). */
+/* Change account password.
+ * Status: 0 idle, 1 running, 2 changed, 3 error, 4 wrong password, 5 invalid new password, 6 signed out. */
 void net_change_password(const char *old_pass, const char *new_pass);
 double net_change_password_status(void);
-/* Admin reset of ANOTHER player's account password. A game client cannot
- * do this in Firebase Auth directly (it takes the account's own token),
- * so the client calls the adminResetPassword Cloud Function, which
- * verifies the caller's admin token and uses the Admin SDK. Deploy it
- * from functions/ (see FIREBASE.md); if it is not deployed the call
- * simply ends in the error status. Statuses mirror net_change_password:
- * 0 idle, 1 running, 2 changed, 3 error/not deployed, 4 bad new password,
- * 5 bad target nick. */
+/* Reset another player's password via the adminResetPassword Cloud Function. */
 #define NET_ADMIN_RESET_URL "https://us-central1-cubicbattleserver-19ae2.cloudfunctions.net/adminResetPassword"
-/* Gifts live in the Realtime Database (users/<nick>/gifts), so no Cloud
- * Function is involved: buy/send/grant are plain authenticated writes.
- * net_gift_action: grant 0 = send one owned sticker, 3 = sell one sticker
- * back for half its price, 1 = admin grant,
- * 2 = buy for yourself. Statuses: 2 ok, 3 network/server error,
- * 4 recipient not found, 5 not enough cups, 6 no sticker in inventory,
- * 7 bad recipient (or gifting yourself), 8 collection full (999). */
+/* Gift sticker inventory and actions (users/<nick>/gifts).
+ * grant: 0 send owned, 1 admin grant, 2 buy, 3 sell for half price.
+ * Status: 0 idle, 1 running, 2 ok, 3 error, 4 missing user, 5 low cups, 6 none owned, 7 invalid target, 8 full. */
 double net_gift_count(double gift);
-/* Local count change: a sticker was bought, sold or sent, so the collection
- * changes right away. Only that one counter moves; the rest stay as they are. */
+/* Adjust cached local count for one sticker. */
 void net_gift_count_add(double gift, double delta);
 void net_gift_refresh(void);
 double net_gift_action(double gift, const char *recipient, double grant, double hue);
 double net_gift_action_status(void);
 double net_gift_hue(void);
-/* Catalogue of five stickers: 0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald
- * (the most expensive one). net_gift_types() is the list length; the price
- * is what the shop charges, the refund is half of it. */
+/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald). */
 double net_gift_types(void);
 double net_gift_price(double gift);
 double net_gift_refund(double gift);
-/* Cup balance the database holds after the last successful buy/sell, or -1
- * when the finished action was not one. */
+/* Updated server cup balance after buy/sell, or -1 otherwise. */
 double net_gift_cups(void);
 void net_admin_reset_password(const char *nick, const char *new_pass);
 double net_admin_reset_status(void);

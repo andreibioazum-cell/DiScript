@@ -1,6 +1,4 @@
-/* Draws an (unrotated) texture clipped to a rounded-rectangle silhouette, so
- * square card art can get soft corners without having to bake them into the
- * PNG itself. radius is in the same on-screen pixel units as x/y/scale. */
+/* Queue unrotated texture clipped to a rounded rectangle. */
 void tex_round(float x, float y, const char *name, float s, float r) {
     if (!frame_open)
         return;
@@ -17,9 +15,7 @@ void tex_round(float x, float y, const char *name, float s, float r) {
     p->v.txr.tx = t;
 }
 
-/* Texture drawn with a plain transparency: the picture keeps its own colours
- * (the vertex colour is white), only the alpha is scaled. Used where something
- * has to appear gradually instead of growing out of nothing. */
+/* Queue texture with alpha modulation. */
 void tex_alpha(float x, float y, const char *name, float a, float s, double alpha) {
     if (!frame_open)
         return;
@@ -46,4 +42,17 @@ void tex_alpha(float x, float y, const char *name, float a, float s, double alph
     p->v.tx2.sc = s;
     p->v.tx2.tx = t;
     p->v.tx2.c = pack_c((byte << 24) | 0x00FFFFFF);
+}
+
+/* Set pixel clip rectangle in logical screen space; non-positive w/h resets full viewport. */
+void ds_gfx_scissor(double x, double y, double w, double h) {
+    if (!frame_open)
+        return;
+    DSCmd *p = push(DS_CMD_SCISSOR);
+    if (!p)
+        return;
+    p->v.rc.x = (float)x;
+    p->v.rc.y = (float)y;
+    p->v.rc.w = (float)w;
+    p->v.rc.h = (float)h;
 }

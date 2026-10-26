@@ -68,9 +68,7 @@ static int ds_vk_begin_frame_backend(uint32_t w, uint32_t h, uint32_t ow, uint32
         vk_begun = 1;
     }
     DsVkFrame *f = &vk_frames[vk_frame_cur];
-    /* All frames in flight render into one offscreen image and blit it to the
-     * swapchain. Nothing orders this frame's clear/draw after the previous
-     * submission's blit, so finish every other submitted frame first. */
+    /* Wait for prior submissions sharing the single offscreen render target. */
     for (int i = 0; i < DS_VK_FRAMES_IN_FLIGHT; i++) {
         DsVkFrame *o = &vk_frames[i];
         if (o == f || !o->submitted)
@@ -100,8 +98,7 @@ static int ds_vk_begin_frame_backend(uint32_t w, uint32_t h, uint32_t ow, uint32
     if (!ds_vk_check_result(vkBeginCommandBuffer(f->cmd, &bi), "vkBeginCommandBuffer(frame)"))
         return 0;
     VkClearValue clear;
-    /* The game renders an opaque frame. Keeping the offscreen alpha opaque
-     * prevents stale/transparent swapchain contents from showing through. */
+    /* Clear offscreen target with opaque alpha. */
     clear.color = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
     VkRenderPassBeginInfo ri = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
     ri.renderPass = vk_renderpass;

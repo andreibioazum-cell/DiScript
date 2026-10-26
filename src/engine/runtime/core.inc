@@ -88,8 +88,7 @@ struct DSStringNode {
     unsigned long gen;
 };
 static DSStringNode *ds_strings = NULL;
-/* Current frame number: it is how strings that were already drawn are found and
- * freed. */
+/* Frame counter used to reclaim temporary strings. */
 static unsigned long ds_string_gen = 0;
 static void platform_log(int is_error, const char *format, va_list args) {
     __android_log_vprint(is_error ? ANDROID_LOG_ERROR : ANDROID_LOG_INFO, "CubicBattle", format, args);
@@ -160,10 +159,8 @@ int ds_call_protected(DSProtectedFunction function, void *userdata, const char *
     ds_error_handler_active = 1;
     jumped = setjmp(ds_error_jump);
     if (jumped == 0) {
-                /* Every hook starts from a clean slate: an error raised outside it (in a
-                 * background thread, say) must not kill a healthy frame and send the
-                 * player from the fight back to the lobby. */
-        ds_clear_runtime_error();
+                /* Clear stale background-thread runtime errors before each hook. */
+                ds_clear_runtime_error();
         function(userdata);
         ds_error_handler_active = 0;
         return !ds_has_error;
@@ -202,8 +199,7 @@ static char *ds_strdup(const char *s) {
         memcpy(c, s, n);
     return c;
 }
-/* Empty string for the case when a string found no memory: one missing digit in
- * the HUD has no right to bring the whole fight down. */
+/* Static empty fallback returned on string allocation failure. */
 static char ds_empty_string[1] = {0};
 static char *ds_track_string(char *s) {
     DSStringNode *node;
@@ -223,12 +219,7 @@ static char *ds_track_string(char *s) {
     ds_strings = node;
     return s;
 }
-/* Called once a frame, before the game hooks. Every string built in a frame is
- * needed only inside it: text is copied into the command buffer and network
- * calls take theirs at once. The history is kept for one frame so nothing hangs,
- * and everything older is freed - otherwise the pool grows for the whole session
- * and memory runs out during a fight, which restarts the game and drops the
- * player to the lobby. */
+/* Free temporary strings older than one frame. */
 void ds_string_pool_tick(void) {
     DSStringNode **link = &ds_strings;
     ds_string_gen = ds_string_gen + 1;

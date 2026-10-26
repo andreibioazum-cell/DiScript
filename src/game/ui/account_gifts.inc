@@ -1,12 +1,6 @@
 #include "gift_icons.inc"
 
-/* Sticker shop and collection on one page: the shop is the left column,
- * the player's own stickers are the right one. The shop always shows the
- * whole catalogue; the collection lists every owned sticker as its own card
- * (two poops are two cards) and scrolls smoothly, without snapping. A card
- * is drawn once - one PNG sprite, the name and a rarity caption, both in the
- * rarity colour - and has no buttons on it: a tap selects the card and the
- * action row under the columns buys it or sends/sells the selected sticker. */
+/* Two-column sticker shop and owned collection UI. */
 
 #define ACCT_GIFT_GAP 10
 #define ACCT_GIFT_COL_GAP 12
@@ -19,9 +13,7 @@ static double acct_gift_shop_rows(void) {
     double n = net_gift_types();
     return n > 1 ? n : 1;
 }
-/* Five catalogue cards have to fit the window without scrolling, so the card
- * height follows the free space; the collection then scrolls through that
- * same window, and the room under it stays free for the field and buttons. */
+/* Fit all five shop cards vertically within available panel height. */
 static double acct_gift_card_h(void) {
     double avail = screen_h - screen_margin - 250 - acct_gift_view_top();
     double rows = acct_gift_shop_rows();
@@ -51,7 +43,7 @@ static const char *acct_gift_cups_line(double n) {
     return ds_concat(ds_concat(ds_num_to_string(n), " "), tr_cups_unit());
 }
 
-/* ---- collection: one row per owned sticker ---------------------------- */
+/* Owned sticker list helpers. */
 
 static double acct_gift_own_total(void) {
     double n = 0, i = 0;
@@ -73,9 +65,30 @@ static double acct_gift_own_id(double row) {
     }
     return -1;
 }
+static double acct_gift_content_h(void) {
+    double total = acct_gift_own_total();
+    return total > 0 ? total * acct_gift_step() - ACCT_GIFT_GAP : 0;
+}
 static double acct_gift_scroll_max(void) {
-    double extra = acct_gift_own_total() * acct_gift_step() - ACCT_GIFT_GAP - acct_gift_view_h();
+    double extra = acct_gift_content_h() - acct_gift_view_h();
     return extra > 0 ? extra : 0;
+}
+static double acct_gift_scroll_needed(void) {
+    return acct_gift_scroll_max() > 0 ? 1 : 0;
+}
+static void acct_gift_scroll_reset(void) {
+    acct_gift_drag = -1;
+    acct_gift_drag_row = -1;
+    acct_gift_vel = 0;
+    scroll_track_reset(&acct_gift_track);
+}
+static void acct_gift_scroll_by(double dy) {
+    if (acct_gift_scroll_needed() == 0) {
+        acct_gift_scroll = 0;
+        acct_gift_vel = 0;
+        return;
+    }
+    acct_gift_scroll = clamp(acct_gift_scroll + dy, 0, acct_gift_scroll_max());
 }
 static double acct_gift_own_sel(void) {
     if (acct_gift_is_owned != 1) return -1;
@@ -90,21 +103,26 @@ static double acct_gift_picked(void) {
     if (acct_gift_is_owned == 1) return acct_gift_own_sel() >= 0 ? 1 : 0;
     return acct_gift_choice >= 0 && acct_gift_choice < acct_gift_shop_rows() ? 1 : 0;
 }
-/* Smooth glide after the finger is lifted; no snapping to whole rows, and a
- * gentle decay so the list does not fly away on a short flick. */
+/* Advance inertial collection scroll matching achievements scrolling. */
 static void acct_gift_scroll_tick(void) {
-    if (acct_open != ACCT_GIFTS || acct_gift_drag >= 0) return;
-    /* The list can shrink under the scroll (a sticker was just sold), so the
-     * position is clamped on every tick, not only while it is gliding. */
+    if (acct_open != ACCT_GIFTS || acct_gift_scroll_needed() == 0) {
+        if (acct_gift_scroll_needed() == 0) acct_gift_scroll = 0;
+        acct_gift_scroll_reset();
+        return;
+    }
     double mx = acct_gift_scroll_max();
-    if (acct_gift_scroll > mx) acct_gift_scroll = mx;
-    if (acct_gift_scroll < 0) acct_gift_scroll = 0;
+    acct_gift_scroll = clamp(acct_gift_scroll, 0, mx);
+    if (acct_gift_drag >= 0) {
+        acct_gift_vel = 0;
+        scroll_track_tick(&acct_gift_track);
+        return;
+    }
     if (fabs(acct_gift_vel) < 0.6) {
         acct_gift_vel = 0;
         return;
     }
     acct_gift_scroll = acct_gift_scroll + acct_gift_vel * dt;
-    acct_gift_vel = acct_gift_vel * exp(-6.0 * dt);
+    acct_gift_vel = acct_gift_vel * exp(-4.8 * dt);
     if (acct_gift_scroll <= 0) {
         acct_gift_scroll = 0;
         acct_gift_vel = 0;
@@ -114,7 +132,7 @@ static void acct_gift_scroll_tick(void) {
     }
 }
 
-/* ---- input ------------------------------------------------------------ */
+/* Action row layout and sticker viewer. */
 
 static double acct_gift_hit_row(double y) {
     return floor((y - acct_gift_view_top() + acct_gift_scroll) / acct_gift_step());
@@ -132,9 +150,7 @@ static double hit_acct_gift_any(double x, double y) {
     }
     return 0;
 }
-/* The Look button, leftmost of the action row. In the shop it pairs with Buy, in
- * the collection it is the first of three (Look, Gift, Sell). Column 0 - look,
- * 1 - buy or gift, 2 - sell. */
+/* Return width of action-row buttons (Look, Buy/Gift, Sell). */
 static double acct_gift_inspect_w(void) {
     double cols = acct_gift_is_owned == 1 ? 3 : 2;
     return (acct_w() - (cols - 1) * ACCT_GIFT_COL_GAP) / cols;
@@ -159,9 +175,7 @@ static double hit_acct_gift_inspect(double x, double y) {
            hit_button(x, y, acct_x(), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
 }
 
-/* Look at a sticker at full resolution: the sprite is drawn one to one, its own
- * 192x192 (GIFT_TEX_PX), not scaled down to a card. It closes on any new press
- * (touch_account) or on back (acct_back). */
+/* Draw full-resolution 192x192 sticker preview modal. */
 static void draw_acct_gift_viewer(void) {
     double id = acct_gift_sel_id();
     double isz = GIFT_TEX_PX;
@@ -181,53 +195,60 @@ static void draw_acct_gift_viewer(void) {
     ctext_scaled(hint, iy + isz + 64, text_color, fit_text_scale(hint, fit_w(screen_w), 0.5));
 }
 
-/* The collection keeps its own down/move/up machine: a drag scrolls, a short
- * press selects the sticker under the finger. The shop never scrolls, so a
- * touch on it selects right away. Selecting never sends or sells by itself. */
+/* Handle collection scroll drag and shop/collection tap selection. */
 static double touch_acct_gift_list(double x, double y, double action, double id) {
     if (acct_open != ACCT_GIFTS) return 0;
+    double px = acct_gift_panel_x(1);
     double ox = acct_gift_x(1), oy = acct_gift_view_top();
     double ow = acct_gift_col_w(), oh = acct_gift_view_h();
-    double inside_list = x >= ox && x <= ox + ow && y >= oy && y <= oy + oh;
+    double inside_scroll = x >= px && x <= screen_w && y >= acct_gift_panel_y() && y <= oy + oh + 12;
+    double inside_cards = x >= ox && x <= ox + ow && y >= oy && y <= oy + oh;
     if (action == 2) {
         if (acct_gift_drag < 0 || id != acct_gift_drag) return 0;
-        double dy = y - acct_gift_drag_y;
-        acct_gift_scroll = clamp(acct_gift_scroll - dy, 0, acct_gift_scroll_max());
-        /* Slower than the raw finger speed: a short flick used to throw the
-         * list far past the sticker the player was aiming at. */
-        acct_gift_vel = clamp(-dy / fmax(dt, 0.016) * 0.55, -22, 22);
+        double d = acct_gift_drag_y - y;
         acct_gift_drag_y = y;
-        acct_gift_drag_move = acct_gift_drag_move + fabs(dy);
+        if (fabs(d) < 1e-6) return 1;
+        acct_gift_drag_move = acct_gift_drag_move + fabs(d);
+        if (acct_gift_drag_move >= 10) press_points_drop(id);
+        if (acct_gift_scroll_needed() == 1) {
+            acct_gift_scroll_by(d);
+            scroll_track_move(&acct_gift_track, d);
+        }
         return 1;
     }
     if (action == 1 || action == 3) {
         if (acct_gift_drag < 0 || id != acct_gift_drag) return 0;
-        if (action == 1 && acct_gift_drag_move < 14) {
-            /* The card chosen is the one under the finger when it landed, not
-             * the one under the lifted finger: a couple of pixels of drift
-             * used to pick the neighbour after a "tap". */
-            double row = acct_gift_drag_row >= 0 ? acct_gift_drag_row : acct_gift_hit_row(y);
-            double picked = acct_gift_own_id(row);
+        if (action == 1 && acct_gift_drag_move < 12 && acct_gift_drag_row >= 0 && acct_gift_busy == 0) {
+            double picked = acct_gift_own_id(acct_gift_drag_row);
             if (picked >= 0) {
                 acct_gift_choice = picked;
                 acct_gift_is_owned = 1;
-                acct_gift_own_row = row;
+                acct_gift_own_row = acct_gift_drag_row;
                 play_button_click();
             }
         }
         acct_gift_drag = -1;
         acct_gift_drag_row = -1;
+        acct_gift_vel = action == 1 && acct_gift_scroll_needed() == 1 ? scroll_track_release(&acct_gift_track, 2200.0) : 0;
+        if (action == 3) scroll_track_reset(&acct_gift_track);
         return 1;
     }
     if (action != 0) return 0;
-    if (inside_list) {
+    if (acct_gift_drag >= 0 && id != acct_gift_drag) {
+        press_points_drop(id);
+        return 1;
+    }
+    if (inside_scroll) {
+        if (!inside_cards || acct_gift_busy != 0) press_points_drop(id);
         acct_gift_drag = id;
         acct_gift_drag_y = y;
         acct_gift_drag_move = 0;
-        acct_gift_drag_row = acct_gift_hit_row(y);
+        acct_gift_drag_row = inside_cards && acct_gift_busy == 0 ? acct_gift_hit_row(y) : -1;
         acct_gift_vel = 0;
+        scroll_track_reset(&acct_gift_track);
         return 1;
     }
+    if (acct_gift_busy != 0) return 0;
     double i = 0;
     while (i < acct_gift_shop_rows()) {
         if (hit_acct_gift(x, y, i) == 1) {
@@ -242,10 +263,7 @@ static double touch_acct_gift_list(double x, double y, double action, double id)
     return 0;
 }
 
-/* ---- drawing ---------------------------------------------------------- */
-
-/* The recipient field shows the nickname as typed: masking it with stars,
- * as the password fields do, hid who the sticker was about to go to. */
+/* Draw unmasked recipient nickname input field. */
 static void acct_gift_draw_field(void) {
     double y = acct_field_y(0);
     double caret = acct_field == 0 && keyboard_visible() == 1;
@@ -263,53 +281,40 @@ static void acct_gift_text_right(const char *s, double right, double y, double h
     text_scaled(s, right - tw, y + (h - th) / 2 - tt + 1.5, c, sc);
 }
 
-/* One card: one picture, the name and the rarity caption. The face is cut by
- * hand to [clip_top, clip_bottom] - squared off where the window slices it -
- * and an element is drawn only when it lies completely inside, so nothing can
- * spill over the header or the field below. */
+/* Draw sticker card (clipped by scissor when in scrollable collection). */
 static void acct_gift_card(double id, double owned, double card_y, double clip_top, double clip_bottom, double selected) {
     double full = acct_gift_card_h();
+    if (card_y + full <= clip_top || card_y >= clip_bottom) return;
     double x = acct_gift_x(owned), w = acct_gift_col_w();
-    double y = card_y > clip_top ? card_y : clip_top;
-    double bottom = card_y + full < clip_bottom ? card_y + full : clip_bottom;
-    double h = bottom - y;
-    if (h < 2) return;
-    double cut_top = card_y < clip_top ? 1 : 0;
-    double cut_bottom = card_y + full > clip_bottom ? 1 : 0;
-    double p = cut_top == 0 && cut_bottom == 0 ? button_press_k(x, card_y, w, full) : 0;
+    double dragging = owned == 1 && acct_gift_drag >= 0 && acct_gift_drag_move >= 10 ? 1 : 0;
+    double p = dragging == 0 ? button_press_k(x, card_y, w, full) : 0;
     uint32_t ink = text_color;
     uint32_t face = (uint32_t)shade(ui_purple, 1 - PRESS_SHADE * p);
     const char *name = acct_gift_name(id);
     const char *rarity = gift_rarity_name(id);
     const char *value = owned == 1 ? "" : ds_concat(ds_num_to_string(acct_gift_price(id)), language == 1 ? " куб." : " cups");
-    double r = btn_radius;
-    roundrect(x, y, w, h, r, face);
-    if (cut_top == 1) rect(x, y, w, fmin(r, h), face);
-    if (cut_bottom == 1) rect(x, y + h - fmin(r, h), w, fmin(r, h), face);
+    roundrect(x, card_y, w, full, btn_radius, face);
     if (full < 96) {
-        /* Short cards: picture, name and the price share one narrow row. */
         double isz = clamp(full * 0.62, 18, 44);
         double nx = x + 8 + isz + 8;
         double vw = owned == 1 ? 0 : text_ink_width(value) * 0.44;
         double iy = card_y + (full - isz) / 2;
-        if (iy >= y && iy + isz <= bottom) gift_icon(id, x + 8, iy, isz);
-        if (card_y + 2 >= y && card_y + full - 2 <= bottom) {
-            gift_text_rarity_left(name, nx, card_y, full, id, fit_text_scale(name, w - (nx - x) - vw - 14, 0.58));
-            if (owned == 0) acct_gift_text_right(value, x + w - 8, card_y, full, ink, 0.44);
-        }
+        gift_icon(id, x + 8, iy, isz);
+        gift_text_rarity_left(name, nx, card_y, full, id, fit_text_scale(name, w - (nx - x) - vw - 14, 0.58));
+        if (owned == 0) acct_gift_text_right(value, x + w - 8, card_y, full, ink, 0.44);
     } else {
         double isz = clamp(full * 0.36, 20, 56);
         double iy = card_y + full * 0.10;
         double ny = iy + isz + full * 0.02;
         double ry = ny + 21;
         double py = card_y + full * 0.80;
-        if (iy >= y && iy + isz <= bottom) gift_icon(id, x + (w - isz) / 2, iy, isz);
-        if (ny >= y && ny + 19 <= bottom) gift_text_rarity(name, x, ny, w, 19, id, fit_text_scale(name, w - 12, 0.6));
-        if (ry >= y && ry + 14 <= bottom) gift_text_rarity(rarity, x, ry, w, 14, id, fit_text_scale(rarity, w - 16, 0.34));
-        if (owned == 0 && py >= y && py + 18 <= bottom) text_in_box(value, x, py, w, 18, ink, fit_text_scale(value, w - 12, 0.48));
+        gift_icon(id, x + (w - isz) / 2, iy, isz);
+        gift_text_rarity(name, x, ny, w, 19, id, fit_text_scale(name, w - 12, 0.6));
+        gift_text_rarity(rarity, x, ry, w, 14, id, fit_text_scale(rarity, w - 16, 0.34));
+        if (owned == 0) text_in_box(value, x, py, w, 18, ink, fit_text_scale(value, w - 12, 0.48));
     }
-    if (selected == 1 && cut_top == 0 && cut_bottom == 0) {
-        roundrect_outline(x, y, w, full, r, 3, 0xFFFFD34D);
+    if (selected == 1) {
+        roundrect_outline(x, card_y, w, full, btn_radius, 3, 0xFFFFD34D);
     }
 }
 
@@ -319,6 +324,7 @@ static void acct_gift_panel(double owned) {
 
 static void draw_acct_gifts(void) {
     double vt = acct_gift_view_top(), vb = acct_gift_view_bottom();
+    acct_gift_scroll = clamp(acct_gift_scroll, 0, acct_gift_scroll_max());
     acct_gift_panel(0);
     acct_gift_panel(1);
     double i = 0;
@@ -329,21 +335,35 @@ static void draw_acct_gifts(void) {
     }
     double total = acct_gift_own_total();
     if (total < 1) {
-                /* Empty collection: the caption lives under the MY GIFTS header, in the
-                 * right column. In the middle of the screen it landed on the shop and
-                 * looked like a message about the whole page. */
         const char *empty = language == 1 ? "Пока нет подарков" : "No stickers yet";
         text_in_box(empty, acct_gift_x(1), vt, acct_gift_col_w(), 22, text_color,
                     fit_text_scale(empty, acct_gift_col_w() - 12, 0.5));
     } else {
         double row = floor(acct_gift_scroll / acct_gift_step());
+        if (row < 0) row = 0;
         double cy = vt + row * acct_gift_step() - acct_gift_scroll;
+        ds_gfx_scissor(acct_gift_x(1) - 2, vt, acct_gift_col_w() + 4, vb - vt);
         while (row < total && cy < vb) {
             double id = acct_gift_own_id(row);
             double picked = acct_gift_own_sel() == row ? 1 : 0;
             acct_gift_card(id, 1, cy, vt, vb, picked);
             row = row + 1;
             cy = cy + acct_gift_step();
+        }
+        ds_gfx_scissor(0, 0, 0, 0);
+        if (acct_gift_scroll_needed() == 1) {
+            double track_w = 5;
+            double track_x = acct_gift_panel_x(1) + acct_gift_panel_w() + 8;
+            if (track_x + track_w > screen_w - 6) {
+                track_x = acct_gift_x(1) + acct_gift_col_w() + 2;
+            }
+            double track_h = vb - vt;
+            uint32_t track_col = track_x > acct_gift_panel_x(1) + acct_gift_panel_w() ? card_bg : card_ring;
+            roundrect(track_x, vt, track_w, track_h, 2, track_col);
+            double thumb_h = fmax(28, track_h * acct_gift_view_h() / acct_gift_content_h());
+            if (thumb_h > track_h) thumb_h = track_h;
+            double thumb_y = vt + (track_h - thumb_h) * acct_gift_scroll / acct_gift_scroll_max();
+            roundrect(track_x, thumb_y, track_w, thumb_h, 2, text_color);
         }
     }
     const char *left = language == 1 ? "МАГАЗИН" : "SHOP";
@@ -358,8 +378,7 @@ static void draw_acct_gifts(void) {
     ctext_scaled(hint_line, acct_top() + 27, text_color, fit_text_scale(hint_line, fit_w(screen_w), 0.5));
     acct_gift_draw_field();
     if (acct_gift_view_open == 1) {
-                /* The viewer took the whole screen: the action row below it is not
-                 * needed and must not show through the dark background. */
+        /* Hide underlying action row while sticker preview modal is open. */
         return;
     }
     if (acct_gift_busy == 1) {
@@ -371,9 +390,8 @@ static void draw_acct_gifts(void) {
         const char *hint = language == 1 ? "Нажмите на стикер" : "Tap a sticker";
         ctext_scaled(hint, acct_below_fields() + (btn_h - 16) / 2, text_color, 0.55);
     } else if (acct_gift_is_owned == 0) {
-                /* The Look and Buy pair: buying is free for the admin, so Buy is never
-                 * grey for them. */
-        double bw = acct_gift_inspect_w();
+                /* Draw Look and Buy buttons; admins buy without spending cups. */
+                double bw = acct_gift_inspect_w();
         const char *look = language == 1 ? "Осмотреть" : "Inspect";
         const char *buy = ds_concat(language == 1 ? "Купить · " : "Buy · ",
                                     acct_gift_cups_line(acct_gift_price(acct_gift_sel_id())));

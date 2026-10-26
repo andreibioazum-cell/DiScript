@@ -15,5 +15,5 @@ cheat_speed = 0;
 cheat_nocd = 0;
 cheat_cc = 0;
 cheat_estun = 0;
-cheat_chaos = 0;
+cheat_ball_path = 0;
 cheat_estun_mark = 0;

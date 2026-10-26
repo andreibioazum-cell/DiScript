@@ -67,11 +67,7 @@ int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
 }
 void ds_console_log(int is_error, const char *format, ...) { (void)is_error; (void)format; }
 
-/* One fixed promo code now: "2027" -> 27 cups, once per player. The only
- * thing the network side keeps is whether this device already redeemed it,
- * in promo.dat. Old promo.dat files (golden-card code + used flag) must keep
- * reading: their lines are ignored, so a spent card code does not block the
- * new code, and saving writes the new flag. */
+/* Host tests for fixed promo code 2027 persistence and legacy promo.dat migration. */
 
 static int run_write(const char *dir) {
     net_set_data_path(dir);

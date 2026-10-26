@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Checks that scanf/printf formats match the number of arguments.
-
-The engine is not built in CI (it needs the JNI headers), so a typo in a format
-never meets the compiler: fscanf with 23 %d and 24 arguments silently skips the
-last field - that is how a couple of CodeCracker levels went missing. Here the
-format and the arguments are compared as text, for every file in src/.
-"""
+"""Verify scanf/printf format specifier counts against argument counts across src/."""
 import re
 import sys
 from pathlib import Path

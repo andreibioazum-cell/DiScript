@@ -1,7 +1,4 @@
-/* Plain-HTTP transport for the Linux test harness (no TLS there): the same
- * http_ex()/http_stream() contract, good enough to drive fake_firebase over
- * real sockets. HTTPS URLs are refused with a log line - the harness only
- * ever talks to the local fake base. */
+/* Plain-HTTP POSIX socket transport for the Linux test harness. */
 #include <errno.h>
 #include <netdb.h>
 #include <netinet/in.h>
@@ -65,8 +62,7 @@ static int pc_read_some(int fd, char *buf, size_t cap) {
     }
 }
 
-/* Header block: status line + headers. Returns the status code, fills
- * content_length (-1 unknown), chunked and etag. */
+/* Read HTTP status line and response headers; return status code. */
 static int pc_read_headers(int fd, char *hdrs, size_t cap, long *content_length, int *chunked, char *etag,
                            size_t etag_cap) {
     size_t used = 0;
@@ -121,9 +117,7 @@ static int pc_out_sink(void *ctx, const char *data, size_t len) {
     PcOutBuf *b = (PcOutBuf *)ctx;
     if (!b->out || b->cap == 0)
         return 1;
-    /* Keep what fits and drop only the tail: a body that grew past the buffer
-     * used to lose whole chunks, which cut the JSON at the front and left the
-     * client with an unparsable answer. */
+    /* Copy prefix up to buffer capacity and discard overflow tail. */
     if (b->used + 1 >= b->cap)
         return 1;
     if (b->used + len > b->cap - 1)
@@ -219,7 +213,7 @@ static int pc_http_request(const char *method, PcUrl *u, const char *body, char 
     if (chunked) {
         if (!pc_read_chunked(fd, pc_out_sink, &sinkbuf))
             ds_log_err("http: broken chunked body from %s%s", u->host, u->path);
-    } else if (content_length > 0) {
+    } else if (content_length >= 0) {
         long left = content_length;
         while (left > 0) {
             char buf[4096];

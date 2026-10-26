@@ -1,6 +1,4 @@
-/* Walking speed with every bonus and slow applied - the same number move_player
- * moves by, so anything that has to beat a walk (Astra's grab lunge) can read
- * it. */
+/* Compute effective player walking speed with active buffs and debuffs. */
 static double player_walk_speed(void) {
     double spd = joy_speed;
     if (player_class == CLASS_AZUM && player_level >= 2) {
@@ -9,22 +7,26 @@ static double player_walk_speed(void) {
         spd = spd * (1 + ordinary_speed_bonus);
     }
     if (player_class == CLASS_CODECRACKER && codecracker_super_t > 0) {
-        /* The overclock ultimate: about three times the normal pace. */
+        /* Apply CodeCracker overclock speed multiplier. */
         spd = spd * codecracker_speed_mult;
     }
     spd = spd * admin_cheat_speed_mult();
-    if (player_freeze > 0) {
-        spd = spd * player_freeze_slow;
-    }
-    if (player_block == 1) {
-        /* Holding the guard plants the feet: heavy movement, no dashing. */
-        spd = spd * block_speed_k;
+    if (astra_parry_active() == 1) {
+        /* Reduce movement speed by 10% while Astra's purple shield is active. */
+        spd = spd * ASTRA_PARRY_SPEED_K;
+    } else {
+        if (player_freeze > 0) {
+            spd = spd * player_freeze_slow;
+        }
+        if (player_block == 1) {
+            /* Reduce movement speed while blocking. */
+            spd = spd * block_speed_k;
+        }
     }
     return spd;
 }
 
-/* Reset the motion: the cube stands, the direction stays (right by default),
- * and stored momentum does not carry it further. */
+/* Zero player velocity while preserving facing direction. */
 static void player_vel_reset(void) {
     player_vx = 0;
     player_vy = 0;
@@ -33,11 +35,7 @@ static void player_vel_reset(void) {
     player_dir_y = 0;
 }
 
-/* The cube obeys the stick at once: the direction comes from it in the same
- * frame, with no sideways drift when it turns. Only the length of the vector
- * changes - the speed ramps up over walk_accel_time and fades to zero over
- * walk_stop_time (about 0.08 s), so a released stick gives a short brake, not a
- * wall stop. */
+/* Move player along joystick direction with acceleration and braking ramps. */
 static void player_walk_move(double spd) {
     double jm = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
     double have = sqrt(player_vx * player_vx + player_vy * player_vy);
@@ -53,9 +51,8 @@ static void player_walk_move(double spd) {
         player_stop_from = 0;
         rate = (spd > 1 ? spd : 1) / (walk_accel_time > 0 ? walk_accel_time : 0.001);
     } else {
-                /* Braking counts from the speed it started at, so stopping takes
-                 * walk_stop_time at any frame rate. */
-        if (player_stop_from <= 0) {
+                /* Decelerate from speed at stick release so stop time is constant. */
+                if (player_stop_from <= 0) {
             player_stop_from = have;
         }
         rate = player_stop_from / (walk_stop_time > 0 ? walk_stop_time : 0.001);
@@ -83,9 +80,8 @@ static void player_walk_move(double spd) {
     player_vy = player_dir_y * have;
     player->x = player->x + player_vx * dt;
     player->y = player->y + player_vy * dt;
-        /* Hit a wall - kill only that component, so the cube slides along the edge
-         * instead of sticking with stored speed. */
-    if (player->x < player->size) {
+        /* Zero normal velocity component on wall contact so fighter slides along edges. */
+        if (player->x < player->size) {
         player->x = player->size;
         if (player_vx < 0) player_vx = 0;
     }
@@ -102,9 +98,8 @@ static void player_walk_move(double spd) {
         if (player_vy > 0) player_vy = 0;
     }
     if (have > 1) {
-                /* Dust follows the real speed: less of it while ramping up, none once
-                 * the cube stops. */
-        tick_dust(player_vx / have, player_vy / have, have / (spd > 1 ? spd : 1));
+                /* Scale dust emission with current speed. */
+                tick_dust(player_vx / have, player_vy / have, have / (spd > 1 ? spd : 1));
     }
 }
 
@@ -118,8 +113,20 @@ static void move_player(void) {
         player_vel_reset();
         return;
     }
-    if (pgrab_active == 1 || astra_locked() == 1) {
+    if (pgrab_active == 1) {
         player_vel_reset();
+        return;
+    }
+    if (astra_locked() == 1) {
+        player_vx = 0;
+        player_vy = 0;
+        player_stop_from = 0;
+        double jml = sqrt(joy.dx * joy.dx + joy.dy * joy.dy);
+        if (jml > 0.15) {
+            player_dir_x = joy.dx / jml;
+            player_dir_y = joy.dy / jml;
+            player->angle = atan2(joy.dy, joy.dx);
+        }
         return;
     }
     if (dash_active > 0) {
@@ -165,7 +172,8 @@ static double enemy_in_punch(void) {
 }
 
 static void update_aim(void) {
-    if (punch_left > 0 && super_windup <= 0 && finished == 0) {
+    if (punch->active == 1 && punch_left > 0 && punch_left <= punch_time + 1e-9 && super_windup <= 0 &&
+        finished == 0) {
         aim_a = fade_up_a(aim_a, aim_fade_in);
     } else {
         aim_a = fade_down_a(aim_a, aim_fade_out);
@@ -189,6 +197,9 @@ static void follow_punch(void) {
 }
 
 static double enemy_freeze_factor(void) {
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        return 1;
+    }
     if (enemy->freeze > 0) {
         return enemy->freeze_slow;
     }
@@ -196,6 +207,9 @@ static double enemy_freeze_factor(void) {
 }
 
 static void freeze_enemy(double t, double slow) {
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        return;
+    }
     if (t > enemy->freeze) {
         enemy->freeze = t;
         enemy->freeze_slow = slow;
@@ -204,8 +218,10 @@ static void freeze_enemy(double t, double slow) {
 
 static void enemy_move(double vx, double vy) {
     double f = enemy_freeze_factor() * enemy->speed_var;
-    if (enemy_block_left > 0) {
-        /* A guarding fighter retreats slowly instead of circling at full speed. */
+    if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
+        f = f * ASTRA_PARRY_SPEED_K;
+    } else if (enemy_block_left > 0) {
+        /* Reduce enemy movement speed while blocking. */
         f = f * block_speed_k;
     }
     enemy->mvx = vx * f;
@@ -236,15 +252,21 @@ static void enemy_face_motion(void) {
     }
     double ta = atan2(enemy->mvy, enemy->mvx);
     double da = ta - enemy->angle;
-    if (da > pi) {
+    while (da > pi) {
         da = da - 2 * pi;
     }
-    if (da < 0 - pi) {
+    while (da < 0 - pi) {
         da = da + 2 * pi;
     }
     double turn = da * clamp(dt * enemy_face_speed, 0, 1);
     double maxturn = enemy_face_max_speed * dt;
     enemy->angle = enemy->angle + clamp(turn, 0 - maxturn, maxturn);
+    while (enemy->angle > pi) {
+        enemy->angle = enemy->angle - 2 * pi;
+    }
+    while (enemy->angle < 0 - pi) {
+        enemy->angle = enemy->angle + 2 * pi;
+    }
 }
 
 static void enemy_track_player(void) {

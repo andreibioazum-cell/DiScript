@@ -60,6 +60,12 @@ const char *STUDIO_NAME;
 const char *ADMIN_NICK;
 double admin_color;
 double admin_head_color;
+const char *SANCH_NICK;
+double sanch_color;
+double sanch_head_color;
+const char *QWERTY_NICK;
+double qwerty_color;
+double qwerty_head_color;
 double codecracker_cost;
 const char *GRASS;
 const char *ORDINARY_TEX;
@@ -86,6 +92,7 @@ const char *ZOMBIE_DASH_SOUND;
 const char *AZUM_ZOMBIE_PUNCH_TEX;
 const char *EBUC_ELF_TEX;
 const char *EBUC_ELF_PUNCH_TEX;
+const char *EBUC_ELF_DESPENSER_TEX;
 double CARD_RENDER_PX;
 double card_render_radius_frac;
 const char *ORDINARY_CARD_TEX;
@@ -97,7 +104,6 @@ const char *EBUC_ELF_CARD_TEX;
 const char *ASTRA_CARD_TEX;
 double astra_ability_ok;
 double ST_BPASS;
-/* How fast the cube picks up speed and how fast it brakes: the stick sets the
- * target speed and the body chases it (see player_walk_move). */
+/* Player walk acceleration and braking durations. */
 double walk_accel_time;
 double walk_stop_time;

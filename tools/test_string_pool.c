@@ -1,13 +1,10 @@
-/* Проверка кадрового пула строк рантайма. Пул обязан освобождать строки,
- * построенные в прошлых кадрах: иначе за сеанс он разрастается, под бой
- * память кончается, отрисовка падает с ошибкой копирования текста, игра
- * перезапускается - и игрока выбрасывает из боя в лобби. */
+/* Runtime per-frame string pool sweep test. */
 
 #include <stdarg.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-/* Заглушка: в хостовой сборке нет реализации лога Android. */
+/* Android log stub for host test builds. */
 void __android_log_vprint(int prio, const char *tag, const char *fmt, va_list args);
 void __android_log_vprint(int prio, const char *tag, const char *fmt, va_list args) {
     (void)prio;
@@ -57,15 +54,13 @@ int main(void) {
         make_frame_strings(frame);
     }
     swept = pool_size();
-    /* За один кадр строится 22 строки, история держится один кадр. */
+    /* Each frame builds 22 strings and retains one previous frame of history. */
     if (swept > 64) {
         printf("пул не освобождается: после 500 кадров в нём %ld строк\n", swept);
         return 1;
     }
 
-    /* Строка, построенная в прошлом кадре, ещё жива, а построенная два кадра
-     * назад - уже нет: именно столько histories нужно, чтобы ничего не
-     * повисло у получателей вроде поля чата. */
+    /* Strings from the previous frame survive; strings two frames old are freed. */
     ds_string_pool_reset();
     ds_string_pool_tick();
     make_frame_strings(0);

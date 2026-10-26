@@ -6,10 +6,7 @@
 
 #include "game/game.c"
 
-/* Test-only views over the game rules. The game itself no longer needs these
- * shortcuts, so they live here instead of in the shipped code. */
-static double astra_grab_total_fraction(void) { return astra_hit_fraction * astra_hit_count + astra_final_fraction; }
-
+/* Test-only views over fighter sprites. */
 static const char *fighter_sprite(double cls, double punching, double skin) {
     double look = class_look(cls, skin);
     if (look_ready(look) != 1) {
@@ -217,6 +214,14 @@ void ds_gfx_shake(double amp, double seconds) {
     (void)amp;
     (void)seconds;
 }
+static int stub_scissor_calls;
+static int stub_scissor_active;
+void ds_gfx_scissor(double x, double y, double w, double h) {
+    (void)x;
+    (void)y;
+    stub_scissor_calls++;
+    stub_scissor_active = (w > 0.0 && h > 0.0) ? 1 : 0;
+}
 double dist(double x, double y, double a, double b) {
     return hypot(x - a, y - b);
 }
@@ -284,8 +289,12 @@ double net_slot(void) {
     return stub_net_slot;
 }
 static double stub_class[4];
+static double stub_hp[4];
 double net_player_online(double slot) {
     return stub_online[(int)slot];
+}
+double net_player_hp(double slot) {
+    return stub_hp[(int)slot];
 }
 double net_player_class(double slot) {
     return stub_class[(int)slot];
@@ -308,6 +317,57 @@ double net_player_grab_dx(double slot) {
 double net_player_grab_dy(double slot) {
     return stub_gdy[(int)slot];
 }
+static double stub_pub_hp = -1, stub_pub_alive = -1;
+static int stub_pub_calls = 0;
+void net_publish(double x, double y, double angle, double hp, double alive) {
+    (void)x;
+    (void)y;
+    (void)angle;
+    stub_pub_hp = hp;
+    stub_pub_alive = alive;
+    stub_pub_calls++;
+}
+void net_publish_block(double on) { (void)on; }
+void net_publish_codecracker_super(double on) { (void)on; }
+void net_publish_punch(double x, double y, double dx, double dy, double punch) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)punch;
+}
+void net_publish_turrets(double x1, double y1, double hp1, double x2, double y2, double hp2, double x3, double y3,
+                         double hp3, double count) {
+    (void)x1;
+    (void)y1;
+    (void)hp1;
+    (void)x2;
+    (void)y2;
+    (void)hp2;
+    (void)x3;
+    (void)y3;
+    (void)hp3;
+    (void)count;
+}
+void net_publish_universe(double x, double y, double counter) {
+    (void)x;
+    (void)y;
+    (void)counter;
+}
+void net_publish_dash(double x, double y, double dx, double dy, double dash) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)dash;
+}
+void net_publish_grab(double x, double y, double dx, double dy, double grab) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)grab;
+}
 static double stub_brick[4], stub_bkx[4], stub_bky[4], stub_bkdx[4], stub_bkdy[4];
 void net_publish_brick(double x, double y, double dx, double dy, double shot) {
     (void)x;
@@ -316,11 +376,43 @@ void net_publish_brick(double x, double y, double dx, double dy, double shot) {
     (void)dy;
     (void)shot;
 }
+void net_publish_snow(double x, double y, double dx, double dy, double shot) {
+    (void)x;
+    (void)y;
+    (void)dx;
+    (void)dy;
+    (void)shot;
+}
+void net_publish_thud(double seq) { (void)seq; }
 double net_player_brick(double slot) { return stub_brick[(int)slot]; }
 double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
 double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
 double net_player_brick_dx(double slot) { return stub_bkdx[(int)slot]; }
 double net_player_brick_dy(double slot) { return stub_bkdy[(int)slot]; }
+static double stub_universe[4], stub_ux[4], stub_uy[4];
+static double stub_snow[4], stub_sx[4], stub_sy[4], stub_sdx[4], stub_sdy[4];
+static double stub_dash[4], stub_thud[4], stub_cc_super[4];
+static double stub_rx[4], stub_ry[4], stub_ra[4], stub_ralive[4], stub_rpunch[4], stub_rskin[4];
+double net_player_universe(double slot) { return stub_universe[(int)slot]; }
+double net_player_universe_x(double slot) { return stub_ux[(int)slot]; }
+double net_player_universe_y(double slot) { return stub_uy[(int)slot]; }
+double net_player_snow(double slot) { return stub_snow[(int)slot]; }
+double net_player_snow_x(double slot) { return stub_sx[(int)slot]; }
+double net_player_snow_y(double slot) { return stub_sy[(int)slot]; }
+double net_player_snow_dx(double slot) { return stub_sdx[(int)slot]; }
+double net_player_snow_dy(double slot) { return stub_sdy[(int)slot]; }
+double net_player_dash(double slot) { return stub_dash[(int)slot]; }
+double net_player_thud(double slot) { return stub_thud[(int)slot]; }
+double net_player_x(double slot) { return stub_rx[(int)slot]; }
+double net_player_y(double slot) { return stub_ry[(int)slot]; }
+double net_player_angle(double slot) { return stub_ra[(int)slot]; }
+double net_player_alive(double slot) { return stub_ralive[(int)slot]; }
+double net_player_punch(double slot) { return stub_rpunch[(int)slot]; }
+double net_player_skin(double slot) { return stub_rskin[(int)slot]; }
+double net_player_punch_x(double slot) { return stub_rx[(int)slot]; }
+double net_player_punch_y(double slot) { return stub_ry[(int)slot]; }
+double net_player_punch_dx(double slot) { (void)slot; return 1; }
+double net_player_punch_dy(double slot) { (void)slot; return 0; }
 void net_mark_achievement_flag(double flag) {
     (void)flag;
 }
@@ -428,6 +520,7 @@ void tex_tint(float x, float y, const char *name, float angle, float scale, uint
     }
 }
 void net_mark_progress_synced(void) {}
+void net_progress_flush(void) {}
 double stub_last_bp = -1;
 void net_save_progress_all(double a, double b, double c, double d, double e, double f, double g, double h, double i,
                            double j, double k, double l, double m, double n, double o, double p, double q, double r) {
@@ -514,10 +607,14 @@ void rect(float x, float y, float width, float height, uint32_t color) {
 
 /* Added for the admin panel: the game only needs these on screen, the host
  * test just records what was drawn. */
+static double stub_enemy_hp_fill_x;
 void roundrect(float x, float y, float w, float h, float rad, uint32_t color) {
     (void)rad;
     adm_record_color(color);
     adm_record_rr_color(color);
+    if ((color & 0xFFFFFFu) == 0xE94560u) {
+        stub_enemy_hp_fill_x = x;
+    }
     if (adm_rr_n == 0) {
         adm_rr_x = x;
         adm_rr_y = y;
@@ -563,6 +660,13 @@ void text_rainbow(const char *s, float x, float y, float scale, float hue) {
     (void)hue;
     if (s && rainbow_text_n < 16)
         snprintf(rainbow_text[rainbow_text_n++], sizeof(rainbow_text[0]), "%s", s);
+}
+
+static int shimmer_text_n;
+void text_shimmer(const char *s, float x, float y, uint32_t c, float scale, float phase) {
+    (void)phase;
+    shimmer_text_n++;
+    text_scaled(s, x, y, c, scale);
 }
 
 int text_ink_width(const char *s) {
@@ -631,13 +735,14 @@ void tex_alpha(float x, float y, const char *name, float angle, float scale, dou
 
 static int gift_tex_draws;
 static const char *last_gift_tex;
+static double last_tex_scale;
 void tex(float x, float y, const char *name, float angle, float scale) {
     (void)x;
     (void)y;
     (void)angle;
-    (void)scale;
     ground_tiles++;
     last_ground = name;
+    last_tex_scale = scale;
     if (name && strncmp(name, "gift_", 5) == 0) {
         gift_tex_draws++;
         last_gift_tex = name;
@@ -1256,16 +1361,16 @@ static void test_gifts_page(void) {
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
         assert(admin_playing() == 1);
         cups = 0;
-        acct_gift_choice = 2; /* мишка, 250 кубков */
+        acct_gift_choice = 2; /* teddy, 250 cups */
         acct_gift_is_owned = 0;
         acct_gift_buy();
         assert(acct_gift_busy == 1 && acct_gift_busy_mode == 2);
-        stub_gift_cups = 55; /* в базе по-прежнему 55: цена не списана */
+        stub_gift_cups = 55; /* server balance unchanged */
         stub_gift_status = 2;
         acct_poll_gifts();
         assert(acct_gift_busy == 0 && cups == 55);
         acct_msg = "";
-        net_gift_count_add(2, -1); /* откатить мишку из кэша коллекции */
+        net_gift_count_add(2, -1); /* revert cached teddy count */
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
     }
 
@@ -1318,7 +1423,7 @@ static void test_gifts_page(void) {
     acct_gift_choice = 3;
     acct_gift_is_owned = 0;
     acct_gift_buy();
-    acct_gift_choice = 0; /* игрок успел ткнуть другую карточку */
+    acct_gift_choice = 0; /* selection changed while request in flight */
     stub_gift_cups = 640;
     stub_gift_status = 2;
     acct_poll_gifts();
@@ -1327,27 +1432,49 @@ static void test_gifts_page(void) {
     net_gift_count_add(3, -1);
     acct_msg = "";
 
-        /* The collection scrolls smoothly: fractional offsets, no snapping, and a
-         * short flick glides instead of flying away. */
-    stub_gift_counts[0] = 9;
-    assert(acct_gift_scroll_max() > 0);
+    /* Collection scrolls like achievements: smooth sliding-window inertia,
+     * thumb-roll rejection, right-margin thumb zone, stationary-hold stop,
+     * multi-touch guard, and clean scissor restore. */
+    stub_gift_counts[0] = 15;
+    assert(acct_gift_scroll_needed() == 1 && acct_gift_scroll_max() > 0);
     acct_gift_scroll = 0;
     acct_gift_vel = 0;
     double sy = acct_gift_view_top() + 40;
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy, 0, 14) == 1);
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 2, 14) == 1);
+    /* Right-margin thumb swipe (outside center column) scrolls smoothly. */
+    assert(touch_acct_gift_list(screen_w - 20, sy, 0, 14) == 1);
+    /* Secondary pointer cannot hijack an active collection drag. */
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 50, 0, 19) == 1);
+    assert(acct_gift_drag == 14);
+    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 2, 14) == 1);
+    /* Duplicate zero-delta move does not wipe velocity. */
+    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 2, 14) == 1);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
-    assert(fabs(acct_gift_vel) <= 22 + 1e-9);
-    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 60, 1, 14) == 1);
+    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 1, 14) == 1);
     assert(acct_gift_drag < 0);
+    assert(acct_gift_vel > 100 && fabs(acct_gift_vel) <= 2200 + 1e-9);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
     double before = acct_gift_scroll;
     acct_gift_scroll_tick();
     double moved = acct_gift_scroll - before;
-        /* One tick moves no faster than the speed cap: a flick does not fly away. */
-    assert(moved > 0 && moved <= 22 * dt + 1e-9);
-    assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6); /* не выровнено по строке */
-        /* Scrolling never leaves the list. */
+    assert(moved > 0 && moved <= 2200 * dt + 1e-9);
+    assert(fabs(fmod(acct_gift_scroll, acct_gift_step())) > 1e-6);
+    /* Thumb-lift centroid roll in opposite direction never reverses flick. */
+    acct_gift_scroll = 0;
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 160, 0, 17) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 110, 2, 17) == 1);
+    acct_gift_scroll_tick();
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 55, 2, 17) == 1);
+    acct_gift_scroll_tick();
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 72, 2, 17) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 72, 1, 17) == 1);
+    assert(acct_gift_vel > 200);
+    /* Holding finger still before release stops velocity cleanly at zero. */
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy, 0, 16) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 80, 2, 16) == 1);
+    for (int i = 0; i < 4; i++) acct_gift_scroll_tick();
+    assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy - 80, 1, 16) == 1);
+    assert(acct_gift_vel == 0);
+    /* Scrolling never leaves the list. */
     acct_gift_scroll = 0;
     acct_gift_vel = -500;
     for (int i = 0; i < 200; i++) acct_gift_scroll_tick();
@@ -1356,14 +1483,17 @@ static void test_gifts_page(void) {
     acct_gift_vel = 500;
     for (int i = 0; i < 200; i++) acct_gift_scroll_tick();
     assert(fabs(acct_gift_scroll - acct_gift_scroll_max()) < 1e-9);
-        /* After scrolling a tap picks the row under the finger. */
+    /* After scrolling a tap picks the row under the finger. */
     acct_gift_scroll = acct_gift_step() * 3;
     double ty = acct_gift_view_top() + acct_gift_step() / 2;
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, ty, 0, 15) == 1);
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, ty, 1, 15) == 1);
     assert(acct_gift_own_sel() == 3 && acct_gift_sel_id() == 0);
 
+    stub_scissor_calls = 0;
+    stub_scissor_active = 0;
     draw_acct_gifts();
+    assert(stub_scissor_calls >= 2 && stub_scissor_active == 0);
     acct_open = 0;
     acct_gift_choice = -1;
     acct_gift_own_row = -1;
@@ -1695,13 +1825,13 @@ static void test_azum_buff(void) {
     stub_flash_sale = 1;
     update_flash_sale();
     assert(flash_sale_active == 1);
-    assert(class_cost_of(CLASS_AZUM) == 59);  /* 65 - 10% -> 58.5 -> 59 */
-    assert(class_cost_of(CLASS_SANTA) == 90); /* 100 candies - 10% */
-    assert(class_cost_of(CLASS_ASTRA) == 122); /* 135 - 10% -> 121.5 -> 122 */
-    assert(level_cost(1) == 27);              /* 30 - 10% */
-    assert(level_cost(3) == 45);              /* 50 - 10% */
+    assert(class_cost_of(CLASS_AZUM) == 77);   /* 85 - 10% -> 76.5 -> 77 */
+    assert(class_cost_of(CLASS_SANTA) == 113); /* 125 candies - 10% -> 112.5 -> 113 */
+    assert(class_cost_of(CLASS_ASTRA) == 158); /* 175 - 10% -> 157.5 -> 158 */
+    assert(level_cost(1) == 45);              /* 50 - 10% */
+    assert(level_cost(3) == 81);              /* 90 - 10% */
     assert(class_cost_of(CLASS_ORDINARY) == 0);
-    cups = 59;
+    cups = 77;
     pick_class(CLASS_AZUM);
     assert(class_owned_of(CLASS_AZUM) == 1 && cups == 0);
     stub_flash_sale = 0;
@@ -1793,7 +1923,7 @@ static void test_fps_meter(void) {
 
 static int stub_roomlist_status;
 static int stub_roomlist_count;
-static char stub_room_names[6][25];
+static char stub_room_names[32][25];
 static int stub_prep_status;
 static char stub_prep_name[25];
 static char stub_prep_pass[64];
@@ -1944,9 +2074,9 @@ static void test_battle_events(void) {
     player_class = CLASS_ORDINARY;
     reset_battle();
 
-        /* Azum: 2% less HP (13 -> 12.74). */
-    assert(fabs(azum_hp - 12.74) < 1e-9);
-    assert(fabs(player_max_hp_for(CLASS_AZUM) - 12.74 * round_hp_mult()) < 1e-9);
+        /* Azum: reduced HP across all lives (7.0). */
+    assert(fabs(azum_hp - 7.0) < 1e-9);
+    assert(fabs(player_max_hp_for(CLASS_AZUM) - 7.0 * round_hp_mult()) < 1e-9);
 
         /* Admin commands pick three DIFFERENT events. */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
@@ -1972,7 +2102,7 @@ static void test_battle_events(void) {
     assert(plates_thrown == 0);
     for (int i = 0; i < 40; i++) tick_plates_event();
     assert(plates_thrown > 0);
-    draw_event_plates(); /* плит в режиме 3 нет */
+    draw_event_plates(); /* no plates drawn in mode 3 */
     draw_event_candies();
     draw_event_santa();
     draw_plates_hud();
@@ -2046,17 +2176,18 @@ static void test_eax229_and_rooms(void) {
     assert(strcmp(tr_achievement_eax229_desc(), "???") == 0);
     language = 1;
     assert(strcmp(tr_class_ebuc(), "буК") == 0);
-    assert(strcmp(tr_achievement_buk(), "подарок буКа") == 0);
-    assert(strcmp(tr_skin_elf_hint(), "подарок буКа") == 0);
-    assert(strcmp(bp_reward_text(4), "Скин: Эльф-буК") == 0);
+    assert(strcmp(tr_achievement_buk(), "Подарок буКа") == 0);
+    assert(strcmp(tr_skin_elf_hint(), "Подарок буКа") == 0);
+    assert(strcmp(tr_skins_note_for(CLASS_EBUC), "Скин «Эльф»: достижение «Подарок буКа»") == 0);
+    assert(strcmp(bp_reward_text(4), "+45 кубков") == 0);
     language = 0;
     assert(strcmp(tr_class_ebuc(), "ebuC") == 0);
     assert(strcmp(tr_achievement_buk(), "ebuC's gift") == 0);
     assert(strcmp(tr_skin_elf_hint(), "ebuC's gift") == 0);
-    assert(strcmp(bp_reward_text(4), "Skin: Elf ebuC") == 0);
+    assert(strcmp(bp_reward_text(4), "+45 cups") == 0);
     language = 1;
 
-    /* Gift from буК: granted in an online Ded Moroz event as Santa, unlocks Elf буК. */
+    /* ACH_BUK_GIFT: granted in an online Ded Moroz event as Santa, unlocks Elf ebuC. */
     achievement_mask = 0;
     bp_claimed = 0;
     assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
@@ -2072,31 +2203,83 @@ static void test_eax229_and_rooms(void) {
     player_class = CLASS_ORDINARY;
     game_state = ST_LOBBY;
 
-    /* Aiming the magic projectile only updates within 180 px around the player. */
+    /* Aiming the magic ball follows the joystick directly and keeps direction on release. */
     player->x = 400;
     player->y = 360;
     player->angle = 0;
+    joy.x = 130;
+    joy.y = 570;
+    joy.r = 70;
+    drop_joy();
     super_cd = 0;
     finished = 0;
     player_block = 0;
+    game_state = ST_SOLO;
+    player_class = CLASS_EBUC;
+    player->x = 400;
+    player->y = 360;
+    player->angle = atan2(-0.8, 0.6);
     ball_reset();
-    ball_aim_start(7);
-    assert(ball.aim_on == 1 && fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
-    ball_aim_point(400, 100); /* 260 px away: ignored */
-    assert(fabs(ball.aim_dx - 1) < 1e-6 && fabs(ball.aim_dy) < 1e-6);
-    ball_aim_point(400, 240); /* 120 px away: aims straight up */
-    assert(fabs(ball.aim_dx) < 1e-6 && fabs(ball.aim_dy + 1) < 1e-6);
-    ball_aim_cancel();
+    ball_mode = 1;
+    ball_fire();
+    assert(ball.active == 1);
+    assert(fabs(ball.vx - 0.6 * BALL_SPEED) < 1e-6 && fabs(ball.vy + 0.8 * BALL_SPEED) < 1e-6);
+    ball_reset();
 
-    /* Ball bounce scaling: 0 bounces barely scratches (0.5 dmg), each bounce
-     * increases damage and accelerates the ball by +4% (x1.04). */
+    /* Solo enemies deal reduced damage and reduced Azum dash damage. */
+    assert(fabs(enemy_dash_damage - 2.8) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
+    assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
+
+    /* ebuC ball bounce scaling: 0.5 base dmg, +2.8 on first bounce, x1.28 gain and x1.04 speed per bounce. */
     assert(fabs(ball_damage_for(0) - 0.5) < 1e-9);
     for (int b = 0; b < 10; b++) {
         assert(ball_damage_for(b + 1) > ball_damage_for(b));
     }
-    assert(fabs(ball_damage_for(1) - 2.0) < 1e-9);
-    assert(fabs(ball_damage_for(4) - 6.5) < 1e-9);
-    assert(fabs(ball_damage_for(10) - 15.5) < 1e-9);
+    assert(fabs(ball_damage_for(1) - 3.3) < 1e-9);
+    assert(fabs(ball_damage_for(2) - 6.884) < 1e-9);
+    for (int b = 1; b < 10; b++) {
+        double prev_gain = ball_damage_for(b) - ball_damage_for(b - 1);
+        double next_gain = ball_damage_for(b + 1) - ball_damage_for(b);
+        assert(fabs(next_gain - prev_gain * 1.28) < 1e-9);
+    }
+    assert(fabs(ball_damage_for(4) - 17.3435456) < 1e-9);
+    assert(fabs(ball_damage_for(10) - (0.5 + 2.8 * (pow(1.28, 10) - 1.0) / 0.28)) < 1e-9);
+    assert(fabs(station_beam_pull - 26.0) < 1e-9 && fabs(station_beam_min - 54.0) < 1e-9);
+    {
+        /* ebuC's dispenser beam renders before ebuC's body layer in Solo. */
+        int beam_idx = -1, body_idx = -1;
+        player_class = CLASS_EBUC;
+        reset_battle();
+        game_state = ST_SOLO;
+        finished = 0;
+        player->hp = player->max_hp = 24;
+        player->x = 300;
+        player->y = 400;
+        player_block = 1;
+        arr_set(turret_x, 0, 500);
+        arr_set(turret_y, 0, 400);
+        arr_set(turret_hp, 0, 10);
+        arr_set(turret_maxhp, 0, 10);
+        last_turret_slot = 0;
+        adm_reset_log();
+        draw_game();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            uint32_t c = adm_colors[ci];
+            if ((c & 0x00FFFFFFu) == 0x00C8FAD6u && beam_idx < 0)
+                beam_idx = ci;
+            if (c == 0x2E4FC3F7u && body_idx < 0)
+                body_idx = ci;
+        }
+        assert(beam_idx >= 0 && body_idx > beam_idx);
+        player_block = 0;
+        arr_set(turret_hp, 0, 0);
+        player_class = CLASS_ORDINARY;
+    }
     {
         game_state = ST_SOLO;
         finished = 0;
@@ -2109,10 +2292,9 @@ static void test_eax229_and_rooms(void) {
         enemy_revive_prot = 0;
         player->x = 400;
         player->y = 360;
+        player->angle = 0;
         super_cd = 0;
         ball_reset();
-        ball.aim_dx = 1;
-        ball.aim_dy = 0;
         ball_fire();
         for (int f = 0; f < 30 && ball.active == 1; f++)
             ball_tick();
@@ -2125,10 +2307,9 @@ static void test_eax229_and_rooms(void) {
         enemy->hp = 20;
         player->x = 80;
         player->y = 80;
+        player->angle = atan2(-0.6, -0.8);
         super_cd = 0;
         ball_reset();
-        ball.aim_dx = -0.8;
-        ball.aim_dy = -0.6;
         ball_fire();
         for (int f = 0; f < 120 && ball.bounces < 2; f++)
             ball_tick();
@@ -2139,7 +2320,36 @@ static void test_eax229_and_rooms(void) {
         ball_tick();
         assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
 
-        /* Online remote brick: same +4% speed per bounce and bounce damage. */
+        /* Expiry burst damages enemies inside BALL_BOOM_RADIUS (150) while sparing distant ones. */
+        assert(fabs(BALL_BOOM_RADIUS - 150.0) < 1e-6 && BALL_BOOM_RADIUS > super_radius * 1.14);
+        ball_reset();
+        ball.active = 1;
+        ball.x = 400;
+        ball.y = 360;
+        ball.vx = 0;
+        ball.vy = 0;
+        ball.bounces = 4;
+        ball.t = BALL_MAX_TIME + 0.01;
+        enemy->hp = 20;
+        enemy->x = 400 + 145; /* outside BALL_RADIUS and old 130, inside 150 + cube half-width */
+        enemy->y = 360;
+        ball_tick();
+        assert(ball.active == 0 && ball.boom_t > 0);
+        assert(fabs(enemy->hp - (20.0 - ball_damage_for(4))) < 1e-6);
+
+        ball_reset();
+        ball.active = 1;
+        ball.x = 400;
+        ball.y = 360;
+        ball.bounces = 4;
+        ball.t = BALL_MAX_TIME + 0.01;
+        enemy->hp = 20;
+        enemy->x = 800; /* outside BALL_BOOM_RADIUS */
+        enemy->y = 360;
+        ball_tick();
+        assert(ball.active == 0 && fabs(enemy->hp - 20.0) < 1e-6);
+
+        /* Online remote brick: same +4% speed per bounce, bounce damage, and expiry blast. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         stub_online[1] = 1;
@@ -2165,30 +2375,121 @@ static void test_eax229_and_rooms(void) {
         player->y = rb_y[1];
         remote_bricks_tick();
         assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+
+        /* Online expiry blast: clips player within BALL_BOOM_RADIUS when rb_t expires. */
+        player->hp = 20;
+        rb_on[1] = 1;
+        rb_x[1] = 400;
+        rb_y[1] = 360;
+        rb_vx[1] = 0;
+        rb_vy[1] = 0;
+        rb_bounces[1] = 3;
+        rb_t[1] = BALL_MAX_TIME + 0.01;
+        player->x = 400 + 145;
+        player->y = 360;
+        remote_bricks_tick();
+        assert(rb_on[1] == 0 && rb_boom_t[1] > 0);
+        assert(fabs(player->hp - (20.0 - ball_damage_for(3))) < 1e-6);
         stub_online[1] = 0;
         stub_brick[1] = 0;
         game_state = ST_LOBBY;
         ball_reset();
     }
 
-    /* Dimasi4ek229 himself: granted automatically (case-insensitive). */
+    /* Dimasi4ek229 himself never gets the achievement for meeting himself
+     * (even if ACH_EAX229 was previously in achievement_mask), sees 5 cards,
+     * and has no scrolling on the Achievements screen. */
     achievement_mask = 0;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "dimasi4ek229");
     check_meet_eax229();
-    assert(has_achievement(ACH_EAX229) == 1);
+    assert(has_achievement(ACH_EAX229) == 0);
+    achievement_mask = ACH_EAX229;
+    assert(has_achievement(ACH_EAX229) == 0);
+    assert(ach_visible_count() == 5 && ach_scroll_needed() == 0);
+    {
+        int saved_w = screen_w, saved_h = screen_h;
+        screen_w = 1280;
+        screen_h = 720;
+        language = 1;
+        game_state = ST_ACHIEVEMENTS;
+        t_dir = 0;
+        warn_open = 0;
+        studio_open = 0;
+        acct_open = 0;
+        docs_open = 0;
+        ach_open();
+        adm_reset_log();
+        draw_achievements();
+        assert(adm_has_text("mov eax, 0x229") == 0);
+        assert(adm_has_text("Подарок буКа") == 1);
+        logic_touch(ach_x() + 80, ach_view_top() + 260, 0, 91);
+        logic_touch(ach_x() + 80, ach_view_top() + 120, 2, 91);
+        logic_touch(ach_x() + 80, ach_view_top() + 120, 1, 91);
+        assert(ach_scroll == 0 && ach_scroll_needed() == 0);
+        screen_w = saved_w;
+        screen_h = saved_h;
+    }
 
-    /* Anyone else: only when Dimasi4ek229 is in the same online room. */
+    /* Anyone else: "mov eax, 0x229" IS in their achievements list (locked
+     * before meeting Dimasi4ek229, unlocked after), so all 6 cards and vertical
+     * drag scrolling are present even before unlocking it. */
     achievement_mask = 0;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     game_state = ST_LOBBY;
     check_meet_eax229();
     assert(has_achievement(ACH_EAX229) == 0);
+    assert(ach_visible_count() == 6);
+    {
+        int saved_w = screen_w, saved_h = screen_h;
+        double mid;
+        screen_w = 1280;
+        screen_h = 720;
+        language = 1;
+        game_state = ST_ACHIEVEMENTS;
+        t_dir = 0;
+        ach_open();
+        assert(ach_scroll_needed() == 1 && ach_scroll_max() > 80);
+        adm_reset_log();
+        draw_achievements();
+        assert(adm_has_text("mov eax, 0x229") == 1);
+        /* Drag upward from bottom margin on 1080p phone: full-screen scroll works! */
+        screen_w = 2400;
+        screen_h = 1080;
+        logic_touch(screen_w - 60, screen_h - 40, 0, 92);
+        /* Secondary touch does not hijack active drag or trigger Back. */
+        logic_touch(screen_margin + 10, back_y + 10, 0, 93);
+        assert(t_dir == 0 && ach_drag_id == 92);
+        logic_touch(screen_w - 60, screen_h - 100, 2, 92);
+        ach_scroll_tick();
+        logic_touch(screen_w - 60, screen_h - 155, 2, 92);
+        ach_scroll_tick();
+        /* Opposite thumb-lift roll + duplicate zero-delta move still flicks forward! */
+        logic_touch(screen_w - 60, screen_h - 140, 2, 92);
+        logic_touch(screen_w - 60, screen_h - 140, 2, 92);
+        assert(press_point_n == 0);
+        logic_touch(screen_w - 60, screen_h - 140, 1, 92);
+        mid = ach_scroll;
+        assert(mid > 80 && ach_vel > 200);
+        ach_scroll_tick();
+        assert(ach_scroll > mid);
+        ach_scroll_by(9999);
+        assert(fabs(ach_scroll - ach_scroll_max()) < 1e-6);
+        stub_scissor_calls = 0;
+        stub_scissor_active = 0;
+        adm_reset_log();
+        draw_achievements();
+        assert(stub_scissor_calls >= 2 && stub_scissor_active == 0);
+        assert(adm_has_text("Подарок буКа") == 1);
+        screen_w = saved_w;
+        screen_h = saved_h;
+    }
     game_state = ST_ONLINE;
     stub_net_slot = 0;
     stub_online[1] = 1;
     snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "%s", "Dimasi4ek229");
     check_meet_eax229();
     assert(has_achievement(ACH_EAX229) == 1);
+    assert(ach_visible_count() == 6 && ach_scroll_allowed() == 1);
     stub_online[1] = 0;
     stub_nicks[1][0] = 0;
     game_state = ST_LOBBY;
@@ -2282,7 +2583,7 @@ double net_leaderboard_status(void) { return 0; }
 double net_leaderboard_count(void) { return 0; }
 const char *net_leaderboard_nick(double idx) { (void)idx; return ""; }
 double net_leaderboard_cups(double idx) { (void)idx; return 0; }
-double net_player_codecracker_super(double slot) { (void)slot; return 0; }
+double net_player_codecracker_super(double slot) { return stub_cc_super[(int)slot]; }
 double net_player_block(double slot) { (void)slot; return 0; }
 const char *net_banner_text(void) { return ""; }
 const char *net_banner_color(void) { return "white"; }
@@ -2438,32 +2739,43 @@ int main(void) {
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 2), tr_class_level_effect(CLASS_ASTRA, 2)) == 0);
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 3), tr_class_level_effect(CLASS_ASTRA, 3)) == 0);
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
-    assert(fabs(astra_hit_interval - 0.2) < 1e-9);
-    assert(fabs(astra_final_delay - 0.85) < 1e-9);
-    assert(fabs(astra_ability_final_time_for(0) - astra_ability_beat_time_for(astra_hit_count, 0) - astra_final_delay) < 1e-9);
-    assert(class_cost_of(CLASS_AZUM) == 65);
-    assert(class_cost_of(CLASS_SANTA) == 100);
-    assert(class_cost_of(CLASS_EBUC) == 120);
-    assert(class_cost_of(CLASS_ASTRA) == 135);
+    assert(fabs(ASTRA_PARRY_TIME - 0.7) < 1e-9);
+    assert(fabs(ASTRA_PARRY_SPEED_K - 0.90) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_UNLOCK_DELAY - 0.42) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_WINDOW - 0.85) < 1e-9);
+    assert(fabs(ASTRA_PULLBACK_TIME - PUNCH_WINDUP) < 1e-9);
+    assert(fabs(ASTRA_DASH_TIME - 0.44) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
+    assert(fabs(astra_ability_lunge_dist - 245.0) < 1e-9);
+    assert(astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
+    assert(fabs(PUNCH_WINDUP - 0.2) < 1e-9);
+    assert(fabs(enemy_windup - PUNCH_WINDUP) < 1e-9);
+    assert(fabs(enemy_super_windup_time - PUNCH_WINDUP) < 1e-9);
+    assert(fabs(punch_cooldown - 0.65) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
+    assert(class_cost_of(CLASS_AZUM) == 85);
+    assert(class_cost_of(CLASS_SANTA) == 125);
+    assert(class_cost_of(CLASS_EBUC) == 155);
+    assert(class_cost_of(CLASS_ASTRA) == 175);
     assert(class_has_super(CLASS_ASTRA) == 1);
-    assert(astra_cd_for(0) == 8);
+    assert(astra_cd_for(0) == 6);
     assert(astra_cd_for(1) < astra_cd_for(0));
     assert(astra_zone_reach(2) > astra_zone_reach(1));
-    assert(astra_throw_dist_for(3) > astra_throw_dist_for(2));
-    assert(fabs(astra_grab_total_fraction() - 0.45) < 1e-9);
+    assert(astra_strike_damage_for(3) > astra_strike_damage_for(2));
     assert(strcmp(WINTER_JINGLE, "winter_jingle.wav") == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
     assert(class_has_super(CLASS_ASTRA) == 1 && player_max_hp_for(CLASS_ASTRA) == astra_hp * round_hp_mult());
-    /* Long-fight balance: every pool doubled (ordinary/santa 20, azum 13,
-     * astra 18, ebuc 24) and the ability numbers scaled with them, while the
-     * basic attacks kept their old damage - that is what makes fights last.
-     * Azum then got a 2% nerf: 13 -> 12.74. */
+    /* Base HP pools: Ordinary/Santa 20, Azum 7.0, Astra 20 (*0.95 = 19), ebuC 24. */
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
-    assert(fabs(azum_hp - 12.74) < 1e-9 && astra_hp == 18 && ebuc_hp == 24 && enemy_base_hp == 20);
+    assert(fabs(azum_hp - 7.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
+    assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
+    assert(level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 && level_cost(2) == 70 &&
+           level_cost(3) == 90);
     assert(punch_damage == 1 && santa_damage == 0.25 && ebuc_damage == 1.0);
     assert(ebuc_universe_damage >= ebuc_hp);
     azum_tex_ok = azum_punch_tex_ok = 1;
@@ -2950,8 +3262,7 @@ int main(void) {
         assert(player->hp == player->max_hp);
         assert(has_achievement(ACH_LAST_HP) == 0);
 
-                /* ebuc's turret shield leaves player HP untouched, but the blocked
-         * hit still disqualifies the achievement. */
+        /* ebuC's turret shield absorbs damage, which still disqualifies ACH_LAST_HP. */
         finished = 0;
         cups_awarded = 0;
         achievement_mask = 0;
@@ -3275,9 +3586,13 @@ int main(void) {
         fire_super();
         assert(strcmp(stub_last_snd, "station.wav") == 0);
         player_class = CLASS_ASTRA;
+        player->hp = 18;
+        finished = 0;
+        stub_last_snd[0] = 0;
         start_grab_now();
-        assert(strcmp(stub_last_snd, "grab.wav") == 0);
+        assert(strcmp(stub_last_snd, "punch.wav") == 0);
         astra_state = 0;
+        astra_punch_t = 0;
         player_class = CLASS_ORDINARY;
         super_windup = 0;
         super_cd = 0;
@@ -3299,8 +3614,7 @@ int main(void) {
         assert(result_face_color() == 0xFF5F10A0);
         finished = 0;
     }
-    /* The emerald: its colour is the one the admin picked, and the picture
-     * shimmers with it. */
+    /* Emerald is strictly rainbow everywhere (even in CCP). */
     {
         stub_gift_hue = 0;
         assert(gift_rarity(4) == 3 && strcmp(gift_tex(4), "gift_emerald.png") == 0);
@@ -3308,39 +3622,32 @@ int main(void) {
         assert(gift_hue_color(0.0) == 0xFFFF0000u);
         assert(gift_hue_color(1.0 / 3.0) == 0xFF00FF00u);
         stub_gift_hue = 4;
-        assert(fabs(gift_emerald_base_hue() - 0.5) < 1e-9);
+        assert(gift_emerald_base_hue() == 0);
         assert(gift_hue_color(0.5) == 0xFF00FFFFu);
         stub_gift_hue = 0;
     }
-    /* The admin picks the emerald's hue: the swatches sit in their own row
-     * and the chosen one is remembered. */
+    /* CCP gift tab has 8 rows (tabs + 5 gifts + nick + grant) without any hue picker. */
     {
         int saved_w = screen_w, saved_h = screen_h;
         screen_w = 1280;
         screen_h = 720;
         admin_tab = 1;
         admin_gift_choice = 4;
-        admin_gift_hue = 0;
-        double sw = admin_hue_swatch_w();
-        double hy = admin_hue_row_y() + admin_row_h() / 2;
-        double hx = admin_panel_x() + admin_pad() + sw / 2;
-        assert(admin_hue_at(hx, hy) == 0);
-        assert(admin_hue_at(hx + 3 * (sw + ADMIN_HUE_GAP), hy) == 3);
-        assert(admin_hue_at(admin_panel_x() + admin_pad() - 5, hy) == -1);
-        admin_panel_press(hx + 3 * (sw + ADMIN_HUE_GAP), hy);
-        assert(admin_gift_hue == 3);
-        /* The hue row belongs to the emerald only. */
-        admin_gift_choice = 1;
-        assert(admin_hue_at(hx, hy) == -1);
-        admin_gift_choice = 4;
-        admin_gift_hue = 0;
+        assert(fabs(admin_content_h() - (8 * admin_row_h() + 7 * admin_gap())) < 1e-9);
+        snprintf(admin_gift_target, sizeof(admin_gift_target), "%s", "tester");
+        admin_gift_busy = 0;
+        double grant_y = admin_content_top() + 7 * (admin_row_h() + admin_gap()) + admin_row_h() / 2;
+        admin_panel_press(admin_panel_x() + admin_pad() + 20, grant_y);
+        assert(admin_gift_busy == 1);
+        admin_gift_busy = 0;
+        admin_gift_target[0] = 0;
         admin_tab = 0;
         screen_w = saved_w;
         screen_h = saved_h;
     }
     player_class = CLASS_ORDINARY;
     assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
-    assert(class_base_cost_of(CLASS_CODECRACKER) == 475 && class_cost_of(CLASS_CODECRACKER) == 475);
+    assert(class_base_cost_of(CLASS_CODECRACKER) == 550 && class_cost_of(CLASS_CODECRACKER) == 550);
     assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
     /* Admin gets shop classes without spending cups; persistence still saves ownership. */
     cups = 100;
@@ -3388,101 +3695,107 @@ int main(void) {
     screen_w = 320;
     player_class = CLASS_ASTRA;
     progress_normalize();
-    assert(astra_ability_hit_interval_for(1) < astra_ability_hit_interval_for(0));
-    /* the first three beats land sooner... */
-    assert(astra_ability_beat_time_for(1, 1) < astra_ability_beat_time_for(1, 0));
-    assert(astra_ability_beat_time_for(3, 1) < astra_ability_beat_time_for(3, 0));
-    assert(astra_ability_beats_done_for(astra_ability_beat_time_for(3, 1), 1) == 3);
-    /* ...and then the throw waits only ~0.4 s after the last beat, so the
-     * whole ultimate reads as fast hits, a short pause, the throw. */
-    assert(fabs(astra_ability_final_delay_for(1) - 0.4) < 1e-9);
-    assert(fabs(astra_ability_final_time_for(1) - astra_ability_beat_time_for(3, 1) - 0.4) < 1e-9);
-    assert(astra_ability_final_time_for(1) < astra_ability_final_time_for(0));
-    assert(astra_ability_grab_time_for(1) < astra_ability_grab_time_for(0));
-    assert(fabs(astra_ability_throw_dist_for(0, 1) - astra_throw_dist_for(0) * 1.10) < 1e-9);
-    assert(astra_ability_throw_dist_for(0, 1) < astra_throw_dist_for(0) * 1.35);
-    assert(astra_ability_throw_stun_for(0, 1) == astra_ability_throw_stun_for(0, 0));
-    /* pressing the ultimate takes a small forward step: the grab origin is
-     * the end of the step, while the body slides there smoothly frame by
-     * frame instead of jumping in one go */
+    assert(fabs(astra_strike_stun_for(0) - ASTRA_STRIKE_STUN) < 1e-9);
+    assert(fabs(astra_strike_damage_for(0) - ASTRA_STRIKE_DAMAGE) < 1e-9);
+    assert(astra_strike_damage_for(3) > astra_strike_damage_for(0));
+    assert(astra_strike_stun_for(3) > astra_strike_stun_for(0));
+    /* Astra counter-strike does a fast tiny backward recoil, then a long forward dash. */
+    screen_w = 1080;
     player->angle = 0;
     player->size = 45;
-    player->x = 150;
+    player->x = 300;
     player->y = 90;
-    astra_punch_t = 0.05;
+    astra_punch_t = 0;
     start_grab_now();
-    assert(astra_punch_t == 0);
-    assert(fabs(player->x - 150) < 1e-9);
-    assert(astra_x > 150 && astra_x - 150 <= astra_ability_lunge_dist + 1e-9);
-    assert(fabs(astra_y - 90) < 1e-9);
-    double lunge_prev = player->x;
+    assert(astra_punch_t > 0);
+    assert(fabs(player->x - 300) < 1e-9);
+    assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-9);
+    assert(fabs(astra_ability_lunge_ty - 90) < 1e-9);
     astra_ability_lunge_tick();
-    assert(player->x > lunge_prev && player->x < astra_x);
-    lunge_prev = player->x;
+    assert(player->x < 300 && player->x >= 300 - ASTRA_PULLBACK_DIST - 1e-9);
     int lunge_frames = 1;
-    while (lunge_frames < 60 && player->x < astra_x) {
+    double min_x = player->x;
+    while (lunge_frames < 120 && astra_ability_lunge_active() == 1) {
         astra_ability_lunge_tick();
-        assert(player->x >= lunge_prev);
-        lunge_prev = player->x;
+        if (player->x < min_x)
+            min_x = player->x;
         lunge_frames = lunge_frames + 1;
     }
-    assert(fabs(player->x - astra_x) < 1e-9);
-    assert(fabs(player->y - astra_y) < 1e-9);
-    assert(lunge_frames * dt >= astra_ability_lunge_time);
-    assert(astra_ability_zone_live_for(astra_ability_lunge_time / 2, 0, 1) == 0);
-    assert(astra_ability_zone_live_for(astra_ability_lunge_time, 0, 1) == 1);
+    assert(min_x < 300 - 5.0);
+    assert(fabs(player->x - astra_ability_lunge_tx) < 1e-9);
+    assert(fabs(player->y - astra_ability_lunge_ty) < 1e-9);
+    assert(lunge_frames * dt >= astra_ability_lunge_time - 1e-9);
     astra_state = 0;
     astra_cd = 0;
-    /* On the move the lunge still beats the walk: it lands a full step
-     * further than walking would have carried her, and it bursts off faster
-     * than walking pace from the very first frame. */
+    /* Running when casting Strike does NOT fly farther; walking is locked, turning during 0.2s aims the dash. */
     {
         double saved_jdx = joy.dx;
         double saved_jdy = joy.dy;
+        double saved_sh = screen_h;
+        screen_h = 720;
         joy.dx = 1;
         joy.dy = 0;
-        player->x = 150;
-        player->y = 90;
+        player_vx = 220;
+        player_vy = 0;
+        player->x = 300;
+        player->y = 200;
+        player->angle = 0;
         start_grab_now();
-        assert(astra_x - 150 > player_walk_speed() * astra_ability_lunge_time + astra_ability_lunge_dist - 1e-6);
-        double before = player->x;
+        assert(player_vx == 0 && player_vy == 0 && astra_locked() == 1);
+        assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-9);
+        /* Turn joystick downward during the 0.2s windup: cannot walk, redirects dash downward! */
+        joy.dx = 0;
+        joy.dy = 1;
+        move_player();
+        assert(player_vx == 0 && player_vy == 0);
         astra_ability_lunge_tick();
-        assert((player->x - before) / dt > player_walk_speed());
+        assert(fabs(player->angle - pi / 2) < 1e-6);
+        assert(fabs(astra_ability_lunge_tx - 300) < 1e-6);
+        assert(fabs(astra_ability_lunge_ty - (200 + astra_ability_lunge_dist)) < 1e-6);
         int k = 0;
-        while (k < 60) {
+        while (k < 120 && astra_ability_lunge_active() == 1) {
             astra_ability_lunge_tick();
             k = k + 1;
         }
-        assert(fabs(player->x - astra_x) < 1e-9);
+        assert(fabs(player->x - 300) < 1e-6);
+        assert(fabs(player->y - (200 + astra_ability_lunge_dist)) < 1e-6);
         joy.dx = saved_jdx;
         joy.dy = saved_jdy;
+        screen_h = saved_sh;
+        player->angle = 0;
         astra_state = 0;
         astra_cd = 0;
     }
-    /* The grab/catch waits for the visual dash to finish; its first hit is
-     * still scheduled before Astra's first beat. */
-    player->x = 100;
+    screen_w = 320;
+    /* Astra ult-strike hits along the forward dash right after the 0.2s recoil. */
+    screen_w = 1080;
+    player->x = 200;
     player->y = 90;
+    player->angle = 0;
     player->hp = 10;
     enemy->hp = enemy->max_hp = 10;
+    enemy->stun = 0;
     enemy_revive_prot = 0;
     enemy->y = player->y;
     game_state = ST_SOLO;
-    start_grab_now();
-    enemy->x = astra_x + 70;
-    for (int frame = 0; frame < 9; frame++) {
-        tick_astra();
-        assert(astra_caught == 0 && astra_hits_done == 0);
+    {
+        double saved_dt = dt;
+        dt = 0.02;
+        start_grab_now();
+        assert(player_punching_now() == 1);
+        enemy->x = 200 + 170; /* Reached by the 185 px forward dash! */
+        for (int f = 0; f < 50 && astra_caught == 0; f++) {
+            tick_astra();
+            tick_astra_fades();
+        }
+        assert(astra_caught == 1 && astra_hits_done == 1 && astra_box_a > 0);
+        assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
+        assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+        astra_release(1);
+        dt = saved_dt;
     }
-    assert(astra_caught == 0 && enemy->hp == 10);
-    tick_astra();
-    assert(astra_caught == 1 && astra_hits_done == 0);
-    for (int frame = 10; frame < 22; frame++)
-        tick_astra();
-    assert(astra_hits_done == 0);
-    tick_astra();
-    assert(astra_hits_done == 1 && astra_punch_t > 0);
-    astra_release(0);
+    screen_w = 320;
+    enemy->stun = 0;
     astra_cd = 0;
     /* Astra has no separate skin or developer variant: one ordinary card,
      * with the current fast ability kit. */
@@ -3506,12 +3819,12 @@ int main(void) {
     assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
     assert(class_visible_index(CLASS_ASTRA) >= 0 && classes_visible_count() == 5);
     assert(class_visible_index(CLASS_CODECRACKER) == 4);
-    assert(class_cost_of(CLASS_CODECRACKER) == 475);
+    assert(class_cost_of(CLASS_CODECRACKER) == 550);
     assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
-    cups = 474;
+    cups = 549;
     pick_class(CLASS_CODECRACKER);
-    assert(cups == 474 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ASTRA);
-    cups = 500;
+    assert(cups == 549 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ASTRA);
+    cups = 575;
     stub_last_codecracker = 0;
     pick_class(CLASS_CODECRACKER);
     assert(cups == 25 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
@@ -3564,21 +3877,33 @@ int main(void) {
     enemy->x = 470;
     enemy->y = 400;
     enemy->hp = enemy->max_hp = 10;
+    enemy->stun = 0;
+    enemy_throw_t = 0;
     astra_cd = 0;
+    double saved_dt_astra = dt;
+    dt = 0.02;
     start_grab_now();
-    for (int frame = 0; frame < 400 && astra_state != 0; frame++)
+    assert(player_punching_now() == 1);
+    for (int frame = 0; frame < 9; frame++)
         tick_astra();
-    assert(fabs(enemy->hp - 5.5) < 1e-6);
-    assert(enemy_throw_t > 0);
+    assert(enemy->stun == 0);
+    tick_astra();
+    assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
+    for (int frame = 0; frame < 60 && astra_state != 0; frame++)
+        tick_astra();
+    assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+    assert(enemy_throw_t == 0);
+    enemy->stun = 0;
 
     astra_state = 0;
-    enemy_throw_t = 0;
+    astra_punch_t = 0;
     player_class = CLASS_ORDINARY;
     game_state = ST_SOLO;
     finished = 0;
     player->x = 470;
     player->y = 400;
     player->hp = player->max_hp = 10;
+    player_stun = 0;
     enemy_class = CLASS_ASTRA;
     enemy_level = 0;
     enemy->x = 400;
@@ -3588,12 +3913,25 @@ int main(void) {
     pgrab_active = 0;
     pthrow_t = 0;
     enemy_start_grab();
-    for (int frame = 0; frame < 400 && egrab_state != 0; frame++)
+    assert(enemy_grab_punching() == 1);
+    for (int frame = 0; frame < 9; frame++) {
         tick_enemy_grab();
-    assert(fabs(player->hp - 5.5) < 1e-6);
-    assert(pthrow_t > 0);
+        tick_astra_fades();
+    }
+    assert(player_stun == 0);
+    tick_enemy_grab();
+    tick_astra_fades();
+    assert(enemy_grab_punching() == 1);
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
+    for (int frame = 0; frame < 60 && egrab_state != 0; frame++)
+        tick_enemy_grab();
+    assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE * ENEMY_OTHER_DAMAGE_MULT)) < 1e-6);
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    player_stun = 0;
 
     egrab_state = 0;
+    egrab_punch_t = 0;
     pgrab_active = 0;
     pthrow_t = 0;
     game_state = ST_ONLINE;
@@ -3601,6 +3939,7 @@ int main(void) {
     player->x = 470;
     player->y = 400;
     player->hp = player->max_hp = 10;
+    player_stun = 0;
     stub_net_slot = 0;
     stub_online[1] = 1;
     stub_level[1] = 0;
@@ -3609,42 +3948,40 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < 400; frame++)
+    for (int frame = 0; frame < 9; frame++) {
         update_remote_grabs();
-    assert(fabs(player->hp - 5.5) < 1e-6);
-    assert(pthrow_t > 0);
-    double plain_throw = pthrow_speed * astra_throw_time;
+        tick_astra_fades();
+    }
+    assert(player_stun == 0);
+    update_remote_grabs();
+    tick_astra_fades();
+    assert(remote_grab_punching(1) == 1);
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
+    for (int frame = 0; frame < 60; frame++)
+        update_remote_grabs();
+    assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+    assert(pgrab_active == 0 && pthrow_t == 0);
+    player_stun = 0;
 
-    /* The same grab from an Astra attacker uses the class snapshot; the three
-     * hits land sooner, the throw waits only ~0.4 s after the last beat and
-     * goes farther; the total damage of the grab is unchanged. */
-    pgrab_active = 0;
-    pgrab_slot = -1;
-    pthrow_t = 0;
+    /* Level 3 remote Astra strike deals +20% damage with Lv3 stun and no grab/throw. */
     finished = 0;
     player->x = 470;
     player->y = 400;
     player->hp = player->max_hp = 10;
+    stub_level[1] = 3;
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
     stub_grab[1] = 2;
-    for (int frame = 0; frame < 9; frame++)
+    for (int frame = 0; frame < 10; frame++)
         update_remote_grabs();
-    assert(pgrab_active == 0 && player->hp == 10);
-    for (int frame = 9; frame < 45; frame++)
+    assert(pgrab_active == 0 && pthrow_t == 0 && fabs(player_stun - astra_strike_stun_for(3)) < 1e-9);
+    dt = saved_dt_astra;
+    for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
-    assert(player->hp < 10);
-    assert(astra_ability_beat_time_for(3, 1) < astra_ability_beat_time_for(3, 0));
-    assert(45 * dt > astra_ability_beat_time_for(3, 1) && 45 * dt < astra_ability_beat_time_for(3, 0) + 1e-9);
-    for (int frame = 0; frame < 400 && pthrow_t <= 0; frame++)
-        update_remote_grabs();
-    assert(fabs(player->hp - 5.5) < 1e-6);
-    assert(pthrow_t > 0);
-    assert(pthrow_speed * astra_throw_time > plain_throw);
-    assert(fabs(pthrow_speed * astra_throw_time - plain_throw * 1.10) < 1e-6);
-    pgrab_active = 0;
-    pgrab_slot = -1;
-    pthrow_t = 0;
+    assert(fabs(player->hp - (10.0 - astra_strike_damage_for(3))) < 1e-6);
+    player_stun = 0;
+    stub_level[1] = 0;
     stub_grab[1] = 0;
     arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
     arr_set(remotes, 1 * remote_fields + 11, SKIN_NORMAL);
@@ -3727,7 +4064,8 @@ int main(void) {
     assert(adm_has_text("ADMIN") == 0);
     assert(adm_has_text(ADMIN_NICK) == 0);
     assert(adm_has_text(": ") == 0);
-    for (int i = 0; i < 7; i++)
+    assert(adm_has_text("Шедевро") == 0);
+    for (int i = 0; i < ADMIN_CHEATS; i++)
         assert(adm_has_text(admin_cheat_label(i)) == 1);
 
         /* The panel has separate cheat and gift tabs. */
@@ -3735,7 +4073,7 @@ int main(void) {
     admin_draw();
     assert(adm_all_greyscale() == 1);
     assert(adm_all_flat() == 1);
-    for (int i = 0; i < 7; i++)
+    for (int i = 0; i < ADMIN_CHEATS; i++)
         assert(adm_has_text(admin_cheat_label(i)) == 1);
     /* The cheat grid starts below the tabs and remains inside the panel. */
     assert(fabs(admin_grid_top() - admin_content_top() - admin_row_h() - admin_gap()) < 0.001);
@@ -3841,9 +4179,9 @@ int main(void) {
     finished = 0;
     cup_lose = 1;
 
-    /* Every single one of the 7 admin panel switches blocks both cup awards
+    /* Every single one of the 8 admin panel switches blocks both cup awards
      * and cup deductions while enabled. */
-    for (int i = 0; i < 7; i++) {
+    for (int i = 0; i < ADMIN_CHEATS; i++) {
         cheat_stain = 0;
         admin_press_cheat(i);
         admin_battle_stain_reset();
@@ -3858,6 +4196,57 @@ int main(void) {
         assert(admin_any_cheat_on() == 0 && admin_cups_allowed() == 1);
     }
     cups = 0;
+
+    /* Cheat 6 (ebuC's bounces) draws predicted bounce segments. */
+    {
+        int calls_off, calls_on, red_hit = 0, red_miss = 0;
+        language = 1;
+        assert(strcmp(admin_cheat_label(6), "Отскоки буКа") == 0);
+        language = 0;
+        assert(strcmp(admin_cheat_label(6), "ebuC's bounces") == 0);
+        language = 1;
+        game_state = ST_SOLO;
+        finished = 0;
+        player_class = CLASS_EBUC;
+        player->x = 300;
+        player->y = 500;
+        player->angle = 0; /* horizontal right */
+        enemy->hp = 20;
+        enemy->x = 700;
+        enemy->y = 100; /* far above the horizontal y=500 bounce line */
+        ball_reset();
+        ball_mode = 1;
+        adm_reset_log();
+        draw_ball();
+        calls_off = adm_color_n;
+        admin_press_cheat(6);
+        assert(admin_cheat_ball_path() == 1);
+        adm_reset_log();
+        draw_ball();
+        calls_on = adm_color_n;
+        assert(calls_on >= calls_off + 25);
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if ((adm_colors[ci] & 0x00FFFFFFu) == 0x00FF2D2Du)
+                red_miss++;
+        }
+        assert(red_miss == 0);
+
+        enemy->x = 700;
+        enemy->y = 500; /* directly on the bounce line -> touching segment turns red */
+        adm_reset_log();
+        draw_ball();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if ((adm_colors[ci] & 0x00FFFFFFu) == 0x00FF2D2Du)
+                red_hit++;
+        }
+        assert(red_hit >= 2);
+
+        admin_press_cheat(6);
+        assert(admin_cheat_ball_path() == 0);
+        cheat_stain = 0;
+        ball_reset();
+        player_class = CLASS_ORDINARY;
+    }
 
     net_ban_set("remote_guy", 0);
     net_ban_set("old_cheater", 0);
@@ -4282,18 +4671,981 @@ int main(void) {
         bp_claim(2);
         bp_claim(3);
         assert(bp_claimed == 3 && skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
+        double cups_before_t4 = cups;
         bp_claim(4);
-        assert(bp_claimed == 4 && skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 1);
+        assert(bp_claimed == 4 && fabs(cups - (cups_before_t4 + 45)) < 1e-9);
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
         assert(class_owned_of(CLASS_SANTA) == 0);
         bp_claim(5);
         bp_claim(6);
         bp_claim(7);
         assert(bp_claimed == 7 && class_owned_of(CLASS_SANTA) == 1);
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
         assert(stub_last_bp == 7);
         assert(class_visible(CLASS_SANTA) == 1);
         bp_xp = 0;
         bp_claimed = 0;
         stub_bpx = 0;
+    }
+
+    /* Combat update:
+     * 1) Frontal block absorbs 75% of incoming damage (block_guard = 0.25).
+     * 2) Astra's super starts as an instant-on-press 0.4 s purple shield that
+     *    blocks 100% of damage; blocking >=1 hit unlocks Grab for 0.8 s, and
+     *    only then can Grab fire (otherwise Grab disappears back to Block + CD).
+     * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.2 s. */
+    {
+        assert(fabs(block_guard - 0.25) < 1e-9);
+        assert(fabs(enemy_windup - 0.20) < 1e-9);
+        dt = 1.0 / 60.0;
+
+        /* 1) Normal frontal block cuts 75% of damage for player and bot. */
+        game_state = ST_SOLO;
+        finished = 0;
+        cheat_god = 0;
+        cheat_nocd = 0;
+        cheat_damage = 0;
+        player_class = CLASS_ORDINARY;
+        player_level = 0;
+        player->max_hp = 20;
+        player->hp = 20;
+        player->x = 400;
+        player->y = 400;
+        player->angle = 0;
+        player_block = 1;
+        take_damage_at(4.0, 500, 400);
+        assert(fabs(player->hp - 19.0) < 1e-9);
+        player_block = 0;
+
+        enemy_class = CLASS_ORDINARY;
+        enemy_revive_prot = 0;
+        enemy->max_hp = 20;
+        enemy->hp = 20;
+        enemy->x = 500;
+        enemy->y = 400;
+        enemy->angle = pi;
+        enemy_block_left = 0.5;
+        enemy_apply_damage_at(4.0, 400, 400);
+        assert(fabs(enemy->hp - 19.0) < 1e-9);
+        enemy_block_left = 0;
+
+        /* 2a) Astra super activates immediately on press as a 0.4 s purple shield
+         *     with zero slowdown (normal walk speed and normal punch allowed);
+         *     expiring unhit starts cooldown without unlocking Strike. */
+        screen_w = 1080;
+        screen_h = 1920;
+        atk_x = screen_w - 132;
+        atk_y = screen_h - 138;
+        atk2_x = screen_w - 132;
+        atk2_y = screen_h - 330;
+        blk_x = screen_w - 258;
+        blk_y = screen_h - 234;
+        blk_id = -1;
+        player_block = 0;
+        player_class = CLASS_ASTRA;
+        player_level = 0;
+        player->max_hp = 18;
+        player->hp = 18;
+        astra_state = 0;
+        astra_cd = 0;
+        astra_parry_t = 0;
+        astra_parry_blocked = 0;
+        astra_grab_ready_t = 0;
+        player_stun = 0;
+        player_freeze = 1.5;
+        player_freeze_slow = 0.12;
+        pgrab_active = 0;
+        language = 1;
+        adm_reset_log();
+        draw_controls();
+        assert(adm_has_text("Блок") == 1 && adm_has_text("Захват") == 0);
+
+        touch_game(atk2_x, atk2_y, 0, 7); /* press only - not released! */
+        assert(astra_state == 0);
+        assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.7) < 1e-9);
+        assert(player_freeze == 0 && fabs(player_walk_speed() - joy_speed * 0.90) < 1e-9);
+        player_block = 1;
+        assert(fabs(player_walk_speed() - joy_speed * 0.90) < 1e-9);
+        player_block = 0;
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+        fire_punch();
+        assert(punch->active == 1);
+        /* Pressing punch again immediately during cooldown does NOT queue instant follow-up. */
+        fire_punch();
+        assert(queued_punch == 0);
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+        assert(astra_grab_ready_t == 0);
+        stub_circle_color = 0;
+        draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
+        assert(stub_circle_color == 0x38B35CFF);
+        assert(fabs(adm_last_circle_r - 25 * cube_scale * player_scale * 1.75 * 0.90) < 1e-4);
+        /* Dash activates attack sprite for both player and bot Azum. */
+        dash_active = 1;
+        assert(player_punching_now() == 1);
+        dash_active = 0;
+        enemy_dash_active = 1;
+        assert(enemy_punching_now() == 1);
+        enemy_dash_active = 0;
+
+        /* Bot Astra also keeps acting while its purple block slows walk by 10%. */
+        enemy_class = CLASS_ASTRA;
+        enemy_start_astra_parry();
+        assert(egrab_parry_t > 0 && enemy_tick_class_abilities() == 0);
+        egrab_parry_t = 0;
+
+        for (int f = 0; f < 44; f++)
+            tick_astra();
+        assert(astra_parry_t == 0 && astra_grab_ready_t == 0 && astra_state == 0);
+        assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
+        touch_game(atk2_x, atk2_y, 1, 7);
+
+        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun, waits 0.42 s before
+         *     Strike ("Удар") can be pressed, then keeps it open for 0.85 s. */
+        astra_cd = 0;
+        player->hp = 19;
+        touch_game(atk2_x, atk2_y, 0, 7);
+        touch_game(atk2_x, atk2_y, 1, 7);
+        assert(astra_parry_active() == 1);
+        take_damage_at(6.5, 500, 400);
+        stun_player(0.55);
+        assert(fabs(player->hp - 19.0) < 1e-9 && player_stun == 0);
+        assert(fabs(astra_strike_unlock_t - 0.42) < 1e-9 && astra_grab_ready_t == 0);
+        /* Pressing immediately during the 0.42 s pause cannot cast Strike yet. */
+        touch_game(atk2_x, atk2_y, 0, 8);
+        touch_game(atk2_x, atk2_y, 1, 8);
+        assert(astra_state == 0 && astra_grab_ready_t == 0 && astra_strike_unlock_t > 0);
+        int unlock_ticks = 0;
+        while (astra_strike_unlock_t > 0 && unlock_ticks < 40) {
+            tick_astra();
+            unlock_ticks++;
+        }
+        assert(unlock_ticks >= 25 && unlock_ticks <= 26);
+        assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);
+        adm_reset_log();
+        draw_controls();
+        assert(adm_has_text("Захват") == 0);
+        assert(strcmp(tr_super_astra(), "Удар") == 0);
+
+        for (int f = 0; f < 50; f++)
+            tick_astra();
+        assert(astra_grab_ready_t > 0 && astra_cd == 0);
+        tick_astra();
+        tick_astra();
+        assert(astra_grab_ready_t == 0 && astra_state == 0);
+        assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
+
+        /* 2c) Pressing after the 0.42 s unlock pause performs pullback + 245 px forward dash + stun. */
+        astra_cd = 0;
+        player->x = 400;
+        player->y = 400;
+        player->angle = 0;
+        arr_set(fighter_swings, FLOOK_ME, 1);
+        enemy_class = CLASS_ORDINARY;
+        enemy->x = 470;
+        enemy->y = 400;
+        enemy->hp = enemy->max_hp = 20;
+        enemy->stun = 0;
+        touch_game(atk2_x, atk2_y, 0, 7);
+        touch_game(atk2_x, atk2_y, 1, 7);
+        take_damage_at(3.0, 500, 400);
+        assert(fabs(astra_strike_unlock_t - 0.42) < 1e-9 && fabs(player->hp - 19.0) < 1e-9);
+        while (astra_strike_unlock_t > 0)
+            tick_astra();
+        assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);
+        touch_game(atk2_x, atk2_y, 0, 8);
+        touch_game(atk2_x, atk2_y, 1, 8);
+        assert(astra_state == 1 && astra_grab_ready_t == 0 && astra_parry_t == 0);
+        assert(fabs(astra_ability_lunge_tx - (400.0 + astra_ability_lunge_dist)) < 1e-6 && player_punching_now() == 1);
+        {
+            double saved_dt2 = dt;
+            dt = 0.02;
+            for (int f = 0; f < 9; f++)
+                tick_astra();
+            assert(enemy->stun == 0);
+            tick_astra();
+            assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
+            assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+            for (int f = 0; f < 60 && astra_state != 0; f++)
+                tick_astra();
+            assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
+            for (int f = 0; f < 60 && player_punching_now() == 1; f++)
+                tick_astra();
+            assert(player_punching_now() == 0);
+            dt = saved_dt2;
+        }
+        /* Enemy HP bar fills left-to-right like player's HP bar. */
+        enemy->hp = 10;
+        enemy->max_hp = 20;
+        stub_enemy_hp_fill_x = -1;
+        draw_game();
+        assert(fabs(stub_enemy_hp_fill_x - (screen_w - screen_w / 4 - 20 + 4)) < 0.05);
+        enemy->stun = 0;
+        astra_cd = 0;
+
+        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.2 s. */
+        player_class = CLASS_ORDINARY;
+        player->x = 460;
+        player->y = 400;
+        player->hp = 20;
+        player->max_hp = 20;
+        revive_prot = 0;
+        enemy_class = CLASS_ORDINARY;
+        enemy->x = 400;
+        enemy->y = 400;
+        enemy->angle = 0;
+        enemy->hp = 20;
+        enemy->max_hp = 20;
+        enemy->stun = 0;
+        enemy->state = 0;
+        enemy_punch_a = 0;
+        assert(start_enemy_attack() == 1);
+        assert(enemy->state == 1 && enemy_punching_now() == 1);
+        for (int f = 0; f < 11; f++) {
+            update_enemy();
+            tick_hitbox_fades();
+            assert(enemy->state == 1 && enemy_punching_now() == 1);
+            assert(enemy_punch_a == 0 && fabs(player->hp - 20.0) < 1e-9);
+        }
+        update_enemy();
+        tick_hitbox_fades();
+        assert(enemy->state == 2 && enemy_punch_a > 0);
+        update_enemy();
+        assert(player->hp < 20.0);
+        enemy->state = 0;
+        enemy_punch_a = 0;
+        game_state = ST_LOBBY;
+    }
+
+    /* Sanch: CCP modifiers only (no gift management, no Battle Pass UI, no winter theme),
+     * while keeping earned BP rewards and stored candies; Dimasi4ek229 retains everything. */
+    {
+        assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
+        assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
+        assert(admin_slot("qwertyuiopaj1234") == 0 && admin_slot("QWERTYUIOPAJ1234") == 0);
+        assert(strcmp(admin_nick_of(1), "Dimasi4ek229") == 0);
+        assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
+        assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFDD33u);
+        assert((uint32_t)admin_color_of("qwertyuiopaj1234", 0xFFFFFFFF) == 0xFF4FC3F7u);
+        assert((uint32_t)admin_head_color_of("qwertyuiopaj1234", 0xFFFFFFFF) == 0xFF33A8FFu);
+        assert((uint32_t)admin_color_of("Dimasi4ek229", 0xFFFFFFFF) == 0xFFFF4444u);
+        assert((uint32_t)admin_color_of("Player2", 0xFFFFFFFF) == 0xFFFFFFFFu);
+        assert(nick_shimmers("Dimasi4ek229") == 1 && nick_shimmers("Sanch") == 1 &&
+               nick_shimmers("qwertyuiopaj1234") == 1 && nick_shimmers("Player2") == 0);
+
+        /* qwertyuiopaj1234: sky-blue shimmering nick and modifier-only CCP (no gift management). */
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
+        astra_ability_refresh();
+        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(dev_access() == 0 && bpass_allowed() == 0 && bpass_rewards_allowed() == 0);
+        assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+        shimmer_text_n = 0;
+        draw_lobby_nick();
+        assert(shimmer_text_n == 1);
+        adm_reset_log();
+        language = 1;
+        game_state = ST_LOBBY;
+        admin_panel_open = 1;
+        admin_tab = 1;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        assert(admin_tab == 0);
+        adm_reset_log();
+        admin_draw();
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
+        assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        admin_panel_open = 0;
+
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
+        astra_ability_refresh();
+        winter_theme = 1;
+        candy_enabled = 1;
+        bp_claimed = 0;
+        bp_xp = 300;
+        candies = 77;
+        set_class_owned(CLASS_SANTA, 0);
+        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(dev_access() == 0 && winter_theme_on() == 0);
+        assert(bpass_allowed() == 0 && candies_on() == 0);
+        assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+
+        /* Sanch cannot claim BP tiers, open BP, or see candies on balance, yet candies stay stored. */
+        bp_claim(1);
+        assert(bp_claimed == 0 && fabs(candies - 77.0) < 1e-9);
+        adm_reset_log();
+        language = 1;
+        draw_lobby_money();
+        assert(adm_has_text("Конфеты") == 0 && fabs(candies - 77.0) < 1e-9);
+
+        /* Previously earned BP Tier 7 Santa remains unlocked for Sanch; Elf ebuC requires online ACH_BUK_GIFT. */
+        bp_claimed = 4;
+        achievement_mask = 0;
+        ebuc_skin = SKIN_SPECIAL;
+        progress_normalize();
+        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0 && ebuc_skin == SKIN_NORMAL);
+        bp_claimed = 7;
+        player_class = CLASS_SANTA;
+        progress_normalize();
+        assert(class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1 && player_class == CLASS_SANTA);
+        assert(fabs(candies - 77.0) < 1e-9);
+
+        /* Sanch sees CCP with regular modifiers only and no gift management tab. */
+        adm_reset_log();
+        game_state = ST_LOBBY;
+        admin_panel_open = 1;
+        admin_tab = 1;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        assert(admin_tab == 0);
+        adm_reset_log();
+        language = 1;
+        admin_draw();
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
+        assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        cheat_god = 1;
+        cheat_damage = 1;
+        assert(admin_cheat_god() == 1 && fabs(admin_cheat_damage_mult() - 5.0) < 1e-9);
+        cheat_god = 0;
+        cheat_damage = 0;
+        admin_panel_open = 0;
+        bp_claimed = 0;
+        bp_xp = 0;
+        winter_theme = 0;
+        player_class = CLASS_ORDINARY;
+        set_class_owned(CLASS_SANTA, 0);
+
+        /* Dimasi4ek229 retains full CCP (both Cheats & Gifts), winter theme, and BP (Tier 6 = +100 cups). */
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Dimasi4ek229");
+        astra_ability_refresh();
+        winter_theme = 1;
+        assert(is_admin() == 1 && dev_access() == 1 && winter_theme_on() == 1);
+        assert(bpass_allowed() == 1 && candies_on() == 1 && admin_gifts_allowed() == 1);
+        adm_reset_log();
+        language = 1;
+        admin_panel_open = 1;
+        admin_draw();
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Читы") == 1 && adm_has_text("Подарки") == 1);
+        admin_panel_open = 0;
+        winter_theme = 0;
+
+        candies = 500;
+        cups = 100;
+        bp_xp = 300;
+        for (int t = 1; t <= 7; t++) {
+            language = 0;
+            assert(strstr(bp_reward_text(t), "cand") == NULL);
+            language = 1;
+            assert(strstr(bp_reward_text(t), "конфет") == NULL);
+        }
+        for (int t = 1; t <= 5; t++)
+            bp_claim(t);
+        double cups_before_t6 = cups;
+        double candies_before_t6 = candies;
+        bp_claim(6);
+        assert(bp_claimed == 6 && fabs(cups - (cups_before_t6 + 100)) < 1e-9);
+        assert(fabs(candies - (candies_before_t6 - 95)) < 1e-9);
+        bp_claimed = 0;
+        bp_xp = 0;
+
+        stub_gift_hue = 0;
+        stub_frame_seconds = 0.05;
+        gift_shimmer_t = 0;
+        uint32_t c0 = gift_hue_color(gift_emerald_phase());
+        for (int f = 0; f < 16; f++)
+            gift_shimmer_tick();
+        uint32_t c1 = gift_hue_color(gift_emerald_phase());
+        for (int f = 0; f < 16; f++)
+            gift_shimmer_tick();
+        uint32_t c2 = gift_hue_color(gift_emerald_phase());
+        assert(c0 != c1 && c1 != c2 && c0 != c2);
+        stub_frame_seconds = 0;
+    }
+
+    /* Combat & UI regressions: single-collapse remote Universe, join baselining,
+     * try_revive debuff clear + tiny-screen guard, revive_prot guards, and rooms_open reset. */
+    {
+        /* 1) Remote Universe collapses once per cast counter increment (no infinite loop). */
+        screen_w = 1280;
+        screen_h = 720;
+        dt = 0.1;
+        finished = 0;
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        stub_online[2] = 1;
+        stub_level[2] = 0;
+        stub_universe[2] = 1;
+        stub_ux[2] = 0.5;
+        stub_uy[2] = 0.5;
+        player_class = CLASS_ORDINARY;
+        player->max_hp = 100;
+        player->hp = 100;
+        player_block = 0;
+        revive_prot = 0;
+        arr_set(remote_universe, 2 * universe_fields, 0);
+        arr_set(remote_universe, 2 * universe_fields + 1, 0);
+        for (int f = 0; f < 40; f++)
+            update_remote_universe();
+        double hp_after_one = player->hp;
+        assert(hp_after_one < 100.0 && hp_after_one > 0.0);
+        for (int f = 0; f < 40; f++)
+            update_remote_universe();
+        assert(fabs(player->hp - hp_after_one) < 1e-9);
+
+        /* 2) Joining mid-match baselines remote counters so pre-join abilities do not replay. */
+        stub_universe[3] = 7;
+        stub_brick[3] = 4;
+        stub_online[3] = 1;
+        stub_ralive[3] = 1;
+        stub_hp[3] = 20;
+        stub_class[3] = CLASS_EBUC;
+        arr_set(remotes, 3 * remote_fields, 0);
+        remote_bricks_reset();
+        read_remotes();
+        remote_bricks_tick();
+        assert(rb_on[3] == 0);
+        for (int f = 0; f < 40; f++)
+            update_remote_universe();
+        assert(fabs(player->hp - hp_after_one) < 1e-9);
+        stub_online[2] = 0;
+        stub_online[3] = 0;
+
+        /* 3) rb_burst and online CodeCracker bite respect revive_prot invulnerability. */
+        player->x = 400;
+        player->y = 300;
+        player->hp = 20;
+        player->max_hp = 20;
+        revive_prot = 1.0;
+        rb_bounces[1] = 3;
+        rb_burst(1, 400, 300);
+        assert(fabs(player->hp - 20.0) < 1e-9);
+
+        stub_online[1] = 1;
+        stub_ralive[1] = 1;
+        stub_hp[1] = 12;
+        stub_class[1] = CLASS_CODECRACKER;
+        stub_cc_super[1] = 1;
+        stub_rx[1] = 400.0 / screen_w;
+        stub_ry[1] = 300.0 / screen_h;
+        arr_set(remotes, 1 * remote_fields, 0);
+        read_remotes();
+        arr_set(codecracker_touch_cds, max_players + 1, 0);
+        codecracker_tick_online();
+        assert(fabs(player->hp - 20.0) < 1e-9);
+        stub_online[1] = 0;
+        stub_cc_super[1] = 0;
+        revive_prot = 0;
+
+        /* 4) try_revive clears stun/freeze/poison and handles tiny screens safely. */
+        game_state = ST_SOLO;
+        player_class = CLASS_AZUM;
+        azum_revived = 0;
+        player->max_hp = 20;
+        player->hp = 0;
+        player_stun = 1.5;
+        player_freeze = 2.0;
+        player_poison = 3.0;
+        screen_w = 120;
+        screen_h = 100;
+        player->x = 60;
+        player->y = 50;
+        assert(try_revive() == 1);
+        assert(fabs(player->hp - 20.0) < 1e-9);
+        assert(player_stun == 0 && player_freeze == 0 && player_poison == 0);
+        assert(player->x >= 0 && player->x <= screen_w && player->y >= 0 && player->y <= screen_h);
+        screen_w = 1280;
+        screen_h = 720;
+
+        /* 5) rooms_open clears stale create/join input buffers. */
+        snprintf(rooms_name_buf, sizeof(rooms_name_buf), "%s", "stale-room");
+        snprintf(rooms_pass_buf, sizeof(rooms_pass_buf), "%s", "stale-pass");
+        rooms_name = rooms_name_buf;
+        rooms_pass = rooms_pass_buf;
+        rooms_open();
+        assert(rooms_name_buf[0] == 0 && rooms_pass_buf[0] == 0);
+        assert(str_len(rooms_name) == 0 && str_len(rooms_pass) == 0);
+        game_state = ST_LOBBY;
+        dt = 1.0 / 60.0;
+    }
+
+    /* Bot ebuC mode switching and Santa alternating straight / zigzag (-10% size) snowflakes. */
+    {
+        /* 1) Bot ebuC alternates between dispenser turret (mode 0) and bouncing projectile (mode 1). */
+        screen_w = 1280;
+        screen_h = 720;
+        dt = 0.05;
+        finished = 0;
+        game_state = ST_SOLO;
+        enemy_reset_class_state();
+        enemy_class = CLASS_EBUC;
+        enemy->x = 300;
+        enemy->y = 360;
+        enemy->hp = 20;
+        enemy->max_hp = 20;
+        enemy->state = 0;
+        player->x = 700;
+        player->y = 360;
+        player->hp = 20;
+        player->max_hp = 20;
+        player_block = 0;
+        revive_prot = 0;
+        assert(enemy_ball_mode == 0 && enemy_turret_count_alive() == 0);
+
+        /* First cast: places turret and switches enemy_ball_mode to 1. */
+        enemy_super_cd = 0;
+        assert(enemy_tick_class_abilities() == 1);
+        assert(enemy_super_kind == 2 && enemy_ball_mode == 1);
+        for (int f = 0; f < 6; f++)
+            enemy_tick_class_abilities();
+        assert(enemy_turret_count_alive() == 1 && enemy_ball_active() == 0);
+
+        /* Second cast: fires bouncing projectile and switches enemy_ball_mode back to 0. */
+        enemy_super_cd = 0;
+        assert(enemy_tick_class_abilities() == 1);
+        assert(enemy_super_kind == 4 && enemy_ball_mode == 0);
+        for (int f = 0; f < 6; f++)
+            enemy_tick_class_abilities();
+        assert(enemy_ball_active() == 1);
+        for (int f = 0; f < 40 && enemy_ball_active() == 1; f++)
+            tick_enemy_class();
+        assert(enemy_ball_active() == 0 && player->hp < 20.0);
+
+        /* When all 3 turret slots are full, bot ebuC forces projectile mode even if mode was 0. */
+        enemy_place_turret();
+        enemy_place_turret();
+        assert(enemy_turret_count_alive() == 3);
+        enemy_ball_mode = 0;
+        enemy_super_cd = 0;
+        assert(enemy_tick_class_abilities() == 1);
+        assert(enemy_super_kind == 4);
+        enemy_reset_class_state();
+
+        /* 2) Santa alternates: cast 1 normal straight, cast 2 10%-smaller left-right zigzag, cast 3 straight, cast 4 zigzag. */
+        assert(snow_is_zigzag(1) == 0 && fabs(snow_scale_for(1) - 1.0) < 1e-9 && fabs(snow_radius_for(1) - 24.0) < 1e-9);
+        assert(snow_is_zigzag(2) == 1 && fabs(snow_scale_for(2) - 0.9) < 1e-9 && fabs(snow_radius_for(2) - 21.6) < 1e-9);
+        assert(snow_is_zigzag(3) == 0 && fabs(snow_scale_for(3) - 1.0) < 1e-9);
+        assert(snow_is_zigzag(4) == 1 && fabs(snow_scale_for(4) - 0.9) < 1e-9);
+
+        player_class = CLASS_SANTA;
+        player->x = 200;
+        player->y = 360;
+        player->angle = 0;
+        enemy->x = 1100;
+        enemy->y = 360;
+        enemy->hp = 20;
+        gift->active = 0;
+        gift->shot = 0;
+        dt = 0.025;
+
+        /* Cast 1: straight normal snowflake along +X (y stays at 360). */
+        super_windup = 0.01;
+        tick_super_windup();
+        assert(gift->active == 1 && gift->shot == 1);
+        for (int f = 0; f < 10; f++) {
+            update_gift();
+            assert(fabs(gift->y - 360.0) < 1e-9);
+        }
+        assert(gift->x > 200.0);
+        gift->active = 0;
+
+        /* Cast 2: 10%-smaller zigzag snowflake moves forward along +X while oscillating both +Y and -Y. */
+        super_windup = 0.01;
+        tick_super_windup();
+        assert(gift->active == 1 && gift->shot == 2);
+        double min_y = 360.0, max_y = 360.0, prev_x = gift->x;
+        for (int f = 0; f < 12; f++) {
+            update_gift();
+            assert(gift->x > prev_x);
+            prev_x = gift->x;
+            if (gift->y < min_y) min_y = gift->y;
+            if (gift->y > max_y) max_y = gift->y;
+        }
+        assert(max_y > 375.0 && min_y < 345.0);
+        gift->active = 0;
+
+        /* Bot Santa and online remote Santa also alternate straight (shot 1) then zigzag (shot 2). */
+        enemy_class = CLASS_SANTA;
+        enemy->x = 900;
+        enemy->y = 360;
+        player->x = 200;
+        player->y = 360;
+        enemy_gift->shot = 0;
+        enemy_start_snow();
+        assert(enemy_gift->shot == 1);
+        tick_enemy_gift();
+        assert(fabs(enemy_gift->y - 360.0) < 1e-9);
+        enemy_gift->active = 0;
+        enemy_start_snow();
+        assert(enemy_gift->shot == 2);
+        tick_enemy_gift();
+        tick_enemy_gift();
+        assert(fabs(enemy_gift->y - 360.0) > 5.0 && enemy_gift->x < 900.0);
+        enemy_gift->active = 0;
+
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        stub_online[1] = 1;
+        stub_snow[1] = 2;
+        stub_sx[1] = 300.0 / screen_w;
+        stub_sy[1] = 360.0 / screen_h;
+        stub_sdx[1] = 1.0;
+        stub_sdy[1] = 0.0;
+        player->x = 1100;
+        player->y = 360;
+        arr_set(remote_snow, 1 * snow_fields, 1);
+        arr_set(remote_snow, 1 * snow_fields + 1, 0);
+        update_remote_snow();
+        update_remote_snow();
+        assert(fabs(arr_get(remote_snow, 1 * snow_fields + 4) - 360.0) > 5.0);
+        assert(arr_get(remote_snow, 1 * snow_fields + 3) > 300.0);
+        arr_set(remote_snow, 1 * snow_fields + 1, 0);
+        stub_online[1] = 0;
+        stub_snow[1] = 0;
+        game_state = ST_LOBBY;
+        dt = 1.0 / 60.0;
+    }
+
+    /* ebuC's projectile bursts on online remote contact, side-hand touch, and slow frames,
+     * remote dead-reckoning decays cleanly on stop, and online defeat publishes alive == 0. */
+    {
+        screen_w = 1280;
+        screen_h = 720;
+        dt = 1.0 / 60.0;
+        reset_battle();
+
+        /* 1. Online shooter's projectile bursts on living remote fighter instead of flying through. */
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        player_class = CLASS_EBUC;
+        ball_mode = 1;
+        player->x = 300;
+        player->y = 360;
+        player->angle = 0;
+        super_cd = 0;
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 480);
+        arr_set(remotes, 1 * remote_fields + 2, 360);
+        arr_set(remotes, 1 * remote_fields + 3, 0);
+        arr_set(remotes, 1 * remote_fields + 4, 20);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        ball_fire();
+        assert(ball.active == 1);
+        for (int f = 0; f < 30 && ball.active == 1; f++)
+            ball_tick();
+        assert(ball.active == 0 && ball.boom_t > 0);
+        assert(ball.boom_x < 480);
+
+        /* 2. Grazing visible side hands of a fighter bursts the projectile in Solo and Online. */
+        game_state = ST_SOLO;
+        ball_reset();
+        enemy->hp = 20;
+        enemy->x = 500;
+        enemy->y = 360;
+        enemy->angle = 0; /* Facing right: side hands extend vertically to +-23*cube_scale*enemy_scale (~58 px). */
+        ball.active = 1;
+        ball.x = 475;
+        ball.y = 360 + 74; /* Center offset 74 px: misses 40.3+24=64.3 old box, touches 58+24=82 visible hand! */
+        ball.vx = BALL_SPEED;
+        ball.vy = 0;
+        ball.bounces = 0;
+        ball.t = 0;
+        dt = 0.08; /* Slow frame spike: swept segment prevents tunneling past thin 4.5-texel hand! */
+        ball_tick();
+        assert(ball.active == 0 && ball.boom_t > 0);
+        assert(enemy->hp < 20.0);
+        dt = 1.0 / 60.0;
+
+        /* 3. Remote dead-reckoning has zero join velocity spike and settles onto nx,ny when stopped. */
+        game_state = ST_ONLINE;
+        reset_remote_smooth();
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 600);
+        arr_set(remotes, 1 * remote_fields + 2, 360);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 7, 600);
+        arr_set(remotes, 1 * remote_fields + 8, 360);
+        smooth_remotes();
+        assert(fabs(arr_get(remotes, 1 * remote_fields + 1) - 600.0) < 1e-6);
+        /* Snapshot moves right by 18 px after 3 frames (360 px/s). */
+        for (int f = 0; f < 3; f++)
+            smooth_remotes();
+        arr_set(remotes, 1 * remote_fields + 7, 618);
+        for (int f = 0; f < 4; f++)
+            smooth_remotes();
+        assert(arr_get(remotes, 1 * remote_fields + 1) > 618.0);
+        /* Remote stops moving: smoothed position settles back onto 618 instead of staying offset. */
+        for (int f = 0; f < 45; f++)
+            smooth_remotes();
+        assert(fabs(arr_get(remotes, 1 * remote_fields + 1) - 618.0) < 0.5);
+
+        /* 4. Online defeat immediately publishes hp == 0 and alive == 0. */
+        stub_net_slot = 0;
+        stub_pub_calls = 0;
+        stub_pub_hp = 20;
+        stub_pub_alive = 1;
+        player_class = CLASS_ORDINARY;
+        player->hp = 0;
+        finish_game(2);
+        assert(stub_pub_calls > 0 && stub_pub_hp == 0 && stub_pub_alive == 0);
+
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+        finished = 0;
+        game_state = ST_LOBBY;
+    }
+
+    /* Drag-over does not squeeze buttons; normal punches hit after 0.2 s for player & remote. */
+    {
+        /* 1. Dragging/moving over a button (action == 2) never triggers press squeeze. */
+        game_state = ST_LOBBY;
+        t_dir = 0;
+        press_points_clear();
+        press_pulses_clear();
+        logic_touch(menu_x() + btn_w / 2, menu_row(0) + btn_h / 2, 2, 11);
+        assert(press_point_n == 0);
+        assert(button_press_k(menu_x(), menu_row(0), btn_w, btn_h) == 0);
+        assert(press_phase[0] == 0);
+
+        /* 2. Player normal punch: pose immediate, hitbox/damage after 0.2 s. */
+        game_state = ST_SOLO;
+        finished = 0;
+        dt = 0.02;
+        player_class = CLASS_ORDINARY;
+        player_level = 0;
+        player->x = 400;
+        player->y = 400;
+        player->angle = 0;
+        player->hp = player->max_hp = 20;
+        enemy_class = CLASS_ORDINARY;
+        enemy->x = 460;
+        enemy->y = 400;
+        enemy->hp = enemy->max_hp = 20;
+        enemy->stun = 99; /* keep enemy stationary to verify exact 0.2 s timing */
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+        aim_a = 0;
+        fire_punch();
+        assert(punch->active == 1 && player_punching_now() == 1);
+        for (int f = 0; f < 9; f++) {
+            update_game();
+            assert(player_punching_now() == 1 && fabs(enemy->hp - 20.0) < 1e-9);
+        }
+        update_game();
+        assert(enemy->hp < 20.0);
+        enemy->stun = 0;
+        punch->active = 0;
+        punch_left = 0;
+        punch_cd = 0;
+
+        /* 3. Online remote normal punch: pose immediate, damage after 0.2 s. */
+        game_state = ST_ONLINE;
+        stub_net_slot = 0;
+        finished = 0;
+        player->x = 460;
+        player->y = 400;
+        player->hp = player->max_hp = 20;
+        revive_prot = 0;
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 400);
+        arr_set(remotes, 1 * remote_fields + 2, 400);
+        arr_set(remotes, 1 * remote_fields + 3, 0);
+        arr_set(remotes, 1 * remote_fields + 4, 20);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
+        arr_set(remote_punches, 1 * punch_fields, 1);
+        arr_set(remote_punches, 1 * punch_fields + 1, 400);
+        arr_set(remote_punches, 1 * punch_fields + 2, 400);
+        arr_set(remote_punches, 1 * punch_fields + 3, 1);
+        arr_set(remote_punches, 1 * punch_fields + 4, 0);
+        arr_set(remote_punches, 1 * punch_fields + 5, 0);
+        for (int f = 0; f < 9; f++) {
+            tick_remote_punches();
+            update_remote_punches();
+            assert(arr_get(remote_punches, 1 * punch_fields) == 1 && fabs(player->hp - 20.0) < 1e-9);
+        }
+        tick_remote_punches();
+        update_remote_punches();
+        assert(player->hp < 20.0 && arr_get(remote_punches, 1 * punch_fields) == 2);
+        clear_remote_punch(1);
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+        dt = 1.0 / 60.0;
+        game_state = ST_LOBBY;
+    }
+
+    /* Regression suite: room list scroll + search, Event Cube/Santa scale & nicks,
+     * Elf буК custom dispenser + monochrome white beam, and 0-cup purchase guards. */
+    {
+        /* 1. ST_ROOMS vertical scrolling, inertia, wheel, and case-insensitive search. */
+        screen_w = 1280;
+        screen_h = 720;
+        t_dir = 0;
+        acct_open = 0;
+        docs_open = 0;
+        warn_open = 0;
+        studio_open = 0;
+        admin_panel_open = 0;
+        language = 1;
+        stub_roomlist_count = 20;
+        for (int i = 0; i < 20; i++) {
+            snprintf(stub_room_names[i], sizeof(stub_room_names[i]), i % 5 == 0 ? "Alpha-%02d" : "Room-%02d", i);
+        }
+        game_state = ST_ROOMS;
+        rooms_open();
+        assert(rooms_filtered_count() == 20 && rooms_scroll_needed() == 1 && rooms_scroll_max() > 0);
+        int pre_calls = stub_prep_calls;
+        int sc_before = stub_scissor_calls;
+        draw_rooms();
+        assert(stub_scissor_calls >= sc_before + 2 && stub_scissor_active == 0);
+        double sx = rooms_x() + rooms_w() / 2;
+        double sy = rooms_list_y() + 180;
+        logic_touch(sx, sy, 0, 201);
+        logic_touch(sx, sy - 90, 2, 201);
+        update_rooms();
+        logic_touch(sx, sy - 160, 2, 201);
+        logic_touch(sx, sy - 160, 1, 201);
+        assert(stub_prep_calls == pre_calls && rooms_scroll > 100 && rooms_vel > 0);
+        double scrolled = rooms_scroll;
+        update_rooms();
+        assert(rooms_scroll > scrolled);
+        rooms_vel = 0;
+        rooms_scroll_by(5000);
+        assert(fabs(rooms_scroll - rooms_scroll_max()) < 1e-9);
+        /* Tap a visible bottom row after scrolling to join it. */
+        double last_ry = rooms_row_y(19) + rooms_row_h() / 2;
+        assert(last_ry >= rooms_list_y() && last_ry <= rooms_list_bottom());
+        logic_touch(sx, last_ry, 0, 202);
+        logic_touch(sx, last_ry, 1, 202);
+        assert(stub_prep_calls == pre_calls + 1 && strcmp(stub_prep_name, "Room-19") == 0);
+        rooms_waiting = 0;
+        stub_prep_status = 0;
+        /* Search filter + clear button. */
+        logic_touch(rooms_x() + 40, rooms_search_y() + rooms_search_h() / 2, 0, 203);
+        assert(rooms_field == 3 && keyboard_visible() == 1);
+        stub_kb_set("alpha");
+        update_rooms();
+        assert(rooms_filtered_count() == 4 && rooms_scroll_needed() == 0 && rooms_scroll == 0);
+        assert(strcmp(rooms_filtered_name(0), "Alpha-00") == 0 && strcmp(rooms_filtered_name(3), "Alpha-15") == 0);
+        stub_kb_set("no-such-room");
+        update_rooms();
+        assert(rooms_filtered_count() == 0);
+        adm_reset_log();
+        draw_rooms();
+        assert(adm_has_text("Комнаты не найдены") == 1);
+        /* Clear search button restores full list. */
+        logic_touch(rooms_x() + rooms_w() - rooms_search_h() / 2, rooms_search_y() + rooms_search_h() / 2, 0, 204);
+        assert(str_len(rooms_search) == 0 && rooms_filtered_count() == 20);
+        keyboard_hide();
+        keyboard_clear();
+
+        /* 2. Event 4 Cube & Event 3 Santa exact player scale and overhead nicknames. */
+        game_state = ST_ONLINE;
+        event_mode = 4;
+        event_t = 1.0;
+        dice_event_reset();
+        adm_reset_log();
+        draw_dice_event();
+        assert(last_ground && strcmp(last_ground, ORDINARY_TEX) == 0);
+        assert(fabs(last_tex_scale - cube_scale * player_scale) < 1e-6);
+        assert(adm_has_text("Кубик") == 1);
+        event_mode = 3;
+        santa_event_begin();
+        plates_santa_t = 1.0;
+        adm_reset_log();
+        draw_event_santa();
+        assert(last_ground && strcmp(last_ground, SANTA_TEX) == 0);
+        assert(fabs(last_tex_scale - cube_scale * player_scale) < 1e-6);
+        assert(adm_has_text("Дед Мороз") == 1);
+        event_mode = 0;
+        plates_phase = 0;
+
+        /* 3. Elf буК custom dispenser sprite + pure monochrome white beam (local & remote). */
+        assert(strcmp(EBUC_ELF_DESPENSER_TEX, "ebuc_elf_dispenser.png") == 0);
+        finished = 0;
+        player_class = CLASS_EBUC;
+        ebuc_skin = SKIN_SPECIAL;
+        player->hp = 20;
+        player->x = 500;
+        player->y = 300;
+        arr_set(turret_x, 0, 340);
+        arr_set(turret_y, 0, 300);
+        arr_set(turret_hp, 0, 10);
+        arr_set(turret_maxhp, 0, 10);
+        arr_set(turret_spawn_t, 0, 0);
+        last_turret_slot = 0;
+        adm_reset_log();
+        draw_station();
+        assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
+        assert(adm_color_n >= 2);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        /* Normal буК still uses regular dispenser + green beam. */
+        ebuc_skin = SKIN_NORMAL;
+        adm_reset_log();
+        draw_station();
+        assert(last_ground && strcmp(last_ground, DESPENSER_TEX) == 0);
+        assert(adm_color_n >= 2 && (adm_colors[0] & 0xFFFFFFu) != 0xFFFFFFu);
+        arr_set(turret_hp, 0, 0);
+        /* Remote Online Elf буК also renders custom dispenser + monochrome white beam. */
+        stub_net_slot = 0;
+        for (int k = 0; k < (int)(max_players * station_fields); k++) {
+            arr_set(remote_station, k, 0);
+        }
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 1, 520);
+        arr_set(remotes, 1 * remote_fields + 2, 320);
+        arr_set(remotes, 1 * remote_fields + 4, 20);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 10, CLASS_EBUC);
+        arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
+        arr_set(remote_station, 1 * station_fields, 1);
+        arr_set(remote_station, 1 * station_fields + 1, 1);
+        arr_set(remote_station, 1 * station_fields + 2, 360);
+        arr_set(remote_station, 1 * station_fields + 3, 320);
+        arr_set(remote_station, 1 * station_fields + 4, 10);
+        adm_reset_log();
+        draw_remote_station();
+        assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
+        assert(adm_color_n >= 2);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        arr_set(remote_station, 1 * station_fields + 1, 0);
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+
+        /* 4. 0-cup / negative / NaN / fractional balance purchase rejection. */
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "ZeroCupFriend");
+        assert(admin_playing() == 0);
+        set_class_owned(CLASS_AZUM, 0);
+        set_class_owned(CLASS_EBUC, 0);
+        set_class_owned(CLASS_ASTRA, 0);
+        set_class_owned(CLASS_CODECRACKER, 0);
+        player_class = CLASS_ORDINARY;
+        set_class_progress(CLASS_ORDINARY, 0, 0);
+        double bad_balances[5] = {0.0, -50.0, 0.0 / 0.0, 49.99, 84.99};
+        for (int bi = 0; bi < 5; bi++) {
+            cups = bad_balances[bi];
+            candies = 0;
+            pick_class(CLASS_AZUM);
+            pick_class(CLASS_EBUC);
+            pick_class(CLASS_ASTRA);
+            pick_class(CLASS_CODECRACKER);
+            assert(class_owned_of(CLASS_AZUM) == 0 && class_owned_of(CLASS_EBUC) == 0);
+            assert(class_owned_of(CLASS_ASTRA) == 0 && class_owned_of(CLASS_CODECRACKER) == 0);
+            assert(player_class == CLASS_ORDINARY);
+            if (!(cups >= level_cost(1))) {
+                assert(buy_level(CLASS_ORDINARY, 1) == 0 && class_unlocked_of(CLASS_ORDINARY) == 0);
+            }
+        }
+        /* Corrupt non-1 value in class_owned_tbl does not count as owned. */
+        set_class_owned(CLASS_AZUM, 2);
+        assert(class_owned_of(CLASS_AZUM) == 0);
+        game_state = ST_LOBBY;
     }
 
     state_destroy();

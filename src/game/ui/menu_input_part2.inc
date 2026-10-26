@@ -1,7 +1,42 @@
+static double classes_vel;
+static double classes_swipe_travel;
+static ScrollTrack classes_track;
+
 static void classes_swipe_reset(void) {
     classes_swipe_id = -1;
     classes_swipe_card = -1;
     classes_swipe_moved = 0;
+    classes_vel = 0;
+    classes_swipe_travel = 0;
+    scroll_track_reset(&classes_track);
+}
+
+static void classes_scroll_tick(void) {
+    if (classes_scroll_needed() == 0) {
+        classes_scroll = 0;
+        classes_swipe_reset();
+        return;
+    }
+    classes_scroll_clamp();
+    if (classes_swipe_id >= 0) {
+        classes_vel = 0;
+        scroll_track_tick(&classes_track);
+        return;
+    }
+    if (fabs(classes_vel) < 0.6) {
+        classes_vel = 0;
+        return;
+    }
+    double mx = classes_scroll_max();
+    classes_scroll = classes_scroll + classes_vel * dt;
+    classes_vel = classes_vel * exp(-4.8 * dt);
+    if (classes_scroll <= 0) {
+        classes_scroll = 0;
+        classes_vel = 0;
+    } else if (classes_scroll >= mx) {
+        classes_scroll = mx;
+        classes_vel = 0;
+    }
 }
 
 static double classes_swipe_threshold(void) { return clamp(screen_w * 0.08, 48, 88); }
@@ -12,38 +47,50 @@ static double classes_button_hit(double x, double y) {
 
 static void touch_classes(double x, double y, double action, double id) {
     if (action == 3) {
-        classes_swipe_reset();
+        if (classes_swipe_id < 0 || id == classes_swipe_id) classes_swipe_reset();
         return;
     }
     if (action == 2) {
-        /* Dragging the strip scrolls it under the finger - but only when the
-         * cards do not all fit (classes_scroll_by() clamps to 0 otherwise,
-         * so on a wide screen a drag simply does nothing). */
         if (classes_swipe_id != id || classes_swipe_id == -1) {
             return;
         }
+        double d = classes_swipe_last_x - x;
+        classes_swipe_last_x = x;
+        if (fabs(d) < 1e-6) return;
+        classes_swipe_travel = classes_swipe_travel + fabs(d);
         if (classes_scroll_needed() == 1) {
-            classes_scroll_by(classes_swipe_last_x - x);
-            if (fabs(x - classes_swipe_start_x) > classes_swipe_threshold() * 0.35) {
+            classes_scroll_by(d);
+            scroll_track_move(&classes_track, d);
+            if (classes_swipe_travel > 12 || fabs(x - classes_swipe_start_x) > classes_swipe_threshold() * 0.35) {
                 classes_swipe_moved = 1;
+                press_points_drop(id);
             }
         }
-        classes_swipe_last_x = x;
         return;
     }
     if (action == 1) {
-        /* The card body picks when the finger lifts on it: a drag that
-         * scrolled the strip must not also buy the class under the finger. */
+        if (classes_swipe_id != id) return;
         double vi = classes_swipe_card;
         double moved = classes_swipe_moved;
-        classes_swipe_reset();
+        classes_swipe_id = -1;
+        classes_swipe_card = -1;
+        classes_swipe_moved = 0;
+        classes_swipe_travel = 0;
+        classes_vel = classes_scroll_needed() == 1 ? scroll_track_release(&classes_track, 2400.0) : 0;
         if (moved == 0 && vi >= 0 && hit_class_card(x, y, vi) == 1) {
+            classes_vel = 0;
             pick_class(visible_class_at(vi));
         }
         return;
     }
+    if (action != 0) return;
+    if (classes_swipe_id >= 0 && id != classes_swipe_id) {
+        press_points_drop(id);
+        return;
+    }
     /* action == 0: every button acts on the touch itself. */
     if (classes_button_hit(x, y) == 1) {
+        classes_swipe_reset();
         play_button_click();
         if (back_hit(x, y) == 1) {
             start_transition(ST_LOBBY);
@@ -58,19 +105,19 @@ static void touch_classes(double x, double y, double action, double id) {
     double last = classes_visible_count();
     while (vi < last) {
         if (hit_class_card(x, y, vi) == 1) {
+            classes_vel = 0;
+            scroll_track_reset(&classes_track);
             if (hit_class_pill(x, y, vi) == 1) {
-                /* The pill is a button: it buys or picks there and then. */
                 play_button_click();
                 pick_class(visible_class_at(vi));
             } else {
-                /* The rest of the card only takes the press as feedback; the
-                 * pick waits for the release so a drag can still scroll. */
                 play_button_click();
                 classes_swipe_id = id;
                 classes_swipe_start_x = x;
                 classes_swipe_start_y = y;
                 classes_swipe_last_x = x;
                 classes_swipe_moved = 0;
+                classes_swipe_travel = 0;
                 classes_swipe_card = vi;
             }
             return;
@@ -78,11 +125,14 @@ static void touch_classes(double x, double y, double action, double id) {
         vi = vi + 1;
     }
     if (classes_swipe_zone(x, y) == 1) {
+        classes_vel = 0;
+        scroll_track_reset(&classes_track);
         classes_swipe_id = id;
         classes_swipe_start_x = x;
         classes_swipe_start_y = y;
         classes_swipe_last_x = x;
         classes_swipe_moved = 0;
+        classes_swipe_travel = 0;
         classes_swipe_card = -1;
     }
 }
@@ -91,9 +141,7 @@ static void touch_classes(double x, double y, double action, double id) {
 static double menu_button_hit(double x, double y) {
     double i = 0;
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
-        /* Battles: only real buttons click - the intro card dismiss, the
-         * joysticks and the attack pads stay silent, while the back button,
-         * the chat controls and the results tap give feedback. */
+        /* Play UI click sound only on battle UI buttons, not joysticks or combat pads. */
         if (finished != 0) {
             return finish_t >= alert_hold;
         }
@@ -107,11 +155,9 @@ static double menu_button_hit(double x, double y) {
             if (hit_menu_row(x, y, i) == 1) return 1;
             i = i + 1;
         }
-        return is_admin() == 1 ? hit_bpass_corner(x, y) : 0;
+        return bpass_allowed() == 1 ? hit_bpass_corner(x, y) : 0;
     }
     if (game_state == ST_MODES) {
-        /* Rows 0..4 and the promo button in the corner; the winter row is
-         * dead (not even a click) while it is developer-only. */
         while (i <= 3) {
             if (hit_modes_row(x, y, i) == 1) return 1;
             i = i + 1;
@@ -120,8 +166,6 @@ static double menu_button_hit(double x, double y) {
         return hit_promo_corner(x, y);
     }
     if (game_state == ST_SETTINGS) {
-        /* Only the six rows that are drawn (0..5) click; a row below the list
-         * used to click on empty space. */
         while (i <= 5) {
             if (hit_settings_row(x, y, i) == 1) return 1;
             i = i + 1;
@@ -180,6 +224,14 @@ static void touch_menu(double x, double y, double action, double id) {
         touch_classes(x, y, action, id);
         return;
     }
+    if (game_state == ST_ACHIEVEMENTS) {
+        touch_achievements(x, y, action, id);
+        return;
+    }
+    if (game_state == ST_ROOMS) {
+        touch_rooms(x, y, action, id);
+        return;
+    }
     if (action != 0) {
         return;
     }
@@ -207,18 +259,11 @@ static void touch_menu(double x, double y, double action, double id) {
         touch_skins(x, y, action);
         return;
     }
-    if (game_state == ST_ACHIEVEMENTS) {
-        touch_achievements(x, y, action);
-        return;
-    }
     if (game_state == ST_LEADERBOARD) {
         touch_leaderboard(x, y, action);
         return;
     }
     if (game_state == ST_PROMO) {
         touch_promo(x, y, action);
-    }
-    if (game_state == ST_ROOMS) {
-        touch_rooms(x, y, action);
     }
 }

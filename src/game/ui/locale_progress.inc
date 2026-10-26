@@ -28,9 +28,9 @@ static const char *tr_super_azum(void) {
 
 static const char *tr_super_astra(void) {
     if (language == 1) {
-        return "Захват";
+        return "Удар";
     }
-    return "Grab";
+    return "Strike";
 }
 
 static const char *tr_class_selected(void) {
@@ -87,9 +87,7 @@ static const char *tr_level_unlock_cost(double cost) {
 
 static const char *tr_class_level_effect(double cls, double n) {
     if (cls == CLASS_CODECRACKER) {
-        /* His levels are his own, not the ordinary cube's: a bite that hits
-         * harder, an overclock that comes back sooner and thicker overclock
-         * armour. */
+        /* CodeCracker level descriptions. */
         if (n == 1) {
             return language == 1 ? "Укус: урон +10%" : "Bite: damage +10%";
         }
@@ -156,21 +154,21 @@ static const char *tr_class_level_effect(double cls, double n) {
     }
     if (cls == 4 && n == 1) {
         if (language == 1) {
-            return "Захват: откат -2 с";
+            return "Удар: откат -2 с";
         }
-        return "Grab: cooldown -2 s";
+        return "Strike: cooldown -2 s";
     }
     if (cls == 4 && n == 2) {
         if (language == 1) {
-            return "Зона захвата +15%";
+            return "Дальность удара +15%";
         }
-        return "Grab zone +15%";
+        return "Strike range +15%";
     }
     if (cls == 4 && n == 3) {
         if (language == 1) {
-            return "Бросок дальше +40%, оглушение +0.3 с";
+            return "Урон удара +20%";
         }
-        return "Throw +40% further, stun +0.3 s";
+        return "Strike damage +20%";
     }
     if (cls == 0 && n == 1) {
         if (language == 1) {
@@ -279,7 +277,7 @@ static const char *tr_skin_elf(void) {
 
 static const char *tr_skin_elf_hint(void) {
     if (language == 1) {
-        return "подарок буКа";
+        return "Подарок буКа";
     }
     return "ebuC's gift";
 }
@@ -308,8 +306,7 @@ static const char *tr_cups_reward(double amount) {
     return out;
 }
 
-/* Shown instead of the reward line when the battle was played with any cheat
- * switched on, even if it was switched straight back off. */
+/* Result label shown when a battle win had admin cheats enabled. */
 static const char *tr_cups_cheated(void) {
     if (language == 1) {
         return "Читы: кубки не начисляются";
@@ -317,8 +314,7 @@ static const char *tr_cups_cheated(void) {
     return "Cheats used: no Cups";
 }
 
-/* Shown instead of the deduction line when a lost battle was played with any
- * admin panel switch enabled: cups are neither awarded nor taken away. */
+/* Result label shown when a battle loss had admin cheats enabled. */
 static const char *tr_cups_admin(void) {
     if (language == 1) {
         return "Читы: кубки не снимаются";

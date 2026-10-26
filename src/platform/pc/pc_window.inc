@@ -1,8 +1,4 @@
-/* Win32 window and input for the desktop build: a plain GDI window whose
- * client area IS the framebuffer (the software rasterizer fills it), mouse
- * as a real touch pointer, and the keyboard translated into what a phone
- * gives the game - a virtual stick plus taps on the combat pads drawn by
- * battle_render.inc. */
+/* Win32 GDI window, mouse pointer/combat input, and keyboard event loop. */
 #ifndef WIN32_LEAN_AND_MEAN
 #define WIN32_LEAN_AND_MEAN
 #endif
@@ -12,21 +8,59 @@
 
 #define PC_WIN_CLASS L"CubicBattle4PC"
 #define PC_TOUCH_MOUSE 500
+#define PC_MAX_RENDER_DIM 1280
 
 static HWND pc_hwnd = NULL;
-static int pc_mouse_down = 0;  /* the left button is physically held */
-static int pc_mouse_punch = 0; /* ...and this press became the punch, not a click */
+static int pc_win_w = 540, pc_win_h = 960;
+static int pc_mouse_down = 0;  /* Left mouse button held. */
+static int pc_mouse_punch = 0; /* Current press routed to combat punch. */
 static unsigned char pc_keys[256];
 static uint32_t *pc_conv = NULL;
 static int pc_conv_w = 0, pc_conv_h = 0;
 
+/* Cap software framebuffer dimensions while preserving window aspect ratio. */
+static void pc_update_window_size(int w, int h) {
+    int rw, rh;
+    if (w < 1 || h < 1)
+        return;
+    pc_win_w = w;
+    pc_win_h = h;
+    rw = w;
+    rh = h;
+    if (rw > PC_MAX_RENDER_DIM || rh > PC_MAX_RENDER_DIM) {
+        if (rw >= rh) {
+            rh = (int)((long long)rh * PC_MAX_RENDER_DIM / rw);
+            rw = PC_MAX_RENDER_DIM;
+        } else {
+            rw = (int)((long long)rw * PC_MAX_RENDER_DIM / rh);
+            rh = PC_MAX_RENDER_DIM;
+        }
+        if (rw < 1)
+            rw = 1;
+        if (rh < 1)
+            rh = 1;
+    }
+    phys_w = rw;
+    phys_h = rh;
+    screen_w = rw;
+    screen_h = rh;
+}
+
+/* Map client-area mouse coordinates into internal render-space coordinates. */
+static void pc_mouse_xy(LPARAM lp, float *ox, float *oy) {
+    float x = (float)GET_X_LPARAM(lp);
+    float y = (float)GET_Y_LPARAM(lp);
+    if (pc_win_w > 0 && screen_w > 0)
+        x = x * (float)screen_w / (float)pc_win_w;
+    if (pc_win_h > 0 && screen_h > 0)
+        y = y * (float)screen_h / (float)pc_win_h;
+    *ox = x;
+    *oy = y;
+}
+
 static int pc_key_down(int vk) { return pc_keys[vk & 0xff] != 0; }
 
-/* In an active fight the mouse is a weapon, not a pointer: the left button is
- * the punch anywhere on screen, so the cursor's raw touch is muted - it would
- * otherwise grab the joystick or quit the fight from the back button corner
- * mid-swing. Menus, the results tap ("tap to return") and the battle chat
- * keep clicking. */
+/* Return 1 when active battle maps left mouse clicks to punch attacks. */
 static int pc_mouse_combat(void) {
     return game_pc_in_battle() && game_pc_finished() == 0.0 && !keyboard_visible();
 }
@@ -76,7 +110,7 @@ static void pc_blit(void) {
         uint32_t *dst = pc_conv + (size_t)y * (size_t)pc_conv_w;
         for (x = 0; x < g_frame.width; x++) {
             uint32_t c = src[x]; /* r | g<<8 | b<<16 | a<<24 */
-            dst[x] = 0xff000000u | ((c & 0xff) << 16) | ((c >> 8) & 0xff00) | ((c >> 16) & 0xff);
+            dst[x] = 0xff000000u | ((c & 0xffu) << 16) | (c & 0xff00u) | ((c >> 16) & 0xffu);
         }
     }
     dc = GetDC(pc_hwnd);
@@ -89,8 +123,7 @@ static void pc_blit(void) {
         bi.bmiHeader.biPlanes = 1;
         bi.bmiHeader.biBitCount = 32;
         bi.bmiHeader.biCompression = BI_RGB;
-        /* COLORONCOLOR is the nearest-neighbour stretch: the window shows the
-         * frame as drawn, with no blurred pixels. */
+        /* Nearest-neighbor stretch blit to preserve sharp framebuffer pixels. */
         SetStretchBltMode(dc, COLORONCOLOR);
         StretchDIBits(dc, 0, 0, cw, ch, 0, 0, pc_conv_w, pc_conv_h, pc_conv, &bi, DIB_RGB_COLORS, SRCCOPY);
     }
@@ -102,8 +135,7 @@ static void pc_utf8_from_wchar(WCHAR wc, char *out, size_t cap) {
     int n;
     if (cap < 8)
         return;
-    /* Surrogates arrive as two WM_CHAR calls; the game only needs ASCII names
-     * plus Cyrillic, so lone surrogates are dropped. */
+    /* Ignore UTF-16 surrogates; input requires only BMP characters. */
     if (wc >= 0xD800 && wc <= 0xDFFF) {
         out[0] = '\0';
         return;
@@ -123,37 +155,43 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pc_quit = 1;
         return 0;
     case WM_SIZE:
-        if (wp != SIZE_MINIMIZED) {
-            int w = LOWORD(lp), h = HIWORD(lp);
-            if (w > 0 && h > 0) {
-                phys_w = w;
-                phys_h = h;
-                screen_w = w;
-                screen_h = h;
-            }
-        }
+        if (wp != SIZE_MINIMIZED)
+            pc_update_window_size((int)LOWORD(lp), (int)HIWORD(lp));
         return 0;
     case WM_MOUSEMOVE:
-        if (pc_mouse_down && !pc_mouse_punch)
-            pc_touch((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp), 2, PC_TOUCH_MOUSE);
+        if (pc_mouse_down && !pc_mouse_punch) {
+            float mx, my;
+            pc_mouse_xy(lp, &mx, &my);
+            pc_touch(mx, my, 2, PC_TOUCH_MOUSE);
+        }
         return 0;
-    case WM_LBUTTONDOWN:
+    case WM_LBUTTONDOWN: {
+        float mx, my;
+        pc_mouse_xy(lp, &mx, &my);
         SetCapture(hwnd);
         pc_mouse_down = 1;
-        /* In a fight the left button IS the punch; the raw cursor touch is
-         * kept only for the chat controls (chat button, open chat panel). */
-        pc_mouse_punch = pc_mouse_combat() &&
-                         game_pc_battle_mouse_ui((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp)) == 0;
+        /* Route clicks outside battle chat controls to punch attacks during combat. */
+        pc_mouse_punch = pc_mouse_combat() && game_pc_battle_mouse_ui(mx, my) == 0;
         if (!pc_mouse_punch)
-            pc_touch((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp), 0, PC_TOUCH_MOUSE);
+            pc_touch(mx, my, 0, PC_TOUCH_MOUSE);
         return 0;
-    case WM_LBUTTONUP:
+    }
+    case WM_LBUTTONUP: {
+        float mx, my;
+        pc_mouse_xy(lp, &mx, &my);
         pc_mouse_down = 0;
         ReleaseCapture();
         if (!pc_mouse_punch)
-            pc_touch((float)GET_X_LPARAM(lp), (float)GET_Y_LPARAM(lp), 1, PC_TOUCH_MOUSE);
+            pc_touch(mx, my, 1, PC_TOUCH_MOUSE);
         pc_mouse_punch = 0;
         return 0;
+    }
+    case 0x020A: /* WM_MOUSEWHEEL */ {
+        short z = (short)HIWORD(wp);
+        if (z != 0)
+            game_pc_wheel((float)z / 120.0f);
+        return 0;
+    }
     case WM_KEYDOWN:
     case WM_SYSKEYDOWN:
         pc_keys[wp & 0xff] = 1;
@@ -188,9 +226,19 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             keyboard_type(utf8);
         return 0;
     }
+    case WM_CAPTURECHANGED:
+        if (pc_mouse_down) {
+            pc_mouse_down = 0;
+            if (!pc_mouse_punch)
+                pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
+            pc_mouse_punch = 0;
+        }
+        return 0;
     case WM_KILLFOCUS:
         memset(pc_keys, 0, sizeof(pc_keys));
-        pc_mouse_down = 0; /* the punch is the mouse now: it must not stick */
+        if (pc_mouse_down && !pc_mouse_punch)
+            pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
+        pc_mouse_down = 0;
         pc_mouse_punch = 0;
         pc_ctl_release_all();
         return 0;
@@ -232,8 +280,11 @@ static int pc_run_window(PcArgs *args) {
         MessageBoxA(pc_hwnd, ds_graphics_failure(), "Cubic Battle 4: renderer", MB_ICONERROR | MB_OK);
         return 2;
     }
+    if (GetClientRect(pc_hwnd, &rc))
+        pc_update_window_size(rc.right - rc.left, rc.bottom - rc.top);
     timeBeginPeriod(1);
     while (running && !pc_quit) {
+        uint64_t t0 = monotonic_ns();
         while (PeekMessageW(&msg, NULL, 0, 0, PM_REMOVE)) {
             if (msg.message == WM_QUIT) {
                 running = 0;
@@ -247,7 +298,14 @@ static int pc_run_window(PcArgs *args) {
         pc_apply_held_input();
         (void)pc_step();
         pc_blit();
-        Sleep(1);
+        {
+            uint64_t elapsed_ns = monotonic_ns() - t0;
+            if (elapsed_ns < 15000000ull) {
+                DWORD rem_ms = (DWORD)((16000000ull - elapsed_ns) / 1000000ull);
+                if (rem_ms > 0)
+                    Sleep(rem_ms);
+            }
+        }
     }
     timeEndPeriod(1);
     pc_shutdown();

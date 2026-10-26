@@ -1,30 +1,5 @@
 #!/usr/bin/env python3
-"""Rotates both database secrets: the account password suffix and the write password.
-
-Run with no arguments.
-
-What it does:
-  1. Picks two new secrets of 32 random [A-Za-z0-9] chars each (the random
-     generator is cryptographic, the secrets module).
-  2. Rewrites the NET_PASS_SECRET_* and NET_WRITE_SECRET_* pieces in
-     src/engine/network.h - the client keeps secrets as pieces with every byte
-     xored by 0x5a, so a grep over the built apk finds no string.
-  3. Replaces the old write secret with the new one in firebase.rules.json.
-
-After running you must:
-  * open firebase.rules.json in the Firebase console and publish the rules
-    (Realtime Database -> Rules -> Publish), or the database rejects writes from
-    the new client;
-  * build and release a new version of the game.
-
-About the password suffix. An account password is "player password + suffix", so
-a new suffix changes the password of every account. The client lets old accounts
-in with the previous suffix (FB_LEGACY_PASS_SUFFIX in write_secret.inc) and
-rewrites the password right away. The ladder knows exactly ONE old suffix, the
-one from before ("|cb4v1"). Rotating the secret once more locks out accounts
-created in between: before a second run either let the players move or add one
-more step to fb_sign_in().
-"""
+"""Rotate Firebase account password suffix and RTDB write secret."""
 
 from __future__ import annotations
 

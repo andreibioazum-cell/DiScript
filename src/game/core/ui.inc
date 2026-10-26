@@ -81,22 +81,29 @@ static void centered_text(const char *label, double x, double w, double y, uint3
     text_scaled(label, x + (w - tw) / 2, y, c, scale);
 }
 
-/* A pair of numbers on one line (cups and candies): x is the left edge of the
- * line, so it lines up under the lobby caption. */
+/* Draw cups and candies counters side by side. */
 static void money_pair(const char *left, const char *right, double x, double y, double scale, double gap) {
     double lw = text_ink_width(left) * scale;
     text_scaled(left, x, y, text_color, scale);
     text_scaled(right, x + lw + gap, y, text_color, scale);
 }
 
+static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale) {
+    uint32_t col = admin_color_of(nick, base);
+    if (nick_shimmers(nick) == 1) {
+        text_shimmer(nick, x, y, col, scale, gift_shimmer_time());
+        return;
+    }
+    text_scaled(nick, x, y, col, scale);
+}
+
 static void draw_nick_msg(const char *nick, const char *rest, double x, double y, uint32_t base, double scale) {
     double nw = text_ink_width(nick) * scale;
-    text_scaled(nick, x, y, admin_color_of(nick, base), scale);
+    draw_styled_nick(nick, x, y, base, scale);
     text_scaled(rest, x + nw, y, base, scale);
 }
 
-/* The face of a button: the new theme paints the glossy gradient, the old
- * one a flat rounded slab. */
+/* Draw button fill: gradient in new theme, flat rounded rect in classic theme. */
 static void button_face(double x, double y, double w, double h, double col) {
     if (new_theme == 1) {
         cb_button_gradient(x, y, w, h, btn_radius, col);
@@ -109,8 +116,7 @@ static void button(const char *label, double x, double y, double w, double h) {
     button_fixed(label, x, y, w, h, ui_purple);
 }
 
-/* A button with a face colour of its own: the result screen paints its
- * button with the result window's face colour. */
+/* Draw button with custom face color. */
 static void button_fixed(const char *label, double x, double y, double w, double h, double face) {
     double p = button_press_k(x, y, w, h);
     double s = 1 - PRESS_SQUEEZE * p;
@@ -123,8 +129,7 @@ static void button_fixed(const char *label, double x, double y, double w, double
     text_in_box(label, bx, by, bw, bh, shade(text_color, 1 - PRESS_SHADE * p), s);
 }
 
-/* A greyed-out button: flat grey face, dimmed text, and it never takes the
- * press squeeze - it is visibly (and actually) unavailable. */
+/* Draw disabled button without press animation. */
 static void button_disabled_scaled(const char *label, double x, double y, double w, double h, double scale) {
     button_face(x, y, w, h, 0xFF6E6E76);
     text_in_box(label, x, y, w, h, 0xFFB4B4BC, scale);
@@ -146,8 +151,7 @@ static void button_scaled_color(const char *label, double x, double y, double w,
     text_in_box(label, bx, by, bw, bh, shade(color, 1 - PRESS_SHADE * p), scale * s);
 }
 
-/* The same scaled button, but with a face of its own colour (a claimed battle
- * pass cell and so on): press and dimming work as on a normal one. */
+/* Draw scaled button with custom face color. */
 static void button_scaled_face(const char *label, double x, double y, double w, double h, double scale, uint32_t face) {
     double p = button_press_k(x, y, w, h);
     double s = 1 - PRESS_SQUEEZE * p;
@@ -160,11 +164,7 @@ static void button_scaled_face(const char *label, double x, double y, double w, 
     text_in_box(label, bx, by, bw, bh, shade(text_color, 1 - PRESS_SHADE * p), scale * s);
 }
 
-/* Cards and list rows answer a touch the same way a button does, so a shop
- * card is not a dead panel with a live button glued into it. The whole box
- * shrinks by s around its own centre: squeeze_x / squeeze_y give the pressed
- * left edge and the pressed y of anything measured from the box's top, so the
- * contents ride the squeeze with the panel. */
+/* Compute squeezed x/y coordinates around panel center. */
 static double squeeze_x(double x, double w, double s) { return x + w * (1 - s) / 2; }
 
 static double squeeze_y(double y, double top, double h, double s) { return top + h * (1 - s) / 2 + (y - top) * s; }
@@ -189,9 +189,7 @@ static void outline_arc(double cx, double cy, double rr, double t, uint32_t c, d
     line(cx + mx * 0.3827 * rr, cy + my * 0.9239 * rr, cx, cy + my * rr, t, c);
 }
 
-/* Two looks, switched in the settings. The new theme is purple with a
- * gradient backdrop and glossy buttons; the old one is the rose theme the
- * game had before: rose buttons on a flat burgundy background. */
+/* Apply active UI color palette (new purple theme vs classic rose theme). */
 static void apply_theme(void) {
     if (new_theme == 1) {
         ui_purple = 0xFF5F10A0;
@@ -201,8 +199,6 @@ static void apply_theme(void) {
     } else {
         ui_purple = 0xFFD4508A;
         bg_screen = 0xFF3A1530;
-        /* The old theme is the rose one: its cards and panels are rose too,
-         * not the blue-gray of the new theme. */
         card_bg = 0xFF44203A;
         card_ring = 0xFFE07BAE;
     }
@@ -219,13 +215,10 @@ static double battle_back_x(void) { return (screen_w - btn_w) / 2; }
 
 static double battle_back_y(void) { return back_y; }
 
-/* Result screen purple for the new theme. */
 #define RESULT_PURPLE 0xFF5F10A0
-/* The old theme's pink: its win and loss windows are pink, to match its buttons. */
 #define RESULT_ROSE 0xFFD4508A
 
-/* The face of the result window: in the old theme both the victory and the
- * defeat window are rose; in the new theme both stay purple. */
+/* Return result window face color for active theme. */
 static double result_face_color(void) {
     if (new_theme == 0) {
         return RESULT_ROSE;
@@ -245,7 +238,6 @@ static double battle_back_hit(double x, double y) { return hit_button(x, y, batt
 
 static void screen_fill(void) {
     if (new_theme == 0) {
-        /* The old theme is flat: one burgundy fill, no gradient. */
         rect(0, 0, screen_w, screen_h, bg_screen);
     } else {
         double top = bg_screen;
@@ -257,9 +249,7 @@ static void screen_fill(void) {
         rect(0, 0, screen_w, screen_h, top);
         draw_bottom_gradient(top, bottom);
     }
-    /* Winter snow is part of the backdrop: every menu screen paints its
-     * background here first, so flakes fall across the whole width - buttons
-     * included - yet never on top of a button or the dialogue. */
+    /* Draw backdrop snow beneath UI controls and modals. */
     draw_newyear_under_notices();
 }
 
@@ -267,9 +257,7 @@ static void draw_bottom_gradient(double top, double bottom) {
     double h = bg_gradient_h;
     double bands = h / 2;
     double y0 = screen_h - h;
-    /* Two pixels per band: the fade between the flat background and the
-     * gradient colour reads as one smooth wash in every theme instead of a
-     * stack of strips (the old thirty bands over 420 px were 14 px each). */
+    /* Use 2 px horizontal bands for smooth gradient transitions. */
     if (bands < bg_gradient_bands) {
         bands = bg_gradient_bands;
     }
@@ -353,4 +341,71 @@ static void draw_msg(const char *label, double y, double t) {
     if (t > 0) {
         ctext_fade(label, y, text_color, t, msg_fade);
     }
+}
+
+/* Sliding-window touch velocity tracker immune to lift-off thumb roll and batched moves. */
+static void scroll_track_reset(ScrollTrack *st) { memset(st, 0, sizeof(*st)); }
+
+static void scroll_track_move(ScrollTrack *st, double d) {
+    st->frame_d += d;
+    st->frame_moved = 1;
+}
+
+static void scroll_track_push(ScrollTrack *st, double d, double frame_dt) {
+    double step_dt = clamp(frame_dt > 0 ? frame_dt : 0.016, 0.004, 0.05);
+    if (st->hist_n < 4) {
+        st->hist_d[st->hist_n] = d;
+        st->hist_dt[st->hist_n] = step_dt;
+        st->hist_n++;
+    } else {
+        memmove(&st->hist_d[0], &st->hist_d[1], 3 * sizeof(double));
+        memmove(&st->hist_dt[0], &st->hist_dt[1], 3 * sizeof(double));
+        st->hist_d[3] = d;
+        st->hist_dt[3] = step_dt;
+    }
+}
+
+static void scroll_track_tick(ScrollTrack *st) {
+    scroll_track_push(st, st->frame_d, dt);
+    st->frame_d = 0;
+    st->frame_moved = 0;
+}
+
+static double scroll_track_release(ScrollTrack *st, double max_vel) {
+    if (st->frame_moved) {
+        scroll_track_push(st, st->frame_d, dt);
+        st->frame_d = 0;
+        st->frame_moved = 0;
+    }
+    if (st->hist_n <= 0)
+        return 0;
+    int end = st->hist_n;
+    double hold_d = 0, hold_dt = 0;
+    for (int i = end - 1; i >= 0 && hold_dt < 0.032; i--) {
+        hold_d += fabs(st->hist_d[i]);
+        hold_dt += st->hist_dt[i];
+    }
+    if (hold_dt >= 0.028 && hold_d < 2.0) {
+        scroll_track_reset(st);
+        return 0;
+    }
+    if (end >= 2) {
+        double prev = 0;
+        for (int i = 0; i < end - 1; i++)
+            prev += st->hist_d[i];
+        double last = st->hist_d[end - 1];
+        if (st->hist_d[end - 2] * last < 0 && prev * last < 0 && fabs(last) < fabs(prev) * 0.65)
+            end--;
+    }
+    double sum_d = 0, sum_dt = 0, sign_ref = st->hist_d[end - 1];
+    for (int i = end - 1; i >= 0 && sum_dt < 0.09; i--) {
+        if (i < end - 1 && sign_ref * st->hist_d[i] < 0 && fabs(st->hist_d[i]) > 2.0)
+            break;
+        sum_d += st->hist_d[i];
+        sum_dt += st->hist_dt[i];
+    }
+    scroll_track_reset(st);
+    if (fabs(sum_d) < 3.0)
+        return 0;
+    return clamp((sum_d / fmax(sum_dt, 0.012)) * 0.72, -max_vel, max_vel);
 }

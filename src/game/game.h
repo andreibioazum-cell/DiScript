@@ -13,22 +13,15 @@ void game_reset(void);
 void game_bye(void);
 
 #ifdef CB_PC
-/* Read-only window into the game state for the PC input bridge
- * (src/game/pc_pads.inc): joystick and combat pad geometry, plus a few
- * values worth asserting in the headless harness. */
+/* Read-only game state accessors for PC controls and headless tests. */
 double game_pc_state(void);
 int game_pc_in_battle(void);
 void game_pc_goto(double target);
 void game_pc_joy(float *x, float *y, float *r);
 void game_pc_pads(float *ax, float *ay, float *a2x, float *a2y, float *bx, float *by, float *radius);
-/* Where in an active fight a mouse click must stay a click instead of
- * becoming the punch: the open chat panel covers the whole fight, and the
- * closed chat's small button opens it. The in-battle back button is not on
- * this list - Esc leaves the fight, so a swing over that corner never quits. */
+/* Return 1 when battle cursor is over chat UI rather than the arena. */
 int game_pc_battle_mouse_ui(float x, float y);
-/* Whether the current class draws the super pad at all. The ordinary cube has
- * no super, so a PC "super" press would land on empty screen - where the game
- * reads it as the joystick and the player suddenly walks. */
+/* Return 1 when active class exposes a super pad. */
 int game_pc_has_super(void);
 double game_pc_player_hp(void);
 void game_pc_player_xy(double *x, double *y);
@@ -47,11 +40,11 @@ double game_pc_remote_bricks(void);
 double game_pc_class(void);
 double game_pc_block(void);
 void game_pc_pick_class(double cls);
-/* Harness only: join or create a named online room, so two headless clients
- * can meet in a real fight. game_pc_room_tick() finishes the handshake. */
+/* Join or create a named online room from the headless test harness. */
 void game_pc_join_room(const char *name, double create);
 void game_pc_room_tick(void);
 double game_pc_charge(void);
+void game_pc_wheel(float steps);
 #endif
 
 #endif

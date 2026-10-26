@@ -60,7 +60,13 @@ STUDIO_NAME = "CUBIC CORPORATION";
 ADMIN_NICK = "Dimasi4ek229";
 admin_color = 0xFFFF4444;
 admin_head_color = 0xFFFF3333;
-codecracker_cost = 475;
+SANCH_NICK = "Sanch";
+sanch_color = 0xFFFFD54A;
+sanch_head_color = 0xFFFFDD33;
+QWERTY_NICK = "qwertyuiopaj1234";
+qwerty_color = 0xFF4FC3F7;
+qwerty_head_color = 0xFF33A8FF;
+codecracker_cost = 550;
 GRASS = "grass.png";
 ORDINARY_TEX = "ordinary.png";
 PUNCH_TEX = "ordinary_punch.png";
@@ -86,16 +92,10 @@ ZOMBIE_DASH_SOUND = "zombie_dash.wav";
 AZUM_ZOMBIE_PUNCH_TEX = "zombie_azum_punch.png";
 EBUC_ELF_TEX = "ebuc_elf.png";
 EBUC_ELF_PUNCH_TEX = "ebuc_elf_punch.png";
+EBUC_ELF_DESPENSER_TEX = "ebuc_elf_dispenser.png";
 
-/* High-resolution shop/lobby renders. Drawn in the shop (class and skin
- * cards) instead of the tiny in-battle pixel sprites. CARD_RENDER_PX is the
- * native pixel size artists should draw these at (see also the prototype
- * comment on class_card_tex). */
+/* Shop card render size and corner radius fraction. */
 CARD_RENDER_PX = 512;
-/* Corner radius for the rounded shop/lobby renders, as a fraction of the
- * on-screen render size - the source card art is a plain square PNG and the
- * engine rounds its corners at draw time (see tex_round() / draw_class_render),
- * matching the rounded card panel the render sits on. */
 card_render_radius_frac = 0.14;
 ORDINARY_CARD_TEX = "ordinary_card.png";
 AZUM_CARD_TEX = "azum_card.png";
@@ -106,8 +106,6 @@ EBUC_ELF_CARD_TEX = "ebuc_elf_card.png";
 ASTRA_CARD_TEX = "astra_card.png";
 astra_ability_ok = 0;
 ST_BPASS = 16;
-/* Full speed is reached over walk_accel_time, and from full speed the cube stops
- * over walk_stop_time - exactly these fractions of a second, with no sideways
- * drift. */
+/* Acceleration and braking durations in seconds. */
 walk_accel_time = 0.08;
 walk_stop_time = 0.08;

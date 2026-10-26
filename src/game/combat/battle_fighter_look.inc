@@ -15,9 +15,7 @@ static void resolve_fighter_look(double slot, double cls, double skin) {
         arr_set(fighter_swings, slot, 1);
         return;
     }
-    /* Never retain or substitute a different fighter after an upload failure.
-     * The normal upload path completes at frame start, so this fallback is
-     * reserved for a real asset/GPU error and remains visibly opaque. */
+    /* Fall back to solid cube only when texture upload fails. */
     arr_set(fighter_looks, slot, LOOK_NONE);
     arr_set(fighter_swings, slot, 0);
 }
@@ -36,8 +34,7 @@ static void resolve_fighter_looks(void) {
     resolve_fighter_look(FLOOK_BOT, enemy_class, SKIN_NORMAL);
 }
 
-/* One blur offset. Alpha 0 means "fully opaque" in the engine, so empty offsets
- * are simply not drawn. */
+/* Draw one shadow blur tap; skip zero alpha since engine maps alpha 0 to opaque. */
 static void shadow_tap_circle(double x, double y, double r, double a) {
     unsigned ai = (unsigned)(int)(a + 0.5);
     if (ai < 1) {
@@ -54,56 +51,30 @@ static void shadow_tap_tex(double x, double y, double half_px, double scale, con
     tex_tint(x - half_px, y - half_px, name, ang, scale, ((uint32_t)ai) << 24);
 }
 
-/* Real shadow blur - a convolution of the silhouette: the centre, a ring of six
- * closer offsets and a ring of six farther ones. Every offset takes its share of
- * the total density, so the shadow edge is genuinely soft and does not look like
- * a second, bigger blob. */
+/* Draw 5-tap blurred circular shadow. */
 static void draw_shadow_blur_circle(double cx, double cy, double r, double alpha, double blur) {
-    const double kw[3] = {0.25, 0.09, 0.06};
-    const double kr[3] = {0.0, 0.55, 1.0};
-    int ring = 0;
-    while (ring < 3) {
-        double a = alpha * kw[ring];
-        double rr = blur * kr[ring];
-        if (ring == 0) {
-            shadow_tap_circle(cx, cy, r, a);
-        } else {
-            double i = 0;
-            while (i < 6) {
-                double t = i * pi / 3;
-                shadow_tap_circle(cx + cos(t) * rr, cy + sin(t) * rr, r, a);
-                i = i + 1;
-            }
-        }
-        ring = ring + 1;
-    }
+    double rr = blur * 0.72 * 0.70710678;
+    double tap = alpha * 0.18;
+    shadow_tap_circle(cx, cy, r, alpha * 0.28);
+    shadow_tap_circle(cx + rr, cy + rr, r, tap);
+    shadow_tap_circle(cx - rr, cy + rr, r, tap);
+    shadow_tap_circle(cx - rr, cy - rr, r, tap);
+    shadow_tap_circle(cx + rr, cy - rr, r, tap);
 }
 
+/* Draw 5-tap blurred sprite shadow. */
 static void draw_shadow_blur_tex(double cx, double cy, double half_px, double scale, const char *name, double ang,
                                  double alpha, double blur) {
-    const double kw[3] = {0.25, 0.09, 0.06};
-    const double kr[3] = {0.0, 0.55, 1.0};
-    int ring = 0;
-    while (ring < 3) {
-        double a = alpha * kw[ring];
-        double rr = blur * kr[ring];
-        if (ring == 0) {
-            shadow_tap_tex(cx, cy, half_px, scale, name, ang, a);
-        } else {
-            double i = 0;
-            while (i < 6) {
-                double t = i * pi / 3;
-                shadow_tap_tex(cx + cos(t) * rr, cy + sin(t) * rr, half_px, scale, name, ang, a);
-                i = i + 1;
-            }
-        }
-        ring = ring + 1;
-    }
+    double rr = blur * 0.72 * 0.70710678;
+    double tap = alpha * 0.18;
+    shadow_tap_tex(cx, cy, half_px, scale, name, ang, alpha * 0.28);
+    shadow_tap_tex(cx + rr, cy + rr, half_px, scale, name, ang, tap);
+    shadow_tap_tex(cx - rr, cy + rr, half_px, scale, name, ang, tap);
+    shadow_tap_tex(cx - rr, cy - rr, half_px, scale, name, ang, tap);
+    shadow_tap_tex(cx + rr, cy - rr, half_px, scale, name, ang, tap);
 }
 
-/* Motion blur: at speed the fighter leaves semi-transparent copies of its own
- * sprite along the path it just took. That blurs the motion itself, not the whole
- * frame. */
+/* Draw semi-transparent motion-blur sprites along recent movement vector. */
 static void draw_motion_ghosts(double x, double y, double dx, double dy, double half_px, double scale,
                                const char *name, double ang) {
     double len = sqrt(dx * dx + dy * dy);
@@ -116,9 +87,8 @@ static void draw_motion_ghosts(double x, double y, double dx, double dy, double 
         dy = dy / len * lim;
         len = lim;
     }
-        /* Square root of the speed: a walk is already visible, a dash leaves a long
-         * trail. */
-    double a = 0.40 * sqrt(len / lim);
+        /* Scale trail opacity with square root of speed. */
+        double a = 0.40 * sqrt(len / lim);
     if (a < 0.02) {
         return;
     }
@@ -173,8 +143,7 @@ static void draw_fighter_hurt(double x, double y, double ang, double look, doubl
              (((unsigned)(int)fa) << 24) | ((unsigned)(int)hurt_rgb));
 }
 
-/* Optional flat-colour overlay for special developer visuals such as
- * CodeCracker. A tint of 0 draws nothing. */
+/* Draw fighter sprite with optional flat color tint. */
 static void draw_fighter_tint(double x, double y, double ang, double look, double punching, double scale, double tint) {
     if (tint <= 0 || look == LOOK_NONE) {
         return;

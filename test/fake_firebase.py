@@ -1,41 +1,5 @@
 #!/usr/bin/env python3
-"""A fake Firebase for the web admin panel (index.html) and the game network code.
-
-Why it exists. The web admin panel is plain HTML+JS talking to the Firebase REST
-API. Without a stand-in database it can be neither checked nor simply opened and
-clicked: the live project is closed by rules, and the key is restricted by
-referrer. So the panel has a "test mode" (a button in the project settings): the
-database address is this page, any "nick + password" pair signs in, and the
-account is created on its own. The server serves the panel itself and the
-database from one port, so there are no CORS or mixed content problems:
-    -> http://localhost:8080/.json     (database root)
-
-What of Realtime Database REST is implemented:
-  GET    <path>.json            (+ X-Firebase-ETag -> ETag; empty path = root)
-  PUT    <path>.json            (if-match: "null" or etag -> 200/412)
-  PATCH  <path>.json            (deep merge of flat keys "a/b": value)
-  POST   <path>.json            (push key -> {"name": "-KEY"})
-
-From Firebase Auth:
-  POST   /v1/accounts:signUp?key=K
-  POST   /v1/accounts:signInWithPassword?key=K
-  POST   /v1/accounts:update?key=K  (password change)
-  POST   /v1/token?key=K        (refresh_token -> id_token)
-  GET    /__stats.json          (counters for the tests)
-
-The access rules repeat firebase.rules.json closely enough to check the panel in
-both modes:
-  * the root and "foreign" nodes are read and written by the admin only;
-  * event, banner, bans, AzumBuff, FlashSale, HitboxChaos, rooms/*/meta are
-    admin writes;
-  * users/<nick> - the player or the admin;
-  * slots and chat - any signed-in player;
-  * AzumBuff, FlashSale and HitboxChaos are readable by all (".read": true in
-    the rules);
-  * no token gives 401, a token without rights gives 403 (the panel reacts to
-    exactly these codes by switching to a per-node snapshot and deleting per
-    child).
-"""
+"""Local Firebase RTDB and Auth mock server for index.html and PC tests."""
 import base64
 import hashlib
 import json
@@ -51,11 +15,11 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PANEL = os.path.join(ROOT, "index.html")
 
 ADMINS = ("dimasi4ek229@cb4.game",)
-SECRET = "BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc"  # из firebase.rules.json (поле "w")
-PUBLIC_ROOT = ("AzumBuff", "FlashSale", "HitboxChaos")      # ".read": true в правилах
+SECRET = "BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc"  # write secret ("w") from firebase.rules.json
+PUBLIC_ROOT = ("AzumBuff", "FlashSale")      # publicly readable root nodes
 GAME_ROOT = ("users", "rooms", "bans", "event", "banner")
 KNOWN_ROOT = GAME_ROOT + PUBLIC_ROOT
-ADMIN_ONLY_WRITE = ("event", "banner", "bans", "AzumBuff", "FlashSale", "HitboxChaos")
+ADMIN_ONLY_WRITE = ("event", "banner", "bans", "AzumBuff", "FlashSale")
 
 LOCK = threading.Lock()
 AUTH = {}       # email -> password
@@ -142,7 +106,7 @@ DB = {
             "chat": {
                 "-M0001": msg("Player2", "привет", "-M0001"),
                 "-M0002": msg("Spammer", "взлом кубков пиши в тг @freecups", "-M0002"),
-                "-M0003": {"nick": "Broken"},   # битое сообщение: нет uid и text
+                "-M0003": {"nick": "Broken"},   # malformed message missing uid and text
             },
         },
         "private1": {
@@ -159,7 +123,6 @@ DB = {
                "color": "white"},
     "AzumBuff": 0,
     "FlashSale": 0,
-    "HitboxChaos": 0,
         # root junk: nodes the game knows nothing about
     "freeCupsHack": {"cups": 999999},
     "testtest": "junk",
@@ -242,14 +205,14 @@ def deep_del(node, parts):
 # Rights: a trimmed down firebase.rules.json
 # ---------------------------------------------------------------------------
 def can_read(parts, email):
-    if not parts:                                   # корень
+    if not parts:                                   # root snapshot
         return email in ADMINS
     head = parts[0]
     if head in PUBLIC_ROOT:
         return True
     if head in KNOWN_ROOT:
-        return bool(email)                          # любой вошедший игрок
-    return email in ADMINS                          # «чужие» узлы видит админ
+        return bool(email)                          # any signed-in player
+    return email in ADMINS                          # unknown root nodes require admin
 
 
 def can_write(parts, email):
@@ -274,10 +237,10 @@ def can_write(parts, email):
         if len(parts) > 2 and parts[2] == "players" and len(parts) > 3:
             if not re.match(r"^[0-3]$", parts[3]):
                 return False
-        return True                                 # слоты и чат - любому игроку
+        return True                                 # room slots and chat
     if head == "users":
         if len(parts) < 2:
-            return email in ADMINS                  # список игроков целиком
+            return email in ADMINS                  # full users node
         if email in ADMINS:
             return True
         return parts[1].lower() == email.split("@")[0].lower()
@@ -566,7 +529,7 @@ class Handler(BaseHTTPRequestHandler):
 def main():
     args = [a for a in sys.argv[1:] if not a.startswith("-")]
     port = int(args[0]) if args else 18765
-    host = "0.0.0.0"          # предпросмотр Arena проксирует порт извне
+    host = "0.0.0.0"          # bind all interfaces for preview proxy access
     if "--local" in sys.argv:
         host = "127.0.0.1"
     srv = ThreadingHTTPServer((host, port), Handler)

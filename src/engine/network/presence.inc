@@ -1,6 +1,4 @@
-/* Background presence check, called from PresenceJobService without the game
- * loop. It reuses the saved login (auth.dat) and the game's HTTP helpers, but it
- * only signs in (never signs up) and only reads rooms/main/players. */
+/* Background online-presence check invoked by PresenceJobService. */
 
 static int presence_sign_in(const char *nick, const char *pass) {
     char url[FB_URL_MAX], body[512], resp[2048], email[96], epass[192];
@@ -23,9 +21,7 @@ static int presence_sign_in(const char *nick, const char *pass) {
     return 0;
 }
 
-/* Returns 2 = our account is in the online room, 1 = another player is there,
- * 0 = nobody is there, -1 = no saved login (or no password saved), -2 = network
- * or sign-in failed. Nothing is written to the database or to auth.dat. */
+/* Check online presence: 2 own account, 1 other player, 0 empty, -1 no credentials, -2 error. */
 int net_presence_check(const char *data_dir) {
     char path[320], nick[LOGIN_NICK_MAX + 2] = "", pass[64] = "";
     char url[FB_URL_MAX], players[16384];

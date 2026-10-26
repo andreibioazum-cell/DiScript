@@ -136,6 +136,7 @@ typedef struct {
     const void *desc;
     uint32_t first;
     uint32_t count;
+    int sx, sy, sw, sh;
 } GeoBatch;
 static GeoBatch *vk_batches;
 static size_t vk_batch_n, vk_batch_cap;

@@ -1,7 +1,4 @@
-/* Admin panel input and chrome: hit-testing, the touch handler, the "CCP" orb,
- * the panel frame and the cheats grid. Every button here is drawn by
- * admin_btn() from admin.inc, so they all share one flat black-and-white look.
-  * The panel has no tabs any more - only the cheat grid. */
+/* Admin panel input handling, orb rendering, and continuous cheat ticks. */
 
 static double admin_handle(const char *msg) {
     if (is_admin() == 0) {
@@ -99,10 +96,7 @@ static double admin_handle(const char *msg) {
     return 0;
 }
 
-/* The panel owns a text field (gift recipient), so closing it any way -
- * the X, a tap outside, the back button - must also drop the soft
- * keyboard. Otherwise the keyboard stayed on screen over the lobby and
- * swallowed touches after the panel was gone. */
+/* Hide soft keyboard when closing admin panel. */
 static void admin_keyboard_drop(void) {
     if (keyboard_visible() == 1) {
         keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
@@ -132,14 +126,20 @@ static void admin_panel_press(double x, double y) {
         admin_panel_close();
         return;
     }
+    if (admin_gifts_allowed() == 0) {
+        if (admin_tab == 1) admin_keyboard_drop();
+        admin_tab = 0;
+    }
     double tab_y = admin_content_top();
     if (y >= tab_y && y <= tab_y + admin_row_h()) {
-        if (admin_tab == 1) admin_keyboard_drop();
-        admin_tab = x < px + pw / 2 ? 0 : 1;
-        play_button_click();
+        if (admin_gifts_allowed() == 1) {
+            if (admin_tab == 1) admin_keyboard_drop();
+            admin_tab = x < px + pw / 2 ? 0 : 1;
+            play_button_click();
+        }
         return;
     }
-    if (admin_tab == 1) {
+    if (admin_tab == 1 && admin_gifts_allowed() == 1) {
         double ty = admin_content_top();
         double rhg = admin_row_h();
         double row_index = floor((y - ty) / (rhg + admin_gap()));
@@ -148,22 +148,15 @@ static void admin_panel_press(double x, double y) {
             return;
         }
         if (row_index == 6) {
-            double hue = admin_hue_at(x, y);
-            if (hue >= 0) {
-                admin_gift_hue = hue;
-            }
-            return;
-        }
-        if (row_index == 7) {
             keyboard_clear();
             if (admin_gift_target[0]) keyboard_type(admin_gift_target);
             keyboard_show();
             return;
         }
-        if (row_index == 8) {
+        if (row_index == 7) {
             keyboard_hide();
             if (admin_gift_target[0] && admin_gift_busy != 1) {
-                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, admin_gift_hue) == 0 ? 3 : 1;
+                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, 0) == 0 ? 3 : 1;
             }
             return;
         }
@@ -190,23 +183,21 @@ static void admin_panel_press(double x, double y) {
 static double admin_ball_hit(double x, double y) {
     double dx = x - admin_ball_x;
     double dy = y - admin_ball_y;
-    return sqrt(dx * dx + dy * dy) <= admin_ball_r() + 14;
+    return sqrt(dx * dx + dy * dy) <= admin_ball_r() + 6;
 }
 
 static double admin_touch(double x, double y, double action, double id) {
-    if (is_admin() == 0) {
+    if (admin_modifiers_allowed() == 0) {
         return 0;
     }
-    /* The panel is modal: every touch while it is open goes to it, on top of
-     * every screen, the transition curtain and the epilepsy warning. */
+    /* Consume all touches while admin panel is open. */
     if (admin_panel_open == 1) {
         if (action == 0) {
             admin_panel_press(x, y);
         }
         return 1;
     }
-    /* The ball belongs to the finger that grabbed it: a second finger can
-     * tap the panel while the first one drags. */
+    /* Ignore secondary pointers while dragging admin orb. */
     if (admin_ball_grab == 1 && id != admin_ball_id) {
         return 1;
     }
@@ -240,7 +231,7 @@ static double admin_touch(double x, double y, double action, double id) {
     return 0;
 }
 
-/* Black disc with a white rim and the short panel name - flat, no gradients. */
+/* Draw opaque monochrome admin orb. */
 static void admin_draw_ball(void) {
     const char *lab = admin_orb_label();
     double r = admin_ball_r();
@@ -249,8 +240,7 @@ static void admin_draw_ball(void) {
     double iw = text_ink_width(lab);
     double ih = text_ink_height(lab);
     double sc = 0.5;
-    /* Flat black halo instead of a soft shadow: the orb is a button too, and
-     * every button in this panel is fully opaque. */
+    /* Draw opaque outer border around orb. */
     circle(cx, cy, r + 3, admin_off());
     circle(cx, cy, r, admin_body());
     ring(cx, cy, r, clamp(r * 0.11, 2, 3), admin_frame());
@@ -285,49 +275,14 @@ static void admin_draw_cheats(void) {
 static void admin_draw_tabs(void) {
     double px = admin_panel_x() + admin_pad();
     double y = admin_content_top();
-    double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
     double h = admin_row_h();
+    if (admin_gifts_allowed() == 0) {
+        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, admin_panel_w() - 2 * admin_pad(), h, 1, 0.55);
+        return;
+    }
+    double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
     admin_btn(language == 1 ? "Читы" : "Cheats", px, y, w, h, admin_tab == 0, 0.55);
     admin_btn(language == 1 ? "Подарки" : "Gifts", px + w + admin_gap(), y, w, h, admin_tab == 1, 0.55);
-}
-/* Emerald hue row: eight tiles, the current one is outlined. */
-#define ADMIN_HUE_GAP 6
-#define ADMIN_HUE_N 8
-
-static double admin_hue_row_y(void) {
-    double rh = admin_row_h();
-    return admin_content_top() + admin_row_h() + admin_gap() + 5 * (rh + admin_gap());
-}
-
-static double admin_hue_swatch_w(void) {
-    double w = admin_panel_w() - 2 * admin_pad();
-    return (w - (ADMIN_HUE_N - 1) * ADMIN_HUE_GAP) / ADMIN_HUE_N;
-}
-
-/* Which hue is under the finger, -1 if the finger is not on a tile. */
-static double admin_hue_at(double x, double y) {
-    if (admin_gift_choice != 4) {
-        return -1;
-    }
-    double px = admin_panel_x() + admin_pad();
-    double rh = admin_row_h();
-    double hy = admin_hue_row_y();
-    if (y < hy || y > hy + rh) {
-        return -1;
-    }
-    double sw = admin_hue_swatch_w();
-    double rel = x - px;
-    if (rel < 0) {
-        return -1;
-    }
-    int i = (int)floor(rel / (sw + ADMIN_HUE_GAP));
-    if (i < 0 || i >= ADMIN_HUE_N) {
-        return -1;
-    }
-    if (rel - i * (sw + ADMIN_HUE_GAP) > sw) {
-        return -1;
-    }
-    return (double)i;
 }
 
 static void admin_draw_gifts(void) {
@@ -341,19 +296,7 @@ static void admin_draw_gifts(void) {
         const char *label = ds_concat(admin_gift_choice == i ? "> " : "", name);
         admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
     }
-        /* The emerald hue only applies when the emerald is selected. */
-    if (admin_gift_choice == 4) {
-        double hy = admin_hue_row_y();
-        double sw = admin_hue_swatch_w();
-        for (int h = 0; h < ADMIN_HUE_N; ++h) {
-            double sx = px + h * (sw + ADMIN_HUE_GAP);
-            roundrect(sx, hy, sw, rh, 8, gift_hue_color((double)h / ADMIN_HUE_N));
-            if ((int)admin_gift_hue == h) {
-                roundrect_outline(sx, hy, sw, rh, 8, 3, admin_frame());
-            }
-        }
-    }
-    double target_y = y + 6 * (rh + admin_gap());
+    double target_y = y + 5 * (rh + admin_gap());
     roundrect(px, target_y, w, rh, 8, admin_off());
     roundrect_outline(px, target_y, w, rh, 8, 2, admin_frame());
     const char *target_label = admin_gift_target[0] ? admin_gift_target : (language == 1 ? "Ник получателя" : "Recipient nickname");
@@ -369,16 +312,13 @@ static void admin_draw_panel(void) {
     double hh = admin_header_h();
     const char *title = tr_admin_title();
     double title_w = pw - hh * 1.9 - 16;
-    /* The full-screen scrim is the only translucent thing in the panel; every
-     * shape of the panel itself is flat and fully opaque. */
+    /* Draw translucent backdrop scrim; panel controls remain opaque. */
     rect(0, 0, screen_w, screen_h, admin_a(0x000000, 0.55));
     roundrect(px, py, pw, ph, 14, admin_body());
     roundrect_outline(px, py, pw, ph, 14, 3, admin_frame());
-    /* Header: black band, the full panel name, the close button. */
     roundrect(px, py, pw, hh, 14, admin_header());
     rect(px, py + hh / 2, pw, hh / 2, admin_header());
     line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_frame());
-    /* Left-aligned in the header, as asked, instead of centred in the band. */
     text_in_field(title, px + 16, py, hh, admin_frame(), fit_text_scale(title, title_w, hh / 58.0));
     double cxx = px + pw - hh * 0.55;
     double cr = hh * 0.3;
@@ -386,16 +326,16 @@ static void admin_draw_panel(void) {
     ring(cxx, py + hh / 2, cr, clamp(cr * 0.14, 2, 3), admin_frame());
     text_in_box("X", cxx - cr, py + hh / 2 - cr, cr * 2, cr * 2, admin_frame(), cr / 30.0);
     admin_draw_tabs();
-    if (admin_tab == 0) admin_draw_cheats(); else admin_draw_gifts();
+    if (admin_tab == 0 || admin_gifts_allowed() == 0) admin_draw_cheats(); else admin_draw_gifts();
 }
 
 static void admin_draw(void) {
-    if (is_admin() == 0) {
+    if (admin_modifiers_allowed() == 0) {
         return;
     }
     if (admin_ball_x == 0 && admin_ball_y == 0) {
         admin_ball_x = screen_w - (admin_ball_r() + 14);
-        admin_ball_y = screen_h * 0.40;
+        admin_ball_y = back_y + btn_h * 0.5;
     }
     if (admin_panel_open == 1) {
         admin_draw_panel();
@@ -403,22 +343,20 @@ static void admin_draw(void) {
     admin_draw_ball();
 }
 
-/* Continuous cheats: ticked from logic_update so anti-stun, the frozen enemy
- * and the zeroed cooldowns survive every re-application the fight makes. */
+/* Tick active continuous cheats and admin gift actions. */
 static void admin_tick(void) {
     admin_ball_t = admin_ball_t + dt;
-    if (is_admin() == 1 && admin_panel_open == 1 && admin_tab == 1) {
+    if (admin_gifts_allowed() == 1 && admin_panel_open == 1 && admin_tab == 1) {
         if (keyboard_visible() == 1) keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
         if (admin_gift_busy == 1) {
             double gs = net_gift_action_status();
             if (gs >= 2) admin_gift_busy = gs == 2 ? 2 : 3;
         }
     }
-    if (is_admin() == 0 || admin_in_battle() == 0 || finished != 0) {
+    if (admin_modifiers_allowed() == 0 || admin_in_battle() == 0 || finished != 0) {
         return;
     }
     if (cheat_nocd == 1) {
-        /* Everything ability-related refills instantly, solo and online. */
         punch_cd = 0;
         super_cd = 0;
         dash_cd = 0;
@@ -433,8 +371,6 @@ static void admin_tick(void) {
         if (enemy->stun < 0.25) {
             enemy->stun = 0.25;
         }
-                /* This state comes from the panel, so no ring is drawn for it - even if
-                 * the cheat is off and its state has not expired yet. */
         cheat_estun_mark = 1;
     }
 }

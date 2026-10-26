@@ -1,9 +1,4 @@
-/* Keyboard/gamepad-to-touch bridge shared by the window loop and the
- * headless harness. The game itself only knows touches, so a PC "move" is a
- * second finger on the virtual stick and a PC "punch" is a tap on the pad
- * that battle_render.inc draws at that very moment - the same taps a phone
- * sends. Keeping this in one place means the harness exercises exactly the
- * code the keyboard drives. */
+/* Translate PC keyboard and mouse combat actions into virtual touch events. */
 #define PC_TOUCH_STICK 900
 #define PC_TOUCH_ATK 901
 #define PC_TOUCH_BLK 902
@@ -41,9 +36,7 @@ static void pc_ctl_release_all(void) {
 }
 #endif
 
-/* dx/dy in -1..1, y down. Held as long as the direction is non-zero: the
- * stick keeps its direction even at full speed (the game reads a unit
- * vector, speed comes from joy_speed). */
+/* Update virtual joystick touch state from directional input vector. */
 static void pc_ctl_stick(float dx, float dy) {
     float jx = 0, jy = 0, jr = 70, len;
     if (keyboard_visible() || !game_pc_in_battle()) {
@@ -73,8 +66,7 @@ static void pc_ctl_pad_touch(int which, int down) {
     if (*state == down)
         return;
     if (keyboard_visible() || !game_pc_in_battle()) {
-        /* A field is open or there is no fight: nothing to press, but a held
-         * pad must still let go so it does not stick. */
+        /* Release held combat pad when leaving battle or opening text input. */
         down = 0;
         if (*state == down)
             return;
@@ -92,9 +84,7 @@ static void pc_ctl_pad_touch(int which, int down) {
 static void pc_ctl_attack(int down) { pc_ctl_pad_touch(0, down); }
 static void pc_ctl_block(int down) { pc_ctl_pad_touch(1, down); }
 
-/* The ordinary cube has no super: the game draws no super pad for it, so a
- * press at that empty spot would be read as the joystick and drag the player
- * across the arena. Only classes that own the pad get the key. */
+/* Trigger super pad only for classes that draw one. */
 static void pc_ctl_super(int down) {
     if (down == 0) {
         pc_ctl_pad_touch(2, 0);

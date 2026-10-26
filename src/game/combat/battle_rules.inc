@@ -38,8 +38,7 @@ static double look_ready(double look) {
         return 0;
     }
     FighterSpritePair pair = look_sprite_pair(look);
-    /* The idle and punch textures are resolved as one pair for the same look,
-     * so changing pose can never change the fighter's class or skin. */
+    /* Require both idle and punch textures before switching fighter appearance. */
     return tex_ready(pair.idle) == 1 && tex_ready(pair.punch) == 1;
 }
 
@@ -121,10 +120,7 @@ static double class_punch_damage_for(double cls, double lv) {
     return punch_damage;
 }
 
-/* One multiplier for every health pool (player, bot, network fighters), so a
- * round can be tuned in one place and never changes the ratios between classes.
- * Back to 1.0: the pools are the class ones again. A bigger pool only made
- * fights drag, so any future bump should stay a couple of percent. */
+/* Global health pool multiplier across all fighters. */
 static double round_hp_mult(void) { return 1.0; }
 
 static double class_base_hp_for(double cls) {
@@ -146,9 +142,7 @@ static double class_base_hp_for(double cls) {
 
 static double player_max_hp_for(double cls) { return class_base_hp_for(cls) * round_hp_mult(); }
 
-/* Level bonuses of CodeCracker: a track of his own, not the ordinary cube's.
- * 1 - the bite hits harder, 2 - the overclock comes back sooner,
- * 3 - the overclock armour is thicker. */
+/* CodeCracker per-level bonuses: +dmg (lv1), shorter cd (lv2), higher absorb (lv3). */
 static const double codecracker_lv1_damage_bonus = 0.10;
 static const double codecracker_lv2_cd_bonus = 0.25;
 static const double codecracker_lv3_absorb_bonus = 0.10;
@@ -222,6 +216,13 @@ static double santa_freeze_time_for(double lv) {
 
 static double azum_dash_damage_for(void) {
     return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
+}
+
+#define ENEMY_OTHER_DAMAGE_MULT 0.80
+
+static double enemy_damage_mult_for(double cls) {
+    (void)cls;
+    return ENEMY_OTHER_DAMAGE_MULT;
 }
 
 static double enemy_azum_dash_damage_for(void) {

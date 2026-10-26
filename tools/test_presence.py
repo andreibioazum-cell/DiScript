@@ -1,11 +1,5 @@
 #!/usr/bin/env python3
-"""Host test for the background presence check (src/engine/network/presence*.inc).
-
-Builds engine/network.c with the same JNI and Android stubs as test_promo.py and
-checks the pure classifier, plus the early exits of net_presence_check(). Without
-a saved login, or when sign-in cannot run, the check must return a code without
-touching auth.dat.
-"""
+"""Host tests for background online presence classification and early exits."""
 from pathlib import Path
 import os
 import shlex

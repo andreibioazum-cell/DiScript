@@ -1,63 +1,33 @@
-/* Battle frame post-processing: vignette, red tint on damage and motion blur.
- * Kept apart so battle_render.inc does not grow. */
+/* Battle screen FX: edge vignette, damage flash, and motion-blur tracking. */
 
-/* Blurred band: the same convolution as the shadow - the centre, a ring of six
- * closer offsets and a farther ring. The edge of the band comes out soft, so
- * there are no steps and no hard corners. */
-static void vignette_band(double x, double y, double w, double h, double a, double blur) {
-    const double kw[3] = {0.25, 0.09, 0.06};
-    const double kr[3] = {0.0, 0.55, 1.0};
-    int ring = 0;
-    while (ring < 3) {
-        double rr = blur * kr[ring];
-        unsigned ai = (unsigned)(int)(a * kw[ring] * 255.0 + 0.5);
-        if (ai >= 1) {
-            uint32_t c = ((uint32_t)ai) << 24;
-            if (ring == 0) {
-                rect(x, y, w, h, c);
-            } else {
-                double i = 0;
-                while (i < 6) {
-                    double ang = i * pi / 3;
-                    rect(x + cos(ang) * rr, y + sin(ang) * rr, w, h, c);
-                    i = i + 1;
-                }
-            }
-        }
-        ring = ring + 1;
-    }
-}
-
-/* Ult: the vignette darkens the edges of the screen. The bands run around the
- * perimeter, each blurred by that convolution, so it is a smooth fade into the
- * dark, not a stack of frames. */
+/* Draw non-overlapping concentric edge vignette bands around the arena. */
 static void draw_vignette(void) {
-    int steps = 8;
-    double sx = screen_w * 0.08 / steps;
-    double sy = screen_h * 0.08 / steps;
-    double tw = sx * 1.4;
-    double th = sy * 1.4;
+    int steps = 10;
+    double sx = screen_w * 0.085 / steps;
+    double sy = screen_h * 0.085 / steps;
     int i = 0;
     while (i < steps) {
-        double k = (steps - 1 - i) / (double)(steps - 1);
-        double a = 0.26 * k * k;
-        if (a > 0.002) {
+        double k = (steps - i) / (double)steps;
+        unsigned ai = (unsigned)(int)(0.24 * k * k * 255.0 + 0.5);
+        if (ai >= 1) {
+            uint32_t c = ((uint32_t)ai) << 24;
             double x = i * sx;
             double y = i * sy;
             double w = screen_w - 2 * x;
             double h = screen_h - 2 * y;
-            vignette_band(x, y, w, th, a, sy * 1.8);
-            vignette_band(x, y + h - th, w, th, a, sy * 1.8);
-            vignette_band(x, y, tw, h, a, sx * 1.8);
-            vignette_band(x + w - tw, y, tw, h, a, sx * 1.8);
+            double ih = h - 2 * sy;
+            rect(x, y, w, sy, c);
+            rect(x, y + h - sy, w, sy, c);
+            if (ih > 0) {
+                rect(x, y + sy, sx, ih, c);
+                rect(x + w - sx, y + sy, sx, ih, c);
+            }
         }
         i = i + 1;
     }
 }
 
-/* Damage taken: the screen turns very slightly red, in a muted tone, not a
- * neon one. Alpha 0 means "fully opaque" in the engine, so an empty tint is
- * never drawn. */
+/* Peak red damage-flash opacity; skip zero alpha since engine treats 0 as opaque. */
 #define HURT_FLASH_ALPHA 0.07
 #define HURT_FLASH_RGB 0xB04848
 
@@ -69,13 +39,12 @@ static void draw_hurt_flash(void) {
     rect(0, 0, screen_w, screen_h, (((uint32_t)a) << 24) | HURT_FLASH_RGB);
 }
 
-/* Frame post-processing before the interface: the vignette at the edges. */
+/* Draw pre-HUD screen FX. */
 static void draw_screen_fx(void) {
     draw_vignette();
 }
 
-/* Motion blur comes from the actual per-frame offset: a dash leaves a long
- * trail, a calm walk a short one. */
+/* Record per-frame fighter displacement for motion-blur trails. */
 static void motion_blur_track(void) {
     if (mb_ok == 0) {
         mb_px = player->x;

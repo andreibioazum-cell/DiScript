@@ -1,4 +1,26 @@
+static double nick_is_dimasi229(const char *nick) {
+    const char *want = ADMIN_NICK;
+    if (!nick) {
+        return 0;
+    }
+    while (*want && *nick) {
+        char a = *nick, b = *want;
+        if (a >= 'A' && a <= 'Z')
+            a = (char)(a - 'A' + 'a');
+        if (b >= 'A' && b <= 'Z')
+            b = (char)(b - 'A' + 'a');
+        if (a != b)
+            return 0;
+        nick++;
+        want++;
+    }
+    return *want == 0 && *nick == 0 ? 1 : 0;
+}
+
 static double has_achievement(double bit) {
+    if (bit == ACH_EAX229 && nick_is_dimasi229(net_login_nick()) == 1) {
+        return 0;
+    }
     double shifted = floor(achievement_mask / bit);
     return shifted - floor(shifted * 0.5) * 2;
 }
@@ -45,33 +67,12 @@ static void check_buk_elf_achievement(void) {
     grant_achievement(ACH_BUK_GIFT);
 }
 
-static double nick_is_dimasi229(const char *nick) {
-    const char *want = ADMIN_NICK;
-    if (!nick) {
-        return 0;
-    }
-    while (*want && *nick) {
-        char a = *nick, b = *want;
-        if (a >= 'A' && a <= 'Z')
-            a = (char)(a - 'A' + 'a');
-        if (b >= 'A' && b <= 'Z')
-            b = (char)(b - 'A' + 'a');
-        if (a != b)
-            return 0;
-        nick++;
-        want++;
-    }
-    return *want == 0 && *nick == 0 ? 1 : 0;
-}
-
-/* mov eax, 0x229: be in one online room with Dimasi4ek229. For
- * Dimasi4ek229 himself it is granted automatically. */
+/* Award ACH_EAX229 when sharing an online room with Dimasi4ek229. */
 static void check_meet_eax229(void) {
-    if (has_achievement(ACH_EAX229) == 1) {
+    if (nick_is_dimasi229(net_login_nick()) == 1) {
         return;
     }
-    if (nick_is_dimasi229(net_login_nick()) == 1) {
-        grant_achievement(ACH_EAX229);
+    if (has_achievement(ACH_EAX229) == 1) {
         return;
     }
     if (game_state != ST_ONLINE) {
@@ -121,8 +122,7 @@ static void progress_push_to_net(void) {
 static void progress_normalize(void) {
     astra_ability_refresh();
     codecracker_refresh();
-    /* ID 5 was the removed Astra variant in older saves. Fold it into the
-     * ordinary Astra class before validating the selected class. */
+    /* Map legacy Astra variant ID 5 to CLASS_ASTRA. */
     if (player_class == 5) {
         player_class = CLASS_ASTRA;
     }
@@ -135,6 +135,9 @@ static void progress_normalize(void) {
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         azum_skin = SKIN_NORMAL;
     }
+    if (ebuc_skin == SKIN_SPECIAL && has_achievement(ACH_BUK_GIFT) == 0) {
+        ebuc_skin = SKIN_NORMAL;
+    }
     double order = 0;
     while (order < class_count) {
         double cls = class_at_order(order);
@@ -146,9 +149,11 @@ static void progress_normalize(void) {
         set_class_progress(cls, lv, un);
         order = order + 1;
     }
-    if (player_class == CLASS_SANTA && dev_access() == 0 && (is_admin() == 0 || bp_claimed < 7)) {
-        /* Santa is developer-only until the admin battle-pass tier 7 is claimed;
-         * the ownership itself is kept either way. */
+    if (bpass_rewards_allowed() == 1 && bp_claimed >= 7) {
+        set_class_owned(CLASS_SANTA, 1);
+    }
+    if (player_class == CLASS_SANTA && dev_access() == 0 && (bpass_rewards_allowed() == 0 || bp_claimed < 7)) {
+        /* Restrict Santa selection unless developer access or tier 7 is active. */
         player_class = CLASS_ORDINARY;
     }
     if (class_id_valid(player_class) == 0 || class_owned_of(player_class) == 0) {
@@ -201,12 +206,7 @@ static void progress_from_storage(void) {
     check_achievements();
 }
 
-/* Sign-out wipes the local progress back to a fresh guest: cups, candies,
- * bought classes, levels, skins and achievements all go to zero, and the
- * zeroed state is saved on the device so a restart does not resurrect the
- * previous account's numbers. The cloud profile is NOT touched: callers
- * run this after net_logout(), when save_progress() can only write the
- * local file, and logging back in restores the account from the cloud. */
+/* Reset local progress to default guest state after sign-out. */
 static void progress_reset_on_signout(void) {
     bp_xp = 0;
     bp_claimed = 0;
@@ -235,7 +235,7 @@ static void progress_reset_on_signout(void) {
     cheat_nocd = 0;
     cheat_cc = 0;
     cheat_estun = 0;
-    cheat_chaos = 0;
+    cheat_ball_path = 0;
     cheat_stain = 0;
     cheat_estun_mark = 0;
     admin_panel_open = 0;
@@ -247,8 +247,6 @@ static void progress_reset_on_signout(void) {
 static void settings_from_storage(void) {
     language = net_load_language();
     show_hitboxes = net_load_hitboxes();
-    /* There is no music toggle any more: the lobby music always plays at
-     * the fixed default volume (music_volume in the state defaults). */
     winter_theme = net_load_winter_theme();
     new_theme = net_load_new_theme();
     apply_theme();

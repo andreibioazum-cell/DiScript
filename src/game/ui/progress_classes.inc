@@ -1,5 +1,4 @@
-/* Every class has its own level branch, CodeCracker too: it is a separate class,
- * not the ordinary cube under another name. */
+/* Per-class ownership, level progress, flash sale pricing, and shop scrolling. */
 static double class_level_of(double cls) { return arr_get(class_level_tbl, cls); }
 
 static double class_unlocked_of(double cls) { return arr_get(class_unlocked_tbl, cls); }
@@ -13,11 +12,11 @@ static double class_owned_of(double cls) {
     if (cls == CLASS_ORDINARY) {
         return 1;
     }
-    return arr_get(class_owned_tbl, cls);
+    return arr_get(class_owned_tbl, cls) == 1 ? 1 : 0;
 }
 
 static void set_class_owned(double cls, double owned) {
-    arr_set(class_owned_tbl, cls, owned);
+    arr_set(class_owned_tbl, cls, owned == 1 ? 1 : 0);
 }
 
 static void set_class_progress(double cls, double lv, double un) {
@@ -25,12 +24,7 @@ static void set_class_progress(double cls, double lv, double un) {
     arr_set(class_unlocked_tbl, cls, un);
 }
 
-/* Flash sale: while the live Firebase FlashSale flag is 1, EVERY price
- * (classes and level unlocks) drops by 10%. The discounted price is
- * rounded to the nearest whole unit: 65 -> 59, 100 -> 90, 30 -> 27.
- * The flag is only ever read (GET) by the client: it is never created in
- * Firebase by the game, and without a fresh successful read (offline,
- * node missing, value not 1) prices stay at their normal values. */
+/* Apply 10% shop discount while live Firebase FlashSale flag is active. */
 #define FLASH_SALE_FRACTION 0.10
 
 static void update_flash_sale(void) {
@@ -165,11 +159,8 @@ static double skin_unlocked_for(double cls, double skin) {
         return 1;
     }
     if (cls == CLASS_EBUC) {
-        /* Elf ebuc (буК, genitive буКа): achievement "Подарок буКа" – be at the Ded Moroz event online as Santa, or admin battle-pass tier 4. */
-        if ((is_admin() == 1 && bp_claimed >= 4) || has_achievement(ACH_BUK_GIFT) == 1) {
-            return 1;
-        }
-        return 0;
+        /* Unlock Elf ebuC strictly via online ACH_BUK_GIFT. */
+        return has_achievement(ACH_BUK_GIFT) == 1 ? 1 : 0;
     }
     if (cls == CLASS_AZUM && has_achievement(ACH_LEGENDS) == 1) {
         return 1;
@@ -218,7 +209,7 @@ static void pick_skin(double skin) {
 }
 
 static double class_visible(double cls) {
-    if (cls == CLASS_SANTA && dev_access() == 0 && (is_admin() == 0 || bp_claimed < 7)) {
+    if (cls == CLASS_SANTA && dev_access() == 0 && (bpass_rewards_allowed() == 0 || bp_claimed < 7)) {
         return 0;
     }
     return 1;
@@ -257,9 +248,7 @@ static double classes_page_size(void) {
     return clamp(floor((available + class_gap) / (class_card_min_w + class_gap)), 1, class_count);
 }
 
-/* The shop is one horizontal strip, not pages. It scrolls only when the
- * cards genuinely do not fit the viewport: classes_scroll_max() is 0 then,
- * the strip stays centred and no drag or scrollbar can move it. */
+/* Horizontal shop strip width and scroll limits. */
 static double classes_viewport_w(void) { return screen_w - 2 * screen_margin; }
 
 static double classes_strip_w(void) {
@@ -329,17 +318,28 @@ static void select_level(double cls, double n) {
     save_progress();
 }
 
+static double balance_can_pay(double bal, double cost) {
+    if (cost != cost || cost <= 0 || bal != bal || bal < 0) {
+        return 0;
+    }
+    return floor(bal + 1e-9) >= cost ? 1 : 0;
+}
+
 static double buy_level(double cls, double n) {
     double cost = level_cost(n);
+    if (cups != cups || cups < 0) {
+        cups = 0;
+    }
         /* Admin cups are never taken: the level opens for free. */
     double free_buy = admin_playing() == 1;
-    if (free_buy == 0 && cups < cost) {
+    if (free_buy == 0 && balance_can_pay(cups, cost) == 0) {
         level_msg_kind = 0;
         level_msg_t = msg_time;
         return 0;
     }
     if (free_buy == 0) {
         cups = cups - cost;
+        if (cups < 0) cups = 0;
     }
     set_class_progress(cls, n, n);
     if (cls == player_class) {
@@ -407,21 +407,25 @@ static void pick_class(double cls) {
         return;
     }
     double cost = class_cost_of(cls);
+    if (cups != cups || cups < 0) cups = 0;
+    if (candies != candies || candies < 0) candies = 0;
     class_msg_kind = class_pays_candies(cls);
     if (class_pays_candies(cls) == 1) {
-        if (candies < cost) {
+        if (balance_can_pay(candies, cost) == 0) {
             class_msg_t = msg_time;
             return;
         }
         candies = candies - cost;
+        if (candies < 0) candies = 0;
     } else if (admin_playing() == 1) {
                 /* Admin cups are never taken: the class is free. */
     } else {
-        if (cups < cost) {
+        if (balance_can_pay(cups, cost) == 0) {
             class_msg_t = msg_time;
             return;
         }
         cups = cups - cost;
+        if (cups < 0) cups = 0;
     }
     set_class_owned(cls, 1);
     select_class(cls);

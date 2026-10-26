@@ -1,23 +1,5 @@
 #!/usr/bin/env python3
-"""Checks of the web admin panel (index.html) and its fake database.
-
-The panel once "worked" in a way that nothing on the page could be pressed: a
-block comment contained "rooms/*/chat", the star-slash closed the comment early,
-the rest of the text slid into the code, the script died while loading, and the
-page with buttons turned into a picture. So there are three layers of checks:
-
-1. Syntax of the panel scripts (node --check, if node is there) and the order of
-   blocks: a guard comes first and shows any error in a red strip.
-2. Every button and field has its element: all selectors from the script are
-   found in the markup, every <button> has a handler.
-3. The database schema in the panel matches firebase.rules.json: the panel offers
-   to delete exactly what the rules do not allow, and never treats live progress
-   as junk (gifts, bp/bpx, playtime, pd_consent_*, the "w" secret).
-
-Plus a short run of test/fake_firebase.py: with it the panel can be opened and
-clicked without the live database. The full clickable run in a real DOM lives in
-test/test_admin_panel_dom.mjs (needs jsdom: cd test && npm install).
-"""
+"""Static and live-mock checks for index.html and firebase.rules.json."""
 import json
 import os
 import re
@@ -128,7 +110,7 @@ def rules_spec(validate):
         return ("num", bounds.get(">="), bounds.get("<="))
     if "isString()" in validate:
         if re.search(r"newData\.val\(\)\s*==\s*'", validate):
-            return ("str", None, None)          # секрет «w»: точное значение
+            return ("str", None, None)          # exact write-secret match ("w")
         lens = {op: float(val) for op, val in
                 re.findall(r"\.length\s*(>=|<=)\s*(\d+)", validate)}
         return ("str", lens.get(">="), lens.get("<="))

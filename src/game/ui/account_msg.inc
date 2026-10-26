@@ -1,8 +1,4 @@
-/* The message text lives on screen for many frames, while pool strings
- * (ds_concat, ds_num_to_string) are freed after two frames: selling a sticker
- * stored such a pointer in acct_msg, and a couple of frames later draw_acct_msg
- * read freed memory - a crash on the phone. So everything coming from outside is
- * copied into this buffer. */
+/* Persistent status message buffer independent of the two-frame string pool. */
 static char acct_msg_buf[160];
 static const char *acct_msg = "";
 static void acct_msg_set(const char *text) {

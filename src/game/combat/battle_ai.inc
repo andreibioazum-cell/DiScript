@@ -89,7 +89,7 @@ static void enemy_tick_block(void) {
         enemy_block_left = enemy_block_left - dt;
         if (enemy_block_left <= 0) {
             enemy_block_left = 0;
-            /* A guard is not held forever: drop it and rest a beat. */
+            /* Release guard and start block cooldown. */
             enemy_block_cd = 1.1 + (rand() % 100) / 100.0 * 1.4;
         }
     } else if (enemy_block_cd > 0) {
@@ -158,7 +158,7 @@ static void update_enemy(void) {
     double pr = player_half();
     double reach = punch_forward_offset + enemy_punch_reach + pr;
     if (enemy_block_left > 0) {
-        /* Guarding: planted feet, shield up, eyes on the player. */
+        /* Face player while guarding. */
         enemy_face_player();
         return;
     }
@@ -181,7 +181,7 @@ static void update_enemy(void) {
         if (ad > reach - enemy_hit_margin) {
             enemy_move(adx / ad * bot_speed * 0.85, ady / ad * bot_speed * 0.85);
         }
-        if (enemy->state_time <= 0) {
+        if (enemy->state_time <= 1e-9) {
             enemy->state = 2;
             enemy->state_time = enemy_punch_time;
             enemy->hit = 0;
@@ -200,13 +200,14 @@ static void update_enemy(void) {
             if (target == 0) {
                 enemy->hit = 1;
                 if (revive_prot <= 0) {
-                    take_damage_at(class_punch_damage_for(enemy_class, enemy_level), enemy->x, enemy->y);
-                    if (enemy_class == CLASS_SANTA) {
+                    take_damage_at(class_punch_damage_for(enemy_class, enemy_level) * enemy_damage_mult_for(enemy_class),
+                                   enemy->x, enemy->y);
+                    if (astra_parry_active() == 0 && enemy_class == CLASS_SANTA) {
                         if (player_poison <= 0) {
                             player_poison_tick = santa_poison_tick_interval;
                         }
                         player_poison = santa_poison_time_for(enemy_level);
-                        player_poison_damage = santa_poison_damage_for(enemy_level);
+                        player_poison_damage = santa_poison_damage_for(enemy_level) * enemy_damage_mult_for(enemy_class);
                     }
                     ds_log("enemy punch! hp %g", player->hp);
                     if (finished != 0) {
@@ -215,7 +216,8 @@ static void update_enemy(void) {
                 }
             } else if (target >= 1 && target <= turret_max) {
                 enemy->hit = 1;
-                damage_turret(target - 1, class_punch_damage_for(enemy_class, enemy_level));
+                damage_turret(target - 1,
+                              class_punch_damage_for(enemy_class, enemy_level) * enemy_damage_mult_for(enemy_class));
                 if (enemy_apply_damage(turret_counter_damage) == 1) {
                     return;
                 }
@@ -226,12 +228,7 @@ static void update_enemy(void) {
             enemy->state = 3;
             enemy->state_time = enemy_recovery;
             enemy->cooldown = enemy_roll_cooldown();
-            if (enemy->hit == 1 && enemy_free_window() == 1) {
-                enemy->cooldown = enemy_cooldown_min * 0.7;
-                enemy->think = 0;
-            } else {
-                enemy->think = enemy_think_min + (rand() % 100) / 100.0 * (enemy_think_max - enemy_think_min);
-            }
+            enemy->think = enemy_think_min + (rand() % 100) / 100.0 * (enemy_think_max - enemy_think_min);
         }
         return;
     }
@@ -272,10 +269,9 @@ static void update_enemy(void) {
         if (enemy->react <= 0) {
             if (rand() % 100 < enemy_human_dodge_fail * 100) {
                 ds_log("enemy dodge fail (human)");
-            } else if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 100 < 45) {
-                /* Humans do not always side-step: sometimes they plant their
-                 * feet and take the swing on a raised guard instead. */
-                enemy_block_left = 0.55 + (rand() % 100) / 100.0 * 0.5;
+            } else if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 100 < 28) {
+                /* Raise guard against incoming attack. */
+                enemy_block_left = 0.40 + (rand() % 100) / 100.0 * 0.35;
                 enemy->react =
                     enemy_human_react_min + (rand() % 100) / 100.0 * (enemy_human_react_max - enemy_human_react_min);
                 ds_log("enemy blocks (human)");
@@ -341,8 +337,7 @@ static void update_enemy(void) {
         enemy->flank = enemy_flank_time;
     }
     if (enemy_block_left <= 0 && enemy_block_cd <= 0 && rand() % 1000 < 5) {
-        /* Occasionally turtle up out of nowhere - reads like a cautious human
-         * catching their breath between exchanges. */
+        /* Randomly raise guard during neutral spacing. */
         enemy_block_left = 0.5 + (rand() % 100) / 100.0 * 0.7;
         return;
     }

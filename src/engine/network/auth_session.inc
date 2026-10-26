@@ -1,26 +1,45 @@
+static int fb_verify_current_pass(const char *nick, const char *pass);
+
 static int fb_refresh_token_now(void) {
     char url[FB_URL_MAX], body[768], resp[2048], rt[FB_REFRESH_MAX];
-    int code;
+    char nick[LOGIN_NICK_MAX + 2] = "", pass[64] = "";
+    int code = 0;
     if (!fb_enabled())
         return 0;
     ds_mutex_lock(fb.lock);
     snprintf(rt, sizeof(rt), "%s", fb.refresh_token);
     ds_mutex_unlock(fb.lock);
-    if (!rt[0])
-        return 0;
-    fb_auth_endpoint(url, sizeof(url), "/v1/token");
-    snprintf(body, sizeof(body), "{\"grant_type\":\"refresh_token\",\"refresh_token\":\"%s\"}", rt);
-    code = http("POST", url, body, resp, sizeof(resp));
-    if (code == 200 && strstr(resp, "id_token")) {
-        char idt[FB_ID_MAX], nrt[FB_REFRESH_MAX];
-        strv(resp, "id_token", idt, sizeof(idt));
-        strv(resp, "refresh_token", nrt, sizeof(nrt));
-        if (idt[0]) {
-            fb_store_tokens(idt, nrt[0] ? nrt : rt, num(resp, "expires_in", 3600));
-            return 1;
+    if (rt[0]) {
+        fb_auth_endpoint(url, sizeof(url), "/v1/token");
+        snprintf(body, sizeof(body), "{\"grant_type\":\"refresh_token\",\"refresh_token\":\"%s\"}", rt);
+        code = http("POST", url, body, resp, sizeof(resp));
+        if (code == 200 && strstr(resp, "id_token")) {
+            char idt[FB_ID_MAX], nrt[FB_REFRESH_MAX];
+            strv(resp, "id_token", idt, sizeof(idt));
+            strv(resp, "refresh_token", nrt, sizeof(nrt));
+            if (idt[0]) {
+                fb_store_tokens(idt, nrt[0] ? nrt : rt, num(resp, "expires_in", 3600));
+                return 1;
+            }
         }
     }
-    if (net_log_ok())
+    /* Re-sign in using cached credentials if refresh token is missing or expired. */
+    if (!rt[0] || code == 400 || code == 401) {
+        lg_lock();
+        if (lg.status == NET_LOGIN_OK && lg.session_nick[0] && lg.session_pass[0]) {
+            snprintf(nick, sizeof(nick), "%s", lg.session_nick);
+            snprintf(pass, sizeof(pass), "%s", lg.session_pass);
+        }
+        lg_unlock();
+        if (nick[0] && pass[0]) {
+            int r = fb_verify_current_pass(nick, pass);
+            memset(pass, 0, sizeof(pass));
+            if (r == 0)
+                return 1;
+        }
+        memset(pass, 0, sizeof(pass));
+    }
+    if (rt[0] && net_log_ok())
         LOGERR("firebase token refresh failed: HTTP %d %.120s", code, resp);
     return 0;
 }
@@ -65,9 +84,18 @@ static int fb_http_ex(const char *method, const char *url, const char *body, cha
     fb_ensure_token();
     fb_url(authed, sizeof(authed), url);
     code = http_ex(method, authed, body, out, cap, header, value, etag, etag_cap);
-    if (code == 401 && fb_refresh_token_now()) {
-        fb_url(authed, sizeof(authed), url);
-        code = http_ex(method, authed, body, out, cap, header, value, etag, etag_cap);
+    if (code == 401) {
+        if (fb_refresh_token_now()) {
+            fb_url(authed, sizeof(authed), url);
+            code = http_ex(method, authed, body, out, cap, header, value, etag, etag_cap);
+        } else {
+            ds_mutex_lock(fb.lock);
+            fb.id_token[0] = 0;
+            fb.expires_at = 0;
+            ds_mutex_unlock(fb.lock);
+            if (method && strcmp(method, "GET") == 0)
+                code = http_ex(method, url, body, out, cap, header, value, etag, etag_cap);
+        }
     }
     if (code == 403 && net_log_ok())
         LOGERR("firebase: HTTP 403 (permission denied) - check firebase.rules.json and FB_KEY");
@@ -77,7 +105,7 @@ static int fb_http(const char *method, const char *url, const char *body, char *
     return fb_http_ex(method, url, body, out, cap, NULL, NULL, NULL, 0);
 }
 
-/* Streaming GET with the auth token attached (Firebase REST SSE). */
+/* Open authenticated Firebase SSE stream. */
 static int fb_http_stream(const char *url, DSStreamChunkFn cb, void *ctx) {
     char authed[FB_URL_MAX];
     if (!fb_enabled())
@@ -103,10 +131,7 @@ static int fb_err_is(const char *resp, const char *code_name) {
     return resp && strstr(resp, code_name) != NULL;
 }
 
-/* Move the account password to the new suffix. Called right after a sign-in with
- * the old suffix: the account moves to NET_PASS_SECRET and the old suffix stops
- * working for it. An error here is not fatal - the player is already in and will
- * move on the next sign-in. */
+/* Migrate account password from legacy suffix to NET_PASS_SECRET. */
 static void fb_update_password(const char *pass) {
     char url[FB_URL_MAX], body[512], resp[2048], epass[192], idt[FB_ID_MAX], rt[FB_REFRESH_MAX];
     int code;
@@ -133,9 +158,7 @@ static void fb_update_password(const char *pass) {
         LOG("firebase auth: account moved to the new password suffix");
 }
 
-/* One sign-in attempt. 0 - signed in (tokens stored), 1 - no such account or
- * wrong password, 2 - network or server error. *no_such_account gets 1 when the
- * account does not exist at all. */
+/* Attempt Firebase sign-in: 0 success, 1 invalid credentials, 2 network/server error. */
 static int fb_try_sign_in(const char *email, const char *epass, int *no_such_account) {
     char url[FB_URL_MAX], body[512], resp[2048], idt[FB_ID_MAX], rt[FB_REFRESH_MAX];
     int code;
@@ -169,34 +192,41 @@ static int fb_try_sign_in(const char *email, const char *epass, int *no_such_acc
     return 1;
 }
 
+static int fb_verify_current_pass_ex(const char *nick, const char *pass, int *no_such_out) {
+    char email[96], epass[192];
+    int state, legacy = 0, no_such = 0;
+    fb_email_of(nick, email, sizeof(email));
+    snprintf(epass, sizeof(epass), "%s%s", pass, net_pass_suffix());
+    state = fb_try_sign_in(email, epass, &no_such);
+    if (state == 1 && !no_such) {
+        snprintf(epass, sizeof(epass), "%s%s", pass, FB_LEGACY_PASS_SUFFIX);
+        state = fb_try_sign_in(email, epass, NULL);
+        legacy = state == 0;
+    }
+    memset(epass, 0, sizeof(epass));
+    if (no_such_out)
+        *no_such_out = no_such;
+    if (state == 0 && legacy)
+        fb_update_password(pass);
+    return state;
+}
+
+static int fb_verify_current_pass(const char *nick, const char *pass) {
+    return fb_verify_current_pass_ex(nick, pass, NULL);
+}
+
 static int fb_sign_in(const char *nick, const char *pass, int *registered) {
     char url[FB_URL_MAX], body[512], resp[2048];
     char email[96], epass[192], idt[FB_ID_MAX], rt[FB_REFRESH_MAX];
-    int code, state, legacy = 0, no_such_account = 0;
+    int code, state, no_such_account = 0;
     if (registered)
         *registered = 0;
-    fb_email_of(nick, email, sizeof(email));
-    snprintf(epass, sizeof(epass), "%s%s", pass, net_pass_suffix());
-        /* Try the new suffix first: every account created after NET_PASS_SECRET uses
-         * it. */
-    state = fb_try_sign_in(email, epass, &no_such_account);
+    state = fb_verify_current_pass_ex(nick, pass, &no_such_account);
     if (state == 2)
         return 2;
-    if (state == 1 && !no_such_account) {
-                /* The account may still use the old suffix: let it in one last time and
-                 * move it to the new one right away. */
-        snprintf(epass, sizeof(epass), "%s%s", pass, FB_LEGACY_PASS_SUFFIX);
-        state = fb_try_sign_in(email, epass, NULL);
-        if (state == 2)
-            return 2;
-        legacy = state == 0;
-    }
-    if (state == 0) {
-        if (legacy)
-            fb_update_password(pass);
+    if (state == 0)
         return 0;
-    }
-
+    fb_email_of(nick, email, sizeof(email));
     fb_auth_endpoint(url, sizeof(url), "/v1/accounts:signUp");
     snprintf(epass, sizeof(epass), "%s%s", pass, net_pass_suffix());
     snprintf(body, sizeof(body), "{\"email\":\"%s\",\"password\":\"%s\",\"returnSecureToken\":true}", email, epass);
@@ -245,7 +275,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
     int keep = 0;
     int cups = 0, candies = 0, cls = 0, azum = 0, santa = 0, ebuc = 0;
     int lv = 0, lu = 0, ol = 0, ou = 0, al = 0, au = 0, sl = 0, su = 0, el = 0, eul = 0;
-    int bp = 0, sk = 0, astra = 0, atl = 0, atu = 0, cc = 0, ccl = 0, ccu = 0;
+    int bp = 0, bpx = 0, sk = 0, astra = 0, atl = 0, atu = 0, cc = 0, ccl = 0, ccu = 0;
     progress_read();
     pg_lock();
     if (pg.loaded) {
@@ -266,6 +296,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
         el = pg.ebuc_level;
         eul = pg.ebuc_levels_unlocked;
         bp = pg.bp_level;
+        bpx = pg.bp_xp;
         sk = pg.azum_skin;
         astra = pg.astra;
         atl = pg.astra_level;
@@ -273,8 +304,8 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
         cc = pg.codecracker;
         ccl = pg.codecracker_level;
         ccu = pg.codecracker_levels_unlocked;
-        if (cups > 0 || candies > 0 || azum || santa || ebuc || astra || cc || cls != 0 || bp > 0 || lu > 0 || ou > 0 ||
-            au > 0 || su > 0 || eul > 0 || atu > 0 || ccu > 0)
+        if (cups > 0 || candies > 0 || azum || santa || ebuc || astra || cc || cls != 0 || bp > 0 || bpx > 0 ||
+            sk != 0 || lu > 0 || ou > 0 || au > 0 || su > 0 || eul > 0 || atu > 0 || ccu > 0)
             keep = 1;
     }
     pg_unlock();
@@ -310,6 +341,7 @@ static void net_auth_session_ok(const char *nick, const char *pass) {
     pg.ebuc_level = 0;
     pg.ebuc_levels_unlocked = 0;
     pg.bp_level = 0;
+    pg.bp_xp = 0;
     pg.azum_skin = 0;
     pg.astra = 0;
     pg.astra_level = 0;

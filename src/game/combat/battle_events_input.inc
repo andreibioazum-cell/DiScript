@@ -34,7 +34,7 @@ static void update_event(void) {
     }
     tick_plates_event();
     update_dice_event();
-    /* New achievement: be at Ded Moroz event (3) as Santa online – gives elf skin of буКа (genitive буКа). */
+    /* Unlock ebuC's gift achievement when playing Santa online during event 3. */
     if (game_state == ST_ONLINE && event_mode == 3 && player_class == CLASS_SANTA && online_ready == 1) {
         if (has_achievement(ACH_BUK_GIFT) == 0) {
             grant_achievement(ACH_BUK_GIFT);
@@ -83,9 +83,7 @@ static void update_banner(void) {
     }
     double ts = net_banner_ts();
     if (ts <= 0) {
-        /* The author's countdown ended and the banner was cleared on the
-         * server: drop it here at the same moment, so it disappears for
-         * everyone at once - and late joiners never linger on a dead banner. */
+        /* Hide banner immediately when cleared on server. */
         banner_t = 0;
         return;
     }
@@ -97,8 +95,7 @@ static void update_banner(void) {
         double before = banner_t;
         banner_t = tick_down(banner_t);
         if (before > 0 && banner_t <= 0) {
-            /* The fade-out has completed; remove the transient command value
-             * from Firebase so new players do not inherit an old banner. */
+            /* Clear server banner node once fade-out completes. */
             net_banner_clear();
         }
     }
@@ -137,6 +134,10 @@ static void draw_overhead_nick(const char *nick, double cx, double top_y, uint32
     double w = text_ink_width(nick) * 0.5;
     double th = text_ink_height(nick) * 0.5;
     double tt = text_ink_top(nick) * 0.5;
+    if (nick_shimmers(nick) == 1) {
+        text_shimmer(nick, cx - w / 2, top_y - 12 - th - tt, col, 0.5, gift_shimmer_time());
+        return;
+    }
     text_scaled(nick, cx - w / 2, top_y - 12 - th - tt, col, 0.5);
 }
 
@@ -149,10 +150,10 @@ static void draw_online(void) {
     motion_blur_track();
     draw_arena_background();
     draw_disco();
-    draw_dice_event();
     draw_field();
     draw_event_plates();
     draw_event_candies();
+    draw_dice_cubes();
     draw_dust();
     draw_player_shadow_layer();
     double i = 0;
@@ -170,13 +171,14 @@ static void draw_online(void) {
             ry = arr_get(remotes, b + 2);
             ra = arr_get(remotes, b + 3);
             punching = 0;
-            if (arr_get(remote_punches, rb) == 1) {
+            if (arr_get(remote_punches, rb) > 0) {
                 punching = 1;
                 ra = atan2(arr_get(remote_punches, rb + 4), arr_get(remote_punches, rb + 3));
-            } else if (remote_grab_punching(i) == 1) {
+            } else if (remote_grab_punching(i) == 1 || remote_dash_get(i, DASH_ACTIVE) == 1) {
                 punching = 1;
             }
-            draw_fighter_shadow(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
+            double rsh = astra_strike_shift(remote_grab_get(i, GRAB_ACTIVE) == 1, remote_grab_get(i, GRAB_T));
+            draw_fighter_shadow(rx + cos(ra) * rsh, ry + sin(ra) * rsh, ra, fighter_look_of(FLOOK_REMOTE + i),
                                 fighter_pose_of(FLOOK_REMOTE + i, punching));
         }
         i = i + 1;
@@ -196,7 +198,6 @@ static void draw_online(void) {
         }
     }
     draw_ability_hitboxes();
-    chaos_draw();
     draw_ball();
     draw_remote_bricks();
     draw_gift();
@@ -223,19 +224,23 @@ static void draw_online(void) {
             ry = arr_get(remotes, b + 2);
             ra = arr_get(remotes, b + 3);
             punching = 0;
-            if (arr_get(remote_punches, rb) == 1) {
+            if (arr_get(remote_punches, rb) > 0) {
                 punching = 1;
                 ra = atan2(arr_get(remote_punches, rb + 4), arr_get(remote_punches, rb + 3));
-            } else if (remote_grab_punching(i) == 1) {
+            } else if (remote_grab_punching(i) == 1 || remote_dash_get(i, DASH_ACTIVE) == 1) {
                 punching = 1;
             }
             draw_codecracker_fx_slot(i, rx, ry, ra);
-            draw_fighter_body(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
+            double rsh = astra_strike_shift(remote_grab_get(i, GRAB_ACTIVE) == 1, remote_grab_get(i, GRAB_T));
+            draw_fighter_body(rx + cos(ra) * rsh, ry + sin(ra) * rsh, ra, fighter_look_of(FLOOK_REMOTE + i),
                               fighter_pose_of(FLOOK_REMOTE + i, punching));
             double remote_tint = codecracker_tint_slot(i);
-            draw_fighter_tint(rx, ry, ra, fighter_look_of(FLOOK_REMOTE + i),
+            draw_fighter_tint(rx + cos(ra) * rsh, ry + sin(ra) * rsh, ra, fighter_look_of(FLOOK_REMOTE + i),
                               fighter_pose_of(FLOOK_REMOTE + i, punching), player_scale, remote_tint);
             draw_guard(rx, ry, ra, net_player_block(i), player_scale);
+            draw_purple_guard(rx, ry,
+                              class_is_astra(arr_get(remotes, b + 10)) == 1 && net_player_codecracker_super(i) == 1,
+                              player_scale);
             const char *rn = net_player_nick(i);
             if (str_len(rn) > 0) {
                 uint32_t rncol = admin_head_color_of(rn, 0xFFFFFF);
@@ -244,6 +249,7 @@ static void draw_online(void) {
         }
         i = i + 1;
     }
+    draw_dice_event();
     draw_event_santa();
     draw_chat_bubbles();
     draw_status_aura(player->x, player->y, player->size, freeze_rgb, freeze_rim, pfreeze_a);
@@ -309,8 +315,7 @@ static void joy_touch(double x, double y, double action, double id) {
         joy.oy = 0;
     }
     if (d > joy.r * 0.15) {
-        /* Use a unit direction once outside the deadzone; speed is constant
-         * whether the stick is near its center or at the rim. */
+        /* Normalize stick direction outside deadzone. */
         joy.dx = dx / d;
         joy.dy = dy / d;
     } else {
@@ -329,7 +334,6 @@ static void touch_game(double x, double y, double action, double id) {
     if (action == 3) {
         blk_id = -1;
         player_block = 0;
-        ball_aim_cancel();
         drop_joy();
         return;
     }
@@ -344,45 +348,19 @@ static void touch_game(double x, double y, double action, double id) {
             return;
         }
     }
-    /* The in-battle back button acts on the press, like the menu buttons: the
-     * touch itself leaves the fight, there is nothing to hold or aim. */
+    /* Exit battle on back button press. */
     if (action == 0 && battle_back_hit(x, y) == 1) {
         start_transition(0);
         return;
     }
-    /* Ebuc keeps two ults and switches between them with his own button: the
-     * letter on it is what the next tap throws. */
+    /* Toggle ebuC's ultimate mode on mode-button press. */
     if (player_class == CLASS_EBUC && (game_state == ST_SOLO || game_state == ST_ONLINE) && action == 0 &&
         ult_mode_hit(x, y) == 1) {
-        ball_aim_cancel();
         ult_mode_toggle();
         return;
     }
-    /* Aiming the magic projectile: the finger that tapped the pad may drag only
-     * around the player (not anywhere), and the throw follows it. Lifting the
-     * finger keeps the aim, the countdown runs to zero on its own. */
-    if (ball.aim_on == 1 && id == ball.aim_id) {
-        if (action == 2) {
-            ball_aim_point(x, y);
-            return;
-        }
-        if (action == 1 || action == 3) {
-            ball.aim_id = -1;
-            if (action == 3) {
-                ball_aim_cancel();
-            }
-            return;
-        }
-    }
-    /* The three combat buttons sit close together, so the nearest one wins the
-     * press. Punch and super go off the moment the finger lands - a hit that
-     * waits for the release is a hit that feels late - while the block pad
-     * stays a hold (finger down guards, finger up drops) and the stick keeps
-     * following the finger. */
+    /* Dispatch combat pad touches: punch/super on press, block while held. */
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
-        /* A pad fires exactly where it is drawn: inside its circle, the same
-         * one that squeezes on the press. The old 96 px reach was wider than
-         * the 60 px pad, so a touch beside it fired with no squeeze at all. */
         double pr = battle_pad_r();
         double dp = dist(x, y, atk_x, atk_y);
         double dsu = class_has_super(player_class) == 1 ? dist(x, y, atk2_x, atk2_y) : 1e9;
@@ -390,9 +368,6 @@ static void touch_game(double x, double y, double action, double id) {
         if (action == 0 && db <= pr && db <= dp && db <= dsu) {
             blk_id = id;
             player_block = 1;
-            /* A guard and a throw do not mix: the aim goes away with no
-             * countdown left behind. */
-            ball_aim_cancel();
             return;
         }
         if (id == blk_id) {
@@ -403,13 +378,12 @@ static void touch_game(double x, double y, double action, double id) {
             return;
         }
         if (class_has_super(player_class) == 1) {
-            /* The ult pad belongs to its own finger and fires on the press:
-             * nothing in the game waits for a hold. In projectile mode the press
-             * only starts the countdown, and the throw comes later. */
-            if (action == 0 && dsu <= pr && dsu <= dp && player_block == 0 && ball.aim_on == 0) {
-                if (player_class == CLASS_EBUC && ball_mode == 1 &&
-                    (game_state == ST_SOLO || online_ready == 1)) {
-                    ball_aim_start(id);
+            /* The ult pad belongs to its own finger and fires immediately on press. */
+            if (action == 0 && dsu <= pr && dsu <= dp && (player_block == 0 || class_is_astra(player_class) == 1)) {
+                if (player_class == CLASS_EBUC && ball_mode == 1) {
+                    if (game_state == ST_SOLO || online_ready == 1) {
+                        ball_fire();
+                    }
                     return;
                 }
                 if (game_state == ST_ONLINE) {
@@ -428,12 +402,6 @@ static void touch_game(double x, double y, double action, double id) {
             }
             return;
         }
-    }
-    if (ball.aim_on == 1 && ball.aim_id == -1 && action == 0 &&
-        (joy_id != -1 || dist(x, y, joy.x, joy.y) > 150) && ball_aim_near(x, y) == 1) {
-        ball.aim_id = id;
-        ball_aim_point(x, y);
-        return;
     }
     joy_touch(x, y, action, id);
 }

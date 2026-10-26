@@ -5,10 +5,9 @@ static void reset_battle(void) {
     player->x = screen_w / 2;
     player->y = screen_h / 2;
     player->angle = 0;
-        /* A new fight starts with a standing cube: the momentum of the last fight must
-         * not carry it out of the centre on the first frame. */
-    player_vel_reset();
-    chaos_reset();
+        /* Reset stored velocity at battle start. */
+        player_vel_reset();
+    reset_remote_smooth();
     ball_reset();
     player->max_hp = astra_ability_max_hp_for(player_class, astra_ability_local());
     player->hp = player->max_hp;
@@ -48,8 +47,7 @@ static void reset_battle(void) {
     azum_revived = 0;
     revive_prot = 0;
     cups_awarded = 0;
-    /* Entering a fight with a cheat already switched on stains it just like
-     * flipping one on during the fight does. */
+    /* Mark battle stained if any admin cheat is active at start. */
     admin_battle_stain_reset();
     match_seen_foe = 0;
     foes_seen_t = 0;
@@ -109,6 +107,10 @@ static void reset_battle(void) {
     astra_seq = 0;
     astra_pub = 0;
     astra_box_a = 0;
+    astra_parry_t = 0;
+    astra_parry_blocked = 0;
+    astra_strike_unlock_t = 0;
+    astra_grab_ready_t = 0;
     pgrab_active = 0;
     pgrab_slot = -1;
     pthrow_t = 0;
@@ -181,9 +183,8 @@ static void reset_battle(void) {
     joy.x = 130;
     joy.y = screen_h - 150;
     joy.r = 70;
-        /* The buttons are big, so they are spread wider: more than two radii between
-         * centres, otherwise the circles overlap. */
-    atk_x = screen_w - 132;
+        /* Space combat pad centers by more than two radii to prevent overlap. */
+        atk_x = screen_w - 132;
     atk_y = screen_h - 138;
     atk2_x = screen_w - 132;
     atk2_y = screen_h - 330;
@@ -306,8 +307,7 @@ static void init_online(void) {
     chat_set_open(0);
     chat_bubbles_reset();
     online_ready = 0;
-    /* A (re)joining player is a new viewer: show the currently live banner
-     * instead of swallowing it like the old banner_skip did. */
+    /* Reset seen-banner timestamp so active server banner displays on join. */
     banner_seen_ts = 0;
     banner_t = 0;
     progress_push_to_net();
@@ -347,7 +347,7 @@ static void spawn_enemy(void) {
     enemy->svx = 0;
     enemy->svy = 0;
     enemy->react = enemy_human_react_min + (rand() % 100) / 100.0 * (enemy_human_react_max - enemy_human_react_min);
-    enemy->speed_var = 0.9 + (rand() % 40) / 100.0;
+    enemy->speed_var = 0.85 + (rand() % 20) / 100.0;
     enemy->aim_err = 0;
     if (rand() % 2 == 0) {
         enemy->strafe = -1;

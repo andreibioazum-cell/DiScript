@@ -1,16 +1,4 @@
-// Проверка веб-панели админа (index.html) в настоящей DOM.
-//
-// Зачем: однажды панель «ожила» на вид, но ни одна кнопка не нажималась -
-// скрипт падал на этапе загрузки из-за «*/» внутри блочного комментария.
-// Синтаксис теперь проверяет tools/test_admin_panel.py, а этот тест идёт
-// дальше: поднимает подставную базу (test/fake_firebase.py), открывает панель
-// в jsdom и НАЖИМАЕТ каждую кнопку страницы, проверяя, что
-//   * скрипт загрузился и нашёл все свои элементы (MISSING пуст);
-//   * нет красной плашки «панель не запустилась»;
-//   * в журнале нет строк «ошибка:»;
-//   * действия действительно дошли до базы (ивент, баннер, бан, флаг, чистка).
-//
-// Запуск:  cd test && npm install && node test_admin_panel_dom.mjs
+// End-to-end JSDOM test suite for index.html against test/fake_firebase.py.
 import { JSDOM, VirtualConsole } from "jsdom";
 import { spawn } from "node:child_process";
 import { readFileSync } from "node:fs";
@@ -118,8 +106,7 @@ try {
   check("кнопок на странице много", buttons.length >= 25, String(buttons.length));
 
   console.log("\n== 2. Тестовый режим и вход ==");
-  // Хвост пароля ротирован: панель обязана об этом рассказывать, а не молча
-  // не пускать на боевую базу (именно так это и выглядело как «всё сломано»).
+  // Verify rotated password suffix warning in production mode.
   click("#prodMode");
   check("боевой режим предупреждает про старый хвост",
         /rotate_db_secret\.py --show/.test($("#suffixWarn").textContent),
@@ -165,7 +152,7 @@ try {
   check("«Выделить всё» выделяет", window.eval("FOUND.filter(f=>f.sel).length") > 0);
   click("#invert");
   check("«Инвертировать» работает", window.eval("FOUND.filter(f=>f.sel).length") >= 0);
-  // фильтры переключаются
+  // Toggle filter checkboxes.
   const staleFilter = [...document.querySelectorAll(".flt")].find((c) => c.dataset.k === "stale");
   staleFilter.checked = true;
   staleFilter.dispatchEvent(new window.Event("change", { bubbles: true }));
@@ -173,7 +160,7 @@ try {
   check("фильтр «слоты-заглушки» показывает нулевой слот",
         $("#found").textContent.includes("rooms/main/players/2"));
   click("#none");
-  // выделяем только корневой мусор и удаляем его
+  // Select and delete unknown root nodes only.
   window.eval(`FOUND.forEach(f => { f.sel = (f.kind === "unknown_root"); });`);
   [...document.querySelectorAll(".flt")].forEach((c) => {
     c.checked = c.dataset.k === "unknown_root";
@@ -185,6 +172,28 @@ try {
   await waitFor(async () => (await db("freeCupsHack", token)) === null, "удаление корневого мусора");
   check("мусорный узел удалён из базы", (await db("freeCupsHack", token)) === null);
   check("удаление попало в журнал", /готово: удалено/.test(logText()));
+
+  // Verify old and unneeded data cleanup (#markOld and #cleanOld).
+  setVal("#cleanChatKeep", "0");
+  $("#cleanChatKeep").dispatchEvent(new window.Event("change", { bubbles: true }));
+  setVal("#cleanBannerHours", "0");
+  $("#cleanBannerHours").dispatchEvent(new window.Event("change", { bubbles: true }));
+  click("#markOld");
+  await waitFor(() => /отмечено старых и ненужных узлов/.test(logText()), "отметка старого и ненужного");
+  check("отмечены пустые комнаты и старые данные",
+        $("#found").textContent.includes("rooms/private1") &&
+        $("#found").textContent.includes("bans/OldBan"));
+  click("#cleanOld");
+  await waitFor(async () => (await db("rooms/private1", token)) === null, "чистка старых и ненужных данных");
+  check("пустая старая комната удалена чисткой", (await db("rooms/private1", token)) === null);
+  check("снятый бан (false) удалён чисткой", (await db("bans/OldBan", token)) === null);
+  check("мусорный аккаунт удалён чисткой", (await db("users/xX_hack_Xx", token)) === null);
+  check("живые профили игроков сохранены при чистке",
+        (await db("users/Dimasi4ek229/cups", token)) === 4200 &&
+        (await db("users/Player2/cups", token)) === 10);
+  check("живые слоты комнаты main сохранены при чистке",
+        (await db("rooms/main/players/0/nick", token)) === "Dimasi4ek229" &&
+        (await db("rooms/main/players/2", token)) === null);
 
   console.log("\n== 4. Ивенты 0..4 ==");
   for (const ev of [1, 2, 3, 4, 0]) {
@@ -268,8 +277,7 @@ try {
   check("журнал очищается", $("#log").textContent === "");
 
   console.log("\n== 9. Вход обычным игроком (не админ) ==");
-  // «Выйти» делает location.reload(); в jsdom перезагрузки нет, поэтому
-  // сбрасываем вход руками и показываем форму входа - дальше всё по-настоящему.
+  // Clear session state manually because JSDOM does not implement location.reload().
   window.eval("TOKEN = null; REFRESH = null; SNAP = null; FOUND = [];");
   await sleep(100);
   setVal("#nick", "Player2");

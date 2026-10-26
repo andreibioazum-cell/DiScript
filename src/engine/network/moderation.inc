@@ -7,39 +7,23 @@ void net_logout(void) {
     lg.status = NET_LOGIN_IDLE;
     lg_unlock();
     pg_lock();
-    pg.cups = 0;
-    pg.candies = 0;
-    pg.cls = 0;
-    pg.azum = 0;
-    pg.santa = 0;
-    pg.ebuc = 0;
-    pg.level = 0;
-    pg.levels_unlocked = 0;
-    pg.ordinary_level = 0;
-    pg.ordinary_levels_unlocked = 0;
-    pg.azum_level = 0;
-    pg.azum_levels_unlocked = 0;
-    pg.santa_level = 0;
-    pg.santa_levels_unlocked = 0;
-    pg.ebuc_level = 0;
-    pg.ebuc_levels_unlocked = 0;
-    pg.bp_level = 0;
-    pg.bp_xp = 0;
-    pg.azum_skin = 0;
-    pg.astra = 0;
-    pg.astra_level = 0;
-    pg.astra_levels_unlocked = 0;
-    pg.codecracker = 0;
-    pg.codecracker_level = 0;
-    pg.codecracker_levels_unlocked = 0;
+    pg.cups = pg.candies = pg.cls = pg.azum = pg.santa = pg.ebuc = 0;
+    pg.level = pg.levels_unlocked = pg.ordinary_level = pg.ordinary_levels_unlocked = 0;
+    pg.azum_level = pg.azum_levels_unlocked = pg.santa_level = pg.santa_levels_unlocked = 0;
+    pg.ebuc_level = pg.ebuc_levels_unlocked = pg.bp_level = pg.bp_xp = pg.azum_skin = 0;
+    pg.astra = pg.astra_level = pg.astra_levels_unlocked = 0;
+    pg.codecracker = pg.codecracker_level = pg.codecracker_levels_unlocked = 0;
     pg.loaded = 1;
     pg_unlock();
+    cloud_dirty_set(0);
+    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     ds_mutex_lock(ach_lock);
     ach_loaded = 1;
     ach_flags = 0;
     ach_revives = 0;
     ds_mutex_unlock(ach_lock);
     achievements_write(0, 0);
+    promo_reset_local();
     if (lg.path[0])
         snprintf(path, sizeof(path), "%s/%s", lg.path, SESSION_FILE);
     else
@@ -278,17 +262,30 @@ static int ban_synced(void) {
 static void ban_invalidate(void) {
     ban_lock();
     banlist.synced = 0;
+    banlist.etag[0] = 0;
     ban_unlock();
 }
 
 static int ban_sync(void) {
-    char url[URL], resp[RESP], keys[BAN_MAX][LOGIN_NICK_MAX + 1];
+    char url[URL], resp[RESP], keys[BAN_MAX][LOGIN_NICK_MAX + 1], etag[96], fresh[96];
     const char *p;
-    int code, n = 0;
+    int code, n = 0, prev_count = -1;
     if (!net.base[0])
         return 0;
+    ban_lock();
+    snprintf(etag, sizeof(etag), "%s", banlist.etag);
+    ban_unlock();
+    fresh[0] = 0;
     snprintf(url, sizeof(url), "%s/bans.json", net.base);
-    code = fb_http("GET", url, NULL, resp, sizeof(resp));
+    code = etag[0] ? fb_http_ex("GET", url, NULL, resp, sizeof(resp), "if-none-match", etag, fresh, sizeof(fresh))
+                   : fb_http_ex("GET", url, NULL, resp, sizeof(resp), "X-Firebase-ETag", "true", fresh, sizeof(fresh));
+    if (code == 304) {
+        ban_lock();
+        banlist.synced = 1;
+        banlist.synced_at = now_ms();
+        ban_unlock();
+        return 1;
+    }
     if (code != 200) {
         if (net_log_ok())
             LOGERR("ban list: HTTP %d", code);
@@ -297,10 +294,15 @@ static int ban_sync(void) {
     p = skip_ws(resp);
     if (!p || !*p || !strncmp(p, "null", 4)) {
         ban_lock();
+        prev_count = banlist.synced ? banlist.count : -1;
         banlist.count = 0;
         banlist.synced = 1;
         banlist.synced_at = now_ms();
+        if (fresh[0])
+            snprintf(banlist.etag, sizeof(banlist.etag), "%s", fresh);
         ban_unlock();
+        if (prev_count != 0)
+            LOG("ban list: 0 entry(ies)");
         return 1;
     }
     if (*p != '{')
@@ -330,13 +332,17 @@ static int ban_sync(void) {
             p = skip_ws(p + 1);
     }
     ban_lock();
+    prev_count = banlist.synced ? banlist.count : -1;
     banlist.count = 0;
     for (int i = 0; i < n; i++) snprintf(banlist.nick[i], LOGIN_NICK_MAX + 1, "%s", keys[i]);
     banlist.count = n;
     banlist.synced = 1;
     banlist.synced_at = now_ms();
+    if (fresh[0])
+        snprintf(banlist.etag, sizeof(banlist.etag), "%s", fresh);
     ban_unlock();
-    LOG("ban list: %d entry(ies)", n);
+    if (prev_count != n)
+        LOG("ban list: %d entry(ies)", n);
     return 1;
 }
 
@@ -354,6 +360,8 @@ static int ban_check_cloud_sync(const char *nick) {
         return 0;
     if (nick_banned_locally(nick))
         return 1;
+    if (ban_synced())
+        return 0;
     if (!net.base[0])
         return 0;
     snprintf(url, sizeof(url), "%s/bans/%s.json", net.base, nick);

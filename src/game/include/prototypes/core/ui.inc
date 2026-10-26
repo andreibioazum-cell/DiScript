@@ -12,6 +12,7 @@ static void text_in_field(const char *label, double x, double y, double h, uint3
 static double fit_text_scale(const char *s, double w, double max_scale);
 static void centered_text(const char *label, double x, double w, double y, uint32_t c, double scale);
 static void money_pair(const char *left, const char *right, double x, double y, double scale, double gap);
+static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale);
 static void draw_nick_msg(const char *nick, const char *rest, double x, double y, uint32_t base, double scale);
 static void button_face(double x, double y, double w, double h, double col);
 static void button(const char *label, double x, double y, double w, double h);
@@ -39,3 +40,7 @@ static double panel_text(double locked);
 static void hud_bar(double bx, double by, double w, double h, double cur, double max, uint32_t c, double from_right);
 static double tick_down(double t);
 static void draw_msg(const char *label, double y, double t);
+static void scroll_track_reset(ScrollTrack *st);
+static void scroll_track_move(ScrollTrack *st, double d);
+static void scroll_track_tick(ScrollTrack *st);
+static double scroll_track_release(ScrollTrack *st, double max_vel);

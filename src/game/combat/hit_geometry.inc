@@ -53,16 +53,17 @@ static double strip_hits_box(double sx, double sy, double dx, double dy, double 
     return rects_overlap(sx + dx * mid, sy + dy * mid, dx, dy, len / 2, half_w, bx, by, cos(bang), sin(bang), bh, bh);
 }
 
-static double circle_hits_box(double cx, double cy, double r, double bx, double by, double bang, double bh) {
-    if (r <= 0 || bh <= 0) {
+static double circle_hits_rect(double cx, double cy, double r, double bx, double by, double bang, double hu,
+                               double hv) {
+    if (r <= 0 || hu <= 0 || hv <= 0) {
         return 0;
     }
     double ux = cos(bang);
     double uy = sin(bang);
     double rx = cx - bx;
     double ry = cy - by;
-    double lu = clamp(rx * ux + ry * uy, 0 - bh, bh);
-    double lv = clamp(ry * ux - rx * uy, 0 - bh, bh);
+    double lu = clamp(rx * ux + ry * uy, 0 - hu, hu);
+    double lv = clamp(ry * ux - rx * uy, 0 - hv, hv);
     double px = bx + ux * lu - uy * lv;
     double py = by + uy * lu + ux * lv;
     double ex = cx - px;
@@ -71,6 +72,48 @@ static double circle_hits_box(double cx, double cy, double r, double bx, double 
         return 1;
     }
     return 0;
+}
+
+static double circle_hits_box(double cx, double cy, double r, double bx, double by, double bang, double bh) {
+    return circle_hits_rect(cx, cy, r, bx, by, bang, bh, bh);
+}
+
+/* Test circle against fighter cube body and side hands matching 50x50 sprite pixels. */
+static double ball_hits_fighter_r(double cx, double cy, double r, double fx, double fy, double fang, double scale) {
+    double s = cube_scale * scale;
+    double body_h = 16.5 * s;
+    double hand_u = 4.5 * s;
+    double hand_v = 23.0 * s;
+    if (circle_hits_rect(cx, cy, r, fx, fy, fang, body_h, body_h) == 1) {
+        return 1;
+    }
+    return circle_hits_rect(cx, cy, r, fx, fy, fang, hand_u, hand_v);
+}
+
+/* Test swept projectile segment against fighter cube body and side hands. */
+static double ball_seg_hits_fighter(double ox, double oy, double nx, double ny, double r, double fx, double fy,
+                                    double fang, double scale) {
+    if (ball_hits_fighter_r(ox, oy, r, fx, fy, fang, scale) == 1 ||
+        ball_hits_fighter_r(nx, ny, r, fx, fy, fang, scale) == 1) {
+        return 1;
+    }
+    double dx = nx - ox;
+    double dy = ny - oy;
+    double len = sqrt(dx * dx + dy * dy);
+    if (len <= 1e-6 || r <= 0) {
+        return 0;
+    }
+    double ux = dx / len;
+    double uy = dy / len;
+    double mx = (ox + nx) * 0.5;
+    double my = (oy + ny) * 0.5;
+    double s = cube_scale * scale;
+    double fu = cos(fang);
+    double fv = sin(fang);
+    if (rects_overlap(mx, my, ux, uy, len * 0.5, r, fx, fy, fu, fv, 16.5 * s, 16.5 * s) == 1) {
+        return 1;
+    }
+    return rects_overlap(mx, my, ux, uy, len * 0.5, r, fx, fy, fu, fv, 4.5 * s, 23.0 * s);
 }
 
 static double strip_hits_player(double sx, double sy, double dx, double dy, double off0, double off1, double half_w) {

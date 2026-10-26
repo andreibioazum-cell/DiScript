@@ -118,7 +118,6 @@ static void update_remote_universe(void) {
                     double ux = arr_get(remote_universe, b + 2);
                     double uy = arr_get(remote_universe, b + 3);
                     arr_set(remote_universe, b + 1, 0);
-                    arr_set(remote_universe, b, 0);
                     double rlevel = net_player_level(s);
                     universe_collapse_remote(ebuc_universe_damage_for(rlevel), ux, uy);
                     if (finished != 0) {
@@ -242,7 +241,8 @@ static void flush_queued_action(void) {
     }
     if (queued_super == 1) {
         if (class_is_astra(player_class) == 1) {
-            if (astra_cd <= 0 && astra_state == 0) {
+            if (astra_state == 0 &&
+                (astra_grab_ready_t > 0 || (astra_cd <= 0 && astra_parry_t <= 0 && astra_strike_unlock_t <= 0))) {
                 queued_super = 0;
                 fire_super();
                 return;
@@ -341,8 +341,6 @@ static void update_game(void) {
     tick_dash();
     tick_candies();
     follow_punch();
-    chaos_tick();
-    ball_aim_tick();
     ball_tick();
     ball_fade_tick();
     super_cd = tick_down(super_cd);
@@ -352,13 +350,14 @@ static void update_game(void) {
     boom_t = tick_down(boom_t);
     tick_super_windup();
     tick_santa_follow();
-    if (punch->active == 1 && punch->hit == 0) {
+    punch_left = tick_down(punch_left);
+    if (punch->active == 1 && punch->hit == 0 && punch_left <= punch_time + 1e-9) {
         double enemy_turret_target = enemy_punch_turret_target(punch->x, punch->y, punch->dx, punch->dy);
         if (enemy_turret_target >= 1) {
             punch->hit = 1;
             enemy_damage_turret(enemy_turret_target - 1, astra_ability_self_damage());
             if (revive_prot <= 0) {
-                if (take_damage(turret_counter_damage) == 1) {
+                if (take_damage(turret_counter_damage * enemy_damage_mult_for(enemy_class)) == 1) {
                     return;
                 }
             }
@@ -392,7 +391,6 @@ static void update_game(void) {
     if (punch->active == 1 && punch_left <= 0) {
         punch->active = 0;
     }
-    punch_left = tick_down(punch_left);
     update_dust();
     update_gift();
     flush_queued_action();
