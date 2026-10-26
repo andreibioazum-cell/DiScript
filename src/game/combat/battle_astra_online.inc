@@ -4,10 +4,7 @@ static void push_astra_grab(void) {
     if (class_is_astra(player_class) == 0 || astra_seq <= 0) {
         return;
     }
-    if (astra_state == 1 && astra_t < ASTRA_PULLBACK_TIME - 1e-9) {
-        return;
-    }
-    if (astra_pub != astra_seq) {
+    if (astra_pub != astra_seq || (astra_state == 1 && astra_t <= ASTRA_PULLBACK_TIME + dt)) {
         net_publish_grab(astra_ability_lunge_tx / screen_w, astra_ability_lunge_ty / screen_h, astra_dx, astra_dy,
                          astra_seq);
         astra_pub = astra_seq;
@@ -69,6 +66,12 @@ static double update_remote_grab(double slot) {
     }
     double t = remote_grab_get(slot, GRAB_T) + dt;
     remote_grab_set(slot, GRAB_T, t);
+    if (t < ASTRA_STRIKE_DELAY + dt) {
+        remote_grab_set(slot, GRAB_X, net_player_grab_x(slot) * screen_w);
+        remote_grab_set(slot, GRAB_Y, net_player_grab_y(slot) * screen_h);
+        remote_grab_set(slot, GRAB_DX, net_player_grab_dx(slot));
+        remote_grab_set(slot, GRAB_DY, net_player_grab_dy(slot));
+    }
     if (t >= ASTRA_STRIKE_DELAY - 1e-9 && remote_grab_get(slot, GRAB_CAUGHT) == 0 && player->hp > 0) {
         double lv = net_player_level(slot);
         double gx = remote_grab_get(slot, GRAB_X);

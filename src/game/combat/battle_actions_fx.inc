@@ -192,8 +192,8 @@ static void fire_super(void) {
     }
     santa_follow = 0;
     queued_super = 0;
-    super_windup = punch_time;
-    punch_left = punch_time;
+    super_windup = PUNCH_WINDUP;
+    punch_left = PUNCH_WINDUP;
     punch->active = 0;
     punch->hit = 0;
     ability_snd(player_class == CLASS_SANTA ? GIFT_SOUND : STATION_SOUND);

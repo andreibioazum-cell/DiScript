@@ -3,7 +3,7 @@
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
 #define ASTRA_PULLBACK_DIST 14.0
-#define ASTRA_PULLBACK_TIME 0.09
+#define ASTRA_PULLBACK_TIME PUNCH_WINDUP
 #define ASTRA_DASH_TIME 0.44
 static const double astra_ability_lunge_dist = 245.0;
 static const double astra_ability_lunge_time = ASTRA_PULLBACK_TIME + ASTRA_DASH_TIME;
@@ -109,7 +109,7 @@ static double astra_ability_self_damage(void) {
     return astra_ability_punch_damage_for(player_class, player_level, astra_ability_local());
 }
 
-/* Start Astra's 0.09s backward windup followed by fixed-length forward dash. */
+/* Start Astra's 0.2s backward windup followed by fixed-length forward dash. */
 static void astra_ability_lunge_start(void) {
     astra_ability_lunge_t = 0;
     astra_ability_lunge_fx = player->x;
@@ -153,7 +153,7 @@ static void astra_ability_lunge_tick(void) {
     }
     double prev_t = astra_ability_lunge_t;
     astra_ability_lunge_t = astra_ability_lunge_t + dt;
-    /* Allow aiming direction to follow rotation during the 0.09s windup. */
+    /* Allow aiming direction to follow rotation during the 0.2s windup. */
     if (prev_t < ASTRA_PULLBACK_TIME) {
         double dx = cos(player->angle);
         double dy = sin(player->angle);

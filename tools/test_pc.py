@@ -588,7 +588,7 @@ def test_ult_mode_switch(assets: Path) -> None:
                 "--touch", "1300:408:533:0:5", "--touch", "1312:408:533:1:5",
                 "--report", "1330",
                 # ball mode: the press immediately launches the ball
-                "--touch", "1350:408:630:0:7", "--report", "1355", "--touch", "1365:408:630:1:7",
+                "--touch", "1350:408:630:0:7", "--report", "1351", "--touch", "1365:408:630:1:7",
                 "--report", "1450",
             ],
         )
@@ -598,7 +598,7 @@ def test_ult_mode_switch(assets: Path) -> None:
         held = reports.get(940, {})
         later = reports.get(1000, {})
         switched = reports.get(1330, {})
-        instant = reports.get(1355, {})
+        instant = reports.get(1351, {})
         flying = reports.get(1450, {})
         check("у буКа появилась своя кнопка режима", before.get("mode") == "0", str(before))
         check("в режиме деспенсера ничего не заряжается", held.get("charge") == "0", str(held))
