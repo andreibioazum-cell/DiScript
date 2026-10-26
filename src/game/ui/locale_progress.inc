@@ -322,6 +322,14 @@ static const char *tr_cups_admin(void) {
     return "Cheats used: no Cups lost";
 }
 
+/* Result label for online battles: Cups are neither awarded nor deducted. */
+static const char *tr_cups_online(void) {
+    if (language == 1) {
+        return "Онлайн: кубки не меняются";
+    }
+    return "Online: Cups do not change";
+}
+
 static const char *tr_cups_lose(double amount) {
     const char *out = "";
     if (language == 1) {

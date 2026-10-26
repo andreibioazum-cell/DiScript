@@ -261,7 +261,7 @@ static int run_admin_ban_guard(const char *dir) {
 
 static int run_text_cmd(const char *dir) {
     (void)dir;
-    /* Canonical quoted form: text "the banner text" [color]. */
+    /* Quoted form only: text "the banner text" [color]. */
     assert(net_chat_is_text_cmd("text \"Sale is on\" red") == 1);
     assert(strcmp(net_chat_text_cmd_text("text \"Sale is on\" red"), "Sale is on") == 0);
     assert(strcmp(net_chat_text_cmd_color("text \"Sale is on\" red"), "red") == 0);
@@ -270,15 +270,22 @@ static int run_text_cmd(const char *dir) {
     /* A color word inside the quotes is text, not a color. */
     assert(strcmp(net_chat_text_cmd_text("text \"red alert\""), "red alert") == 0);
     assert(strcmp(net_chat_text_cmd_color("text \"red alert\""), "white") == 0);
-    /* Legacy unquoted form still works. */
-    assert(strcmp(net_chat_text_cmd_text("text hello blue"), "hello") == 0);
-    assert(strcmp(net_chat_text_cmd_color("text hello blue"), "blue") == 0);
-    assert(strcmp(net_chat_text_cmd_text("text hello"), "hello") == 0);
+    /* An unknown word after the quotes is ignored, the color stays white. */
+    assert(net_chat_is_text_cmd("text \"hi\" magenta") == 1);
+    assert(strcmp(net_chat_text_cmd_text("text \"hi\" magenta"), "hi") == 0);
+    assert(strcmp(net_chat_text_cmd_color("text \"hi\" magenta"), "white") == 0);
+    /* The unquoted form is no longer a command: it is plain chat text. */
+    assert(net_chat_is_text_cmd("text hello blue") == 0);
+    assert(strcmp(net_chat_text_cmd_text("text hello blue"), "") == 0);
+    assert(strcmp(net_chat_text_cmd_color("text hello blue"), "white") == 0);
+    assert(net_chat_is_text_cmd("text hello") == 0);
+    assert(strcmp(net_chat_text_cmd_text("text hello"), "") == 0);
     /* Empty or unterminated quotes are not commands. */
     assert(net_chat_is_text_cmd("text \"\" red") == 0);
     assert(net_chat_is_text_cmd("text \"oops") == 0);
     assert(net_chat_is_text_cmd("text") == 0);
-    puts("text cmd: quoted text, trailing color, legacy form OK");
+    assert(net_chat_is_text_cmd("text \"") == 0);
+    puts("text cmd: quoted text only, optional trailing color, unquoted is chat");
     return 0;
 }
 

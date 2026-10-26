@@ -59,14 +59,24 @@ static void update_columns_event(void) {
 }
 
 static void draw_columns_cane(double x, double y) {
-    /* Sideways cane with a curved handle trailing as the shaft flies forward. */
-    line(x - 19, y, x + 16, y, 8, 0xFF442611);
-    line(x - 19, y, x + 16, y, 4, 0xFFFFD56A);
-    line(x - 19, y, x - 19, y - 12, 8, 0xFF442611);
-    line(x - 19, y - 12, x - 8, y - 16, 8, 0xFF442611);
-    line(x - 19, y, x - 19, y - 12, 4, 0xFFFFD56A);
-    line(x - 19, y - 12, x - 8, y - 16, 4, 0xFFFFD56A);
-    circle(x + 16, y, 4, 0xFFFFF0B0);
+    /* Sideways cane with a curved handle trailing as the shaft flies forward.
+     * Every offset scales with the event figure, so a bigger Columns stays
+     * readable instead of throwing tiny sticks. */
+    double s = columns_size / 150;
+    double back = x - 19 * s;
+    double tip = x + 16 * s;
+    double up = y - 12 * s;
+    double hook = y - 16 * s;
+    double hx = x - 8 * s;
+    double rim = 8 * s;
+    double core = 4 * s;
+    line(back, y, tip, y, rim, 0xFF442611);
+    line(back, y, tip, y, core, 0xFFFFD56A);
+    line(back, y, back, up, rim, 0xFF442611);
+    line(back, up, hx, hook, rim, 0xFF442611);
+    line(back, y, back, up, core, 0xFFFFD56A);
+    line(back, up, hx, hook, core, 0xFFFFD56A);
+    circle(tip, y, core, 0xFFFFF0B0);
 }
 
 static void draw_columns_event(void) {

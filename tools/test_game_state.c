@@ -2141,6 +2141,9 @@ static void test_battle_events(void) {
     event_mode = 5;
     game_state = ST_LOBBY;
     dt = 0.1;
+    /* The Columns figure towers over a fighter, and the banner sits below the HUD. */
+    assert(columns_size == 260);
+    assert(banner_y == 154);
     columns_phase = 0;
     columns_shot_active = 0;
     player->x = screen_w * 0.8;
@@ -4213,6 +4216,25 @@ int main(void) {
     assert(adm_has_text(tr_cups_lose(-3)) == 1);
     finished = 0;
     cup_lose = 1;
+
+    /* Online battles never move Cups: neither a win nor a loss touches the
+     * ladder, and the result card says so instead of printing a number. */
+    game_state = ST_ONLINE;
+    cups = 40;
+    award_battle_result(1);
+    assert(cups == 40);
+    award_battle_result(2);
+    assert(cups == 40);
+    finished = 1;
+    adm_reset_log();
+    draw_result(tr_victory());
+    assert(adm_has_text(tr_cups_online()) == 1);
+    finished = 2;
+    adm_reset_log();
+    draw_result(tr_defeat());
+    assert(adm_has_text(tr_cups_online()) == 1);
+    finished = 0;
+    game_state = ST_LOBBY;
 
     /* Every single one of the 8 admin panel switches blocks both cup awards
      * and cup deductions while enabled. */

@@ -152,21 +152,22 @@ static int banner_color_known(const char *word) {
 double net_chat_is_text_cmd(const char *msg) {
     if (!msg)
         return 0;
+    /* Only the quoted form counts as a command: text "my text" [color].
+     * An unquoted `text hello` is ordinary chat, not a banner. */
     if (strlen(msg) >= 5 && strncmp(msg, "text ", 5) == 0) {
         const char *t = msg + 5;
+        const char *close;
         while (*t == ' ' || *t == '\t') t++;
-        if (*t == '"') {
-            /* Reject empty or unterminated quoted banner text. */
-            const char *close = strchr(t + 1, '"');
-            return close && close > t + 1;
-        }
-        if (*t)
-            return 1;
+        if (*t != '"')
+            return 0;
+        /* Reject empty or unterminated quoted banner text. */
+        close = strchr(t + 1, '"');
+        return close && close > t + 1;
     }
     return 0;
 }
 static void banner_split_cmd(const char *msg, char *text_out, size_t tcap, char *color_out, size_t ccap) {
-    const char *t, *c, *last_space = NULL;
+    const char *t, *c, *close;
     char word[BANNER_COLOR_MAX];
     size_t n;
     if (tcap)
@@ -177,53 +178,26 @@ static void banner_split_cmd(const char *msg, char *text_out, size_t tcap, char 
     t = msg + 5;
     while (*t == ' ' || *t == '\t') t++;
 
-    if (*t == '"') {
-        /* Parse quoted banner text and optional trailing color name. */
-        const char *close = strchr(t + 1, '"');
-        if (close) {
-            n = (size_t)(close - (t + 1));
-            if (n >= tcap)
-                n = tcap - 1;
-            memcpy(text_out, t + 1, n);
-            text_out[n] = 0;
-            c = close + 1;
-            while (*c == ' ' || *c == '\t') c++;
-            if (*c) {
-                snprintf(word, sizeof(word), "%s", c);
-                n = strlen(word);
-                while (n > 0 && (word[n - 1] == ' ' || word[n - 1] == '\t')) word[--n] = 0;
-                if (banner_color_known(word))
-                    snprintf(color_out, ccap, "%s", word);
-            }
-            return;
-        }
-    }
-
-    for (c = t; *c; c++)
-        if ((*c == ' ' || *c == '\t') && c[1] && c[1] != ' ' && c[1] != '\t')
-            last_space = c;
-    if (last_space) {
-
-        snprintf(word, sizeof(word), "%s", last_space + 1);
+    /* The banner text must be quoted: text "my text" [color]. Without quotes
+     * the message stays plain chat, so no banner text is produced. */
+    if (*t != '"')
+        return;
+    close = strchr(t + 1, '"');
+    if (!close || close <= t + 1)
+        return;
+    n = (size_t)(close - (t + 1));
+    if (n >= tcap)
+        n = tcap - 1;
+    memcpy(text_out, t + 1, n);
+    text_out[n] = 0;
+    c = close + 1;
+    while (*c == ' ' || *c == '\t') c++;
+    if (*c) {
+        snprintf(word, sizeof(word), "%s", c);
         n = strlen(word);
         while (n > 0 && (word[n - 1] == ' ' || word[n - 1] == '\t')) word[--n] = 0;
-        if (banner_color_known(word)) {
-            n = (size_t)(last_space - t);
-            while (n > 0 && (t[n - 1] == ' ' || t[n - 1] == '\t')) n--;
-            if (n >= tcap)
-                n = tcap - 1;
-            memcpy(text_out, t, n);
-            text_out[n] = 0;
+        if (banner_color_known(word))
             snprintf(color_out, ccap, "%s", word);
-            return;
-        }
-    }
-    snprintf(text_out, tcap, "%s", t);
-    /* Strip surrounding quotes before storing banner text. */
-    n = strlen(text_out);
-    if (n >= 2 && text_out[0] == '"' && text_out[n - 1] == '"') {
-        memmove(text_out, text_out + 1, n - 2);
-        text_out[n - 2] = 0;
     }
 }
 const char *net_chat_text_cmd_text(const char *msg) {

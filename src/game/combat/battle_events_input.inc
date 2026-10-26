@@ -126,7 +126,8 @@ static void draw_banner(void) {
         w = text_ink_width(txt) * sc;
     }
     double x = (screen_w - w) / 2;
-    double y = 118;
+    /* Admin banner sits a little lower, clear of the HP bar and the FPS meter. */
+    double y = banner_y;
     uint32_t col = banner_color_now(net_banner_color());
     text_scaled(txt, x, y, ((((unsigned)(int)alpha) << 24) | col), sc);
 }

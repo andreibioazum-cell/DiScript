@@ -11,4 +11,4 @@ columns_shot_damage = 2;
 columns_shot_total = 12;
 columns_shot_interval = 0.65;
 columns_exit_speed = 900;
-columns_size = 150;
+columns_size = 260;

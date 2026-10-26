@@ -391,6 +391,7 @@ lb_wait = 0;
 lb_wait_max = 8;
 banner_show_time = 6;
 banner_fade = 0.5;
+banner_y = 154;
 banner_seen_ts = 0;
 banner_t = 0;
 block_guard = 0.25;
