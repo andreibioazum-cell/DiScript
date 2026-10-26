@@ -41,7 +41,7 @@ def main() -> int:
     # (azum_skin carries two bits, 0..3), or a save with a skin is rejected.
     for key in ("codecracker_level", "codecracker_levels"):
         rule = profile.get(key, {}).get(".validate")
-        if not rule or "<= 3" not in rule:
+        if not rule or "<= 4" not in rule:
             print(f"profile rule for {key} is missing or too narrow: {rule}", file=sys.stderr)
             return 1
     skin_rule = profile.get("azum_skin", {}).get(".validate", "")

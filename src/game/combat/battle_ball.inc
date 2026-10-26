@@ -178,7 +178,7 @@ static void ult_ball_burst(UltBall *b, int is_enemy) {
     }
     if (game_state != ST_ONLINE && enemy_revive_prot <= 0 &&
         ball_hits_fighter_r(b->x, b->y, BALL_BOOM_RADIUS, enemy->x, enemy->y, enemy->angle, enemy_scale) == 1) {
-        enemy_apply_damage_at(ball_damage_for(n), b->x, b->y);
+        enemy_apply_damage_at(ball_damage_for(n) * (player_level >= 4 ? 1.15 : 1.0), b->x, b->y);
     }
 }
 

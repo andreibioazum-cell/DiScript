@@ -303,7 +303,12 @@ static double visible_class_at(double vi) {
     return CLASS_ORDINARY;
 }
 
-static double level_cost(double n) { return flash_sale_price(level_base_cost + (n - 1) * level_cost_step); }
+static double level_cost(double n) {
+    if (n >= 4) {
+        return flash_sale_price(level_4_cost);
+    }
+    return flash_sale_price(level_base_cost + (n - 1) * level_cost_step);
+}
 
 static void sync_selected_class(void) {
     player_level = class_level_of(player_class);

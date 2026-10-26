@@ -67,6 +67,7 @@ QWERTY_NICK = "qwertyuiopaj1234";
 qwerty_color = 0xFF4FC3F7;
 qwerty_head_color = 0xFF33A8FF;
 codecracker_cost = 550;
+level_4_cost = 1000;
 GRASS = "grass.png";
 ORDINARY_TEX = "ordinary.png";
 PUNCH_TEX = "ordinary_punch.png";

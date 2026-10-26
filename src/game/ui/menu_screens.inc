@@ -201,27 +201,37 @@ static void draw_classes(void) {
 static void draw_level_row(double n) {
     double x = levels_x();
     double w = levels_w();
+    double rh = levels_row_h_fit();
+    double k = rh / 70.0;
     double y = levels_row_y(n);
     double selected = 0;
     if (player_level == n && n <= levels_unlocked) {
         selected = 1;
     }
     /* A level row is picked like a button, so it answers the touch like one. */
-    double p = button_press_k(x, y, w, level_row_h);
+    double p = button_press_k(x, y, w, rh);
     double s = 1 - PRESS_SQUEEZE * p;
     double bx = squeeze_x(x, w, s);
     double bw = w * s;
     uint32_t tc = shade(text_color, 1 - PRESS_SHADE * p);
-    card_state(bx, squeeze_y(y, y, level_row_h, s), bw, level_row_h * s, selected, 0, 1 - PRESS_SHADE * p);
+    /* The last, jackpot level is titled in gold so it stands out at once. */
+    uint32_t title_c = tc;
+    if (n == max_level) {
+        title_c = shade(0xFFFFC94A, 1 - PRESS_SHADE * p);
+    }
+    card_state(bx, squeeze_y(y, y, rh, s), bw, rh * s, selected, 0, 1 - PRESS_SHADE * p);
     centered_text(ds_concat(ds_concat(tr_level(), " "), ds_num_to_string((double)(n))), bx, bw,
-                  squeeze_y(y + 10, y, level_row_h, s), tc, 0.62 * s);
-    centered_text(tr_class_level_effect(player_class, n), bx, bw, squeeze_y(y + 34, y, level_row_h, s), tc, 0.46 * s);
+                  squeeze_y(y + 10 * k, y, rh, s), title_c, 0.62 * k * s);
+    centered_text(tr_class_level_effect(player_class, n), bx, bw, squeeze_y(y + 34 * k, y, rh, s), tc, 0.46 * k * s);
     /* During the flash sale the unlock price is red, like class prices. */
     uint32_t status_c = tc;
+    if (n == max_level) {
+        status_c = shade(0xFFFFC94A, 1 - PRESS_SHADE * p);
+    }
     if (flash_sale_active == 1 && n == class_unlocked_of(player_class) + 1) {
         status_c = shade(0xFFFF3030, 1 - PRESS_SHADE * p);
     }
-    centered_text(level_status_of(player_class, n), bx, bw, squeeze_y(y + 52, y, level_row_h, s), status_c, 0.42 * s);
+    centered_text(level_status_of(player_class, n), bx, bw, squeeze_y(y + 52 * k, y, rh, s), status_c, 0.42 * k * s);
 }
 
 static void draw_levels(void) {

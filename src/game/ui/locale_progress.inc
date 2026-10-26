@@ -97,6 +97,22 @@ static const char *tr_class_level_effect(double cls, double n) {
         if (n == 3) {
             return language == 1 ? "Ульта: поглощение урона 60%" : "Ult: damage absorb 60%";
         }
+        return language == 1 ? "Укус: урон +25%, поглощение 70%" : "Bite: dmg +25%, absorb 70%";
+    }
+    if (cls == 1 && n == 4) {
+        return language == 1 ? "Рывок и атака +12%, лечение +0.18 HP" : "Dash & attack +12%, heal +0.18 HP";
+    }
+    if (cls == 2 && n == 4) {
+        return language == 1 ? "Заморозка +0.5 с, тик яда +0.2" : "Freeze +0.5 s, poison tick +0.2";
+    }
+    if (cls == 3 && n == 4) {
+        return language == 1 ? "Турель +4 HP, атака и шар +15%" : "Turret +4 HP, attack & ball +15%";
+    }
+    if (cls == 4 && n == 4) {
+        return language == 1 ? "Урон удара +35%, оглушение +0.25 с" : "Strike dmg +35%, stun +0.25 s";
+    }
+    if (cls == 0 && n == 4) {
+        return language == 1 ? "Урон атаки +15%, лечение +0.12 HP" : "Attack damage +15%, heal +0.12 HP";
     }
     if (cls == 1 && n == 1) {
         if (language == 1) {

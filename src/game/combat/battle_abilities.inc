@@ -175,7 +175,8 @@ static double remote_dash_apply_hit(double slot, double leg) {
     if (target == 0) {
         remote_dash_set(slot, DASH_HIT_DONE, 1);
         if (revive_prot <= 0) {
-            take_damage_at(azum_dash_damage_for(), remote_dash_get(slot, DASH_X), remote_dash_get(slot, DASH_Y));
+            take_damage_at(azum_dash_damage_for_lv(net_player_level(slot)), remote_dash_get(slot, DASH_X),
+                           remote_dash_get(slot, DASH_Y));
             stun_player(azum_dash_stun);
             ds_log("remote dash hit player");
             if (finished != 0) {
@@ -184,7 +185,7 @@ static double remote_dash_apply_hit(double slot, double leg) {
         }
     } else if (target >= 1 && target <= turret_max) {
         remote_dash_set(slot, DASH_HIT_DONE, 1);
-        damage_turret(target - 1, azum_dash_damage_for());
+        damage_turret(target - 1, azum_dash_damage_for_lv(net_player_level(slot)));
     }
     return 0;
 }

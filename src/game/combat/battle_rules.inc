@@ -105,17 +105,23 @@ static double class_has_super(double cls) {
 }
 
 static double class_punch_damage_for(double cls, double lv) {
-    if (cls == CLASS_AZUM && azum_buff_active == 1) {
-        return punch_damage * 1.10;
+    if (cls == CLASS_AZUM) {
+        double d = azum_buff_active == 1 ? punch_damage * 1.10 : punch_damage;
+        return lv >= 4 ? d * 1.12 : d;
     }
     if (cls == CLASS_SANTA) {
         return santa_damage;
     }
     if (cls == CLASS_EBUC) {
-        return ebuc_damage;
+        return lv >= 4 ? ebuc_damage * 1.15 : ebuc_damage;
     }
-    if (cls == CLASS_ORDINARY && lv >= 1) {
-        return punch_damage * (1 + ordinary_damage_bonus);
+    if (cls == CLASS_ORDINARY) {
+        if (lv >= 4) {
+            return punch_damage * 1.15;
+        }
+        if (lv >= 1) {
+            return punch_damage * (1 + ordinary_damage_bonus);
+        }
     }
     return punch_damage;
 }
@@ -150,6 +156,9 @@ static const double codecracker_lv3_absorb_bonus = 0.10;
 /* Damage of one bite at the given CodeCracker level. */
 static double codecracker_bite_damage(double lv) {
     double d = codecracker_touch_damage;
+    if (lv >= 4) {
+        return d * 1.25;
+    }
     if (lv >= 1) {
         d = d * (1 + codecracker_lv1_damage_bonus);
     }
@@ -165,9 +174,12 @@ static double codecracker_super_cd_for(double lv) {
     return cd;
 }
 
-/* Damage absorbed while the overclock runs: half, 60% from the third level. */
+/* Damage absorbed while the overclock runs: 50%, 60% at lv3, 70% at lv4. */
 static double codecracker_absorb_for(double lv) {
     double a = codecracker_super_absorb;
+    if (lv >= 4) {
+        return 0.70;
+    }
     if (lv >= 3) {
         a = a + codecracker_lv3_absorb_bonus;
     }
@@ -178,6 +190,9 @@ static double ebuc_station_hp_for(double lv) {
     double h = ebuc_station_hp;
     if (lv >= 1) {
         h = h + ebuc_station_hp_bonus * 2;
+    }
+    if (lv >= 4) {
+        h = h + ebuc_station_hp_bonus * 4;
     }
     return h;
 }
@@ -203,6 +218,9 @@ static double santa_poison_damage_for(double lv) {
     if (lv >= 2) {
         d = d + santa_poison_damage_bonus;
     }
+    if (lv >= 4) {
+        d = d + 0.20;
+    }
     return d;
 }
 
@@ -211,11 +229,15 @@ static double santa_freeze_time_for(double lv) {
     if (lv >= 3) {
         t = t + santa_freeze_time_bonus;
     }
-    return t * santa_stun_scale;
+    return t * santa_stun_scale + (lv >= 4 ? 0.5 : 0);
+}
+
+static double azum_dash_damage_for_lv(double lv) {
+    return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1) * (lv >= 4 ? 1.12 : 1.0);
 }
 
 static double azum_dash_damage_for(void) {
-    return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
+    return azum_dash_damage_for_lv(player_level);
 }
 
 #define ENEMY_OTHER_DAMAGE_MULT 0.80

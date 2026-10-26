@@ -53,6 +53,9 @@ static double astra_ability_local(void) { return astra_ability_on(); }
 
 static double astra_strike_damage_for(double lv) {
     double d = ASTRA_STRIKE_DAMAGE;
+    if (lv >= 4) {
+        return d * 1.35;
+    }
     if (lv >= 3) {
         d = d * (1 + astra_level_throw_bonus);
     }
@@ -63,6 +66,9 @@ static double astra_strike_stun_for(double lv) {
     double s = ASTRA_STRIKE_STUN;
     if (lv >= 3) {
         s = s + astra_level_stun_bonus;
+    }
+    if (lv >= 4) {
+        s = s + 0.25;
     }
     return s;
 }

@@ -45,6 +45,7 @@ static double stat_motto_y(void);
 static double levels_w(void);
 static double levels_x(void);
 static double levels_top(void);
+static double levels_row_h_fit(void);
 static double levels_row_y(double n);
 static double levels_msg_y(void);
 static double hit_level_row(double px, double py, double n);
