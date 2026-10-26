@@ -51,7 +51,11 @@ static void fire_punch(void) {
         queued_punch = 0;
         return;
     }
-    if (punch_left > 0 || punch_cd > 0 || ultimate_visual_busy() == 1) {
+    if (punch_left > 0 || punch_cd > 0) {
+        queued_punch = 0;
+        return;
+    }
+    if (ultimate_visual_busy() == 1) {
         queued_punch = 1;
         return;
     }

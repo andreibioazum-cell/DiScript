@@ -4,8 +4,8 @@ static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
 #define ASTRA_PULLBACK_DIST 14.0
 #define ASTRA_PULLBACK_TIME 0.09
-#define ASTRA_DASH_TIME 0.40
-static const double astra_ability_lunge_dist = 185.0;
+#define ASTRA_DASH_TIME 0.44
+static const double astra_ability_lunge_dist = 245.0;
 static const double astra_ability_lunge_time = ASTRA_PULLBACK_TIME + ASTRA_DASH_TIME;
 
 #define ASTRA_STRIKE_DELAY ASTRA_PULLBACK_TIME

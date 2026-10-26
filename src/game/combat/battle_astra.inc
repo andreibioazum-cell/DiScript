@@ -1,7 +1,7 @@
 /* Astra purple parry shield and stun counter-strike. */
 
-#define ASTRA_PARRY_TIME 0.9
-#define ASTRA_STRIKE_UNLOCK_DELAY 0.30
+#define ASTRA_PARRY_TIME 0.7
+#define ASTRA_STRIKE_UNLOCK_DELAY 0.42
 #define ASTRA_STRIKE_WINDOW 0.85
 #define ASTRA_GRAB_WINDOW ASTRA_STRIKE_WINDOW
 

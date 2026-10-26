@@ -622,15 +622,15 @@ def test_longer_fights(assets: Path) -> None:
         frame = parse_reports(result.stdout).get(815, {})
         hp = float(frame.get("hp", "0"))
         foe = float(frame.get("foe", "0"))
-        # Base HP pools: Ordinary 20, Azum 12.74, Santa 20, ebuC 24, Astra 18, CodeCracker 12.
-        raw = {"0": 20.0, "1": 12.74, "2": 20.0, "3": 24.0, "4": 18.0, "6": 12.0}
+        # Base HP pools: Ordinary 20, Azum 7.0, Santa 20, ebuC 24, Astra 19.0, CodeCracker 12.
+        raw = {"0": 20.0, "1": 7.0, "2": 20.0, "3": 24.0, "4": 19.0, "6": 12.0}
         cls = frame.get("cls", "0")
         base = raw.get(cls, 20.0)
         check("здоровья не меньше, чем даёт класс", hp >= base, f"hp={hp}, база={base}")
         check("ровно столько, сколько даёт класс", abs(hp - base) < 0.01, f"hp={hp}, база={base}")
         check("и не больше прежних раздутых пулов", hp <= 25, f"hp={hp}")
         # The enemy brings the pool of its own class, so only the range is fixed.
-        check("у врага свой пул, тоже умеренный", 15 < foe <= 30, f"foe={foe}")
+        check("у врага свой пул, тоже умеренный", 6 <= foe <= 30, f"foe={foe}")
 
 
 def wait_port(port: int, timeout: float = 5.0) -> bool:

@@ -1827,8 +1827,8 @@ static void test_azum_buff(void) {
     assert(class_cost_of(CLASS_AZUM) == 59);  /* 65 - 10% -> 58.5 -> 59 */
     assert(class_cost_of(CLASS_SANTA) == 90); /* 100 candies - 10% */
     assert(class_cost_of(CLASS_ASTRA) == 122); /* 135 - 10% -> 121.5 -> 122 */
-    assert(level_cost(1) == 27);              /* 30 - 10% */
-    assert(level_cost(3) == 45);              /* 50 - 10% */
+    assert(level_cost(1) == 45);              /* 50 - 10% */
+    assert(level_cost(3) == 81);              /* 90 - 10% */
     assert(class_cost_of(CLASS_ORDINARY) == 0);
     cups = 59;
     pick_class(CLASS_AZUM);
@@ -2073,9 +2073,9 @@ static void test_battle_events(void) {
     player_class = CLASS_ORDINARY;
     reset_battle();
 
-        /* Azum: 2% less HP (13 -> 12.74). */
-    assert(fabs(azum_hp - 12.74) < 1e-9);
-    assert(fabs(player_max_hp_for(CLASS_AZUM) - 12.74 * round_hp_mult()) < 1e-9);
+        /* Azum: reduced HP across all lives (7.0). */
+    assert(fabs(azum_hp - 7.0) < 1e-9);
+    assert(fabs(player_max_hp_for(CLASS_AZUM) - 7.0 * round_hp_mult()) < 1e-9);
 
         /* Admin commands pick three DIFFERENT events. */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
@@ -2738,16 +2738,17 @@ int main(void) {
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 2), tr_class_level_effect(CLASS_ASTRA, 2)) == 0);
     assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 3), tr_class_level_effect(CLASS_ASTRA, 3)) == 0);
     assert(punch_forward_offset == 19 && astra_grab_forward_offset == 19);
-    assert(fabs(ASTRA_PARRY_TIME - 0.9) < 1e-9);
+    assert(fabs(ASTRA_PARRY_TIME - 0.7) < 1e-9);
     assert(fabs(ASTRA_PARRY_SPEED_K - 0.90) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_UNLOCK_DELAY - 0.30) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_UNLOCK_DELAY - 0.42) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.85) < 1e-9);
     assert(fabs(ASTRA_PULLBACK_TIME - 0.09) < 1e-9);
-    assert(fabs(ASTRA_DASH_TIME - 0.40) < 1e-9);
+    assert(fabs(ASTRA_DASH_TIME - 0.44) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
-    assert(fabs(astra_ability_lunge_dist - 185.0) < 1e-9);
+    assert(fabs(astra_ability_lunge_dist - 245.0) < 1e-9);
     assert(astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
     assert(fabs(PUNCH_WINDUP - 0.2) < 1e-9);
+    assert(fabs(punch_cooldown - 0.65) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 65);
@@ -2765,10 +2766,13 @@ int main(void) {
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
     assert(class_has_super(CLASS_ASTRA) == 1 && player_max_hp_for(CLASS_ASTRA) == astra_hp * round_hp_mult());
-    /* Base HP pools: Ordinary/Santa 20, Azum 12.74, Astra 18, ebuC 24. */
+    /* Base HP pools: Ordinary/Santa 20, Azum 7.0, Astra 20 (*0.95 = 19), ebuC 24. */
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
-    assert(fabs(azum_hp - 12.74) < 1e-9 && astra_hp == 18 && ebuc_hp == 24 && enemy_base_hp == 20);
+    assert(fabs(azum_hp - 7.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
+    assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
+    assert(level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 && level_cost(2) == 70 &&
+           level_cost(3) == 90);
     assert(punch_damage == 1 && santa_damage == 0.25 && ebuc_damage == 1.0);
     assert(ebuc_universe_damage >= ebuc_hp);
     azum_tex_ok = azum_punch_tex_ok = 1;
@@ -4747,7 +4751,7 @@ int main(void) {
 
         touch_game(atk2_x, atk2_y, 0, 7); /* press only - not released! */
         assert(astra_state == 0);
-        assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.9) < 1e-9);
+        assert(astra_parry_active() == 1 && fabs(astra_parry_t - 0.7) < 1e-9);
         assert(player_freeze == 0 && fabs(player_walk_speed() - joy_speed * 0.90) < 1e-9);
         player_block = 1;
         assert(fabs(player_walk_speed() - joy_speed * 0.90) < 1e-9);
@@ -4757,6 +4761,9 @@ int main(void) {
         punch_cd = 0;
         fire_punch();
         assert(punch->active == 1);
+        /* Pressing punch again immediately during cooldown does NOT queue instant follow-up. */
+        fire_punch();
+        assert(queued_punch == 0);
         punch->active = 0;
         punch_left = 0;
         punch_cd = 0;
@@ -4764,6 +4771,14 @@ int main(void) {
         stub_circle_color = 0;
         draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
         assert(stub_circle_color == 0x38B35CFF);
+        assert(fabs(adm_last_circle_r - 25 * cube_scale * player_scale * 1.75 * 0.90) < 1e-4);
+        /* Dash activates attack sprite for both player and bot Azum. */
+        dash_active = 1;
+        assert(player_punching_now() == 1);
+        dash_active = 0;
+        enemy_dash_active = 1;
+        assert(enemy_punching_now() == 1);
+        enemy_dash_active = 0;
 
         /* Bot Astra also keeps acting while its purple block slows walk by 10%. */
         enemy_class = CLASS_ASTRA;
@@ -4771,33 +4786,33 @@ int main(void) {
         assert(egrab_parry_t > 0 && enemy_tick_class_abilities() == 0);
         egrab_parry_t = 0;
 
-        for (int f = 0; f < 56; f++)
+        for (int f = 0; f < 44; f++)
             tick_astra();
         assert(astra_parry_t == 0 && astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
         touch_game(atk2_x, atk2_y, 1, 7);
 
-        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun, waits 0.30 s before
+        /* 2b) Blocking >=1 hit absorbs 100% of damage + stun, waits 0.42 s before
          *     Strike ("Удар") can be pressed, then keeps it open for 0.85 s. */
         astra_cd = 0;
-        player->hp = 18;
+        player->hp = 19;
         touch_game(atk2_x, atk2_y, 0, 7);
         touch_game(atk2_x, atk2_y, 1, 7);
         assert(astra_parry_active() == 1);
         take_damage_at(6.5, 500, 400);
         stun_player(0.55);
-        assert(fabs(player->hp - 18.0) < 1e-9 && player_stun == 0);
-        assert(fabs(astra_strike_unlock_t - 0.30) < 1e-9 && astra_grab_ready_t == 0);
-        /* Pressing immediately during the 0.30 s pause cannot cast Strike yet. */
+        assert(fabs(player->hp - 19.0) < 1e-9 && player_stun == 0);
+        assert(fabs(astra_strike_unlock_t - 0.42) < 1e-9 && astra_grab_ready_t == 0);
+        /* Pressing immediately during the 0.42 s pause cannot cast Strike yet. */
         touch_game(atk2_x, atk2_y, 0, 8);
         touch_game(atk2_x, atk2_y, 1, 8);
         assert(astra_state == 0 && astra_grab_ready_t == 0 && astra_strike_unlock_t > 0);
         int unlock_ticks = 0;
-        while (astra_strike_unlock_t > 0 && unlock_ticks < 30) {
+        while (astra_strike_unlock_t > 0 && unlock_ticks < 40) {
             tick_astra();
             unlock_ticks++;
         }
-        assert(unlock_ticks >= 18 && unlock_ticks <= 19);
+        assert(unlock_ticks >= 25 && unlock_ticks <= 26);
         assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);
         adm_reset_log();
         draw_controls();
@@ -4812,7 +4827,7 @@ int main(void) {
         assert(astra_grab_ready_t == 0 && astra_state == 0);
         assert(fabs(astra_cd - astra_grab_miss_cd) < 0.05);
 
-        /* 2c) Pressing after the 0.30 s unlock pause performs slower pullback + forward dash + stun. */
+        /* 2c) Pressing after the 0.42 s unlock pause performs pullback + 245 px forward dash + stun. */
         astra_cd = 0;
         player->x = 400;
         player->y = 400;
@@ -4826,7 +4841,7 @@ int main(void) {
         touch_game(atk2_x, atk2_y, 0, 7);
         touch_game(atk2_x, atk2_y, 1, 7);
         take_damage_at(3.0, 500, 400);
-        assert(fabs(astra_strike_unlock_t - 0.30) < 1e-9 && fabs(player->hp - 18.0) < 1e-9);
+        assert(fabs(astra_strike_unlock_t - 0.42) < 1e-9 && fabs(player->hp - 19.0) < 1e-9);
         while (astra_strike_unlock_t > 0)
             tick_astra();
         assert(fabs(astra_grab_ready_t - 0.85) < 1e-9);

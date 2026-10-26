@@ -174,7 +174,7 @@ static void draw_online(void) {
             if (arr_get(remote_punches, rb) > 0) {
                 punching = 1;
                 ra = atan2(arr_get(remote_punches, rb + 4), arr_get(remote_punches, rb + 3));
-            } else if (remote_grab_punching(i) == 1) {
+            } else if (remote_grab_punching(i) == 1 || remote_dash_get(i, DASH_ACTIVE) == 1) {
                 punching = 1;
             }
             double rsh = astra_strike_shift(remote_grab_get(i, GRAB_ACTIVE) == 1, remote_grab_get(i, GRAB_T));
@@ -227,7 +227,7 @@ static void draw_online(void) {
             if (arr_get(remote_punches, rb) > 0) {
                 punching = 1;
                 ra = atan2(arr_get(remote_punches, rb + 4), arr_get(remote_punches, rb + 3));
-            } else if (remote_grab_punching(i) == 1) {
+            } else if (remote_grab_punching(i) == 1 || remote_dash_get(i, DASH_ACTIVE) == 1) {
                 punching = 1;
             }
             draw_codecracker_fx_slot(i, rx, ry, ra);

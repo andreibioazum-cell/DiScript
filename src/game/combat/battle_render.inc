@@ -166,10 +166,7 @@ static void draw_punch_box(double x, double y, double dx, double dy, double reac
 static void draw_field(void) { rect(0, 0, screen_w, screen_h, 0x33000000); }
 
 static double player_punching_now(void) {
-    if (punch_left > 0) {
-        return 1;
-    }
-    if (astra_punch_t > 0) {
+    if (punch_left > 0 || dash_active > 0 || astra_punch_t > 0) {
         return 1;
     }
     return 0;
@@ -205,7 +202,7 @@ static void draw_purple_guard(double x, double y, double on, double scale) {
     if (on <= 0) {
         return;
     }
-    double r = 25 * cube_scale * scale * 1.75;
+    double r = 25 * cube_scale * scale * 1.75 * 0.90;
     circle(x, y, r, 0x38B35CFF);
     ring(x, y, r, clamp(r * 0.13, 3, 5), 0xD8B35CFF);
 }
@@ -229,13 +226,10 @@ static void draw_player_body_layer(void) {
 }
 
 static double enemy_punching_now(void) {
-    if (enemy->state == 1 || enemy->state == 2) {
+    if (enemy->state == 1 || enemy->state == 2 || enemy_dash_active > 0) {
         return 1;
     }
-    if (enemy_super_windup > 0) {
-        return 1;
-    }
-    if (enemy_grab_punching() == 1) {
+    if (enemy_super_windup > 0 || enemy_grab_punching() == 1) {
         return 1;
     }
     return 0;
@@ -305,7 +299,7 @@ static void draw_pad(double cx, double cy, double r, uint32_t col, const char *l
 static void draw_controls(void) {
     ring(joy.x, joy.y, joy.r, 4, 0x000000);
     circle(joy.x + joy.ox, joy.y + joy.oy, 34, 0x000000);
-    draw_pad(atk_x, atk_y, battle_pad_r(), 0xE94560, tr_punch(), 0.55);
+    draw_pad(atk_x, atk_y, battle_pad_r(), punch_cd > 0 ? 0xA83246 : 0xE94560, tr_punch(), 0.55);
     if (game_state == ST_SOLO || game_state == ST_ONLINE) {
         draw_pad(blk_x, blk_y, battle_pad_r(), player_block == 1 ? 0x2E6FBF : 0x3A5A8C, tr_block(), 0.55);
     }
