@@ -242,7 +242,7 @@ static void touch_modes(double x, double y) {
         return;
     }
     if (hit_modes_row(x, y, 4) == 1) {
-        if (dev_access() == 0) {
+        if (seasonal_admin_allowed() == 0) {
             return;
         }
         winter_theme = 1 - winter_theme;

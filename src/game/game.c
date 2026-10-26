@@ -70,6 +70,7 @@
 #include "combat/battle_event_plates.inc"
 #include "combat/battle_event_santa.inc"
 #include "combat/battle_event_dice.inc"
+#include "combat/battle_event_columns.inc"
 #include "combat/battle_events_input.inc"
 #include "fx/weather.inc"
 #include "fx/newyear.inc"

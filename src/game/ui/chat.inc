@@ -53,7 +53,7 @@ static void chat_send(void) {
     if (is_admin() == 1) {
         if (str_eq(chat_input, "event 0") == 1 || str_eq(chat_input, "event 1") == 1 ||
             str_eq(chat_input, "event 2") == 1 || str_eq(chat_input, "event 3") == 1 ||
-            str_eq(chat_input, "event 4") == 1) {
+            str_eq(chat_input, "event 4") == 1 || str_eq(chat_input, "event 5") == 1) {
             admin_handle(chat_input);
             chat_input = "";
             keyboard_clear();

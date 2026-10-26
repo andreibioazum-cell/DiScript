@@ -2086,6 +2086,7 @@ static void test_battle_events(void) {
     assert(admin_handle("event 2") == 1 && stub_event_mode == 2);
     assert(admin_handle("event 3") == 1 && stub_event_mode == 3);
     assert(admin_handle("event 4") == 1 && stub_event_mode == 4);
+    assert(admin_handle("event 5") == 1 && stub_event_mode == 5);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "x");
     stub_login_status = 2;
@@ -2136,6 +2137,29 @@ static void test_battle_events(void) {
     update_dice_event();
     assert(dice_active == 0);
 
+        /* Event 5: finite Santa-style round; every cane travels horizontally right. */
+    event_mode = 5;
+    game_state = ST_LOBBY;
+    dt = 0.1;
+    columns_phase = 0;
+    columns_shot_active = 0;
+    player->x = screen_w * 0.8;
+    player->y = screen_h * 0.9;
+    for (int i = 0; i < 8; i++) update_columns_event();
+    assert(columns_phase == 1 && columns_shot_active == 1);
+    assert(fabs(columns_shot_y - screen_h / 2) < 1e-9);
+    double columns_x_before = columns_shot_x;
+    update_columns_event();
+    assert(columns_shot_x > columns_x_before);
+    assert(fabs(columns_shot_y - screen_h / 2) < 1e-9);
+    draw_columns_event();
+    draw_columns_hud();
+    for (int i = 0; i < 180; i++) update_columns_event();
+    assert(columns_thrown == columns_shot_total && columns_phase == 3);
+    event_mode = 0;
+    update_columns_event();
+    assert(columns_phase == 0 && columns_shot_active == 0);
+
         /* Event 2: both plates taken -> charge -> Santa and candies. */
     event_mode = 2;
     plates_prev_mode = 4;
@@ -2163,7 +2187,7 @@ static void test_battle_events(void) {
     game_state = ST_LOBBY;
     screen_w = saved_w;
     screen_h = saved_h;
-    puts("events: plates 2, Santa 3, cube 4, Azum HP -2%");
+    puts("events: plates 2, Santa 3, cube 4, Columns 5, Azum HP -2%");
 }
 
 static void test_eax229_and_rooms(void) {
@@ -2900,17 +2924,19 @@ int main(void) {
     assert(ground_tiles == 0 && ground_fills == 1);
     ground_texture_missing = 0;
 
-    /* Winter theme (and Santa, and candies) are developer-only for now:
-     * a saved winter setting alone does not turn anything on. */
+    /* A saved winter setting stays private to signed-in CCP moderators. */
     winter_theme = 1;
+    stub_login_status = 0;
     astra_ability_ok = 0;
-    assert(dev_access() == 0 && winter_theme_on() == 0 && candies_on() == 0);
+    assert(dev_access() == 0 && seasonal_admin_allowed() == 0 && winter_theme_on() == 0 && candies_on() == 0);
     assert(class_visible(CLASS_SANTA) == 0);
     ground_tiles = ground_fills = 0;
     draw_arena_background();
     assert(strcmp(last_ground, GRASS) == 0);
-    astra_ability_ok = 1;
-    assert(dev_access() == 1 && winter_theme_on() == 1 && candies_on() == 1);
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    astra_ability_refresh();
+    assert(dev_access() == 1 && seasonal_admin_allowed() == 1 && winter_theme_on() == 1 && candies_on() == 1);
     assert(class_visible(CLASS_SANTA) == 1);
     ground_tiles = ground_fills = 0;
     draw_arena_background();
@@ -3832,24 +3858,33 @@ int main(void) {
     set_class_owned(CLASS_CODECRACKER, 0);
     player_class = CLASS_ORDINARY;
     assert(class_skin_of(CLASS_ASTRA) == SKIN_NORMAL && current_skin() == SKIN_NORMAL);
-    /* Candies and Santa are only hidden while they are developer-only, never
-     * taken away: an earlier balance and an earlier purchase survive in the
-     * save, and both come back the moment access opens for everyone. */
+    /* A guest cannot use stored seasonal rewards, but the primary CCP admin can. */
     candies = 37;
     set_class_owned(CLASS_SANTA, 1);
     player_class = CLASS_SANTA;
     progress_normalize();
-    assert(player_class == CLASS_ORDINARY); /* cannot play Santa for now */
+    assert(player_class == CLASS_ORDINARY);
     assert(candies == 37 && class_owned_of(CLASS_SANTA) == 1);
+    double saved_season_status = stub_login_status;
+    char saved_season_nick[sizeof(stub_login_nick)];
+    snprintf(saved_season_nick, sizeof(saved_season_nick), "%s", stub_login_nick);
+    stub_login_status = 0;
+    astra_ability_refresh();
     assert(class_visible(CLASS_SANTA) == 0 && candies_on() == 0);
-    astra_ability_ok = 1; /* the future "for everyone" update, via the dev gate */
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    astra_ability_refresh();
     assert(class_visible(CLASS_SANTA) == 1 && candies_on() == 1 && candies == 37);
     select_class(CLASS_SANTA);
     assert(player_class == CLASS_SANTA);
-    astra_ability_ok = 0;
+    stub_login_status = 0;
+    astra_ability_refresh();
     player_class = CLASS_ORDINARY;
     progress_normalize();
     assert(player_class == CLASS_ORDINARY);
+    stub_login_status = saved_season_status;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_season_nick);
+    astra_ability_refresh();
     player->angle = 0;
     player->x = 150;
     player->y = 90;
@@ -4592,21 +4627,26 @@ int main(void) {
             game_state = ST_MODES;
         }
         press_points_clear();
-        /* Row 4 is the winter toggle: grey and dead without developer
-         * access, a working toggle with it. */
+        /* Row 4 is the winter toggle: guests cannot use it, but CCP moderators can. */
         double saved_winter2 = winter_theme;
-        double saved_dev = astra_ability_ok;
+        double saved_login_status2 = stub_login_status;
+        char saved_login_nick2[sizeof(stub_login_nick)];
+        snprintf(saved_login_nick2, sizeof(saved_login_nick2), "%s", stub_login_nick);
+        stub_login_status = 0;
         astra_ability_ok = 0;
         logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 24);
         assert(winter_theme == saved_winter2 && t_dir == 0);
         press_points_clear();
-        astra_ability_ok = 1;
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 25);
         assert(winter_theme == 1 - saved_winter2 && t_dir == 0);
         press_points_clear();
         logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 26);
         assert(winter_theme == saved_winter2);
-        astra_ability_ok = saved_dev;
+        stub_login_status = saved_login_status2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_login_nick2);
+        astra_ability_refresh();
         press_points_clear();
         screen_w = saved_mw;
         screen_h = saved_mh;
@@ -4627,27 +4667,35 @@ int main(void) {
     test_gifts_page();
     test_admin_keyboard();
 
-    /* New Year battle pass is admin-only: non-admins (including demoted
-     * qwertyuiopaj1234) cannot earn XP, claim tiers, or unlock tier rewards;
-     * Dimasi4ek229 earns XP and claims tiers 1..7 in order. */
+    /* New Year theme and Battle Pass are available to all CCP moderators;
+     * only the primary admin has the wider CCP/Gifts panel. */
     {
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0);
+        assert(is_admin() == 0 && admin_modifiers_allowed() == 1);
+        assert(seasonal_admin_allowed() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         bp_xp = 0;
         bp_claimed = 0;
         candies = 1000;
         cups = 0;
         stub_bpx = 0;
         award_battle_result(1);
-        assert(bp_xp == 0 && stub_bpx == 0);
-        bp_xp = 300;
+        assert(bp_xp == 10 && stub_bpx == 10);
+        double qwerty_candies_before_claim = candies;
         bp_claim(1);
-        assert(bp_claimed == 0 && candies == 1000);
+        assert(bp_claimed == 1 && fabs(candies - (qwerty_candies_before_claim - 12)) < 1e-9);
+        bp_xp = 300;
         bp_claimed = 7;
-        assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0);
-        assert(class_visible(CLASS_SANTA) == 0);
+        progress_normalize();
+        assert(class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1);
+        set_class_owned(CLASS_SANTA, 0);
+        player_class = CLASS_ORDINARY;
+        bp_xp = 0;
+        bp_claimed = 0;
+        candies = 1000;
+        cups = 0;
+        stub_bpx = 0;
 
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
         astra_ability_refresh();
@@ -4920,8 +4968,8 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* Sanch: CCP modifiers only (no gift management, no Battle Pass UI, no winter theme),
-     * while keeping earned BP rewards and stored candies; Dimasi4ek229 retains everything. */
+    /* All three CCP moderators get the seasonal theme and Battle Pass; only Dimasi4ek229
+     * keeps admin-panel Gifts access. */
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
@@ -4941,8 +4989,11 @@ int main(void) {
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
         assert(is_admin() == 0 && admin_playing() == 0);
-        assert(dev_access() == 0 && bpass_allowed() == 0 && bpass_rewards_allowed() == 0);
-        assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+        winter_theme = 1;
+        candy_enabled = 1;
+        assert(dev_access() == 0 && seasonal_admin_allowed() == 1);
+        assert(winter_theme_on() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
+        assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
         shimmer_text_n = 0;
         draw_lobby_nick();
         assert(shimmer_text_n == 1);
@@ -4969,17 +5020,17 @@ int main(void) {
         candies = 77;
         set_class_owned(CLASS_SANTA, 0);
         assert(is_admin() == 0 && admin_playing() == 0);
-        assert(dev_access() == 0 && winter_theme_on() == 0);
-        assert(bpass_allowed() == 0 && candies_on() == 0);
+        assert(dev_access() == 0 && seasonal_admin_allowed() == 1 && winter_theme_on() == 1);
+        assert(bpass_allowed() == 1 && bpass_rewards_allowed() == 1 && candies_on() == 1);
         assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
 
-        /* Sanch cannot claim BP tiers, open BP, or see candies on balance, yet candies stay stored. */
+        /* Sanch can open the seasonal pass, earn XP/candies, and claim tiers. */
         bp_claim(1);
-        assert(bp_claimed == 0 && fabs(candies - 77.0) < 1e-9);
+        assert(bp_claimed == 1 && fabs(candies - 65.0) < 1e-9);
         adm_reset_log();
         language = 1;
         draw_lobby_money();
-        assert(adm_has_text("Конфеты") == 0 && fabs(candies - 77.0) < 1e-9);
+        assert(candies_on() == 1 && fabs(candies - 65.0) < 1e-9);
 
         /* Previously earned BP Tier 7 Santa remains unlocked for Sanch; Elf ebuC requires online ACH_BUK_GIFT. */
         bp_claimed = 4;
@@ -4991,7 +5042,7 @@ int main(void) {
         player_class = CLASS_SANTA;
         progress_normalize();
         assert(class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1 && player_class == CLASS_SANTA);
-        assert(fabs(candies - 77.0) < 1e-9);
+        assert(fabs(candies - 65.0) < 1e-9);
 
         /* Sanch sees CCP with regular modifiers only and no gift management tab. */
         adm_reset_log();

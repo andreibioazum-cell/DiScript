@@ -72,10 +72,10 @@ static void draw_modes(void) {
     button(tr_solo(), menu_x(), modes_row(1), menu_btn_w(), btn_h);
     button(tr_online(), menu_x(), modes_row(2), menu_btn_w(), btn_h);
     button(tr_top(), menu_x(), modes_row(3), menu_btn_w(), btn_h);
-    if (dev_access() == 1) {
+    if (seasonal_admin_allowed() == 1) {
         button_scaled(tr_winter_toggle(), menu_x(), modes_row(4), menu_btn_w(), btn_h, 0.8);
     } else {
-        /* Winter theme is developer-only for now: grey and unavailable. */
+        /* Winter theme is available only to signed-in CCP moderators. */
         button_disabled_scaled(tr_winter_toggle(), menu_x(), modes_row(4), menu_btn_w(), btn_h, 0.8);
     }
     /* The promo code lives in the bottom-right corner, out of the column. */

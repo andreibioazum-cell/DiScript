@@ -1,0 +1,14 @@
+columns_phase = 0;
+columns_t = 0;
+columns_shot_active = 0;
+columns_shot_x = 0;
+columns_shot_y = 0;
+columns_shot_cd = 0;
+columns_thrown = 0;
+columns_dy = 0;
+columns_shot_speed = 560;
+columns_shot_damage = 2;
+columns_shot_total = 12;
+columns_shot_interval = 0.65;
+columns_exit_speed = 900;
+columns_size = 150;

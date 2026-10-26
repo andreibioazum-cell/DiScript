@@ -75,6 +75,7 @@ const char *AZUM_PUNCH_TEX;
 const char *SANTA_TEX;
 const char *SANTA_PUNCH_TEX;
 const char *CANDY_TEX;
+const char *EVENT_COLUMNS_TEX;
 const char *SNOWFLAKE_TEX;
 const char *EBUC_TEX;
 const char *EBUC_PUNCH_TEX;

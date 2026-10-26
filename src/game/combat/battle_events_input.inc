@@ -18,7 +18,7 @@ static void draw_disco(void) {
 }
 
 static void update_event(void) {
-    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube. */
+    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns. */
     event_mode = net_event();
     if (plates_round_on() == 1 && candies_on() == 0) {
         event_mode = 0;
@@ -34,6 +34,7 @@ static void update_event(void) {
     }
     tick_plates_event();
     update_dice_event();
+    update_columns_event();
     /* Unlock ebuC's gift achievement when playing Santa online during event 3. */
     if (game_state == ST_ONLINE && event_mode == 3 && player_class == CLASS_SANTA && online_ready == 1) {
         if (has_achievement(ACH_BUK_GIFT) == 0) {
@@ -251,6 +252,7 @@ static void draw_online(void) {
     }
     draw_dice_event();
     draw_event_santa();
+    draw_columns_event();
     draw_chat_bubbles();
     draw_status_aura(player->x, player->y, player->size, freeze_rgb, freeze_rim, pfreeze_a);
     draw_status_aura(player->x, player->y, player->size, poison_rgb, poison_rim, ppoison_a);
@@ -264,6 +266,7 @@ static void draw_online(void) {
     draw_fps_meter();
     draw_chat();
     draw_plates_hud();
+    draw_columns_hud();
     draw_alone_wait();
     if (finished == 1) {
         draw_result(tr_victory());

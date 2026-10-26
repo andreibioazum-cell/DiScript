@@ -122,9 +122,9 @@ void net_event_set(double mode) {
     int m = (int)mode;
     if (m < 0)
         m = 0;
-    /* Event modes: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube. */
-    if (m > 4)
-        m = 4;
+    /* Event modes: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns. */
+    if (m > 5)
+        m = 5;
     if (!net.base[0])
         return;
     char url[URL], body[32];

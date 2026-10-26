@@ -15,6 +15,7 @@ static void load_textures(void) {
     png_load(DESPENSER_TEX);
     png_load(EBUC_ELF_DESPENSER_TEX);
     candy_tex_ok = png_load(CANDY_TEX);
+    png_load(EVENT_COLUMNS_TEX);
     png_load(SNOWFLAKE_TEX);
     tex_reload_t = 0;
     tex_reload_left = 60;

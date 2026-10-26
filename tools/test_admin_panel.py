@@ -265,7 +265,7 @@ def check_schema(html: str, js: str, rules: dict) -> None:
 
     compare("banner", spec_fields(extract_const(js, "BANNER_FIELDS")), rules["banner"])
 
-        # Event range: the rules allow 0..4, so the panel buttons must match.
+        # Event range: the rules allow 0..5, so the panel buttons must match.
     event_rule = rules["event"][".validate"]
     upper = re.search(r"<=\s*(\d+)", event_rule)
     panel_max = extract_const(js, "EVENT_MAX")

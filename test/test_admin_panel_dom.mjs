@@ -195,8 +195,8 @@ try {
         (await db("rooms/main/players/0/nick", token)) === "Dimasi4ek229" &&
         (await db("rooms/main/players/2", token)) === null);
 
-  console.log("\n== 4. Ивенты 0..4 ==");
-  for (const ev of [1, 2, 3, 4, 0]) {
+  console.log("\n== 4. Ивенты 0..5 ==");
+  for (const ev of [1, 2, 3, 4, 5, 0]) {
     click(`[data-ev="${ev}"]`);
     await waitFor(async () => ((await db("event", token)) === ev ? "ok" : null), `event=${ev}`);
     check(`ивент ${ev} записан`, (await db("event", token)) === ev);

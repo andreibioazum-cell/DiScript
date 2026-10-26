@@ -165,6 +165,14 @@ static void reset_battle(void) {
     plates_prev_mode = 0;
     plates_event_reset();
     dice_event_reset();
+    columns_phase = 0;
+    columns_t = 0;
+    columns_shot_active = 0;
+    columns_shot_x = 0;
+    columns_shot_y = screen_h / 2;
+    columns_shot_cd = 0;
+    columns_thrown = 0;
+    columns_dy = 0;
     ds_gfx_gray(0);
     ds_gfx_shake(0, 0);
     player_block = 0;
