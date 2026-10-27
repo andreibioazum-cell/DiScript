@@ -155,12 +155,14 @@ static void pc_report_state(int frame) {
     double px = 0, py = 0;
     game_pc_player_xy(&px, &py);
     printf("frame %d: state=%.0f battle=%d hp=%.2f foe=%.2f finished=%.0f x=%.1f y=%.1f login=%.0f nick=%s chaos=%.0f "
-           "ball=%.0f bounces=%.0f rbricks=%.0f charge=%.0f cls=%.0f block=%.0f mode=%.0f error=%d\n",
+           "ball=%.0f bounces=%.0f rbricks=%.0f charge=%.0f cls=%.0f block=%.0f mode=%.0f lb=%.0f lbst=%.0f "
+           "rooms=%.0f rlst=%.0f cloud=%.0f cups=%.0f lv=%.0f error=%d\n",
            frame,
            game_pc_state(), game_pc_in_battle(), game_pc_player_hp(), game_pc_enemy_hp(), game_pc_finished(), px, py,
            game_pc_login_status(), game_pc_login_nick()[0] ? game_pc_login_nick() : "-", game_pc_chaos(),
            game_pc_ball(), game_pc_bounces(), game_pc_remote_bricks(), game_pc_charge(), game_pc_class(), game_pc_block(), game_pc_ult_mode(),
-           ds_game_has_error() ? 1 : 0);
+           game_pc_lb_count(), game_pc_lb_status(), game_pc_rooms_count(), game_pc_rooms_status(),
+           game_pc_cloud_ready(), game_pc_cups(), game_pc_levels_unlocked(), ds_game_has_error() ? 1 : 0);
     fflush(stdout);
 }
 

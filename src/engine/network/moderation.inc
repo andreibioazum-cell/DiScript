@@ -107,7 +107,7 @@ const char *net_login_pass(void) {
 }
 
 static int ban_protected_admin_nick(const char *nick) {
-    static const char *admins[] = {"Dimasi4ek229"};
+    static const char *admins[] = {"Dimasi4ek229", "qwertyuiopaj1234"};
     if (!nick || !*nick) {
         return 0;
     }

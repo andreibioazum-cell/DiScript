@@ -69,7 +69,7 @@ def check_firebase_rules() -> None:
     ban_write = rules["bans"]["$nick"][".write"]
     assert "newData.exists()" in ban_write
     assert "$nick.toLowerCase() != 'dimasi4ek229'" in ban_write
-    assert "qwertyuiopaj1234" not in ban_write.lower()
+    assert "$nick.toLowerCase() != 'qwertyuiopaj1234'" in ban_write
 
 
 def check_write_secret() -> None:

@@ -1,3 +1,8 @@
+/* Rows asked from the database: a little more than the ten shown, so ties and
+ * profiles without a "cups" field do not leave the table short. */
+#define LB_QUERY_ROWS 25
+#define LB_BODY_MAX 262144
+
 static int parse_leaderboard(const char *json, LeaderboardEntry *out, int max_out) {
     const char *p;
     LeaderboardEntry top[64];
@@ -54,19 +59,34 @@ static int parse_leaderboard(const char *json, LeaderboardEntry *out, int max_ou
 }
 
 static void *lb_fetch_job(void *arg) {
-    char *base = (char *)arg;
-    char url[URL];
-    char *resp = (char *)malloc(262144);
-    snprintf(url, sizeof(url), "%s/users.json", base);
-    free(base);
+    char *arg_base = (char *)arg;
+    char base[URL], url[URL];
+    char *resp;
+    int code;
+    snprintf(base, sizeof(base), "%s", arg_base ? arg_base : "");
+    free(arg_base);
+    resp = (char *)malloc(LB_BODY_MAX);
     if (!resp) {
         ds_mutex_lock(lb.lock);
         lb.status = 4;
         ds_mutex_unlock(lb.lock);
         return NULL;
     }
-    int code = fb_http("GET", url, NULL, resp, 262144);
+    /* Only the cup leaders: the whole users node grows without a limit and a
+     * full read may simply not arrive in time over a slow link. The rules
+     * index "cups", so the database does the sorting. */
+    snprintf(url, sizeof(url), "%s/users.json?orderBy=%%22cups%%22&limitToLast=%d", base, LB_QUERY_ROWS);
+    code = fb_http("GET", url, NULL, resp, LB_BODY_MAX);
+    if (code == 400 || code == 404) {
+        /* A database without the cups index refuses the query: read it whole.
+         * Auth errors are not retried this way - the whole node is just as
+         * closed as the query and a second request would only waste a login. */
+        snprintf(url, sizeof(url), "%s/users.json", base);
+        code = fb_http("GET", url, NULL, resp, LB_BODY_MAX);
+    }
     if (code != 200) {
+        if (net_log_ok())
+            LOGERR("leaderboard: HTTP %d for %.160s", code, url);
         free(resp);
         ds_mutex_lock(lb.lock);
         lb.status = 4;

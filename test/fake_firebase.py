@@ -14,7 +14,7 @@ from urllib.parse import parse_qs
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PANEL = os.path.join(ROOT, "index.html")
 
-ADMINS = ("dimasi4ek229@cb4.game",)
+ADMINS = ("dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game")
 SECRET = "BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc"  # write secret ("w") from firebase.rules.json
 PUBLIC_ROOT = ("AzumBuff", "FlashSale")      # publicly readable root nodes
 GAME_ROOT = ("users", "rooms", "bans", "event", "banner")
@@ -224,7 +224,7 @@ def can_write(parts, email):
     if head in ADMIN_ONLY_WRITE:
         if head == "bans" and len(parts) > 1:
                         # you cannot ban your own admins - same as in the rules
-            if parts[1].lower() == "dimasi4ek229":
+            if parts[1].lower() in ("dimasi4ek229", "qwertyuiopaj1234"):
                 return False
         return email in ADMINS
     if head == "rooms":
@@ -357,6 +357,7 @@ class Handler(BaseHTTPRequestHandler):
 
         if method == "GET":
             node = deep_get(DB, parts) if parts else DB
+            node = self._apply_query(node, qs)
             raw = b"null" if node is None else json.dumps(node, separators=(",", ":")).encode()
             self._send(200, raw, etag=node_etag(node))
         elif method == "DELETE":
@@ -418,6 +419,33 @@ class Handler(BaseHTTPRequestHandler):
             self._send(200, json.dumps({"name": key}).encode())
         else:
             self._send(405, b'{"error":"method"}')
+
+    @staticmethod
+    def _apply_query(node, qs):
+        """The real database answers shallow, orderBy and limitToLast itself.
+
+        The game asks for the ten cup leaders (`orderBy="cups"&limitToLast`)
+        instead of the whole users node, and for the room names only
+        (`shallow=true`), so the fake has to honour those parameters or the
+        tests would pass on data the real server never sends."""
+        if not isinstance(node, dict):
+            return node
+        shallow = (qs.get("shallow", [""]) or [""])[0].lower() == "true"
+        if shallow:
+            return {key: True for key in node}
+        order = (qs.get("orderBy", [""]) or [""])[0].strip('"')
+        if not order:
+            return node
+        if order == "$key":
+            items = sorted(node.items())
+        else:
+            items = [(k, v) for k, v in node.items()
+                     if isinstance(v, dict) and isinstance(v.get(order), (int, float))]
+            items.sort(key=lambda kv: kv[1][order])
+        last = (qs.get("limitToLast", [""]) or [""])[0]
+        if last.isdigit() and int(last) > 0:
+            items = items[-int(last):]
+        return dict(items)
 
     # --- Firebase Auth -----------------------------------------------------
     def _fb_error(self, message, code=400):

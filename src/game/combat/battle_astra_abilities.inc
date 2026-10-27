@@ -3,6 +3,7 @@
 static const double astra_ability_hp_factor = 0.95;
 static const double astra_ability_punch_factor = 0.93;
 #define ASTRA_PULLBACK_DIST 14.0
+/* Astra pulls back for the very same windup as the ordinary cube. */
 #define ASTRA_PULLBACK_TIME PUNCH_WINDUP
 #define ASTRA_DASH_TIME 0.44
 static const double astra_ability_lunge_dist = 245.0;
@@ -53,6 +54,9 @@ static double astra_ability_local(void) { return astra_ability_on(); }
 
 static double astra_strike_damage_for(double lv) {
     double d = ASTRA_STRIKE_DAMAGE;
+    if (lv >= 4) {
+        return d * 1.35;
+    }
     if (lv >= 3) {
         d = d * (1 + astra_level_throw_bonus);
     }
@@ -63,6 +67,9 @@ static double astra_strike_stun_for(double lv) {
     double s = ASTRA_STRIKE_STUN;
     if (lv >= 3) {
         s = s + astra_level_stun_bonus;
+    }
+    if (lv >= 4) {
+        s = s + 0.25;
     }
     return s;
 }

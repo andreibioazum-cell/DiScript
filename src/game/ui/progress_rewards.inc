@@ -138,6 +138,9 @@ static void progress_normalize(void) {
     if (ebuc_skin == SKIN_SPECIAL && has_achievement(ACH_BUK_GIFT) == 0) {
         ebuc_skin = SKIN_NORMAL;
     }
+    if (bpass_rewards_allowed() == 1 && bp_claimed >= 7) {
+        set_class_owned(CLASS_SANTA, 1);
+    }
     double order = 0;
     while (order < class_count) {
         double cls = class_at_order(order);
@@ -146,11 +149,13 @@ static void progress_normalize(void) {
         if (lv < 0 || lv > un) {
             lv = 0;
         }
+        /* A level can only belong to a character that was really bought. */
+        if (class_owned_of(cls) == 0) {
+            lv = 0;
+            un = 0;
+        }
         set_class_progress(cls, lv, un);
         order = order + 1;
-    }
-    if (bpass_rewards_allowed() == 1 && bp_claimed >= 7) {
-        set_class_owned(CLASS_SANTA, 1);
     }
     if (player_class == CLASS_SANTA && dev_access() == 0 && (bpass_rewards_allowed() == 0 || bp_claimed < 7)) {
         /* Restrict Santa selection unless developer access or tier 7 is active. */

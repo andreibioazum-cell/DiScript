@@ -124,9 +124,11 @@ ebuc_cost = 155;
 astra_cost = 175;
 player_level = 0;
 levels_unlocked = 0;
-max_level = 3;
-level_base_cost = 50;
-level_cost_step = 20;
+max_level = 4;
+/* Levels 1-3 cost the same 100 cups, level 4 is the jackpot one (see
+ * level_4_cost). The step is kept for old saves but nothing uses it now. */
+level_base_cost = 100;
+level_cost_step = 0;
 SKIN_NORMAL = 0;
 SKIN_SPECIAL = 1;
 SKIN_ZOMBIE = 1;

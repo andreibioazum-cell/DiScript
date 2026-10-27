@@ -139,6 +139,11 @@ double egrab_box_a;
 double egrab_parry_t;
 double egrab_unlock_t;
 double egrab_ready_t;
+/* Bot Astra: cooldown of the reactive parry and a flag saying whether the
+ * running purple shield is its super (it must not eat the super cooldown when
+ * it only answered a punch). */
+double egrab_parry_cd;
+double egrab_parry_super;
 double pthrow_t;
 double pthrow_dx;
 double pthrow_dy;

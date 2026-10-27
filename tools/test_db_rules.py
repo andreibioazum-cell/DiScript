@@ -32,8 +32,8 @@ def main() -> int:
     if "<= 7" not in hue.get(".validate", ""):
         print(f"emerald_hue rule is missing or too narrow: {hue}", file=sys.stderr)
         return 1
-    if "dimasi4ek229@cb4.game" not in hue.get(".write", ""):
-        print(f"emerald_hue must be written by an admin only: {hue}", file=sys.stderr)
+    if "dimasi4ek229@cb4.game" not in hue.get(".write", "") or "qwertyuiopaj1234@cb4.game" not in hue.get(".write", ""):
+        print(f"emerald_hue must be written by admins only: {hue}", file=sys.stderr)
         return 1
     profile = rules["users"]["$nick"]
     # The CodeCracker keeps a level branch of its own, so the profile has to
@@ -41,15 +41,21 @@ def main() -> int:
     # (azum_skin carries two bits, 0..3), or a save with a skin is rejected.
     for key in ("codecracker_level", "codecracker_levels"):
         rule = profile.get(key, {}).get(".validate")
-        if not rule or "<= 3" not in rule:
+        if not rule or "<= 4" not in rule:
             print(f"profile rule for {key} is missing or too narrow: {rule}", file=sys.stderr)
             return 1
+    # The top asks the database for the cup leaders instead of downloading every
+    # profile, which only stays cheap while "cups" is indexed.
+    index = rules["users"].get(".indexOn")
+    if index != ["cups"]:
+        print(f"users must stay indexed on cups for the top: {index}", file=sys.stderr)
+        return 1
     skin_rule = profile.get("azum_skin", {}).get(".validate", "")
     if "<= 3" not in skin_rule:
         print(f"azum_skin rule rejects the packed skin flags: {skin_rule}", file=sys.stderr)
         return 1
     print("db rules: event 0..5, gift keys poop/cake/bear/rocket/emerald, "
-          "emerald hue 0..7 for admins, codecracker levels and packed skins OK")
+          "emerald hue 0..7 for admins, codecracker levels, packed skins and the cups index OK")
     return 0
 
 

@@ -164,12 +164,21 @@ static double levels_x(void) { return center_x(levels_w()); }
 
 static double levels_top(void) { return content_top() + 30; }
 
-static double levels_row_y(double n) { return levels_top() + (n - 1) * (level_row_h + level_row_gap); }
+static double levels_row_h_fit(void) {
+    double avail = screen_h - 40 - levels_top();
+    double fit = (avail - (max_level - 1) * level_row_gap) / max_level;
+    if (fit < level_row_h) {
+        return fit < 34 ? 34 : fit;
+    }
+    return level_row_h;
+}
 
-static double levels_msg_y(void) { return levels_row_y(max_level) + level_row_h + 12; }
+static double levels_row_y(double n) { return levels_top() + (n - 1) * (levels_row_h_fit() + level_row_gap); }
+
+static double levels_msg_y(void) { return levels_row_y(max_level) + levels_row_h_fit() + 12; }
 
 static double hit_level_row(double px, double py, double n) {
-    return hit_button(px, py, levels_x(), levels_row_y(n), levels_w(), level_row_h);
+    return hit_button(px, py, levels_x(), levels_row_y(n), levels_w(), levels_row_h_fit());
 }
 
 static double skins_total_w(void) { return skin_card_w * SKIN_COUNT + skin_card_gap * (SKIN_COUNT - 1); }

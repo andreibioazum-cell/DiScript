@@ -240,22 +240,22 @@ static int run_admin_ban_guard(const char *dir) {
     FILE *f = fopen(path, "r");
     assert(f == NULL);
 
-    /* Non-admin accounts (including Sanch and qwertyuiopaj1234) are not ban-exempt. */
+    /* Admin accounts (Dimasi4ek229 and qwertyuiopaj1234) are ban-exempt; Sanch and ordinary accounts are not. */
+    net_ban_set("qwertyuiopaj1234", 1);
+    assert(net_is_banned("qwertyuiopaj1234") == 0);
+    net_ban_set("QWERTYUIOPAJ1234", 1);
+    assert(net_is_banned("qwertyuiopaj1234") == 0);
+
     net_ban_set("Sanch", 1);
     assert(net_is_banned("Sanch") == 1);
     net_ban_set("Sanch", 0);
     assert(net_is_banned("Sanch") == 0);
 
-    net_ban_set("qwertyuiopaj1234", 1);
-    assert(net_is_banned("qwertyuiopaj1234") == 1);
-    net_ban_set("qwertyuiopaj1234", 0);
-    assert(net_is_banned("qwertyuiopaj1234") == 0);
-
     net_ban_set("ordinary_player", 1);
     assert(net_is_banned("ordinary_player") == 1);
     net_ban_set("ordinary_player", 0);
     assert(net_is_banned("ordinary_player") == 0);
-    puts("moderation: Dimasi4ek229 cannot be banned; qwertyuiopaj1234 and ordinary bans work");
+    puts("moderation: Dimasi4ek229 and qwertyuiopaj1234 cannot be banned; ordinary bans work");
     return 0;
 }
 
@@ -376,6 +376,19 @@ static int run_reinstall_levels(const char *dir) {
     snprintf(big_lb + off, sizeof(big_lb) - off, "}");
     assert(parse_leaderboard(big_lb, top, 10) == 10);
     assert(top[0].cups == 9999 && strcmp(top[0].nick, "u074") == 0);
+
+    /* The fourth (jackpot) level is stored as is, and a corrupt 9 clamps to 4. */
+    net_save_progress_all(500, 80, 1, 1, 0, 1, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 4, 2);
+    net_save_astra(1, 4, 4);
+    net_save_codecracker(1, 4, 4);
+    assert(net_load_level() == 4 && net_load_levels_unlocked() == 4);
+    assert(net_load_azum_level() == 4 && net_load_azum_levels_unlocked() == 4);
+    assert(net_load_astra_level() == 4 && net_load_astra_levels_unlocked() == 4);
+    assert(net_load_codecracker_level() == 4 && net_load_codecracker_levels_unlocked() == 4);
+    net_save_progress_all(500, 80, 1, 1, 0, 1, 9, 9, 9, 9, 9, 9, 9, 9, 9, 9, 4, 2);
+    assert(net_load_level() == 4 && net_load_levels_unlocked() == 4);
+    assert(net_load_ordinary_levels_unlocked() == 4 && net_load_ebuc_levels_unlocked() == 4);
+
     puts("reinstall levels: lower-level select, guest merge, promo sync, canonical nick, >64 leaderboard OK");
     return 0;
 }
@@ -402,14 +415,16 @@ static int run_http_guards(const char *dir, const char *base_url) {
     progress_read();
     assert(pg.cups == 0 && pg.azum == 0 && pg.ebuc == 0);
 
-    /* Dead id_token on HTTP 401 when refresh fails clears id_token and retries GET unauthenticated. */
+    /* A dead id_token on HTTP 401 is renewed or the request fails. It is never
+     * repeated without a token: the published rules answer a guest with 403,
+     * so that retry only ever produced an empty top and an empty room list. */
     snprintf(net.base, sizeof(net.base), "%s", base_url);
     net_set_firebase_key("test_key");
     fb_store_tokens("dead_token", "", 3600);
     snprintf(url, sizeof(url), "%s/public_probe.json", base_url);
-    assert(fb_http("GET", url, NULL, resp, sizeof(resp)) == 200);
+    assert(fb_http("GET", url, NULL, resp, sizeof(resp)) == 401);
     assert(fb.id_token[0] == 0);
-    assert(num_int(resp, "ok", 0) == 1);
+    assert(num_int(resp, "ok", 0) == 0);
 
     /* +1000 balance stepping succeeds against strict per-write growth cap. */
     net_set_firebase_key("");
@@ -420,7 +435,7 @@ static int run_http_guards(const char *dir, const char *base_url) {
     assert(cloud_dirty_get() == 0);
     assert(http("GET", url, NULL, resp, sizeof(resp)) == 200);
     assert(num_int(resp, "cups", 0) == 2500 && num_int(resp, "candies", 0) == 1250);
-    puts("http guards: no PUT wipe on 500/empty, 401 dead-token GET fallback, +1000 balance stepping OK");
+    puts("http guards: no PUT wipe on 500/empty, no guest retry after 401, +1000 balance stepping OK");
     return 0;
 }
 #endif
@@ -451,13 +466,13 @@ int main(int argc, char **argv) {
 
 def check_balance_rules():
     rules_text = (ROOT / "firebase.rules.json").read_text(encoding="utf-8")
-    assert "qwertyuiopaj1234" not in rules_text.lower()
+    assert "qwertyuiopaj1234@cb4.game" in rules_text.lower()
     rules = json.loads(rules_text)["rules"]
     for key in ("cups", "candies"):
         rule = rules["users"]["$nick"][key][".validate"]
         assert "data.val() + 1000" in rule, f"{key}: no per-write growth cap"
-        assert "dimasi4ek229@cb4.game" in rule, \
-            f"{key}: administrator cannot correct a balance"
+        assert "dimasi4ek229@cb4.game" in rule and "qwertyuiopaj1234@cb4.game" in rule, \
+            f"{key}: administrators cannot correct a balance"
         assert rule.count("(") == rule.count(")")
 
 
@@ -571,6 +586,7 @@ def main():
         subprocess.run([*run, "reinstall-levels", str(reinstall)], check=True)
 
         put_paths = []
+        guest_probes = []
         step_state = {"cups": 100, "candies": 10}
 
         class GuardHandler(BaseHTTPRequestHandler):
@@ -602,7 +618,9 @@ def main():
                     if "auth" in qs:
                         self._send(401, '{"error":"Auth token is expired"}')
                     else:
-                        self._send(200, '{"ok":1}')
+                        # Published rules: the node is closed to guests.
+                        guest_probes.append(parsed.path)
+                        self._send(403, '{"error":"Permission denied"}')
                 elif parsed.path == "/users/StepUser.json":
                     self._send(200, json.dumps(step_state))
                 else:
@@ -657,6 +675,7 @@ def main():
             assert "/users/Victim500.json" not in put_paths, put_paths
             assert "/users/VictimEmpty.json" not in put_paths, put_paths
             assert "/users/FreshUser.json" in put_paths, put_paths
+            assert not guest_probes, f"запрос без токена после 401: {guest_probes}"
         finally:
             srv.shutdown()
             srv.server_close()

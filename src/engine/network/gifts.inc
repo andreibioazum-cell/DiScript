@@ -58,11 +58,6 @@ static int gift_nick_same(const char *a, const char *b) {
     return a[i] == 0 && b[i] == 0;
 }
 
-/* Admins purchase stickers without spending cups. */
-static int gift_nick_is_admin(const char *nick) {
-    return gift_nick_same(nick, "Dimasi4ek229") == 1;
-}
-
 /* Fetch sticker counters from users/<nick>/gifts.json. */
 static int gift_get_counts(const char *nick, int out[GIFT_N]) {
     char url[URL], resp[2048];
@@ -114,12 +109,12 @@ static void gift_body(char *body, size_t cap, int cups, int id, int count) {
 static int gift_buy(const char *nick, int id) {
     char url[URL], body[BODY], resp[1024];
     int counts[GIFT_N], cups, code, price = gift_price(id);
-    int free_buy = gift_nick_is_admin(nick);
     snprintf(url, sizeof(url), "%s/users/%s/cups.json", net.base, nick);
     if (fb_http("GET", url, NULL, resp, sizeof(resp)) != 200)
         return 3;
     cups = num_int(resp, "", 0);
-    if (free_buy == 0 && cups < price)
+    /* The wallet is checked for every nick, admins included. */
+    if (cups < price)
         return 5;
     if (!gift_get_counts(nick, counts))
         return 3;
@@ -127,7 +122,7 @@ static int gift_buy(const char *nick, int id) {
         return 8;
     counts[id]++;
     snprintf(url, sizeof(url), "%s/users/%s.json", net.base, nick);
-    gift_body(body, sizeof(body), free_buy == 1 ? -1 : cups - price, id, counts[id]);
+    gift_body(body, sizeof(body), cups - price, id, counts[id]);
     code = fb_http("PATCH", url, body, NULL, 0);
     if (code != 200) {
         if (net_log_ok())
@@ -135,7 +130,7 @@ static int gift_buy(const char *nick, int id) {
         return 3;
     }
     /* Record resulting server cup balance for shop UI sync. */
-    s_gift_cups = free_buy == 1 ? cups : cups - price;
+    s_gift_cups = cups - price;
     return 2;
 }
 

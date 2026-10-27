@@ -1,29 +1,29 @@
 {
   "rules": {
-    ".read": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+    ".read": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
     ".write": false,
 
     "AzumBuff": {
       ".read": true,
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
       ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
     },
 
     "FlashSale": {
       ".read": true,
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
       ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
     },
 
     "event": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
       ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 5"
     },
 
     "banner": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
       ".validate": "newData.hasChildren(['ts','text','color'])",
       "ts": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9000000000000" },
       "text": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 96" },
@@ -34,20 +34,21 @@
     "bans": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
       "$nick": {
-        ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' && (!newData.exists() || $nick.toLowerCase() != 'dimasi4ek229')",
+        ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game') && (!newData.exists() || ($nick.toLowerCase() != 'dimasi4ek229' && $nick.toLowerCase() != 'qwertyuiopaj1234'))",
         ".validate": "$nick.matches(/^[A-Za-z0-9_]{1,16}$/) && newData.isBoolean()"
       }
     },
 
     "users": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
+      ".indexOn": ["cups"],
       "$nick": {
-        ".write": "(auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && newData.exists() && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc') || (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && !newData.exists())",
+        ".write": "(auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && newData.exists() && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc') || (auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')) || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && !newData.exists())",
         ".validate": "$nick.matches(/^[A-Za-z0-9_]{1,16}$/) && newData.hasChildren(['nick','cups','candies','cls','azum','santa','level','levels']) && (!newData.child('w').exists() || newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc')",
         "nick": { ".validate": "newData.isString() && newData.val().length <= 16" },
         "pass": { ".validate": false },
         "w": { ".validate": "newData.isString() && newData.val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc'" },
-        "cups": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || !data.exists() || newData.val() <= data.val() + 1000)" },
+        "cups": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game') || !data.exists() || newData.val() <= data.val() + 1000)" },
         "gifts": {
           "poop": {
             ".write": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.exists()",
@@ -70,33 +71,33 @@
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999 && (auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() || (data.exists() ? newData.val() == data.val() + 1 : newData.val() == 1))"
           },
           "emerald_hue": {
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
       ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7"
      },
      "rose": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" },
           "$other": { ".validate": false }
         },
-        "candies": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || !data.exists() || newData.val() <= data.val() + 1000)" },
+        "candies": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game') || !data.exists() || newData.val() <= data.val() + 1000)" },
         "cls": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 6 && newData.val() != 5" },
         "azum": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
         "santa": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
         "ebuc": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
         "astra": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
         "codecracker": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
-        "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ordinary_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ordinary_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "azum_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "azum_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "santa_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "santa_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ebuc_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ebuc_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "astra_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "astra_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "codecracker_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "codecracker_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+        "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ordinary_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ordinary_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "azum_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "azum_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "santa_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "santa_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ebuc_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ebuc_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "astra_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "astra_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "codecracker_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "codecracker_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
                 "bp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
         "bpx": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
         "azum_skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
@@ -120,11 +121,11 @@
     "rooms": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
       "$room": {
-        ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+        ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
         ".validate": "$room.matches(/^[A-Za-z0-9_-]{1,24}$/)",
         "meta": {
           ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
-          ".write": "(auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && (!data.exists() || data.child('owner').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')))",
+          ".write": "(auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')) || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && (!data.exists() || data.child('owner').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')))",
           ".validate": "newData.hasChildren(['owner','ph','w'])",
           "owner": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
           "ph": { ".validate": "newData.isString() && newData.val().length <= 8" },
@@ -134,9 +135,9 @@
 
         "players": {
           ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
-          ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+          ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
           "$slot": {
-            ".write": "(auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && $slot.matches(/^[0-3]$/) && (newData.exists() ? (newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && newData.child('nick').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')) : (!data.exists() || !data.child('nick').exists() || data.child('nick').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', ''))))",
+            ".write": "(auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')) || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && $slot.matches(/^[0-3]$/) && (newData.exists() ? (newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && newData.child('nick').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')) : (!data.exists() || !data.child('nick').exists() || data.child('nick').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', ''))))",
             ".validate": "$slot.matches(/^[0-3]$/) && newData.hasChildren(['uid','nick','x','y','angle','hp','alive','seq']) && (!newData.child('w').exists() || newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc')",
             "uid": { ".validate": "newData.isString() && newData.val().length >= 8 && newData.val().length <= 24" },
             "nick": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
@@ -188,7 +189,7 @@
             "bkdy": { ".validate": "newData.isNumber() && newData.val() >= -1.001 && newData.val() <= 1.001" },
             "brick": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
             "cls": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 6 && newData.val() != 5" },
-            "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+            "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
             "skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
             "w": { ".validate": "newData.isString() && newData.val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc'" },
             "$other": { ".validate": false }
@@ -197,9 +198,9 @@
         "chat": {
           ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
           ".indexOn": ".key",
-          ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+          ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
           "$msg": {
-            ".write": "(auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && (newData.exists() ? (newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && newData.child('nick').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')) : true))",
+            ".write": "(auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')) || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && (newData.exists() ? (newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && newData.child('nick').val().toLowerCase() == auth.token.email.toLowerCase().replace('@cb4.game', '')) : true))",
             ".validate": "newData.hasChildren(['uid','nick','text']) && (!newData.child('w').exists() || newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc')",
             "uid": { ".validate": "newData.isString() && newData.val().length >= 8 && newData.val().length <= 24" },
             "nick": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
@@ -209,15 +210,15 @@
           }
         },
         "$other": {
-          ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+          ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
           ".validate": false
         }
       }
     },
 
     "$other": {
-      ".read": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'"
+      ".read": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')",
+      ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || auth.token.email.toLowerCase() == 'qwertyuiopaj1234@cb4.game')"
     }
   }
 }

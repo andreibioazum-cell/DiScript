@@ -9,6 +9,7 @@ static const char *tr_tap_to_return(void);
 static const char *tr_victory(void);
 static const char *tr_defeat(void);
 static const char *tr_no_connection(void);
+static const char *tr_need_sign_in(void);
 static const char *tr_chat(void);
 static const char *tr_candy_timer(void);
 static const char *tr_no_messages(void);

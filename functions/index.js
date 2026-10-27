@@ -31,7 +31,7 @@ admin.initializeApp();
 
 const passSuffix = defineSecret("CB4_PASS_SUFFIX");
 
-const ADMIN_EMAILS = ["dimasi4ek229@cb4.game"];
+const ADMIN_EMAILS = ["dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game"];
 const EMAIL_DOMAIN = "@cb4.game";
 const NICK_RE = /^[A-Za-z0-9_]{1,16}$/;
 

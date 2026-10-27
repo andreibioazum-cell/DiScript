@@ -218,7 +218,9 @@ static void draw_rooms(void) {
         if (st == 1) {
             ctext(tr_rooms_loading(), rooms_list_y() + 10, text_color);
         } else if (st == 4) {
-            ctext(tr_no_connection(), rooms_list_y() + 10, text_color);
+            /* Secured list: without an account this is not a network problem,
+             * it is a missing login, and the text says so. */
+            ctext(net_cloud_ready() == 1 ? tr_no_connection() : tr_need_sign_in(), rooms_list_y() + 10, text_color);
         } else {
             double raw = net_roomlist_count();
             double count = rooms_filtered_count();

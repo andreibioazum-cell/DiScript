@@ -264,7 +264,12 @@ void keyboard_backspace(void) {
     if (len > 0)
         stub_kb[len - 1] = 0;
 }
-int keyboard_enter_pressed(void) { return 0; }
+static int stub_kb_enter;
+int keyboard_enter_pressed(void) {
+    int v = stub_kb_enter;
+    stub_kb_enter = 0;
+    return v;
+}
 int keyboard_uses_editor(void) { return 0; }
 int keyboard_handle_key(int keycode, int action, int meta) {
     (void)keycode;
@@ -481,6 +486,9 @@ void net_chat_send(const char *text) {
 }
 double net_login_status(void) {
     return stub_login_status;
+}
+double net_cloud_ready(void) {
+    return stub_login_status == 2 ? 1 : 0;
 }
 const char *net_login_nick(void) {
     return stub_login_nick;
@@ -989,10 +997,20 @@ const char *net_chat_text_cmd_color(const char *msg) {
     (void)msg;
     return "";
 }
+static char stub_banner_text_buf[128];
+static char stub_banner_color_buf[24] = "white";
+static double stub_banner_ts_val;
 void net_banner_send(const char *text, const char *color) {
-    (void)text;
-    (void)color;
+    snprintf(stub_banner_text_buf, sizeof(stub_banner_text_buf), "%s", text ? text : "");
+    snprintf(stub_banner_color_buf, sizeof(stub_banner_color_buf), "%s", (color && color[0]) ? color : "white");
+    stub_banner_ts_val += 1.0;
 }
+void net_banner_clear(void) {
+    stub_banner_text_buf[0] = 0;
+    snprintf(stub_banner_color_buf, sizeof(stub_banner_color_buf), "white");
+    stub_banner_ts_val = 0;
+}
+double net_banner_ts(void) { return stub_banner_ts_val; }
 void net_chat_trim(double keep) { (void)keep; }
 int png_load(const char *name) {
     (void)name;
@@ -1353,8 +1371,9 @@ static void test_gifts_page(void) {
     assert(acct_gift_busy == 0 && cups == 137 && acct_gift_is_owned == 0);
     acct_msg = "";
 
-        /* The admin buys for free: buying starts with zero cups, and the balance
-         * after the purchase is the untouched server one, no price deducted. */
+        /* An admin pays for a sticker exactly like everybody else: with an empty
+         * wallet the purchase is refused instead of being handed out for free,
+         * and a real purchase takes the price from the balance. */
     {
         char saved_nick[24];
         snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
@@ -1364,11 +1383,16 @@ static void test_gifts_page(void) {
         acct_gift_choice = 2; /* teddy, 250 cups */
         acct_gift_is_owned = 0;
         acct_gift_buy();
+        assert(acct_gift_busy == 0);
+        assert(str_eq(acct_msg, language == 1 ? "Не хватает кубков" : "Not enough cups") == 1);
+        acct_msg = "";
+        cups = 1000;
+        acct_gift_buy();
         assert(acct_gift_busy == 1 && acct_gift_busy_mode == 2);
-        stub_gift_cups = 55; /* server balance unchanged */
+        stub_gift_cups = 750; /* the server took the real 250-cup price */
         stub_gift_status = 2;
         acct_poll_gifts();
-        assert(acct_gift_busy == 0 && cups == 55);
+        assert(acct_gift_busy == 0 && cups == 750);
         acct_msg = "";
         net_gift_count_add(2, -1); /* revert cached teddy count */
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
@@ -1828,8 +1852,9 @@ static void test_azum_buff(void) {
     assert(class_cost_of(CLASS_AZUM) == 77);   /* 85 - 10% -> 76.5 -> 77 */
     assert(class_cost_of(CLASS_SANTA) == 113); /* 125 candies - 10% -> 112.5 -> 113 */
     assert(class_cost_of(CLASS_ASTRA) == 158); /* 175 - 10% -> 157.5 -> 158 */
-    assert(level_cost(1) == 45);              /* 50 - 10% */
-    assert(level_cost(3) == 81);              /* 90 - 10% */
+    assert(level_cost(1) == 90);              /* 100 - 10% */
+    assert(level_cost(3) == 90);              /* the third level costs 100 too */
+    assert(level_cost(4) == 540);             /* the last level: 600 - 10% */
     assert(class_cost_of(CLASS_ORDINARY) == 0);
     cups = 77;
     pick_class(CLASS_AZUM);
@@ -2037,6 +2062,8 @@ static void test_dice_alone_and_bubbles(void) {
     assert(strcmp(stub_admin_reset_nick, "bob") == 0);
     assert(strcmp(stub_admin_reset_new, "secret1") == 0);
     assert(admin_handle("passwd Dimasi4ek229 secret1") == 1);
+    assert(stub_admin_reset_calls == 1); /* protected admin account */
+    assert(admin_handle("passwd qwertyuiopaj1234 secret1") == 1);
     assert(stub_admin_reset_calls == 1); /* protected admin account */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "x");
@@ -2612,8 +2639,8 @@ const char *net_leaderboard_nick(double idx) { (void)idx; return ""; }
 double net_leaderboard_cups(double idx) { (void)idx; return 0; }
 double net_player_codecracker_super(double slot) { return stub_cc_super[(int)slot]; }
 double net_player_block(double slot) { (void)slot; return 0; }
-const char *net_banner_text(void) { return ""; }
-const char *net_banner_color(void) { return "white"; }
+const char *net_banner_text(void) { return stub_banner_text_buf; }
+const char *net_banner_color(void) { return stub_banner_color_buf; }
 
 static void test_class_stars(void) {
     game_reset();
@@ -2644,6 +2671,418 @@ static void test_class_stars(void) {
         assert(adm_has_text(class_desc_of(player_class)));
     }
     puts("classes: all five rating stars restored above the description");
+}
+
+/* Old rule sets used to sell level 1 for 900 cups and to hand out characters
+ * that were never bought. The game now takes its prices from its own code and
+ * refuses anything else. */
+static void test_shop_price_guard(void) {
+    game_reset();
+    screen_w = 1280;
+    screen_h = 720;
+    flash_sale_active = 0;
+    /* The price table is fixed in the code, not in a mutable rule set. */
+    assert(level_cost(1) == 100 && level_cost(2) == 100 && level_cost(3) == 100 && level_cost(4) == 600);
+    assert(level_price_ok(1, 900) == 0);      /* an old "level 1 = 900" price */
+    assert(level_price_ok(4, 1000) == 0);     /* an old "level 4 = 1000" price */
+    assert(level_price_ok(1, 0) == 0 && level_price_ok(1, 0.0 / 0.0) == 0);
+    {
+        /* Even if an old config shipped its own numbers, the game ignores them. */
+        double old_base = level_base_cost;
+        double old_last = level_4_cost;
+        level_base_cost = 900;
+        level_4_cost = 1000;
+        assert(level_cost(1) == 100 && level_cost(4) == 600);
+        level_base_cost = old_base;
+        level_4_cost = old_last;
+    }
+    /* A real purchase charges exactly 100, never 900. */
+    player_class = CLASS_ORDINARY;
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    sync_selected_class();
+    cups = 5000;
+    assert(buy_level(CLASS_ORDINARY, 1) == 1);
+    assert(cups == 4900 && class_unlocked_of(CLASS_ORDINARY) == 1);
+    /* A character that was never bought has no levels to sell. */
+    set_class_owned(CLASS_AZUM, 0);
+    set_class_progress(CLASS_AZUM, 0, 0);
+    cups = 5000;
+    assert(buy_level(CLASS_AZUM, 1) == 0);
+    assert(cups == 5000 && class_unlocked_of(CLASS_AZUM) == 0 && level_msg_kind == 3);
+    level_action(CLASS_AZUM, 1);
+    assert(cups == 5000 && class_unlocked_of(CLASS_AZUM) == 0);
+    language = 1;
+    assert(strcmp(level_msg_text(), tr_level_need_class()) == 0);
+    language = 0;
+    /* Old rules that make a character free are refused as well. */
+    {
+        double saved = ebuc_cost;
+        set_class_owned(CLASS_EBUC, 0);
+        ebuc_cost = 0;
+        assert(class_price_ok(CLASS_EBUC) == 0);
+        cups = 5000;
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 0 && cups == 5000 && class_msg_kind == 2);
+        ebuc_cost = -5;
+        assert(class_price_ok(CLASS_EBUC) == 0);
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 0 && cups == 5000);
+        ebuc_cost = 1;
+        assert(class_price_ok(CLASS_EBUC) == 0);
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 0 && cups == 5000);
+        /* The real price works and takes exactly the shown amount. */
+        ebuc_cost = saved;
+        assert(class_price_ok(CLASS_EBUC) == 1);
+        pick_class(CLASS_EBUC);
+        assert(class_owned_of(CLASS_EBUC) == 1 && cups == 5000 - class_price_of(CLASS_EBUC));
+        set_class_owned(CLASS_EBUC, 0);
+    }
+    /* Admin accounts pay too: no free levels and no free characters. */
+    {
+        char saved_nick[24];
+        double saved_status = stub_login_status;
+        snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+        assert(admin_playing() == 1);
+        set_class_progress(CLASS_ORDINARY, 0, 0);
+        sync_selected_class();
+        cups = 150;
+        assert(buy_level(CLASS_ORDINARY, 1) == 1 && cups == 50);
+        /* The wallet is checked: 50 cups cannot buy the next 100-cup level. */
+        assert(buy_level(CLASS_ORDINARY, 2) == 0);
+        assert(cups == 50 && class_unlocked_of(CLASS_ORDINARY) == 1 && level_msg_kind == 0);
+        set_class_owned(CLASS_AZUM, 0);
+        cups = 5000;
+        pick_class(CLASS_AZUM);
+        assert(class_owned_of(CLASS_AZUM) == 1 && cups == 5000 - class_price_of(CLASS_AZUM));
+        set_class_owned(CLASS_AZUM, 0);
+        /* A free (broken) character price is refused for admins as well. */
+        {
+            double saved_cost = azum_cost;
+            azum_cost = 0;
+            cups = 5000;
+            pick_class(CLASS_AZUM);
+            assert(class_owned_of(CLASS_AZUM) == 0 && cups == 5000 && class_msg_kind == 2);
+            azum_cost = saved_cost;
+        }
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+        stub_login_status = saved_status;
+    }
+    /* Levels of a character you do not own are wiped, never kept for later. */
+    set_class_owned(CLASS_SANTA, 0);
+    set_class_progress(CLASS_SANTA, 3, 4);
+    progress_normalize();
+    assert(class_unlocked_of(CLASS_SANTA) == 0 && class_level_of(CLASS_SANTA) == 0);
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    player_level = 0;
+    levels_unlocked = 0;
+    cups = 0;
+    puts("shop guard: 100-cup levels, 600-cup jackpot, no old-rule overpricing and no unowned characters");
+}
+
+/* Bot Astra reads a punch that is already flying at it: the purple shield eats
+ * that hit, the shield earns the counter-strike, and the whole thing has its own
+ * cooldown, so the bot parries the player without becoming unbeatable. */
+static void test_enemy_astra_parry(void) {
+    game_reset();
+    screen_w = 1080;
+    screen_h = 1920;
+    game_state = ST_SOLO;
+    finished = 0;
+    player_class = CLASS_ORDINARY;
+    player_level = 0;
+    player->x = 400;
+    player->y = 400;
+    player->angle = 0;
+    player->hp = player->max_hp = 100;
+    player_stun = 0;
+    revive_prot = 0;
+    enemy_class = CLASS_ASTRA;
+    enemy_level = 0;
+    enemy->x = 480;
+    enemy->y = 400;
+    enemy->angle = pi;
+    enemy->hp = enemy->max_hp = 100;
+    enemy->stun = 0;
+    enemy->freeze = 0;
+    enemy_revive_prot = 0;
+    enemy_super_cd = 0;
+    egrab_state = 0;
+    egrab_t = 0;
+    egrab_parry_t = 0;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    egrab_parry_cd = 0;
+    egrab_parry_super = 0;
+    enemy_block_left = 0;
+    double saved_dt = dt;
+    dt = 0.02;
+
+        /* The bot sees the punch during its windup and raises the shield before
+         * the hit lands - but only now and then, never on every punch. */
+    start_punch_now();
+    assert(punch->active == 1 && punch->hit == 0);
+    assert(enemy_punch_incoming() == 1);
+    int reactions = 0;
+    for (int attempt = 0; attempt < 600; attempt++) {
+        egrab_parry_t = 0;
+        egrab_unlock_t = 0;
+        egrab_ready_t = 0;
+        egrab_parry_cd = 0;
+        enemy_try_parry_reaction();
+        if (egrab_parry_t > 0) {
+            reactions++;
+        }
+    }
+    assert(reactions > 0 && reactions < 600);
+    assert(fabs((double)reactions / 600.0 - ASTRA_REACT_PARRY_CHANCE / 100.0) < 0.12);
+
+        /* A punch that cannot reach is not worth a parry. */
+    punch->active = 0;
+    egrab_parry_t = 0;
+    egrab_parry_cd = 0;
+    enemy_try_parry_reaction();
+    assert(egrab_parry_t == 0);
+
+        /* The shield answers the hit: no damage, and the strike unlocks. */
+    egrab_parry_t = 0;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    egrab_parry_super = 0;
+    double hp_before = enemy->hp;
+    enemy_start_astra_parry();
+    assert(enemy_apply_damage_at(3, player->x, player->y) == 0);
+    assert(enemy->hp == hp_before);
+    assert(fabs(egrab_unlock_t - ASTRA_STRIKE_UNLOCK_DELAY) < 1e-9);
+    assert(egrab_parry_super == 0);
+
+        /* Unlocking the strike really makes the bot strike back. */
+    enemy->angle = pi;
+    player->hp = player->max_hp = 100;
+    int struck = 0;
+    for (int frame = 0; frame < 400 && struck == 0; frame++) {
+        tick_enemy_grab();
+        tick_astra_fades();
+        if (egrab_state != 0) {
+            struck = 1;
+        }
+    }
+    assert(struck == 1);
+    egrab_state = 0;
+    egrab_parry_t = 0;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    egrab_parry_super = 0;
+
+        /* A quick reaction parry that catches nothing must not eat the super. */
+    enemy_super_cd = 0;
+    egrab_parry_t = ASTRA_REACT_PARRY_TIME;
+    egrab_parry_super = 0;
+    for (int frame = 0; frame < 60 && egrab_parry_t > 0; frame++)
+        tick_enemy_grab();
+    assert(egrab_parry_t <= 0 && enemy_super_cd == 0);
+
+        /* The super version still pays for an empty shield. */
+    enemy_super_cd = 0;
+    enemy_start_astra_parry();
+    assert(egrab_parry_super == 1);
+    for (int frame = 0; frame < 60 && egrab_parry_t > 0; frame++)
+        tick_enemy_grab();
+    assert(fabs(enemy_super_cd - astra_grab_miss_cd) < 1e-9);
+
+        /* The shields are snug rings around the cube, the Astra one a bit wider. */
+    player_block = 0;
+    stub_circle_color = 0;
+    draw_guard(player->x, player->y, player->angle, 1, player_scale);
+    double block_r = adm_last_circle_r;
+    stub_circle_color = 0;
+    draw_purple_guard(player->x, player->y, 1, player_scale);
+    double astra_r = adm_last_circle_r;
+    double cube_half = 25 * cube_scale * player_scale;
+    assert(block_r < cube_half * 1.10);          /* snug: inside the cube's own square */
+    assert(astra_r < cube_half * 1.25);          /* Astra's shield too, not a bubble */
+    assert(block_r > cube_half * 0.85);          /* still wraps the drawn cube */
+    assert(astra_r > block_r);
+    assert(fabs(block_r - cube_half * GUARD_RING_K) < 1e-4);
+    assert(fabs(astra_r - cube_half * ASTRA_GUARD_RING_K) < 1e-4);
+    assert((stub_circle_color & 0xFFFFFF) == 0xB35CFF);
+
+    dt = saved_dt;
+    game_state = ST_LOBBY;
+    player_block = 0;
+    egrab_parry_t = 0;
+    egrab_parry_cd = 0;
+    egrab_parry_super = 0;
+    puts("bot astra: parries an incoming punch, counters, and the shields are snug rings");
+}
+
+/* Every fighter winds up exactly like the ordinary cube: 0.2 s before the hit
+ * lands and the same swing after it. Azum is no exception. */
+static void test_punch_windup_uniform(void) {
+    game_reset();
+    screen_w = 1280;
+    screen_h = 720;
+    double classes[6] = {CLASS_ORDINARY, CLASS_AZUM, CLASS_SANTA, CLASS_EBUC, CLASS_ASTRA,
+                         CLASS_CODECRACKER};
+    for (int i = 0; i < 6; i++) {
+        double cls = classes[i];
+        assert(class_punch_windup(cls) == class_punch_windup(CLASS_ORDINARY));
+        assert(class_punch_time(cls) == class_punch_time(CLASS_ORDINARY));
+        assert(class_punch_windup(cls) == PUNCH_WINDUP && fabs(PUNCH_WINDUP - 0.2) < 1e-9);
+        player_class = cls;
+        set_class_owned(cls, 1);
+        punch_left = 0;
+        punch_cd = 0;
+        super_windup = 0;
+        unsigned int before = (unsigned int)punch->shot;
+        start_punch_now();
+        assert(punch->active == 1 && (unsigned int)punch->shot == before + 1);
+        assert(fabs(punch_left - (PUNCH_WINDUP + punch_time)) < 1e-9);
+        assert(fabs(punch_cd - (PUNCH_WINDUP + punch_cooldown)) < 1e-9);
+        assert(fabs(punch_left - 0.4) < 1e-9);
+        punch->active = 0;
+        punch->hit = 0;
+        punch_left = 0;
+        punch_cd = 0;
+    }
+    /* The bot winds up with the very same clock whatever class it plays. */
+    assert(fabs(enemy_windup - class_punch_windup(CLASS_ORDINARY)) < 1e-9);
+    assert(fabs(enemy_super_windup_time - class_punch_windup(CLASS_ORDINARY)) < 1e-9);
+    player_class = CLASS_ORDINARY;
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    cups = 0;
+    puts("windup: every class attacks with the ordinary cube's 0.2 s windup");
+}
+
+/* The shop sells four levels. Levels 1-3 cost 100 cups each and the fourth one
+ * is the jackpot upgrade: 600 cups, opens only after the third level and gives
+ * every class its own big bonus. */
+static void test_level_four(void) {
+    game_reset();
+    screen_w = 1280;
+    screen_h = 720;
+    flash_sale_active = 0;
+    assert(max_level == 4 && level_4_cost == 600);
+    assert(level_cost(1) == 100 && level_cost(2) == 100 && level_cost(3) == 100 && level_cost(4) == 600);
+    /* The fourth row is drawn and picked exactly like the first three. */
+    assert(levels_row_h_fit() == level_row_h);
+    assert(levels_row_y(4) + levels_row_h_fit() <= levels_msg_y());
+    assert(hit_level_row(levels_x() + 10, levels_row_y(4) + 10, 4) == 1);
+    /* Every level costs 100 cups, the fourth one 600 - never a stray price. */
+    assert(level_price_ok(1, 100) == 1 && level_price_ok(2, 100) == 1 && level_price_ok(3, 100) == 1);
+    assert(level_price_ok(4, 600) == 1 && level_price_ok(4, 100) == 0);
+    /* The fourth level is locked until the third one is paid for. */
+    player_class = CLASS_ORDINARY;
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    sync_selected_class();
+    cups = 5000;
+    level_action(CLASS_ORDINARY, 4);
+    assert(class_unlocked_of(CLASS_ORDINARY) == 0 && cups == 5000 && level_msg_kind == 1);
+    /* 100 + 100 + 100 buys the first three levels. */
+    level_action(CLASS_ORDINARY, 1);
+    level_action(CLASS_ORDINARY, 2);
+    level_action(CLASS_ORDINARY, 3);
+    assert(class_unlocked_of(CLASS_ORDINARY) == 3 && cups == 4700);
+    cups = 599;
+    level_action(CLASS_ORDINARY, 4);
+    assert(class_unlocked_of(CLASS_ORDINARY) == 3 && cups == 599 && level_msg_kind == 0);
+    cups = 600;
+    level_action(CLASS_ORDINARY, 4);
+    assert(class_unlocked_of(CLASS_ORDINARY) == 4 && class_level_of(CLASS_ORDINARY) == 4);
+    assert(player_level == 4 && levels_unlocked == 4 && cups == 0);
+    /* Every class has its own level 4 bonus, and none of them is a copy. */
+    assert(fabs(class_punch_damage_for(CLASS_ORDINARY, 4) - punch_damage * 1.15) < 1e-9);
+    assert(fabs(class_punch_damage_for(CLASS_ORDINARY, 3) - punch_damage * (1 + ordinary_damage_bonus)) < 1e-9);
+    azum_buff_active = 0;
+    assert(fabs(azum_dash_damage_for_lv(4) - azum_dash_damage * 1.12) < 1e-9);
+    assert(fabs(azum_dash_damage_for_lv(3) - azum_dash_damage) < 1e-9);
+    assert(fabs(class_punch_damage_for(CLASS_AZUM, 4) - punch_damage * 1.12) < 1e-9);
+    assert(fabs(class_punch_damage_for(CLASS_EBUC, 4) - ebuc_damage * 1.15) < 1e-9);
+    assert(fabs(ebuc_station_hp_for(4) - (ebuc_station_hp + 6 * ebuc_station_hp_bonus)) < 1e-9);
+    assert(fabs(santa_poison_damage_for(4) -
+                 (santa_poison_dps + 2 * santa_poison_damage_bonus + 0.20)) < 1e-9);
+    assert(fabs(santa_freeze_time_for(4) - (super_freeze + santa_freeze_time_bonus) * santa_stun_scale -
+                 0.5) < 1e-9);
+    assert(fabs(astra_strike_damage_for(4) - ASTRA_STRIKE_DAMAGE * 1.35) < 1e-9);
+    assert(astra_strike_damage_for(4) > astra_strike_damage_for(3));
+    assert(fabs(astra_strike_stun_for(4) - (ASTRA_STRIKE_STUN + astra_level_stun_bonus + 0.25)) < 1e-9);
+    assert(fabs(codecracker_collision_damage(4) - codecracker_touch_damage * 1.25) < 1e-9);
+    assert(fabs(codecracker_absorb_for(4) - 0.70) < 1e-9);
+    /* The attack heal grows with the fourth level. */
+    player_class = CLASS_ORDINARY;
+    player_level = 4;
+    player->max_hp = 10;
+    player->hp = 1;
+    heal_after_attack();
+    assert(fabs(player->hp - 1.12) < 1e-9);
+    player_class = CLASS_AZUM;
+    player->hp = 1;
+    heal_after_attack();
+    assert(fabs(player->hp - 1.18) < 1e-9);
+    /* A level 4 CodeCracker really keeps only 30% of the damage. */
+    player_class = CLASS_CODECRACKER;
+    player_level = 4;
+    codecracker_super_t = codecracker_super_time;
+    player->max_hp = codecracker_hp;
+    player->hp = codecracker_hp;
+    take_damage(2);
+    assert(fabs(player->hp - (codecracker_hp - 0.6)) < 1e-9);
+    codecracker_super_t = 0;
+    /* All six shops describe the fourth level in their own words. */
+    assert(strlen(tr_class_level_effect(CLASS_ORDINARY, 4)) > 0);
+    assert(strlen(tr_class_level_effect(CLASS_AZUM, 4)) > 0);
+    assert(strlen(tr_class_level_effect(CLASS_SANTA, 4)) > 0);
+    assert(strlen(tr_class_level_effect(CLASS_EBUC, 4)) > 0);
+    assert(strlen(tr_class_level_effect(CLASS_ASTRA, 4)) > 0);
+    assert(strlen(tr_class_level_effect(CLASS_CODECRACKER, 4)) > 0);
+    assert(strcmp(tr_class_level_effect(CLASS_ORDINARY, 4), tr_class_level_effect(CLASS_ORDINARY, 3)) != 0);
+    assert(strcmp(tr_class_level_effect(CLASS_AZUM, 4), tr_class_level_effect(CLASS_AZUM, 3)) != 0);
+    assert(strcmp(tr_class_level_effect(CLASS_SANTA, 4), tr_class_level_effect(CLASS_SANTA, 3)) != 0);
+    assert(strcmp(tr_class_level_effect(CLASS_EBUC, 4), tr_class_level_effect(CLASS_EBUC, 3)) != 0);
+    assert(strcmp(tr_class_level_effect(CLASS_ASTRA, 4), tr_class_level_effect(CLASS_ASTRA, 3)) != 0);
+    assert(strcmp(tr_class_level_effect(CLASS_CODECRACKER, 4), tr_class_level_effect(CLASS_CODECRACKER, 3)) != 0);
+    /* The levels screen really prints the fourth row and its 600-cup tag. */
+    language = 1;
+    player_class = CLASS_ORDINARY;
+    set_class_progress(CLASS_ORDINARY, 0, 3);
+    sync_selected_class();
+    game_state = ST_LEVELS;
+    adm_reset_log();
+    draw_levels();
+    assert(adm_has_text("Уровень 4") == 1);
+    assert(adm_has_text(tr_class_level_effect(CLASS_ORDINARY, 4)) == 1);
+    assert(adm_has_text(tr_level_unlock_cost(level_cost(4))) == 1);
+    /* The jackpot title and its price are gold, the other rows stay white. */
+    {
+        int gold = 0;
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if ((adm_colors[ci] & 0xFFFFFFFFu) == 0xFFFFD54Au) {
+                gold = gold + 1;
+            }
+        }
+        assert(gold == 2);
+    }
+    game_state = ST_LOBBY;
+    language = 1;
+    /* Even on a short landscape screen all four rows stay inside the frame. */
+    screen_w = 640;
+    screen_h = 360;
+    assert(levels_row_h_fit() < level_row_h);
+    assert(levels_row_y(4) + levels_row_h_fit() <= screen_h - 16);
+    assert(levels_msg_y() <= screen_h - 8);
+    screen_w = 1280;
+    screen_h = 720;
+    /* FlashSale still cuts the jackpot price by 10%. */
+    flash_sale_active = 1;
+    assert(level_cost(4) == 540);
+    flash_sale_active = 0;
+    set_class_progress(CLASS_ORDINARY, 0, 0);
+    player_level = 0;
+    levels_unlocked = 0;
+    cups = 0;
+    puts("levels: 100 cups per level, the fourth jackpot one costs 600 and gives every class a bonus");
 }
 
 static void assert_curtain_on_top(void) {
@@ -2801,8 +3240,12 @@ int main(void) {
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 7.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
-    assert(level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 && level_cost(2) == 70 &&
-           level_cost(3) == 90);
+    assert(max_level == 4 && level_base_cost == 100 && level_cost_step == 0 && level_cost(1) == 100 &&
+           level_cost(2) == 100 && level_cost(3) == 100);
+    /* The fourth level is the jackpot one: it costs many times more than the
+     * third and is never sold on the cheap step price. */
+    assert(level_4_cost == 600 && level_cost(4) == level_4_cost);
+    assert(level_cost(4) == level_cost(3) * 6);
     assert(punch_damage == 1 && santa_damage == 0.25 && ebuc_damage == 1.0);
     assert(ebuc_universe_damage >= ebuc_hp);
     azum_tex_ok = azum_punch_tex_ok = 1;
@@ -3431,8 +3874,8 @@ int main(void) {
     assert(astra_ability_of(CLASS_ASTRA, SKIN_SPECIAL) == 1);
     assert(astra_ability_of(CLASS_AZUM, SKIN_SPECIAL) == 0);
     assert(admin_slot("DIMASI4EK229") == 1);
-    assert(admin_slot("QWERTYUIOPAJ1234") == 0);
-    assert(admin_slot("qwertyuiopaj1234") == 0);
+    assert(admin_slot("QWERTYUIOPAJ1234") == 2);
+    assert(admin_slot("qwertyuiopaj1234") == 2);
     assert(admin_slot("regular_player") == 0);
         /* Dev rights come from the profile (nick), not the password: the password
          * can be changed as often as you like, the right stays; only nick and login
@@ -3453,8 +3896,8 @@ int main(void) {
     assert(acct_is_admin_nick() == 0);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
     astra_ability_refresh();
-    assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0 && is_admin() == 0);
-    assert(acct_is_admin_nick() == 0);
+    assert(astra_ability_allowed() == 1 && astra_ability_is_dev() == 1 && is_admin() == 1);
+    assert(acct_is_admin_nick() == 1);
     stub_login_status = 0;
     astra_ability_refresh();
     assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0);
@@ -3542,12 +3985,13 @@ int main(void) {
         set_class_progress(CLASS_CODECRACKER, 0, 0);
     }
     /* Every CodeCracker level gives a bonus of his own: level 1 - a harder
-     * bite, level 2 - the overclock comes back sooner (4 s -> 3 s), level 3 -
+     * a harder touch collision, level 2 - the overclock comes back sooner
+     * (4 s -> 3 s), level 3 -
      * thicker overclock armour (half of the damage -> 60%). */
     {
-        assert(fabs(codecracker_bite_damage(0) - codecracker_touch_damage) < 1e-9);
-        assert(fabs(codecracker_bite_damage(1) - codecracker_touch_damage * 1.10) < 1e-9);
-        assert(fabs(codecracker_bite_damage(3) - codecracker_bite_damage(1)) < 1e-9);
+        assert(fabs(codecracker_collision_damage(0) - codecracker_touch_damage) < 1e-9);
+        assert(fabs(codecracker_collision_damage(1) - codecracker_touch_damage * 1.10) < 1e-9);
+        assert(fabs(codecracker_collision_damage(3) - codecracker_collision_damage(1)) < 1e-9);
         assert(codecracker_super_cd_for(0) == codecracker_super_cd);
         assert(codecracker_super_cd_for(1) == codecracker_super_cd);
         assert(codecracker_super_cd_for(2) == 3 && codecracker_super_cd_for(3) == 3);
@@ -3678,11 +4122,16 @@ int main(void) {
     assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
     assert(class_base_cost_of(CLASS_CODECRACKER) == 550 && class_cost_of(CLASS_CODECRACKER) == 550);
     assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
-    /* Admin gets shop classes without spending cups; persistence still saves ownership. */
+    /* An admin pays the shop price as well: not enough cups means no character,
+     * and a real purchase leaves the wallet 550 cups lighter. */
     cups = 100;
     stub_last_codecracker = 0;
     pick_class(CLASS_CODECRACKER);
-    assert(cups == 100 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
+    assert(cups == 100 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ORDINARY);
+    assert(stub_last_codecracker == 0);
+    cups = 600;
+    pick_class(CLASS_CODECRACKER);
+    assert(cups == 50 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
     assert(stub_last_codecracker == 1);
     player_class = CLASS_ORDINARY;
     assert(class_owned_of(CLASS_CODECRACKER) == 1 && class_visible(CLASS_CODECRACKER) == 1);
@@ -4093,12 +4542,14 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and seven cheat labels. */
-    assert(adm_text_n == 12);
+    /* The title, close button, orb, four tabs and seven cheat labels. */
+    assert(adm_text_n == 14);
     assert(adm_has_text(tr_admin_title()) == 1);
     assert(adm_has_text(admin_orb_label()) == 1);
     assert(adm_has_text(language == 1 ? "Читы" : "Cheats") == 1);
     assert(adm_has_text(language == 1 ? "Подарки" : "Gifts") == 1);
+    assert(adm_has_text(language == 1 ? "Ивенты" : "Events") == 1);
+    assert(adm_has_text(language == 1 ? "Текст" : "Text") == 1);
     assert(adm_has_text("ADMIN") == 0);
     assert(adm_has_text(ADMIN_NICK) == 0);
     assert(adm_has_text(": ") == 0);
@@ -4680,6 +5131,10 @@ int main(void) {
     test_promo_message();
     test_azum_buff();
     test_class_stars();
+    test_punch_windup_uniform();
+    test_level_four();
+    test_shop_price_guard();
+    test_enemy_astra_parry();
     test_codecracker_fx();
     test_fps_meter();
     test_eax229_and_rooms();
@@ -4689,13 +5144,13 @@ int main(void) {
     test_gifts_page();
     test_admin_keyboard();
 
-    /* New Year theme and Battle Pass are available to all CCP moderators;
-     * only the primary admin has the wider CCP/Gifts panel. */
+    /* New Year theme and Battle Pass are available to CCP moderators;
+     * Dimasi4ek229 and qwertyuiopaj1234 share full admin rights and full CCP tabs. */
     {
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0 && admin_modifiers_allowed() == 1);
+        assert(is_admin() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 1);
         assert(seasonal_admin_allowed() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         bp_xp = 0;
         bp_claimed = 0;
@@ -4852,7 +5307,7 @@ int main(void) {
         stub_circle_color = 0;
         draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
         assert(stub_circle_color == 0x38B35CFF);
-        assert(fabs(adm_last_circle_r - 25 * cube_scale * player_scale * 1.75 * 0.90) < 1e-4);
+        assert(fabs(adm_last_circle_r - 25 * cube_scale * player_scale * ASTRA_GUARD_RING_K) < 1e-4);
         /* Dash activates attack sprite for both player and bot Azum. */
         dash_active = 1;
         assert(player_punching_now() == 1);
@@ -4990,13 +5445,14 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* All three CCP moderators get the seasonal theme and Battle Pass; only Dimasi4ek229
-     * keeps admin-panel Gifts access. */
+    /* All three CCP moderators get the seasonal theme and Battle Pass; Dimasi4ek229
+     * and qwertyuiopaj1234 share full admin rights and full 4-tab CCP access. */
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
-        assert(admin_slot("qwertyuiopaj1234") == 0 && admin_slot("QWERTYUIOPAJ1234") == 0);
+        assert(admin_slot("qwertyuiopaj1234") == 2 && admin_slot("QWERTYUIOPAJ1234") == 2);
         assert(strcmp(admin_nick_of(1), "Dimasi4ek229") == 0);
+        assert(strcmp(admin_nick_of(2), "qwertyuiopaj1234") == 0);
         assert((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFD54Au);
         assert((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) == 0xFFFFDD33u);
         assert((uint32_t)admin_color_of("qwertyuiopaj1234", 0xFFFFFFFF) == 0xFF4FC3F7u);
@@ -5006,16 +5462,16 @@ int main(void) {
         assert(nick_shimmers("Dimasi4ek229") == 1 && nick_shimmers("Sanch") == 1 &&
                nick_shimmers("qwertyuiopaj1234") == 1 && nick_shimmers("Player2") == 0);
 
-        /* qwertyuiopaj1234: sky-blue shimmering nick and modifier-only CCP (no gift management). */
+        /* qwertyuiopaj1234: sky-blue shimmering nick + full Dimasi4ek229-parity admin & CCP. */
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(is_admin() == 1 && admin_playing() == 1);
         winter_theme = 1;
         candy_enabled = 1;
-        assert(dev_access() == 0 && seasonal_admin_allowed() == 1);
+        assert(dev_access() == 1 && seasonal_admin_allowed() == 1);
         assert(winter_theme_on() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
-        assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+        assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 1);
         shimmer_text_n = 0;
         draw_lobby_nick();
         assert(shimmer_text_n == 1);
@@ -5023,13 +5479,14 @@ int main(void) {
         language = 1;
         game_state = ST_LOBBY;
         admin_panel_open = 1;
-        admin_tab = 1;
-        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
-        assert(admin_tab == 0);
+        admin_tab = 0;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.38, admin_content_top() + 8);
+        assert(admin_tab == 1);
         adm_reset_log();
         admin_draw();
-        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
-        assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Читы") == 1 && adm_has_text("Подарки") == 1);
+        assert(adm_has_text("Ивенты") == 1 && adm_has_text("Текст") == 1 && adm_has_text("Выдать подарок") == 1);
+        admin_tab = 0;
         admin_panel_open = 0;
 
         stub_login_status = 2;
@@ -5185,7 +5642,7 @@ int main(void) {
         stub_online[2] = 0;
         stub_online[3] = 0;
 
-        /* 3) rb_burst and online CodeCracker bite respect revive_prot invulnerability. */
+        /* 3) rb_burst and online CodeCracker collision respect revive_prot invulnerability. */
         player->x = 400;
         player->y = 300;
         player->hp = 20;
@@ -5637,7 +6094,7 @@ int main(void) {
         event_mode = 0;
         plates_phase = 0;
 
-        /* 3. Elf буК custom dispenser sprite + pure monochrome white beam (local & remote). */
+        /* 3. Elf буК custom dispenser sprite + monochrome core-effect beam (local & remote). */
         assert(strcmp(EBUC_ELF_DESPENSER_TEX, "ebuc_elf_dispenser.png") == 0);
         finished = 0;
         player_class = CLASS_EBUC;
@@ -5655,15 +6112,15 @@ int main(void) {
         draw_station();
         assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
         assert(adm_color_n >= 2);
-        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0x9E9E9Eu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
         /* Normal буК still uses regular dispenser + green beam. */
         ebuc_skin = SKIN_NORMAL;
         adm_reset_log();
         draw_station();
         assert(last_ground && strcmp(last_ground, DESPENSER_TEX) == 0);
-        assert(adm_color_n >= 2 && (adm_colors[0] & 0xFFFFFFu) != 0xFFFFFFu);
+        assert(adm_color_n >= 2 && (adm_colors[0] & 0xFFFFFFu) != 0x9E9E9Eu);
         arr_set(turret_hp, 0, 0);
-        /* Remote Online Elf буК also renders custom dispenser + monochrome white beam. */
+        /* Remote Online Elf буК also renders custom dispenser + monochrome core-effect beam. */
         stub_net_slot = 0;
         for (int k = 0; k < (int)(max_players * station_fields); k++) {
             arr_set(remote_station, k, 0);
@@ -5684,11 +6141,154 @@ int main(void) {
         draw_remote_station();
         assert(last_ground && strcmp(last_ground, EBUC_ELF_DESPENSER_TEX) == 0);
         assert(adm_color_n >= 2);
-        assert((adm_colors[0] & 0xFFFFFFu) == 0xFFFFFFu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
+        assert((adm_colors[0] & 0xFFFFFFu) == 0x9E9E9Eu && (adm_colors[1] & 0xFFFFFFu) == 0xFFFFFFu);
         arr_set(remote_station, 1 * station_fields + 1, 0);
         arr_set(remotes, 1 * remote_fields, 0);
         arr_set(remotes, 1 * remote_fields + 5, 0);
         stub_net_slot = -1;
+
+        /* 3b. Elf буК white snowball projectile (local & remote) vs regular буК blue ball. */
+        show_hitboxes = 0;
+        player_class = CLASS_EBUC;
+        ebuc_skin = SKIN_SPECIAL;
+        ball_reset();
+        ball.active = 1;
+        ball.elf = ebuc_elf_local();
+        ball.x = 420;
+        ball.y = 260;
+        adm_reset_log();
+        draw_ball();
+        assert((stub_circle_color & 0xFFFFFFu) == 0xFFFFFFu);
+        {
+            int has_rim = 0;
+            for (int ci = 0; ci < adm_color_n; ci++) {
+                if ((adm_colors[ci] & 0xFFFFFFu) == 0xCFCFCFu) has_rim = 1;
+            }
+            assert(has_rim == 1);
+        }
+        ebuc_skin = SKIN_NORMAL;
+        ball.elf = ebuc_elf_local();
+        adm_reset_log();
+        draw_ball();
+        assert((stub_circle_color & 0xFFFFFFu) == 0x3A8BFFu);
+        ball_reset();
+        /* Remote Online Elf буК snowball. */
+        stub_net_slot = 0;
+        arr_set(remotes, 1 * remote_fields, 1);
+        arr_set(remotes, 1 * remote_fields + 5, 1);
+        arr_set(remotes, 1 * remote_fields + 10, CLASS_EBUC);
+        arr_set(remotes, 1 * remote_fields + 11, SKIN_SPECIAL);
+        rb_on[1] = 1;
+        rb_elf[1] = ebuc_elf_slot(1);
+        rb_x[1] = 430;
+        rb_y[1] = 270;
+        adm_reset_log();
+        draw_remote_bricks();
+        assert((stub_circle_color & 0xFFFFFFu) == 0xFFFFFFu);
+        rb_on[1] = 0;
+        rb_elf[1] = 0;
+        arr_set(remotes, 1 * remote_fields, 0);
+        arr_set(remotes, 1 * remote_fields + 5, 0);
+        stub_net_slot = -1;
+
+        /* 3c. CCP Events tab (scroll by typing 1/2/3 & launch event) and Top Banner Text tab. */
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
+        astra_ability_refresh();
+        screen_w = 1080;
+        screen_h = 2400;
+        language = 1;
+        game_state = ST_LOBBY;
+        admin_panel_open = 1;
+        stub_event_mode = 0;
+        /* Switch to Events tab (tab index 2 of 4). */
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.62, admin_content_top() + 8);
+        assert(admin_tab == 2);
+        /* The event is picked ONLY by typing its number into the field: the tab
+         * has no event list to scroll and no event row to tap. */
+        {
+            double step = admin_row_h() + admin_gap();
+            double cx = admin_panel_x() + admin_panel_w() * 0.5;
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            assert(keyboard_visible() == 1 && admin_kb_field == 2);
+            /* The typed number is parsed and previewed, nothing is applied yet. */
+            stub_kb_set("3");
+            admin_tick();
+            assert(strcmp(admin_event_input, "3") == 0 && (int)stub_event_mode == 0);
+            adm_reset_log();
+            admin_draw();
+            assert(adm_all_greyscale() == 1 && adm_all_flat() == 1 && adm_no_white_fill() == 1);
+            assert(adm_has_text("Ивент № (0-5): 3|") == 1);
+            assert(adm_has_text("Включится: 3. Дед Мороз") == 1);
+            /* The event key is drawn as plain text - it is not a list of rows. */
+            assert(adm_has_text("0 - выкл · 1 - Диско · 2 - Плиты") == 1);
+            assert(adm_has_text("3 - Дед Мороз · 4 - Кубик · 5 - Колонки") == 1);
+            /* Junk and out-of-range numbers are refused: nothing changes. */
+            stub_kb_set("9");
+            admin_tick();
+            adm_reset_log();
+            admin_draw();
+            assert(adm_has_text("Введите номер ивента в поле выше") == 1);
+            stub_kb_set("буК");
+            admin_tick();
+            adm_reset_log();
+            admin_draw();
+            assert(adm_has_text("Введите номер ивента в поле выше") == 1);
+            /* Tap Enable event button (row 3, left half): applies the typed 3. */
+            stub_kb_set("3");
+            admin_tick();
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.28, admin_content_top() + 3 * step + 6);
+            assert(keyboard_visible() == 0 && (int)stub_event_mode == 3);
+            /* The same number typed again turns it off. */
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            assert(keyboard_visible() == 1);
+            stub_kb_set("3");
+            admin_tick();
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.28, admin_content_top() + 3 * step + 6);
+            assert((int)stub_event_mode == 0);
+            /* Enter applies the typed number as well. */
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            stub_kb_set("5");
+            admin_tick();
+            stub_kb_enter = 1;
+            admin_tick();
+            assert(keyboard_visible() == 0 && (int)stub_event_mode == 5);
+            /* Tap Off (0) button on the right half of the same row. */
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.72, admin_content_top() + 3 * step + 6);
+            assert((int)stub_event_mode == 0);
+
+            /* Switch to Top Banner Text tab (tab index 3 of 4). */
+            admin_panel_press(admin_panel_x() + admin_panel_w() * 0.86, admin_content_top() + 8);
+            assert(admin_tab == 3);
+            adm_reset_log();
+            admin_draw();
+            assert(adm_all_greyscale() == 1 && adm_all_flat() == 1 && adm_no_white_fill() == 1);
+            /* Tap banner text input row (row_index == 1), type text, pick color, and send. */
+            net_banner_clear();
+            banner_t = 0;
+            admin_panel_press(cx, admin_content_top() + step + 6);
+            assert(keyboard_visible() == 1 && admin_kb_field == 3);
+            stub_kb_set("Привет буК!");
+            admin_tick();
+            /* Cycle color once -> "red". */
+            admin_panel_press(cx, admin_content_top() + 2 * step + 6);
+            assert(admin_banner_color_idx == 1);
+            /* Tap Send button (row_index == 3). */
+            admin_panel_press(cx, admin_content_top() + 3 * step + 6);
+            assert(keyboard_visible() == 0);
+            assert(strcmp(net_banner_text(), "qwertyuiopaj1234: Привет буК!") == 0);
+            assert(strcmp(net_banner_color(), "red") == 0);
+            assert(banner_t > 0);
+            banner_t = banner_show_time - banner_fade;
+            adm_reset_log();
+            draw_banner();
+            assert(adm_has_text("qwertyuiopaj1234: Привет буК!") == 1);
+            /* Tap Clear button (row_index == 4). */
+            admin_panel_press(cx, admin_content_top() + 4 * step + 6);
+            assert(net_banner_text()[0] == 0 && banner_t == 0);
+        }
+        admin_panel_close();
+        stub_kb_set("");
 
         /* 4. 0-cup / negative / NaN / fractional balance purchase rejection. */
         stub_login_status = 2;

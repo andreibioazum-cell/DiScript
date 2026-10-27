@@ -29,6 +29,14 @@ void game_pc_login_fields(float *nick_x, float *nick_y, float *pass_x, float *pa
                           float *btn_w, float *btn_h);
 void game_pc_login_consent(float *x, float *y, float *size);
 double game_pc_login_status(void);
+double game_pc_lb_count(void);
+double game_pc_lb_status(void);
+double game_pc_rooms_count(void);
+double game_pc_rooms_status(void);
+double game_pc_cloud_ready(void);
+double game_pc_cups(void);
+double game_pc_levels_unlocked(void);
+double game_pc_class_owned(double cls);
 const char *game_pc_login_nick(void);
 double game_pc_enemy_hp(void);
 double game_pc_finished(void);

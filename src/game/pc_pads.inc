@@ -112,6 +112,20 @@ void game_pc_login_consent(float *x, float *y, float *size) {
 
 double game_pc_login_status(void) { return login_status; }
 
+/* Read-only counters for the headless network tests: the top table and the room
+ * list are filled by background jobs, so their size is the only proof that a
+ * secured read really came back. */
+double game_pc_lb_count(void) { return net_leaderboard_count(); }
+double game_pc_lb_status(void) { return net_leaderboard_status(); }
+double game_pc_rooms_count(void) { return net_roomlist_count(); }
+double game_pc_rooms_status(void) { return net_roomlist_status(); }
+/* 1 when the top and the room list have a token or a saved session to use. */
+double game_pc_cloud_ready(void) { return net_cloud_ready(); }
+/* Wallet and levels, so a headless run can check what a purchase really cost. */
+double game_pc_cups(void) { return cups; }
+double game_pc_levels_unlocked(void) { return class_unlocked_of(player_class); }
+double game_pc_class_owned(double cls) { return class_owned_of(cls); }
+
 const char *game_pc_login_nick(void) { return login_nick; }
 
 /* Join or create a named online room from the headless test harness. */

@@ -30,13 +30,83 @@ static void enemy_grab_clear(void) {
     }
 }
 
+/* A reactive parry answers a punch that is already in the air: a short shield,
+ * a real cooldown and a coin flip, so the bot reads the attack but stays
+ * beatable - the strike it unlocks is the same one its super earns. */
+#define ASTRA_REACT_PARRY_TIME 0.45
+#define ASTRA_REACT_PARRY_CD 2.4
+#define ASTRA_REACT_PARRY_CHANCE 45
+#define ASTRA_REACT_PARRY_ANGLE 1.2
+
 static void enemy_start_astra_parry(void) {
     egrab_parry_t = ASTRA_PARRY_TIME;
     egrab_unlock_t = 0;
     egrab_ready_t = 0;
     enemy->freeze = 0;
     enemy_block_left = 0;
+    egrab_parry_super = 1;
     ds_log("bot astra purple shield cast");
+}
+
+/* The bot has an answer ready: shield down, no strike running, no cooldown. */
+static double enemy_parry_ready(void) {
+    if (class_is_astra(enemy_class) == 0) {
+        return 0;
+    }
+    if (egrab_parry_t > 0 || egrab_state != 0 || egrab_ready_t > 0 || egrab_unlock_t > 0) {
+        return 0;
+    }
+    if (egrab_parry_cd > 0 || enemy->stun > 0 || enemy->freeze > 0) {
+        return 0;
+    }
+    if (enemy->state == 1 || enemy->state == 2) {
+        /* Mid-punch: the shield cannot come up while the fist is already out. */
+        return 0;
+    }
+    if (finished != 0 || player->hp <= 0 || revive_prot > 0) {
+        return 0;
+    }
+    return 1;
+}
+
+/* The shield only answers what the bot can see: the player has to be in front. */
+static double enemy_sees_player(void) {
+    double a = atan2(player->y - enemy->y, player->x - enemy->x);
+    double da = a - enemy->angle;
+    while (da > pi) {
+        da = da - 2 * pi;
+    }
+    while (da < 0 - pi) {
+        da = da + 2 * pi;
+    }
+    return fabs(da) <= ASTRA_REACT_PARRY_ANGLE ? 1 : 0;
+}
+
+/* A player punch that is winding up and would reach the bot: this is what a
+ * parry is for. The shield comes up before the hit lands and eats it. */
+static double enemy_punch_incoming(void) {
+    if (punch->active == 0 || punch->hit == 1 || punch_left <= 0) {
+        return 0;
+    }
+    return punch_hits_enemy(punch->x, punch->y, punch->dx, punch->dy, punch_reach, punch_width);
+}
+
+static void enemy_try_parry_reaction(void) {
+    if (enemy_parry_ready() == 0 || enemy_punch_incoming() == 0 || enemy_sees_player() == 0) {
+        return;
+    }
+    if (rand() % 100 >= ASTRA_REACT_PARRY_CHANCE) {
+        egrab_parry_cd = ASTRA_REACT_PARRY_CD;
+        return;
+    }
+    egrab_parry_t = ASTRA_REACT_PARRY_TIME;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    enemy->freeze = 0;
+    enemy_block_left = 0;
+    egrab_parry_super = 0;
+    egrab_parry_cd = ASTRA_REACT_PARRY_CD;
+    ds_log("bot astra parry reaction");
 }
 
 static void enemy_on_astra_parry_block(void) {
@@ -45,6 +115,8 @@ static void enemy_on_astra_parry_block(void) {
     } else if (egrab_unlock_t <= 0) {
         egrab_unlock_t = ASTRA_STRIKE_UNLOCK_DELAY;
     }
+    /* The shield answered the hit - even a reactive one now earns its counter. */
+    egrab_parry_super = 0;
     ds_log("bot astra parry unlocked strike");
 }
 
@@ -55,6 +127,7 @@ static void enemy_grab_stop(double landed) {
     egrab_parry_t = 0;
     egrab_unlock_t = 0;
     egrab_ready_t = 0;
+    egrab_parry_super = 0;
     if (finished != 0 || enemy->hp <= 0) {
         egrab_punch_t = 0;
     }
@@ -97,9 +170,15 @@ static void tick_enemy_grab(void) {
         return;
     }
     double had_parry = egrab_parry_t > 0;
+    double was_super = egrab_parry_super;
     egrab_parry_t = tick_down(egrab_parry_t);
     if (had_parry == 1 && egrab_parry_t <= 0 && egrab_unlock_t <= 0 && egrab_ready_t <= 0 && egrab_state == 0) {
-        enemy_super_cd = astra_grab_miss_cd;
+        /* A shield that caught nothing only costs the super when it was the
+         * super: the quick reaction parry lives on its own cooldown. */
+        if (was_super == 1) {
+            enemy_super_cd = astra_grab_miss_cd;
+        }
+        egrab_parry_super = 0;
     }
     double had_ready = egrab_ready_t > 0;
     egrab_ready_t = tick_down(egrab_ready_t);

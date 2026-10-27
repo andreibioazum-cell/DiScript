@@ -82,9 +82,9 @@ static double take_damage_at(double dmg, double sx, double sy) {
 static void heal_after_attack(void) {
     double amount = 0;
     if (player_class == CLASS_AZUM && player_level >= 3) {
-        amount = azum_attack_heal;
+        amount = player_level >= 4 ? 0.18 : azum_attack_heal;
     } else if (player_class == CLASS_ORDINARY && player_level >= 3) {
-        amount = ordinary_attack_heal;
+        amount = player_level >= 4 ? 0.12 : ordinary_attack_heal;
     }
     if (amount > 0) {
         player->hp = clamp(player->hp + amount, 0, player->max_hp);

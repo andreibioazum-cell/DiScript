@@ -67,6 +67,7 @@ const char *QWERTY_NICK;
 double qwerty_color;
 double qwerty_head_color;
 double codecracker_cost;
+double level_4_cost;
 const char *GRASS;
 const char *ORDINARY_TEX;
 const char *PUNCH_TEX;

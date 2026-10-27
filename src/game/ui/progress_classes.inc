@@ -126,6 +126,9 @@ static const char *class_pick_label(double cls) {
 }
 
 static const char *class_msg_text(void) {
+    if (class_msg_kind == 2) {
+        return tr_class_price_guard();
+    }
     if (class_msg_kind == 1) {
         return tr_class_need_candies();
     }
@@ -301,133 +304,4 @@ static double visible_class_at(double vi) {
         i = i + 1;
     }
     return CLASS_ORDINARY;
-}
-
-static double level_cost(double n) { return flash_sale_price(level_base_cost + (n - 1) * level_cost_step); }
-
-static void sync_selected_class(void) {
-    player_level = class_level_of(player_class);
-    levels_unlocked = class_unlocked_of(player_class);
-}
-
-static void select_level(double cls, double n) {
-    set_class_progress(cls, n, class_unlocked_of(cls));
-    if (cls == player_class) {
-        sync_selected_class();
-    }
-    save_progress();
-}
-
-static double balance_can_pay(double bal, double cost) {
-    if (cost != cost || cost <= 0 || bal != bal || bal < 0) {
-        return 0;
-    }
-    return floor(bal + 1e-9) >= cost ? 1 : 0;
-}
-
-static double buy_level(double cls, double n) {
-    double cost = level_cost(n);
-    if (cups != cups || cups < 0) {
-        cups = 0;
-    }
-        /* Admin cups are never taken: the level opens for free. */
-    double free_buy = admin_playing() == 1;
-    if (free_buy == 0 && balance_can_pay(cups, cost) == 0) {
-        level_msg_kind = 0;
-        level_msg_t = msg_time;
-        return 0;
-    }
-    if (free_buy == 0) {
-        cups = cups - cost;
-        if (cups < 0) cups = 0;
-    }
-    set_class_progress(cls, n, n);
-    if (cls == player_class) {
-        sync_selected_class();
-    }
-    level_msg_t = 0;
-    save_progress();
-    return 1;
-}
-
-static void level_action(double cls, double n) {
-    if (n < 1 || n > max_level) {
-        return;
-    }
-    if (class_owned_of(cls) == 0) {
-        class_msg_kind = 0;
-        class_msg_t = msg_time;
-        return;
-    }
-    double un = class_unlocked_of(cls);
-    if (n <= un) {
-        select_level(cls, n);
-        return;
-    }
-    if (n == un + 1) {
-        buy_level(cls, n);
-        return;
-    }
-    level_msg_kind = 1;
-    level_msg_t = msg_time;
-}
-
-static const char *level_status_of(double cls, double n) {
-    if (n <= class_unlocked_of(cls)) {
-        return tr_level_status_open();
-    }
-    if (n == class_unlocked_of(cls) + 1) {
-        return tr_level_unlock_cost(level_cost(n));
-    }
-    return tr_level_status_locked();
-}
-
-static const char *level_msg_text(void) {
-    if (level_msg_kind == 1) {
-        return tr_level_locked();
-    }
-    return tr_level_need_cups();
-}
-
-static void select_class(double cls) {
-    if (class_id_valid(cls) == 0 || class_visible(cls) == 0 || class_owned_of(cls) == 0) {
-        return;
-    }
-    player_class = cls;
-    sync_selected_class();
-    save_progress();
-}
-
-static void pick_class(double cls) {
-    if (class_id_valid(cls) == 0 || class_visible(cls) == 0) {
-        return;
-    }
-    if (class_owned_of(cls) == 1) {
-        select_class(cls);
-        return;
-    }
-    double cost = class_cost_of(cls);
-    if (cups != cups || cups < 0) cups = 0;
-    if (candies != candies || candies < 0) candies = 0;
-    class_msg_kind = class_pays_candies(cls);
-    if (class_pays_candies(cls) == 1) {
-        if (balance_can_pay(candies, cost) == 0) {
-            class_msg_t = msg_time;
-            return;
-        }
-        candies = candies - cost;
-        if (candies < 0) candies = 0;
-    } else if (admin_playing() == 1) {
-                /* Admin cups are never taken: the class is free. */
-    } else {
-        if (balance_can_pay(cups, cost) == 0) {
-            class_msg_t = msg_time;
-            return;
-        }
-        cups = cups - cost;
-        if (cups < 0) cups = 0;
-    }
-    set_class_owned(cls, 1);
-    select_class(cls);
-    ds_log("bought class %g", cls);
 }

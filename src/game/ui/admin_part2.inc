@@ -1,4 +1,198 @@
-/* Admin panel input handling, orb rendering, and continuous cheat ticks. */
+/* Admin chat commands, CCP input handling, typed event entry, and banner text actions. */
+
+static const char *admin_event_title(int ev) {
+    if (language == 1) {
+        if (ev == 1) return "1. Диско";
+        if (ev == 2) return "2. Плиты";
+        if (ev == 3) return "3. Дед Мороз";
+        if (ev == 4) return "4. Кубик";
+        if (ev == 5) return "5. Колонки";
+        return "0. Выкл";
+    }
+    if (ev == 1) return "1. Disco";
+    if (ev == 2) return "2. Plates";
+    if (ev == 3) return "3. Ded Moroz";
+    if (ev == 4) return "4. Dice";
+    if (ev == 5) return "5. Columns";
+    return "0. Off";
+}
+
+static void admin_set_event_mode(int ev) {
+    const char *by = admin_actor_nick();
+    if (ev <= 0) {
+        net_event_set(0);
+        net_chat_send(ds_concat("СОБЫТИЕ ВЫКЛЮЧИЛ ", by));
+        ds_log("admin: event 0 -> OFF");
+        return;
+    }
+    if (ev == 1) {
+        net_event_set(1);
+        net_chat_send(ds_concat(ds_concat("ДИСКО-СОБЫТИЕ от ", by), "!"));
+        ds_log("admin: event 1 disco");
+    } else if (ev == 2) {
+        net_event_set(2);
+        net_chat_send(ds_concat("СОБЫТИЕ «ПЛИТЫ» от ", by));
+        ds_log("admin: event 2 plates");
+    } else if (ev == 3) {
+        net_event_set(3);
+        net_chat_send(ds_concat("СОБЫТИЕ «ДЕД МОРОЗ» от ", by));
+        ds_log("admin: event 3 santa");
+    } else if (ev == 4) {
+        net_event_set(4);
+        net_chat_send(ds_concat(ds_concat("СОБЫТИЕ «КУБИК» от ", by), "!"));
+        ds_log("admin: event 4 dice");
+    } else if (ev == 5) {
+        net_event_set(5);
+        net_chat_send(ds_concat(ds_concat("СОБЫТИЕ «КОЛОНКИ» от ", by), "!"));
+        ds_log("admin: event 5 columns");
+    }
+}
+
+/* Read the typed event number: -1 when the field is empty or holds junk. */
+static int admin_event_from_input(void) {
+    int value = 0;
+    int digits = 0;
+    int i = 0;
+    while (admin_event_input[i] != 0) {
+        char c = admin_event_input[i];
+        if (c != ' ') {
+            if (c < '0' || c > '9') {
+                return -1;
+            }
+            value = value * 10 + (c - '0');
+            digits = digits + 1;
+            if (digits > 2) {
+                return -1;
+            }
+        }
+        i = i + 1;
+    }
+    if (digits < 1 || value > ADMIN_EVENT_COUNT) {
+        return -1;
+    }
+    return value;
+}
+
+/* Apply what was typed. An empty or wrong field changes nothing. */
+static int admin_apply_typed_event(void) {
+    int ev = admin_event_from_input();
+    if (ev < 0) {
+        return 0;
+    }
+    admin_set_event_mode((int)net_event() == ev && ev > 0 ? 0 : ev);
+    return 1;
+}
+
+static const char *admin_banner_color_id(int idx) {
+    static const char *const ids[ADMIN_BANNER_COLORS] = {
+        "white", "red", "yellow", "blue", "green", "orange", "purple", "pink", "cyan"
+    };
+    if (idx < 0 || idx >= ADMIN_BANNER_COLORS) {
+        return "white";
+    }
+    return ids[idx];
+}
+
+static const char *admin_banner_color_label(int idx) {
+    if (language == 1) {
+        if (idx == 1) return "Цвет: Красный";
+        if (idx == 2) return "Цвет: Жёлтый";
+        if (idx == 3) return "Цвет: Голубой";
+        if (idx == 4) return "Цвет: Зелёный";
+        if (idx == 5) return "Цвет: Оранжевый";
+        if (idx == 6) return "Цвет: Фиолетовый";
+        if (idx == 7) return "Цвет: Розовый";
+        if (idx == 8) return "Цвет: Бирюзовый";
+        return "Цвет: Белый";
+    }
+    if (idx == 1) return "Color: Red";
+    if (idx == 2) return "Color: Yellow";
+    if (idx == 3) return "Color: Blue";
+    if (idx == 4) return "Color: Green";
+    if (idx == 5) return "Color: Orange";
+    if (idx == 6) return "Color: Purple";
+    if (idx == 7) return "Color: Pink";
+    if (idx == 8) return "Color: Cyan";
+    return "Color: White";
+}
+
+static void admin_kb_flush(void) {
+    if (keyboard_visible() != 1) {
+        return;
+    }
+    int f = admin_kb_field;
+    if (f == 0) {
+        f = admin_tab == 1 ? 1 : (admin_tab == 2 ? 2 : (admin_tab == 3 ? 3 : 0));
+    }
+    if (f == 1) {
+        keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
+    } else if (f == 2) {
+        keyboard_get_text_to(admin_event_input, sizeof(admin_event_input));
+    } else if (f == 3) {
+        keyboard_get_text_to(admin_banner_input, sizeof(admin_banner_input));
+    }
+}
+
+/* Hide soft keyboard when closing admin panel or switching tabs. */
+static void admin_keyboard_drop(void) {
+    if (keyboard_visible() == 1) {
+        admin_kb_flush();
+        keyboard_hide();
+    }
+    admin_kb_field = 0;
+}
+
+static void admin_kb_open(int field, const char *initial) {
+    admin_kb_flush();
+    admin_kb_field = field;
+    keyboard_clear();
+    if (initial && initial[0]) {
+        keyboard_type(initial);
+    }
+    keyboard_show();
+}
+
+static void admin_submit_banner(void) {
+    admin_keyboard_drop();
+    int start = 0;
+    while (admin_banner_input[start] == ' ' || admin_banner_input[start] == '\t') {
+        start = start + 1;
+    }
+    int end = (int)strlen(admin_banner_input);
+    while (end > start && (admin_banner_input[end - 1] == ' ' || admin_banner_input[end - 1] == '\t')) {
+        end = end - 1;
+    }
+    if (end <= start) {
+        return;
+    }
+    char clean[72];
+    int n = end - start;
+    if (n >= (int)sizeof(clean)) {
+        n = (int)sizeof(clean) - 1;
+    }
+    memcpy(clean, admin_banner_input + start, (size_t)n);
+    clean[n] = 0;
+    const char *by = admin_actor_nick();
+    const char *col = admin_banner_color_id(admin_banner_color_idx);
+    const char *full = ds_concat(ds_concat(by, ": "), clean);
+    net_banner_send(full, col);
+    banner_seen_ts = net_banner_ts();
+    banner_t = banner_show_time;
+    admin_banner_input[0] = 0;
+    keyboard_clear();
+    admin_banner_status_t = 1.6;
+    play_button_click();
+    ds_log("admin ccp text: %s (%s)", full, col);
+}
+
+static void admin_clear_banner(void) {
+    admin_keyboard_drop();
+    net_banner_clear();
+    banner_seen_ts = 0;
+    banner_t = 0;
+    admin_banner_status_t = 0;
+    play_button_click();
+}
 
 static double admin_handle(const char *msg) {
     if (is_admin() == 0) {
@@ -6,46 +200,27 @@ static double admin_handle(const char *msg) {
     }
     const char *by = admin_actor_nick();
     if (str_eq(msg, "event 0") == 1) {
-        double cur = net_event();
-        if (cur == 0) {
-            net_event_set(1);
-            net_chat_send(ds_concat(ds_concat("ДИСКО-СОБЫТИЕ от ", by), "!"));
-            ds_log("admin: event 0 -> disco ON");
-        } else {
-            net_event_set(0);
-            net_chat_send(ds_concat("СОБЫТИЕ ВЫКЛЮЧИЛ ", by));
-            ds_log("admin: event 0 -> OFF");
-        }
+        admin_set_event_mode(net_event() == 0 ? 1 : 0);
         return 1;
     }
     if (str_eq(msg, "event 1") == 1) {
-        net_event_set(1);
-        net_chat_send(ds_concat(ds_concat("ДИСКО-СОБЫТИЕ от ", by), "!"));
-        ds_log("admin: event 1 disco");
+        admin_set_event_mode(1);
         return 1;
     }
     if (str_eq(msg, "event 2") == 1) {
-        net_event_set(2);
-        net_chat_send(ds_concat("СОБЫТИЕ «ПЛИТЫ» от ", by));
-        ds_log("admin: event 2 plates");
+        admin_set_event_mode(2);
         return 1;
     }
     if (str_eq(msg, "event 3") == 1) {
-        net_event_set(3);
-        net_chat_send(ds_concat("СОБЫТИЕ «ДЕД МОРОЗ» от ", by));
-        ds_log("admin: event 3 santa");
+        admin_set_event_mode(3);
         return 1;
     }
     if (str_eq(msg, "event 4") == 1) {
-        net_event_set(4);
-        net_chat_send(ds_concat(ds_concat("СОБЫТИЕ «КУБИК» от ", by), "!"));
-        ds_log("admin: event 4 dice");
+        admin_set_event_mode(4);
         return 1;
     }
     if (str_eq(msg, "event 5") == 1) {
-        net_event_set(5);
-        net_chat_send(ds_concat(ds_concat("СОБЫТИЕ «КОЛОНКИ» от ", by), "!"));
-        ds_log("admin: event 5 columns");
+        admin_set_event_mode(5);
         return 1;
     }
     if (net_chat_is_passwd(msg) == 1) {
@@ -58,7 +233,10 @@ static double admin_handle(const char *msg) {
                 return 1;
             }
             double i = 0;
-            while (t1[(int)i] != 0 && i < (double)(sizeof(admin_passwd_target_buf) - 1)) { admin_passwd_target_buf[(int)i] = t1[(int)i]; i = i + 1; }
+            while (t1[(int)i] != 0 && i < (double)(sizeof(admin_passwd_target_buf) - 1)) {
+                admin_passwd_target_buf[(int)i] = t1[(int)i];
+                i = i + 1;
+            }
             admin_passwd_target_buf[(int)i] = 0;
             net_admin_reset_password(t1, np);
             net_chat_send(language == 1 ? "Меняю пароль..." : "Changing password...");
@@ -93,7 +271,7 @@ static double admin_handle(const char *msg) {
         const char *btxt = net_chat_text_cmd_text(msg);
         const char *bcol = net_chat_text_cmd_color(msg);
         if (str_len(btxt) > 0) {
-                        /* Every banner carries its author's nick: "Dimasi4ek229: text". */
+            /* Every banner carries its author's nick: "Dimasi4ek229: text". */
             net_banner_send(ds_concat(ds_concat(by, ": "), btxt), bcol);
             ds_log("admin text: %s (%s)", ds_concat(ds_concat(by, ": "), btxt), bcol);
             return 1;
@@ -102,281 +280,63 @@ static double admin_handle(const char *msg) {
     return 0;
 }
 
-/* Hide soft keyboard when closing admin panel. */
-static void admin_keyboard_drop(void) {
-    if (keyboard_visible() == 1) {
-        keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
-        keyboard_hide();
-    }
-}
-
 static void admin_panel_close(void) {
     admin_keyboard_drop();
     admin_panel_open = 0;
 }
 
-static void admin_panel_press(double x, double y) {
-    double px = admin_panel_x();
-    double py = admin_panel_y();
-    double pw = admin_panel_w();
-    double hh = admin_header_h();
-    double cxx = px + pw - hh * 0.55;
-    double dx = x - cxx;
-    double dy = y - (py + hh / 2);
-    if (sqrt(dx * dx + dy * dy) <= hh * 0.38 + 8) {
-        admin_panel_close();
+static void admin_press_events_tab(double x, double y, double px, double pw) {
+    double ty = admin_content_top();
+    double rhg = admin_row_h();
+    int row_index = (int)floor((y - ty) / (rhg + admin_gap()));
+    if (x < px + admin_pad() || x > px + pw - admin_pad()) {
+        return;
+    }
+    /* Row 1 is the one and only way in: the admin types the event number. */
+    if (row_index == 1) {
+        admin_event_input[0] = 0;
+        admin_kb_open(2, "");
         play_button_click();
         return;
     }
-    if (hit_rect(x, y, px, py, pw, admin_panel_h()) == 0) {
-        admin_panel_close();
-        return;
-    }
-    if (admin_gifts_allowed() == 0) {
-        if (admin_tab == 1) admin_keyboard_drop();
-        admin_tab = 0;
-    }
-    double tab_y = admin_content_top();
-    if (y >= tab_y && y <= tab_y + admin_row_h()) {
-        if (admin_gifts_allowed() == 1) {
-            if (admin_tab == 1) admin_keyboard_drop();
-            admin_tab = x < px + pw / 2 ? 0 : 1;
-            play_button_click();
+    /* Row 2 is a read-only key of the events, rows 3-4 are the buttons. */
+    if (row_index == 3) {
+        admin_keyboard_drop();
+        if (x < px + pw / 2) {
+            admin_apply_typed_event();
+        } else {
+            admin_event_input[0] = '0';
+            admin_event_input[1] = 0;
+            admin_set_event_mode(0);
         }
-        return;
-    }
-    if (admin_tab == 1 && admin_gifts_allowed() == 1) {
-        double ty = admin_content_top();
-        double rhg = admin_row_h();
-        double row_index = floor((y - ty) / (rhg + admin_gap()));
-        if (row_index >= 1 && row_index <= 5) {
-            admin_gift_choice = row_index - 1;
-            return;
-        }
-        if (row_index == 6) {
-            keyboard_clear();
-            if (admin_gift_target[0]) keyboard_type(admin_gift_target);
-            keyboard_show();
-            return;
-        }
-        if (row_index == 7) {
-            keyboard_hide();
-            if (admin_gift_target[0] && admin_gift_busy != 1) {
-                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, 0) == 0 ? 3 : 1;
-            }
-            return;
-        }
-        return;
-    }
-    double bw = (pw - 2 * admin_pad() - admin_gap()) / 2;
-    double rh = admin_cheat_row_h();
-    double row = floor((y - admin_grid_top()) / (rh + admin_gap()));
-    if (row < 0 || row > floor((ADMIN_CHEATS - 1) / 2) || x < px + admin_pad() || x > px + pw - admin_pad()) {
-        return;
-    }
-    double col = 0;
-    if (x >= px + admin_pad() + bw + admin_gap()) {
-        col = 1;
-    }
-    double idx = row * 2 + col;
-    if (idx >= ADMIN_CHEATS) {
-        /* The last row holds a single button: the empty half is not a button. */
-        return;
-    }
-    admin_press(idx);
-}
-
-static double admin_ball_hit(double x, double y) {
-    double dx = x - admin_ball_x;
-    double dy = y - admin_ball_y;
-    return sqrt(dx * dx + dy * dy) <= admin_ball_r() + 6;
-}
-
-static double admin_touch(double x, double y, double action, double id) {
-    if (admin_modifiers_allowed() == 0) {
-        return 0;
-    }
-    /* Consume all touches while admin panel is open. */
-    if (admin_panel_open == 1) {
-        if (action == 0) {
-            admin_panel_press(x, y);
-        }
-        return 1;
-    }
-    /* Ignore secondary pointers while dragging admin orb. */
-    if (admin_ball_grab == 1 && id != admin_ball_id) {
-        return 1;
-    }
-    if (admin_ball_grab == 1) {
-        if (action == 2 || action == 1) {
-            double br = admin_ball_r();
-            admin_ball_x = clamp(x - admin_ball_grab_dx, br + 4, screen_w - br - 4);
-            admin_ball_y = clamp(y - admin_ball_grab_dy, br + 6, screen_h - br - 6);
-        }
-        if (action == 1 || action == 3) {
-            admin_ball_grab = 0;
-            admin_ball_id = -1;
-            double dx = x - admin_ball_px;
-            double dy = y - admin_ball_py;
-            if (action == 1 && sqrt(dx * dx + dy * dy) <= 13) {
-                admin_panel_open = 1;
-                play_button_click();
-            }
-        }
-        return 1;
-    }
-    if (action == 0 && admin_ball_hit(x, y) == 1) {
-        admin_ball_grab = 1;
-        admin_ball_id = id;
-        admin_ball_px = x;
-        admin_ball_py = y;
-        admin_ball_grab_dx = x - admin_ball_x;
-        admin_ball_grab_dy = y - admin_ball_y;
-        return 1;
-    }
-    return 0;
-}
-
-/* Draw opaque monochrome admin orb. */
-static void admin_draw_ball(void) {
-    const char *lab = admin_orb_label();
-    double r = admin_ball_r();
-    double cx = admin_ball_x;
-    double cy = admin_ball_y;
-    double iw = text_ink_width(lab);
-    double ih = text_ink_height(lab);
-    double sc = 0.5;
-    /* Draw opaque outer border around orb. */
-    circle(cx, cy, r + 3, admin_off());
-    circle(cx, cy, r, admin_body());
-    ring(cx, cy, r, clamp(r * 0.11, 2, 3), admin_frame());
-    if (iw > 0 && ih > 0) {
-        double sw = (r * 1.5) / iw;
-        double sh = (r * 0.95) / ih;
-        sc = sw < sh ? sw : sh;
-    }
-    double tw = text_ink_width(lab) * sc;
-    double th = text_ink_height(lab) * sc;
-    double tt = text_ink_top(lab) * sc;
-    text_scaled(lab, cx - tw / 2, cy - th / 2 - tt, admin_frame(), sc);
-}
-
-static void admin_draw_cheats(void) {
-    double px = admin_panel_x() + admin_pad();
-    double pw = admin_panel_w() - 2 * admin_pad();
-    double bw = (pw - admin_gap()) / 2;
-    double rh = admin_cheat_row_h();
-    double idx = 0;
-    while (idx < ADMIN_CHEATS) {
-        double row = floor(idx / 2);
-        double col = idx - row * 2;
-        double bx = px + col * (bw + admin_gap());
-        double by = admin_grid_top() + row * (rh + admin_gap());
-        const char *label = admin_cheat_label(idx);
-        admin_btn(label, bx, by, bw, rh, admin_cheat_value(idx), fit_text_scale(label, bw - 12, rh / 58.0));
-        idx = idx + 1;
+        play_button_click();
     }
 }
 
-static void admin_draw_tabs(void) {
-    double px = admin_panel_x() + admin_pad();
-    double y = admin_content_top();
-    double h = admin_row_h();
-    if (admin_gifts_allowed() == 0) {
-        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, admin_panel_w() - 2 * admin_pad(), h, 1, 0.55);
+static void admin_press_banner_tab(double x, double y, double px, double pw) {
+    double ty = admin_content_top();
+    double rhg = admin_row_h();
+    int row_index = (int)floor((y - ty) / (rhg + admin_gap()));
+    if (x < px + admin_pad() || x > px + pw - admin_pad()) {
         return;
     }
-    double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
-    admin_btn(language == 1 ? "Читы" : "Cheats", px, y, w, h, admin_tab == 0, 0.55);
-    admin_btn(language == 1 ? "Подарки" : "Gifts", px + w + admin_gap(), y, w, h, admin_tab == 1, 0.55);
-}
-
-static void admin_draw_gifts(void) {
-    double px = admin_panel_x() + admin_pad();
-    double y = admin_content_top() + admin_row_h() + admin_gap();
-    double w = admin_panel_w() - 2 * admin_pad();
-    double rh = admin_row_h();
-    for (int i = 0; i < 5; ++i) {
-        const char *name = admin_gift_names[i];
-        if (language == 1) name = i == 0 ? "Какашка" : i == 1 ? "Торт" : i == 2 ? "Мишка" : i == 3 ? "Ракета" : "Изумруд";
-        const char *label = ds_concat(admin_gift_choice == i ? "> " : "", name);
-        admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
-    }
-    double target_y = y + 5 * (rh + admin_gap());
-    roundrect(px, target_y, w, rh, 8, admin_off());
-    roundrect_outline(px, target_y, w, rh, 8, 2, admin_frame());
-    const char *target_label = admin_gift_target[0] ? admin_gift_target : (language == 1 ? "Ник получателя" : "Recipient nickname");
-    text_in_box(target_label, px + 8, target_y, w - 16, rh, admin_frame(), 0.55);
-    const char *grant = admin_gift_busy == 1 ? (language == 1 ? "Выдаём..." : "Granting...") : admin_gift_busy == 2 ? (language == 1 ? "Подарок выдан!" : "Gift granted!") : admin_gift_busy == 3 ? (language == 1 ? "Ошибка, нажмите для повтора" : "Failed - tap to retry") : (language == 1 ? "Выдать подарок" : "Grant gift");
-    admin_btn(grant, px, target_y + rh + admin_gap(), w, rh, 0, 0.55);
-}
-static void admin_draw_panel(void) {
-    double px = admin_panel_x();
-    double py = admin_panel_y();
-    double pw = admin_panel_w();
-    double ph = admin_panel_h();
-    double hh = admin_header_h();
-    const char *title = tr_admin_title();
-    double title_w = pw - hh * 1.9 - 16;
-    /* Draw translucent backdrop scrim; panel controls remain opaque. */
-    rect(0, 0, screen_w, screen_h, admin_a(0x000000, 0.55));
-    roundrect(px, py, pw, ph, 14, admin_body());
-    roundrect_outline(px, py, pw, ph, 14, 3, admin_frame());
-    roundrect(px, py, pw, hh, 14, admin_header());
-    rect(px, py + hh / 2, pw, hh / 2, admin_header());
-    line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_frame());
-    text_in_field(title, px + 16, py, hh, admin_frame(), fit_text_scale(title, title_w, hh / 58.0));
-    double cxx = px + pw - hh * 0.55;
-    double cr = hh * 0.3;
-    circle(cxx, py + hh / 2, cr, admin_off());
-    ring(cxx, py + hh / 2, cr, clamp(cr * 0.14, 2, 3), admin_frame());
-    text_in_box("X", cxx - cr, py + hh / 2 - cr, cr * 2, cr * 2, admin_frame(), cr / 30.0);
-    admin_draw_tabs();
-    if (admin_tab == 0 || admin_gifts_allowed() == 0) admin_draw_cheats(); else admin_draw_gifts();
-}
-
-static void admin_draw(void) {
-    if (admin_modifiers_allowed() == 0) {
+    if (row_index == 1) {
+        admin_banner_status_t = 0;
+        admin_kb_open(3, admin_banner_input);
+        play_button_click();
         return;
     }
-    if (admin_ball_x == 0 && admin_ball_y == 0) {
-        admin_ball_x = screen_w - (admin_ball_r() + 14);
-        admin_ball_y = back_y + btn_h * 0.5;
-    }
-    if (admin_panel_open == 1) {
-        admin_draw_panel();
-    }
-    admin_draw_ball();
-}
-
-/* Tick active continuous cheats and admin gift actions. */
-static void admin_tick(void) {
-    admin_ball_t = admin_ball_t + dt;
-    if (admin_gifts_allowed() == 1 && admin_panel_open == 1 && admin_tab == 1) {
-        if (keyboard_visible() == 1) keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
-        if (admin_gift_busy == 1) {
-            double gs = net_gift_action_status();
-            if (gs >= 2) admin_gift_busy = gs == 2 ? 2 : 3;
-        }
-    }
-    if (admin_modifiers_allowed() == 0 || admin_in_battle() == 0 || finished != 0) {
+    if (row_index == 2) {
+        admin_kb_flush();
+        admin_banner_color_idx = (admin_banner_color_idx + 1) % ADMIN_BANNER_COLORS;
+        play_button_click();
         return;
     }
-    if (cheat_nocd == 1) {
-        punch_cd = 0;
-        super_cd = 0;
-        dash_cd = 0;
-        astra_cd = 0;
+    if (row_index == 3) {
+        admin_submit_banner();
+        return;
     }
-    if (cheat_cc == 1) {
-        player_stun = 0;
-        player_freeze = 0;
-        player_poison = 0;
-    }
-    if (cheat_estun == 1 && game_state == ST_SOLO) {
-        if (enemy->stun < 0.25) {
-            enemy->stun = 0.25;
-        }
-        cheat_estun_mark = 1;
+    if (row_index == 4) {
+        admin_clear_banner();
     }
 }

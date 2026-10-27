@@ -201,27 +201,37 @@ static void draw_classes(void) {
 static void draw_level_row(double n) {
     double x = levels_x();
     double w = levels_w();
+    double rh = levels_row_h_fit();
+    double k = rh / 70.0;
     double y = levels_row_y(n);
     double selected = 0;
     if (player_level == n && n <= levels_unlocked) {
         selected = 1;
     }
     /* A level row is picked like a button, so it answers the touch like one. */
-    double p = button_press_k(x, y, w, level_row_h);
+    double p = button_press_k(x, y, w, rh);
     double s = 1 - PRESS_SQUEEZE * p;
     double bx = squeeze_x(x, w, s);
     double bw = w * s;
     uint32_t tc = shade(text_color, 1 - PRESS_SHADE * p);
-    card_state(bx, squeeze_y(y, y, level_row_h, s), bw, level_row_h * s, selected, 0, 1 - PRESS_SHADE * p);
+    /* The last, jackpot level is titled in gold so it stands out at once. */
+    uint32_t title_c = tc;
+    if (n == max_level) {
+        title_c = shade(0xFFFFD54A, 1 - PRESS_SHADE * p);
+    }
+    card_state(bx, squeeze_y(y, y, rh, s), bw, rh * s, selected, 0, 1 - PRESS_SHADE * p);
     centered_text(ds_concat(ds_concat(tr_level(), " "), ds_num_to_string((double)(n))), bx, bw,
-                  squeeze_y(y + 10, y, level_row_h, s), tc, 0.62 * s);
-    centered_text(tr_class_level_effect(player_class, n), bx, bw, squeeze_y(y + 34, y, level_row_h, s), tc, 0.46 * s);
+                  squeeze_y(y + 10 * k, y, rh, s), title_c, 0.62 * k * s);
+    centered_text(tr_class_level_effect(player_class, n), bx, bw, squeeze_y(y + 34 * k, y, rh, s), tc, 0.46 * k * s);
     /* During the flash sale the unlock price is red, like class prices. */
     uint32_t status_c = tc;
+    if (n == max_level) {
+        status_c = shade(0xFFFFD54A, 1 - PRESS_SHADE * p);
+    }
     if (flash_sale_active == 1 && n == class_unlocked_of(player_class) + 1) {
         status_c = shade(0xFFFF3030, 1 - PRESS_SHADE * p);
     }
-    centered_text(level_status_of(player_class, n), bx, bw, squeeze_y(y + 52, y, level_row_h, s), status_c, 0.42 * s);
+    centered_text(level_status_of(player_class, n), bx, bw, squeeze_y(y + 52 * k, y, rh, s), status_c, 0.42 * k * s);
 }
 
 static void draw_levels(void) {
@@ -291,6 +301,27 @@ static double lb_place_bg(double i) {
     return card_bg;
 }
 
+/* Cup counts are whole numbers of up to seven digits: %g would print "1e+07".
+ * The digits are built by hand on purpose - the game half of the sources has no
+ * <stdio.h> at all (the Windows build compiles it without stdio), so snprintf is
+ * not available here. */
+static const char *lb_cups_text(double v) {
+    char buf[24];
+    int i = (int)sizeof(buf) - 1;
+    unsigned long long rest;
+    if (v != v || v < 0)
+        v = 0;
+    if (v > 999999999999.0)
+        v = 999999999999.0;
+    rest = (unsigned long long)floor(v + 0.5);
+    buf[i] = 0;
+    do {
+        buf[--i] = (char)('0' + (int)(rest % 10u));
+        rest = rest / 10u;
+    } while (rest > 0 && i > 0);
+    return ds_concat("", buf + i);
+}
+
 static void draw_lb_row(double i) {
     double x = lb_x();
     double y = lb_row_y(i);
@@ -298,7 +329,7 @@ static void draw_lb_row(double i) {
     roundrect(x, y, w, lb_row_h, 12, lb_place_bg(i));
     const char *place = ds_concat("#", ds_num_to_string((double)((i + 1))));
     const char *nick = net_leaderboard_nick(i);
-    const char *cup_s = ds_concat("", ds_num_to_string((double)(floor(net_leaderboard_cups(i) + 0.5))));
+    const char *cup_s = lb_cups_text(net_leaderboard_cups(i));
     double scale = 0.6;
     double th = text_ink_height(place) * scale;
     double tt = text_ink_top(place) * scale;
@@ -309,13 +340,23 @@ static void draw_lb_row(double i) {
     text_scaled(cup_s, x + w - card_text_pad - cw, ty, text_color, scale);
 }
 
+/* A failed top is retried by itself a few times: a VPN or a mobile link that
+ * dropped for a moment must not leave the table empty until a manual restart. */
+static double lb_retry_t;
+static double lb_retry_left = 3;
+
+static const char *lb_fail_text(void) {
+    return net_cloud_ready() == 1 ? tr_no_connection() : tr_need_sign_in();
+}
+
 static void draw_leaderboard(void) {
     screen_fill();
     double st = net_leaderboard_status();
     if (st == 1) {
         lb_wait = lb_wait + dt;
+        lb_retry_t = 0;
         if (lb_wait > lb_wait_max) {
-            ctext(tr_no_connection(), screen_h / 2, text_color);
+            ctext(lb_fail_text(), screen_h / 2, text_color);
         } else {
             ctext(tr_loading(), screen_h / 2, text_color);
         }
@@ -323,10 +364,18 @@ static void draw_leaderboard(void) {
         return;
     }
     if (st == 4) {
-        ctext(tr_no_connection(), screen_h / 2, text_color);
+        lb_retry_t = lb_retry_t + dt;
+        if (lb_retry_t > 2.5 && lb_retry_left > 0) {
+            lb_retry_t = 0;
+            lb_retry_left = lb_retry_left - 1;
+            net_leaderboard_fetch(FIREBASE);
+        }
+        ctext(lb_fail_text(), screen_h / 2, text_color);
         draw_back();
         return;
     }
+    lb_retry_t = 0;
+    lb_retry_left = 3;
     double count = net_leaderboard_count();
     if (count == 0) {
         ctext(tr_no_data(), screen_h / 2, text_color);
