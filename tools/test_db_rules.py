@@ -44,12 +44,18 @@ def main() -> int:
         if not rule or "<= 4" not in rule:
             print(f"profile rule for {key} is missing or too narrow: {rule}", file=sys.stderr)
             return 1
+    # The top asks the database for the cup leaders instead of downloading every
+    # profile, which only stays cheap while "cups" is indexed.
+    index = rules["users"].get(".indexOn")
+    if index != ["cups"]:
+        print(f"users must stay indexed on cups for the top: {index}", file=sys.stderr)
+        return 1
     skin_rule = profile.get("azum_skin", {}).get(".validate", "")
     if "<= 3" not in skin_rule:
         print(f"azum_skin rule rejects the packed skin flags: {skin_rule}", file=sys.stderr)
         return 1
     print("db rules: event 0..5, gift keys poop/cake/bear/rocket/emerald, "
-          "emerald hue 0..7 for admins, codecracker levels and packed skins OK")
+          "emerald hue 0..7 for admins, codecracker levels, packed skins and the cups index OK")
     return 0
 
 

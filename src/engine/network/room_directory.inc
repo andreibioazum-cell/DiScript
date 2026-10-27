@@ -88,6 +88,8 @@ static void *room_list_job(void *arg) {
     snprintf(url, sizeof(url), "%s/rooms.json?shallow=true", job->base);
     code = fb_http("GET", url, NULL, resp, sizeof(resp));
     count = code == 200 ? parse_room_names(resp, names, ROOM_LIST_MAX) : -1;
+    if (code != 200 && net_log_ok())
+        LOGERR("room list: HTTP %d for %.160s", code, url);
     ds_mutex_lock(room_list.lock);
     if (count >= 0) {
         room_list.count = count;

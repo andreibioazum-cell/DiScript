@@ -113,17 +113,15 @@ static double buy_level(double cls, double n) {
     if (cups != cups || cups < 0) {
         cups = 0;
     }
-        /* Admin cups are never taken: the level opens for free. */
-    double free_buy = admin_playing() == 1;
-    if (free_buy == 0 && balance_can_pay(cups, cost) == 0) {
+    /* Every level costs cups for everyone: there is no admin discount, so a
+     * moderator buys levels out of the same wallet as any other player. */
+    if (balance_can_pay(cups, cost) == 0) {
         level_msg_kind = 0;
         level_msg_t = msg_time;
         return 0;
     }
-    if (free_buy == 0) {
-        cups = cups - cost;
-        if (cups < 0) cups = 0;
-    }
+    cups = cups - cost;
+    if (cups < 0) cups = 0;
     set_class_progress(cls, n, n);
     if (cls == player_class) {
         sync_selected_class();
@@ -205,6 +203,7 @@ static void pick_class(double cls) {
     if (cups != cups || cups < 0) cups = 0;
     if (candies != candies || candies < 0) candies = 0;
     class_msg_kind = class_pays_candies(cls);
+    /* Characters cost their full price for everyone, admins included. */
     if (class_pays_candies(cls) == 1) {
         if (balance_can_pay(candies, cost) == 0) {
             class_msg_t = msg_time;
@@ -212,8 +211,6 @@ static void pick_class(double cls) {
         }
         candies = candies - cost;
         if (candies < 0) candies = 0;
-    } else if (admin_playing() == 1) {
-                /* Admin cups are never taken: the class is free. */
     } else {
         if (balance_can_pay(cups, cost) == 0) {
             class_msg_t = msg_time;

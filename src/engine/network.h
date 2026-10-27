@@ -57,6 +57,8 @@ void net_logout(void);
 double net_login_status(void);
 const char *net_login_nick(void);
 const char *net_login_pass(void);
+/* 1 when secured reads can be signed: a live token or a saved session. */
+double net_cloud_ready(void);
 
 void net_publish(double x, double y, double angle, double hp, double alive);
 void net_publish_punch(double x, double y, double dx, double dy, double punch);

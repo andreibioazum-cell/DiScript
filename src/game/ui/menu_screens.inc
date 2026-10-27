@@ -301,6 +301,15 @@ static double lb_place_bg(double i) {
     return card_bg;
 }
 
+/* Cup counts are whole numbers up to seven digits: %g would print "1e+07". */
+static const char *lb_cups_text(double v) {
+    char buf[32];
+    if (v != v || v < 0)
+        v = 0;
+    snprintf(buf, sizeof(buf), "%.0f", floor(v + 0.5));
+    return ds_concat("", buf);
+}
+
 static void draw_lb_row(double i) {
     double x = lb_x();
     double y = lb_row_y(i);
@@ -308,7 +317,7 @@ static void draw_lb_row(double i) {
     roundrect(x, y, w, lb_row_h, 12, lb_place_bg(i));
     const char *place = ds_concat("#", ds_num_to_string((double)((i + 1))));
     const char *nick = net_leaderboard_nick(i);
-    const char *cup_s = ds_concat("", ds_num_to_string((double)(floor(net_leaderboard_cups(i) + 0.5))));
+    const char *cup_s = lb_cups_text(net_leaderboard_cups(i));
     double scale = 0.6;
     double th = text_ink_height(place) * scale;
     double tt = text_ink_top(place) * scale;
@@ -319,13 +328,23 @@ static void draw_lb_row(double i) {
     text_scaled(cup_s, x + w - card_text_pad - cw, ty, text_color, scale);
 }
 
+/* A failed top is retried by itself a few times: a VPN or a mobile link that
+ * dropped for a moment must not leave the table empty until a manual restart. */
+static double lb_retry_t;
+static double lb_retry_left = 3;
+
+static const char *lb_fail_text(void) {
+    return net_cloud_ready() == 1 ? tr_no_connection() : tr_need_sign_in();
+}
+
 static void draw_leaderboard(void) {
     screen_fill();
     double st = net_leaderboard_status();
     if (st == 1) {
         lb_wait = lb_wait + dt;
+        lb_retry_t = 0;
         if (lb_wait > lb_wait_max) {
-            ctext(tr_no_connection(), screen_h / 2, text_color);
+            ctext(lb_fail_text(), screen_h / 2, text_color);
         } else {
             ctext(tr_loading(), screen_h / 2, text_color);
         }
@@ -333,10 +352,18 @@ static void draw_leaderboard(void) {
         return;
     }
     if (st == 4) {
-        ctext(tr_no_connection(), screen_h / 2, text_color);
+        lb_retry_t = lb_retry_t + dt;
+        if (lb_retry_t > 2.5 && lb_retry_left > 0) {
+            lb_retry_t = 0;
+            lb_retry_left = lb_retry_left - 1;
+            net_leaderboard_fetch(FIREBASE);
+        }
+        ctext(lb_fail_text(), screen_h / 2, text_color);
         draw_back();
         return;
     }
+    lb_retry_t = 0;
+    lb_retry_left = 3;
     double count = net_leaderboard_count();
     if (count == 0) {
         ctext(tr_no_data(), screen_h / 2, text_color);

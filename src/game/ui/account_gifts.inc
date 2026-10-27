@@ -390,13 +390,13 @@ static void draw_acct_gifts(void) {
         const char *hint = language == 1 ? "Нажмите на стикер" : "Tap a sticker";
         ctext_scaled(hint, acct_below_fields() + (btn_h - 16) / 2, text_color, 0.55);
     } else if (acct_gift_is_owned == 0) {
-                /* Draw Look and Buy buttons; admins buy without spending cups. */
-                double bw = acct_gift_inspect_w();
+        /* Draw Look and Buy buttons: a sticker costs cups for every account. */
+        double bw = acct_gift_inspect_w();
         const char *look = language == 1 ? "Осмотреть" : "Inspect";
         const char *buy = ds_concat(language == 1 ? "Купить · " : "Buy · ",
                                     acct_gift_cups_line(acct_gift_price(acct_gift_sel_id())));
         button_scaled(look, acct_x(), acct_below_fields(), bw, btn_h, fit_text_scale(look, bw - 12, 0.56));
-        if (admin_playing() == 0 && cups < acct_gift_price(acct_gift_sel_id())) {
+        if (cups < acct_gift_price(acct_gift_sel_id())) {
             button_disabled_scaled(buy, acct_gift_action_x(1), acct_below_fields(), bw, btn_h, fit_text_scale(buy, bw - 24, 0.6));
         } else {
             button_scaled(buy, acct_gift_action_x(1), acct_below_fields(), bw, btn_h, fit_text_scale(buy, bw - 24, 0.6));

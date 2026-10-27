@@ -54,9 +54,29 @@ static void rooms_submit_join(void) {
     rooms_waiting = 1;
 }
 
+/* A failed list refreshes itself a few times: room data lives behind the
+ * published rules, so a dropped VPN link used to leave the page empty until the
+ * player re-entered the screen. */
+static double rooms_retry_t;
+static double rooms_retry_left = 3;
+
+static void rooms_retry_tick(void) {
+    if (rooms_mode != ROOMS_MODE_LIST || net_roomlist_status() != 4) {
+        rooms_retry_t = 0;
+        rooms_retry_left = 3;
+        return;
+    }
+    rooms_retry_t = rooms_retry_t + dt;
+    if (rooms_retry_t < 2.5 || rooms_retry_left <= 0) return;
+    rooms_retry_t = 0;
+    rooms_retry_left = rooms_retry_left - 1;
+    net_roomlist_fetch(FIREBASE);
+}
+
 static void update_rooms(void) {
     if (keyboard_visible() == 1) rooms_sync_field();
     rooms_scroll_tick();
+    rooms_retry_tick();
     if (keyboard_enter_pressed() == 1 && rooms_waiting == 0) {
         if (rooms_mode == ROOMS_MODE_LIST && rooms_field == 3) {
             rooms_sync_field();
@@ -176,6 +196,15 @@ static void touch_rooms(double x, double y, double action, double id) {
         return;
     }
     if (rooms_mode == ROOMS_MODE_LIST) {
+        /* The list is behind the published rules: without a token and without a
+         * saved password the page asks for a login and this tap follows it. */
+        if (net_roomlist_status() == 4 && net_cloud_ready() == 0 &&
+            hit_rect(x, y, rooms_x(), rooms_list_y(), rooms_w(), rooms_view_h()) == 1) {
+            play_button_click();
+            login_after = ST_ROOMS;
+            start_transition(ST_LOGIN);
+            return;
+        }
         double sh = rooms_search_h();
         if (str_len(rooms_search) > 0 &&
             hit_button(x, y, rooms_x() + rooms_w() - sh, rooms_search_y(), sh, sh) == 1) {

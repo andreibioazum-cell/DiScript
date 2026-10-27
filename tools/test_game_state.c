@@ -487,6 +487,9 @@ void net_chat_send(const char *text) {
 double net_login_status(void) {
     return stub_login_status;
 }
+double net_cloud_ready(void) {
+    return stub_login_status == 2 ? 1 : 0;
+}
 const char *net_login_nick(void) {
     return stub_login_nick;
 }
@@ -1368,8 +1371,9 @@ static void test_gifts_page(void) {
     assert(acct_gift_busy == 0 && cups == 137 && acct_gift_is_owned == 0);
     acct_msg = "";
 
-        /* The admin buys for free: buying starts with zero cups, and the balance
-         * after the purchase is the untouched server one, no price deducted. */
+        /* An admin pays for a sticker exactly like everybody else: with an empty
+         * wallet the purchase is refused instead of being handed out for free,
+         * and a real purchase takes the price from the balance. */
     {
         char saved_nick[24];
         snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
@@ -1379,11 +1383,16 @@ static void test_gifts_page(void) {
         acct_gift_choice = 2; /* teddy, 250 cups */
         acct_gift_is_owned = 0;
         acct_gift_buy();
+        assert(acct_gift_busy == 0);
+        assert(str_eq(acct_msg, language == 1 ? "Не хватает кубков" : "Not enough cups") == 1);
+        acct_msg = "";
+        cups = 1000;
+        acct_gift_buy();
         assert(acct_gift_busy == 1 && acct_gift_busy_mode == 2);
-        stub_gift_cups = 55; /* server balance unchanged */
+        stub_gift_cups = 750; /* the server took the real 250-cup price */
         stub_gift_status = 2;
         acct_poll_gifts();
-        assert(acct_gift_busy == 0 && cups == 55);
+        assert(acct_gift_busy == 0 && cups == 750);
         acct_msg = "";
         net_gift_count_add(2, -1); /* revert cached teddy count */
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
@@ -2729,6 +2738,38 @@ static void test_shop_price_guard(void) {
         assert(class_owned_of(CLASS_EBUC) == 1 && cups == 5000 - class_price_of(CLASS_EBUC));
         set_class_owned(CLASS_EBUC, 0);
     }
+    /* Admin accounts pay too: no free levels and no free characters. */
+    {
+        char saved_nick[24];
+        double saved_status = stub_login_status;
+        snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+        assert(admin_playing() == 1);
+        set_class_progress(CLASS_ORDINARY, 0, 0);
+        sync_selected_class();
+        cups = 150;
+        assert(buy_level(CLASS_ORDINARY, 1) == 1 && cups == 50);
+        /* The wallet is checked: 50 cups cannot buy the next 100-cup level. */
+        assert(buy_level(CLASS_ORDINARY, 2) == 0);
+        assert(cups == 50 && class_unlocked_of(CLASS_ORDINARY) == 1 && level_msg_kind == 0);
+        set_class_owned(CLASS_AZUM, 0);
+        cups = 5000;
+        pick_class(CLASS_AZUM);
+        assert(class_owned_of(CLASS_AZUM) == 1 && cups == 5000 - class_price_of(CLASS_AZUM));
+        set_class_owned(CLASS_AZUM, 0);
+        /* A free (broken) character price is refused for admins as well. */
+        {
+            double saved_cost = azum_cost;
+            azum_cost = 0;
+            cups = 5000;
+            pick_class(CLASS_AZUM);
+            assert(class_owned_of(CLASS_AZUM) == 0 && cups == 5000 && class_msg_kind == 2);
+            azum_cost = saved_cost;
+        }
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+        stub_login_status = saved_status;
+    }
     /* Levels of a character you do not own are wiped, never kept for later. */
     set_class_owned(CLASS_SANTA, 0);
     set_class_progress(CLASS_SANTA, 3, 4);
@@ -3945,11 +3986,16 @@ int main(void) {
     assert(class_owned_of(CLASS_CODECRACKER) == 0 && class_visible(CLASS_CODECRACKER) == 1);
     assert(class_base_cost_of(CLASS_CODECRACKER) == 550 && class_cost_of(CLASS_CODECRACKER) == 550);
     assert(strcmp(class_desc_of(CLASS_CODECRACKER), "MOL Edits...") == 0);
-    /* Admin gets shop classes without spending cups; persistence still saves ownership. */
+    /* An admin pays the shop price as well: not enough cups means no character,
+     * and a real purchase leaves the wallet 550 cups lighter. */
     cups = 100;
     stub_last_codecracker = 0;
     pick_class(CLASS_CODECRACKER);
-    assert(cups == 100 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
+    assert(cups == 100 && class_owned_of(CLASS_CODECRACKER) == 0 && player_class == CLASS_ORDINARY);
+    assert(stub_last_codecracker == 0);
+    cups = 600;
+    pick_class(CLASS_CODECRACKER);
+    assert(cups == 50 && class_owned_of(CLASS_CODECRACKER) == 1 && player_class == CLASS_CODECRACKER);
     assert(stub_last_codecracker == 1);
     player_class = CLASS_ORDINARY;
     assert(class_owned_of(CLASS_CODECRACKER) == 1 && class_visible(CLASS_CODECRACKER) == 1);

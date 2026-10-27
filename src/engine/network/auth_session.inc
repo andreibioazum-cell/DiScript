@@ -1,5 +1,9 @@
 static int fb_verify_current_pass(const char *nick, const char *pass);
 
+/* 1 after an automatic re-sign-in with the saved session password failed: the
+ * account then needs a real login instead of silently staying "online". */
+static int fb_auth_rejected;
+
 static int fb_refresh_token_now(void) {
     char url[FB_URL_MAX], body[768], resp[2048], rt[FB_REFRESH_MAX];
     char nick[LOGIN_NICK_MAX + 2] = "", pass[64] = "";
@@ -45,14 +49,18 @@ static int fb_refresh_token_now(void) {
 }
 
 static int fb_ensure_token(void) {
-    int ok = 0;
+    int ok = 0, renewed;
     long long now = now_ms();
     ds_mutex_lock(fb.lock);
     ok = fb.id_token[0] != 0 && now < fb.expires_at;
     ds_mutex_unlock(fb.lock);
-    if (ok)
+    if (ok) {
+        fb_auth_rejected = 0;
         return 1;
-    return fb_refresh_token_now();
+    }
+    renewed = fb_refresh_token_now();
+    fb_auth_rejected = renewed ? 0 : 1;
+    return renewed;
 }
 
 static void fb_url(char *dst, size_t cap, const char *url) {
@@ -75,6 +83,34 @@ static void fb_url(char *dst, size_t cap, const char *url) {
         LOGERR("firebase: auth URL truncated");
 }
 
+/* 1 when the player can read secured nodes: a live token, or a saved session
+ * that fb_ensure_token() can sign in with again. */
+double net_cloud_ready(void) {
+    int ready = 0;
+    if (!fb_enabled())
+        return 1;
+    ds_mutex_lock(fb.lock);
+    ready = fb.id_token[0] != 0;
+    ds_mutex_unlock(fb.lock);
+    if (ready)
+        return 1;
+    if (fb_auth_rejected)
+        return 0;
+    lg_lock();
+    ready = lg.status == NET_LOGIN_OK && lg.session_nick[0] && lg.session_pass[0];
+    lg_unlock();
+    return ready ? 1 : 0;
+}
+
+/* Throw away both tokens so the next fb_ensure_token() starts from scratch. */
+static void fb_forget_tokens(void) {
+    ds_mutex_lock(fb.lock);
+    fb.id_token[0] = 0;
+    fb.refresh_token[0] = 0;
+    fb.expires_at = 0;
+    ds_mutex_unlock(fb.lock);
+}
+
 static int fb_http_ex(const char *method, const char *url, const char *body, char *out, size_t cap, const char *header,
                       const char *value, char *etag, size_t etag_cap) {
     char authed[FB_URL_MAX];
@@ -85,16 +121,21 @@ static int fb_http_ex(const char *method, const char *url, const char *body, cha
     fb_url(authed, sizeof(authed), url);
     code = http_ex(method, authed, body, out, cap, header, value, etag, etag_cap);
     if (code == 401) {
-        if (fb_refresh_token_now()) {
+        /* Published rules answer 401 to every unsigned request, so a stale token
+         * is never retried as a guest: that retry could only fail again and the
+         * whole app would look offline while the player is still signed in.
+         * Renew the token (refresh, then a fresh sign-in from the saved
+         * session) and repeat the very same request signed. */
+        int renewed = fb_refresh_token_now();
+        if (renewed == 0) {
+            fb_forget_tokens();
+            renewed = fb_ensure_token();
+        }
+        if (renewed) {
             fb_url(authed, sizeof(authed), url);
             code = http_ex(method, authed, body, out, cap, header, value, etag, etag_cap);
-        } else {
-            ds_mutex_lock(fb.lock);
-            fb.id_token[0] = 0;
-            fb.expires_at = 0;
-            ds_mutex_unlock(fb.lock);
-            if (method && strcmp(method, "GET") == 0)
-                code = http_ex(method, url, body, out, cap, header, value, etag, etag_cap);
+        } else if (net_log_ok()) {
+            LOGERR("firebase: HTTP 401 and no saved session to sign in again - %.120s", url);
         }
     }
     if (code == 403 && net_log_ok())

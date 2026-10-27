@@ -75,6 +75,14 @@ static const char *tr_no_connection(void) {
     return "No connection";
 }
 
+/* Secured nodes (top, rooms) need a signed-in account, not just a connection. */
+static const char *tr_need_sign_in(void) {
+    if (language == 1) {
+        return "Войдите в аккаунт";
+    }
+    return "Sign in to your account";
+}
+
 static const char *tr_chat(void) {
     if (language == 1) {
         return "Чат";

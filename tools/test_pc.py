@@ -704,6 +704,142 @@ def test_login(assets: Path) -> None:
             fake.wait(timeout=5)
 
 
+def test_top_and_rooms(assets: Path) -> None:
+    """Топ и комнаты после публикации правил.
+
+    The published rules let only signed-in players read `users` and `rooms`, so
+    both screens are a real login test: the top must list the cup leaders who
+    are actually in the database, and the room list must show the rooms that
+    exist there. The second run starts from a saved session whose password the
+    database rejects: the game has no token then, and it has to say "войдите в
+    аккаунт" instead of pretending the network is down.
+    """
+    print("\n== 5. Топ и комнаты под опубликованными правилами ==")
+    if not wait_port(FAKE_PORT, timeout=0.3):
+        fake = subprocess.Popen(
+            [sys.executable, "test/fake_firebase.py", str(FAKE_PORT)],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        own_fake = True
+    else:
+        fake = None
+        own_fake = False
+    try:
+        if not wait_port(FAKE_PORT):
+            check("подставная база поднялась", False)
+            return
+        result = harness(
+            assets,
+            SCRATCH / "top_rooms",
+            [
+                "--frames", "2200",
+                "--touch", "220:360:686:0", "--touch", "223:360:686:1",  # warning
+                "--touch", "400:270:558:0", "--touch", "403:270:558:1",  # "Account"
+                "--login", "500:TopPlayer:pass1234",
+                "--goto", "760:2",                                       # mode list
+                "--touch", "900:270:550:0", "--touch", "903:270:550:1",  # "Топ"
+                "--report", "1300",
+                "--touch", "1400:270:53:0", "--touch", "1403:270:53:1",  # back
+                "--goto", "1500:2",
+                "--touch", "1600:270:478:0", "--touch", "1603:270:478:1",  # "Онлайн"
+                "--report", "2100",
+            ],
+        )
+        reports = parse_reports(result.stdout)
+        top = reports.get(1300, {})
+        check("топ открылся", top.get("state") == "10", str(top))
+        check("топ прочитал игроков из базы", top.get("lbst") == "2" and float(top.get("lb", "0")) >= 3, str(top))
+        rooms = reports.get(2100, {})
+        check("комнаты открылись", rooms.get("state") == "15", str(rooms))
+        check("список комнат прочитан из базы", rooms.get("rlst") == "2" and float(rooms.get("rooms", "0")) >= 1,
+              str(rooms))
+        check("вход в аккаунт держится всё время", rooms.get("nick") == "TopPlayer", str(rooms))
+
+        # A saved session with a password the database rejects: no token, so the
+        # top cannot be read until the player logs in again.
+        broken = SCRATCH / "top_no_token"
+        shutil.rmtree(broken, ignore_errors=True)
+        broken.mkdir(parents=True, exist_ok=True)
+        # An account that exists in the database, with a password that does not:
+        # the session is restored from the cache, but no token can be issued.
+        (broken / "auth.dat").write_text("Dimasi4ek229 wrongpass\n", encoding="utf-8")
+        (broken / "settings.dat").write_text(
+            "lang 1\nhitboxes 1\nmusicvol 70\nwinter 0\ntheme 1\nlegal 1\npdc 1700000000\npdv 1\n",
+            encoding="utf-8",
+        )
+        offline = run(
+            [str(BINARY), "--headless", "--size", "540x960", "--assets", str(assets), "--data", str(broken),
+             "--frames", "1200",
+             "--touch", "300:400:686:0", "--touch", "303:400:686:1",  # warning
+             "--goto", "500:2",
+             "--touch", "700:270:550:0", "--touch", "703:270:550:1",  # "Топ"
+             "--report", "1100"]
+        )
+        stale = parse_reports(offline.stdout).get(1100, {})
+        check("без токена топ не выдаёт себя за сетевую ошибку", stale.get("cloud") == "0", str(stale))
+        check("без токена топ остаётся пустым", stale.get("lbst") == "4", str(stale))
+    finally:
+        if own_fake and fake:
+            fake.terminate()
+            fake.wait(timeout=5)
+
+
+def test_admin_pays(assets: Path) -> None:
+    """Админ покупает уровень за кубки, как обычный игрок.
+
+    Dimasi4ek229 приходит в игру с 4200 кубками и тремя открытыми уровнями.
+    Четвёртый уровень стоит 600: после покупки в кошельке должно остаться
+    3600, а повторное нажатие на уже открытый уровень не должно списывать
+    ничего. Раньше админские покупки были бесплатными.
+    """
+    print("\n== 6. Админ платит за уровни, как все ==")
+    if not wait_port(FAKE_PORT, timeout=0.3):
+        fake = subprocess.Popen(
+            [sys.executable, "test/fake_firebase.py", str(FAKE_PORT)],
+            cwd=ROOT,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
+        )
+        own_fake = True
+    else:
+        fake = None
+        own_fake = False
+    try:
+        if not wait_port(FAKE_PORT):
+            check("подставная база поднялась", False)
+            return
+        result = harness(
+            assets,
+            SCRATCH / "admin_pays",
+            [
+                "--frames", "2400",
+                "--touch", "220:360:686:0", "--touch", "223:360:686:1",  # warning
+                "--touch", "400:270:558:0", "--touch", "403:270:558:1",  # "Account"
+                "--login", "500:Dimasi4ek229:admin",
+                "--report", "900",
+                "--goto", "1000:9",                                      # levels
+                "--touch", "1500:270:450:0", "--touch", "1503:270:450:1",  # level 4
+                "--report", "1900",
+                "--touch", "2000:270:450:0", "--touch", "2003:270:450:1",  # already open
+                "--report", "2300",
+            ],
+        )
+        reports = parse_reports(result.stdout)
+        before = reports.get(900, {})
+        bought = reports.get(1900, {})
+        again = reports.get(2300, {})
+        check("админ вошёл с 4200 кубками", before.get("cups") == "4200" and before.get("lv") == "3", str(before))
+        check("четвёртый уровень открылся", bought.get("lv") == "4", str(bought))
+        check("за уровень списано 600 кубков", bought.get("cups") == "3600", str(bought))
+        check("повторное нажатие ничего не списало", again.get("cups") == "3600", str(again))
+    finally:
+        if own_fake and fake:
+            fake.terminate()
+            fake.wait(timeout=5)
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description="Проверка ПК-версии")
     parser.add_argument("--no-build", action="store_true", help="не пересобирать харнесс")
@@ -727,6 +863,8 @@ def main() -> int:
         test_brick_online,
         test_codecracker_online,
         test_login,
+        test_top_and_rooms,
+        test_admin_pays,
     ]
     for test in tests:
         if args.only and args.only not in test.__name__:

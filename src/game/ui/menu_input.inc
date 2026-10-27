@@ -263,6 +263,13 @@ static void touch_modes(double x, double y) {
         return;
     }
     if (hit_modes_row(x, y, 3) == 1) {
+        /* The published rules open the users node to signed-in players only:
+         * ask for a login instead of showing an empty top. */
+        if (net_login_status() != 2) {
+            login_after = ST_LEADERBOARD;
+            start_transition(ST_LOGIN);
+            return;
+        }
         open_leaderboard();
         return;
     }
@@ -342,6 +349,13 @@ static void touch_leaderboard(double x, double y, double action) {
     }
     if (back_hit(x, y) == 1) {
         start_transition(ST_MODES);
+        return;
+    }
+    /* No token and no saved password: the only way to the top is a login. */
+    if (net_leaderboard_status() == 4 && net_cloud_ready() == 0 &&
+        hit_button(x, y, 0, screen_h / 2 - 40, screen_w, 80) == 1) {
+        login_after = ST_LEADERBOARD;
+        start_transition(ST_LOGIN);
     }
 }
 
