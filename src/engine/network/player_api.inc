@@ -123,6 +123,23 @@ void net_publish_brick(double x, double y, double dx, double dy, double shot) {
     unlock();
 }
 
+/* Publish a Christmas snowball launch for the other clients to simulate. */
+void net_publish_xball(double x, double y, double dx, double dy, double shot) {
+    lock();
+    if (net.me.xball != shot)
+        net.urgent = 1;
+    net.me.xball_x = x;
+    net.me.xball_y = y;
+    net.me.xball_dx = dx;
+    net.me.xball_dy = dy;
+    net.me.xball = shot;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+
 void net_publish_codecracker_super(double on) {
     double c = on ? 1 : 0;
     lock();
@@ -349,6 +366,11 @@ READER(net_player_brick_y, net.players[i].brick_y)
 READER(net_player_brick_dx, net.players[i].brick_dx)
 READER(net_player_brick_dy, net.players[i].brick_dy)
 READER(net_player_brick, net.players[i].brick)
+READER(net_player_xball_x, net.players[i].xball_x)
+READER(net_player_xball_y, net.players[i].xball_y)
+READER(net_player_xball_dx, net.players[i].xball_dx)
+READER(net_player_xball_dy, net.players[i].xball_dy)
+READER(net_player_xball, net.players[i].xball)
 READER(net_player_class, net.players[i].cls)
 #undef READER
 double net_player_level(double slot) {

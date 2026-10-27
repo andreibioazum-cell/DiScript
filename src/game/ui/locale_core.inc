@@ -33,6 +33,13 @@ static const char *tr_back(void) {
     return "Back";
 }
 
+static const char *tr_snowball(void) {
+    if (language == 1) {
+        return "Снежок";
+    }
+    return "Snowball";
+}
+
 static const char *tr_punch(void) {
     if (language == 1) {
         return "Удар";

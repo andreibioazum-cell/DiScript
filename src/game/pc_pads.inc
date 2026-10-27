@@ -40,6 +40,13 @@ void game_pc_pads(float *ax, float *ay, float *a2x, float *a2y, float *bx, float
         *radius = (float)battle_pad_r();
 }
 
+/* Christmas snowball pad position for the PC keyboard bridge. */
+void game_pc_xmas_pad(float *x, float *y, float *r) {
+    if (x) *x = (float)christmas_pad_x();
+    if (y) *y = (float)christmas_pad_y();
+    if (r) *r = (float)christmas_pad_r();
+}
+
 /* The super pad is drawn (and armed) only for classes that have a super. */
 int game_pc_has_super(void) { return class_has_super(player_class) == 1 ? 1 : 0; }
 

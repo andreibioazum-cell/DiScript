@@ -10,6 +10,22 @@ RULES = ROOT / "firebase.rules.json"
 
 def main() -> int:
     rules = json.loads(RULES.read_text(encoding="utf-8"))["rules"]
+    # Christmas root flag: public read, admin-only write, strict 0/1.
+    xmas = rules.get("Christmas", {})
+    if xmas.get(".read") is not True:
+        print("Christmas must be publicly readable", file=sys.stderr)
+        return 1
+    if "dimasi4ek229@cb4.game" not in xmas.get(".write", ""):
+        print("Christmas must be writable by admins only", file=sys.stderr)
+        return 1
+    if "newData.val() == 0" not in xmas.get(".validate", ""):
+        print("Christmas must validate 0 or 1", file=sys.stderr)
+        return 1
+    slots = rules["rooms"]["$room"]["players"]["$slot"]
+    for key in ("xbx", "xby", "xbdx", "xbdy", "xball"):
+        if key not in slots:
+            print(f"slot rule is missing Christmas field: {key}", file=sys.stderr)
+            return 1
     event = rules["event"][".validate"]
     if "<= 5" not in event:
         print(f"event rule rejects event 5: {event}", file=sys.stderr)
@@ -48,8 +64,9 @@ def main() -> int:
     if "<= 3" not in skin_rule:
         print(f"azum_skin rule rejects the packed skin flags: {skin_rule}", file=sys.stderr)
         return 1
-    print("db rules: event 0..5, gift keys poop/cake/bear/rocket/emerald, "
-          "emerald hue 0..7 for admins, codecracker levels and packed skins OK")
+    print("db rules: event 0..5, Christmas flag + snowball slot fields, "
+          "gift keys poop/cake/bear/rocket/emerald, emerald hue 0..7 for admins, "
+          "codecracker levels and packed skins OK")
     return 0
 
 

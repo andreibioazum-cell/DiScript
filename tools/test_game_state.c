@@ -384,6 +384,15 @@ void net_publish_snow(double x, double y, double dx, double dy, double shot) {
     (void)shot;
 }
 void net_publish_thud(double seq) { (void)seq; }
+static double stub_xball[4], stub_xbx[4], stub_xby[4], stub_xbdx[4], stub_xbdy[4];
+void net_publish_xball(double x, double y, double dx, double dy, double shot) {
+    (void)x; (void)y; (void)dx; (void)dy; (void)shot;
+}
+double net_player_xball(double slot) { return stub_xball[(int)slot]; }
+double net_player_xball_x(double slot) { return stub_xbx[(int)slot]; }
+double net_player_xball_y(double slot) { return stub_xby[(int)slot]; }
+double net_player_xball_dx(double slot) { return stub_xbdx[(int)slot]; }
+double net_player_xball_dy(double slot) { return stub_xbdy[(int)slot]; }
 double net_player_brick(double slot) { return stub_brick[(int)slot]; }
 double net_player_brick_x(double slot) { return stub_bkx[(int)slot]; }
 double net_player_brick_y(double slot) { return stub_bky[(int)slot]; }
@@ -771,6 +780,8 @@ double net_azum_buff(void) { return stub_azum_buff; }
 static double stub_flash_sale;
 static int stub_live_refreshes;
 double net_flash_sale(void) { return stub_flash_sale; }
+static double stub_christmas;
+double net_christmas(void) { return stub_christmas; }
 void net_live_flags_refresh(void) { stub_live_refreshes++; }
 static double stub_event_mode;
 double net_event(void) { return stub_event_mode; }
@@ -2740,6 +2751,170 @@ static void test_overlay_transitions(void) {
     puts("navigation: deferred overlays, outgoing press, topmost curtain and input lock OK");
 }
 
+
+/* Christmas snowballs: public flag, per-class throws, 3 bounces, 1 s cooldown,
+ * tiny damage/push, and the Sanch / holiday-admin rules. */
+static void test_christmas_snowballs(void) {
+    double saved_login = stub_login_status;
+    char saved_nick[sizeof(stub_login_nick)];
+    double saved_state = game_state;
+    double saved_finished = finished;
+    double saved_cls = player_class;
+    double saved_slot = stub_net_slot;
+    double saved_hp = player->hp;
+    double saved_px = player->x, saved_py = player->y, saved_pa = player->angle;
+    double saved_ehp = enemy->hp, saved_ex = enemy->x, saved_ey = enemy->y;
+    double saved_esize = enemy->size;
+    double saved_bounces = xmas_ball.bounces;
+    int i, k;
+    (void)saved_bounces;
+    snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+
+    /* Weaker than elf ebuC's ball on every axis. */
+    assert(XMAS_RADIUS < BALL_RADIUS);
+    assert(XMAS_DAMAGE < BALL_BASE_DAMAGE);
+    assert(XMAS_MAX_BOUNCES == 3.0 && XMAS_COOLDOWN == 1.0);
+    assert(XMAS_PUSH > 0 && XMAS_PUSH < 12.0);
+
+    /* Flag off, guest: no snowballs. */
+    stub_login_status = 0;
+    stub_christmas = 0;
+    assert(christmas_snowballs_on() == 0 && christmas_pad_hit(10, 10) == 0);
+    assert(winter_theme_on() == 0);
+
+    /* Christmas: 1 gives snowballs to every class, with no visual theme. */
+    stub_christmas = 1;
+    assert(christmas_snowballs_on() == 1 && christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 1);
+    assert(winter_theme_on() == 0 && christmas_active() == 0);
+
+    game_state = ST_SOLO;
+    finished = 0;
+    player_class = CLASS_ORDINARY;
+    player->hp = 20;
+    player->x = 60;
+    player->y = 90;
+    player->angle = 0;
+    enemy->hp = 0;          /* keep the enemy out of the flight path */
+    enemy->x = -500;
+    enemy->y = -500;
+    enemy->size = 25 * enemy_scale;
+    player_stun = 0;
+    player_freeze = 0;
+    player_block = 0;
+    revive_prot = 0;
+    christmas_reset();
+
+    christmas_throw();
+    assert(xmas_ball.active == 1 && xmas_ball.shot == 1);
+    assert(xmas_cd > 0.99 && xmas_cd < 1.01);
+    /* A second throw is blocked by the cooldown and the live snowball. */
+    christmas_throw();
+    assert(xmas_ball.shot == 1);
+
+    /* Three bounces at most, then the snowball disappears. */
+    k = 0;
+    while (k < 400 && xmas_ball.active == 1) {
+        christmas_tick();
+        assert(xmas_ball.bounces <= XMAS_MAX_BOUNCES + 1);
+        k++;
+    }
+    assert(xmas_ball.active == 0 && k < 400);
+    assert(xmas_ball.bounces <= XMAS_MAX_BOUNCES + 1);
+
+    /* Cooldown expires in one second; a fresh hit deals tiny damage + push. */
+    k = 0;
+    while (k < 70) {
+        christmas_tick();
+        k++;
+    }
+    assert(xmas_cd == 0);
+    enemy->hp = 20;
+    enemy->x = player->x + 45;
+    enemy->y = player->y;
+    enemy->angle = pi;
+    christmas_throw();
+    k = 0;
+    while (k < 20 && xmas_ball.active == 1) {
+        christmas_tick();
+        k++;
+    }
+    assert(enemy->hp > 19 && enemy->hp <= 20);
+    assert(enemy->x > player->x + 45);   /* knocked away, but only slightly */
+
+    /* Sanch never gets snowballs or the theme, even with Christmas: 1. */
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
+    assert(christmas_snowballs_on() == 0 && winter_theme_on() == 0);
+    assert(christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 0);
+    assert(bpass_allowed() == 0 && candies_on() == 0 && bpass_rewards_allowed() == 1);
+    christmas_reset();
+    christmas_throw();
+    assert(xmas_ball.active == 0 && xmas_ball.shot == 2);
+
+    /* The two holiday admins always have Christmas, even with the flag off. */
+    stub_christmas = 0;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    assert(christmas_snowballs_on() == 1 && winter_theme_on() == 1 && christmas_active() == 1);
+    assert(bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
+    assert(christmas_snowballs_on() == 1 && winter_theme_on() == 1);
+    assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+
+    /* A remote shot is simulated on the other clients, capped at 3 bounces. */
+    stub_login_status = 0;
+    stub_christmas = 1;
+    game_state = ST_ONLINE;
+    stub_net_slot = 0;
+    for (i = 0; i < 4; i++) {
+        stub_online[i] = 0;
+        stub_xball[i] = 0;
+        arr_set(remotes, i * remote_fields + 5, 0);
+    }
+    player->x = 5;
+    player->y = 5;
+    christmas_reset();
+    stub_online[1] = 1;
+    stub_xball[1] = 1;
+    stub_xbx[1] = 0.5;
+    stub_xby[1] = 0.5;
+    stub_xbdx[1] = 1;
+    stub_xbdy[1] = 0;
+    christmas_tick();
+    assert(xmas_remote[1].on == 1);
+    k = 0;
+    while (k < 400 && xmas_remote[1].on == 1) {
+        christmas_tick();
+        assert(xmas_remote[1].bounces <= XMAS_MAX_BOUNCES + 1);
+        k++;
+    }
+    assert(xmas_remote[1].on == 0);
+
+    /* Restore everything the rest of the suite may rely on. */
+    for (i = 0; i < 4; i++) {
+        stub_online[i] = 0;
+        stub_xball[i] = 0;
+        stub_xbdx[i] = 0;
+        stub_xbdy[i] = 0;
+    }
+    christmas_reset();
+    stub_christmas = 0;
+    stub_login_status = saved_login;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    stub_net_slot = saved_slot;
+    game_state = saved_state;
+    finished = saved_finished;
+    player_class = saved_cls;
+    player->hp = saved_hp;
+    player->x = saved_px;
+    player->y = saved_py;
+    player->angle = saved_pa;
+    enemy->hp = saved_ehp;
+    enemy->x = saved_ex;
+    enemy->y = saved_ey;
+    enemy->size = saved_esize;
+    puts("christmas: flag, all classes, 3 bounces, 1 s cooldown, tiny damage/push, Sanch and admins OK");
+}
+
 int main(void) {
     state_create();
     state_ready = 1;
@@ -2946,8 +3121,8 @@ int main(void) {
     assert(ground_tiles > 0 && ground_fills == 1);
     assert(strcmp(last_ground, SNOW_TEX) == 0);
     assert(snow_active() == 1);
-    assert(newyear_active() == 1);
-    assert(newyear_menu_active() == 0);
+    assert(christmas_active() == 1);
+    assert(christmas_menu_active() == 0);
     /* Developer access stays on through the winter/candy sections below;
      * the admin-login section further down refreshes it from credentials. */
 
@@ -2973,21 +3148,21 @@ int main(void) {
     game_state = ST_LOBBY;
     warn_open = 1;
     studio_open = 0;
-    newyear_jingle_ok = 1;
+    christmas_jingle_ok = 1;
     assert(snow_active() == 0);
     /* The startup notice and transitions do not pause the snow clock. */
-    assert(newyear_menu_active() == 1);
-    assert(newyear_music_active() == 1);
-    newyear_snow_t = 0;
-    update_newyear_snow();
-    assert(newyear_snow_t > 0);
+    assert(christmas_menu_active() == 1);
+    assert(christmas_music_active() == 1);
+    christmas_snow_t = 0;
+    update_christmas_snow();
+    assert(christmas_snow_t > 0);
     t_fade = 0.5;
     t_dir = 1;
-    update_newyear_snow();
+    update_christmas_snow();
     t_fade = 0;
     t_dir = 0;
-    assert(newyear_snow_t >= 2 * dt);
-    assert(newyear_menu_flakes == 22);
+    assert(christmas_snow_t >= 2 * dt);
+    assert(christmas_menu_flakes == 22);
 
     /* Startup notice open and fully opaque: the epilepsy warning keeps every
      * flake under its panel, and nothing is ever drawn above its text. */
@@ -2995,27 +3170,27 @@ int main(void) {
     snowflake_tinted = 0;
     warn_open = 1;
     warn_a = 1;
-    assert(newyear_snow_under_notice_active() == 0 && newyear_snow_over_notice_active() == 0);
-    draw_newyear_under_notices();
+    assert(christmas_snow_under_notice_active() == 0 && christmas_snow_over_notice_active() == 0);
+    draw_christmas_under_notices();
     assert(snowflake_draws == 0);
-    draw_newyear_over_notices();
+    draw_christmas_over_notices();
     assert(snowflake_draws == 0);
 
     /* The panel is fading: the lobby - and its snow - shows through beneath it,
      * still never on top of the legal text, and still in the lobby layout. */
     warn_a = 0.4;
-    assert(newyear_snow_under_notice_active() == 1 && newyear_snow_over_notice_active() == 0);
+    assert(christmas_snow_under_notice_active() == 1 && christmas_snow_over_notice_active() == 0);
     snowflake_draws = 0;
     snowflake_tinted = 0;
-    draw_newyear_under_notices();
+    draw_christmas_under_notices();
     /* The bundled flake texture is blue; the lobby snow has to be tinted white
      * so the winter menu shows white flakes instead of blue blobs. */
-    assert(snowflake_draws == (int)newyear_menu_flakes && snowflake_tinted == (int)newyear_menu_flakes);
+    assert(snowflake_draws == (int)christmas_menu_flakes && snowflake_tinted == (int)christmas_menu_flakes);
     assert(snowflake_tint_color == 0xFFFFFFFF);
     /* The over-pass is inactive while the warning still shows, so the count
      * does not change. */
-    draw_newyear_over_notices();
-    assert(snowflake_draws == (int)newyear_menu_flakes);
+    draw_christmas_over_notices();
+    assert(snowflake_draws == (int)christmas_menu_flakes);
     warn_a = 1;
 
     /* Snow falls across the full width in both passes - the button column
@@ -3025,7 +3200,7 @@ int main(void) {
     {
         int saved_w = screen_w;
         int saved_h = screen_h;
-        double saved_t = newyear_snow_t;
+        double saved_t = christmas_snow_t;
         double lo = 0;
         double hi = 0;
         double lobby_x[64];
@@ -3034,22 +3209,22 @@ int main(void) {
         int handoff_mismatch = 0;
         int k = 0;
 
-        assert(newyear_menu_flakes <= 64);
+        assert(christmas_menu_flakes <= 64);
         screen_w = 1080;
         screen_h = 2400;
         lo = menu_x() - 30;
         hi = menu_x() + btn_w + 30;
         for (k = 0; k < 200; k++) {
             int j = 0;
-            newyear_snow_t = 1.0 + k * 0.173;
+            christmas_snow_t = 1.0 + k * 0.173;
 
             studio_open = 0;
             studio_a = 0;
             warn_open = 0;
             warn_a = 0;
             snowflake_centre_n = 0;
-            draw_newyear_under_notices();
-            assert(snowflake_centre_n == (int)newyear_menu_flakes);
+            draw_christmas_under_notices();
+            assert(snowflake_centre_n == (int)christmas_menu_flakes);
             for (j = 0; j < snowflake_centre_n; j++) {
                 lobby_x[j] = snowflake_centres[j];
                 if (lobby_x[j] >= lo && lobby_x[j] <= hi) {
@@ -3060,8 +3235,8 @@ int main(void) {
             studio_open = 1;
             studio_a = 0;
             snowflake_centre_n = 0;
-            draw_newyear_over_notices();
-            assert(snowflake_centre_n == (int)newyear_menu_flakes);
+            draw_christmas_over_notices();
+            assert(snowflake_centre_n == (int)christmas_menu_flakes);
             for (j = 0; j < snowflake_centre_n; j++) {
                 double d = snowflake_centres[j] - lobby_x[j];
                 if (d > 1e-3 || d < -1e-3) {
@@ -3071,8 +3246,8 @@ int main(void) {
 
             studio_a = 1;
             snowflake_centre_n = 0;
-            draw_newyear_over_notices();
-            assert(snowflake_centre_n == (int)newyear_menu_flakes);
+            draw_christmas_over_notices();
+            assert(snowflake_centre_n == (int)christmas_menu_flakes);
             for (j = 0; j < snowflake_centre_n; j++) {
                 if (snowflake_centres[j] >= lo && snowflake_centres[j] <= hi) {
                     centre_over++;
@@ -3081,13 +3256,13 @@ int main(void) {
         }
         /* The button column is about 31% of a 1080 px screen; flakes reach it
          * in both passes, so require at least 10% of draws there. */
-        assert(centre_lobby >= 200 * (int)newyear_menu_flakes / 10);
+        assert(centre_lobby >= 200 * (int)christmas_menu_flakes / 10);
         assert(handoff_mismatch == 0);
-        assert(centre_over >= 200 * (int)newyear_menu_flakes / 10);
+        assert(centre_over >= 200 * (int)christmas_menu_flakes / 10);
 
         screen_w = saved_w;
         screen_h = saved_h;
-        newyear_snow_t = saved_t;
+        christmas_snow_t = saved_t;
         studio_open = 0;
         studio_a = 0;
         warn_open = 1;
@@ -3101,37 +3276,37 @@ int main(void) {
     t_fade = 0.5;
     t_dir = 1;
     snowflake_draws = 0;
-    assert(newyear_snow_over_notice_active() == 0);
-    assert(newyear_snow_under_notice_active() == 0);
-    draw_newyear_over_notices();
+    assert(christmas_snow_over_notice_active() == 0);
+    assert(christmas_snow_under_notice_active() == 0);
+    draw_christmas_over_notices();
     assert(snowflake_draws == 0);
     studio_open = 0;
     studio_a = 0;
     warn_open = 1;
     warn_a = 1;
     snowflake_draws = 0;
-    draw_newyear_under_notices();
+    draw_christmas_under_notices();
     assert(snowflake_draws == 0);
     t_fade = 0;
     t_dir = 0;
 
     /* Notice closed: flakes draw beneath the curtain and keep drawing through a fade. */
     warn_open = 0;
-    assert(newyear_snow_under_notice_active() == 1 && newyear_snow_over_notice_active() == 0);
+    assert(christmas_snow_under_notice_active() == 1 && christmas_snow_over_notice_active() == 0);
     snowflake_draws = 0;
-    draw_newyear_under_notices();
-    assert(snowflake_draws == (int)newyear_menu_flakes);
+    draw_christmas_under_notices();
+    assert(snowflake_draws == (int)christmas_menu_flakes);
     t_fade = 0.5;
     t_dir = 1;
     snowflake_draws = 0;
-    draw_newyear_under_notices();
-    assert(snowflake_draws == (int)newyear_menu_flakes);
+    draw_christmas_under_notices();
+    assert(snowflake_draws == (int)christmas_menu_flakes);
     t_fade = 0;
     t_dir = 0;
 
     /* The studio splash is an opaque notice too. */
     studio_open = 1;
-    assert(newyear_snow_under_notice_active() == 0 && newyear_snow_over_notice_active() == 1);
+    assert(christmas_snow_under_notice_active() == 0 && christmas_snow_over_notice_active() == 1);
     studio_open = 0;
 
     t_fade = 0;
@@ -3145,14 +3320,18 @@ int main(void) {
     lobby_playing = 1;
     winter_playing = 0;
     winter_loop_calls = 0;
-    update_newyear_jingle();
+    update_christmas_jingle();
     assert(lobby_playing == 0 && winter_playing == 1);
     assert(winter_loop_calls == 1 && music_level == 0);
     update_music();
     assert(lobby_playing == 0);
+    /* Regular players see no winter visuals at all, even with the old
+     * winter_theme setting left on their device. */
     winter_theme = 0;
-    update_newyear_jingle();
+    stub_login_status = 0;
+    update_christmas_jingle();
     assert(winter_playing == 0);
+    stub_login_status = 2;
     /* Azum vs Astra battle music: starts immediately in Solo and Online, cuts
      * lobby music cleanly, reaches battle volume, and stops outside the matchup. */
     seraphim_ok = 0;
@@ -4689,7 +4868,7 @@ int main(void) {
     test_gifts_page();
     test_admin_keyboard();
 
-    /* New Year theme and Battle Pass are available to all CCP moderators;
+    /* Christmas theme and Battle Pass are available to all CCP moderators;
      * only the primary admin has the wider CCP/Gifts panel. */
     {
         stub_login_status = 2;
@@ -5032,39 +5211,41 @@ int main(void) {
         assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
         admin_panel_open = 0;
 
+        /* Sanch gets no Christmas at all: ordinary visuals, candies and the
+         * Battle Pass hidden, no snowballs - but his earned Santa and candies
+         * stay on the account forever (also in the next Christmas season). */
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
         astra_ability_refresh();
         winter_theme = 1;
         candy_enabled = 1;
-        bp_claimed = 0;
+        bp_claimed = 7;
         bp_xp = 300;
         candies = 77;
-        set_class_owned(CLASS_SANTA, 0);
+        set_class_owned(CLASS_SANTA, 1);
+        player_class = CLASS_SANTA;
         assert(is_admin() == 0 && admin_playing() == 0);
-        assert(dev_access() == 0 && seasonal_admin_allowed() == 1 && winter_theme_on() == 1);
-        assert(bpass_allowed() == 1 && bpass_rewards_allowed() == 1 && candies_on() == 1);
+        assert(dev_access() == 0 && sanch_no_christmas() == 1 && sanch_rewards_kept() == 1);
+        assert(seasonal_admin_allowed() == 0 && winter_theme_on() == 0 && christmas_active() == 0);
+        assert(christmas_snowballs_on() == 0 && christmas_pad_hit(10, 10) == 0);
+        assert(bpass_allowed() == 0 && bpass_rewards_allowed() == 1 && candies_on() == 0);
         assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
 
-        /* Sanch can open the seasonal pass, earn XP/candies, and claim tiers. */
+        progress_normalize();
+        assert(fabs(candies - 77.0) < 1e-9);
+        assert(class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1 && player_class == CLASS_SANTA);
+        /* A hidden Battle Pass cannot be claimed or spend his candies. */
         bp_claim(1);
-        assert(bp_claimed == 1 && fabs(candies - 65.0) < 1e-9);
+        assert(bp_claimed == 7 && fabs(candies - 77.0) < 1e-9);
         adm_reset_log();
         language = 1;
         draw_lobby_money();
-        assert(candies_on() == 1 && fabs(candies - 65.0) < 1e-9);
-
-        /* Previously earned BP Tier 7 Santa remains unlocked for Sanch; Elf ebuC requires online ACH_BUK_GIFT. */
-        bp_claimed = 4;
+        assert(candies_on() == 0 && fabs(candies - 77.0) < 1e-9);
+        /* Elf ebuC still needs the online achievement. */
         achievement_mask = 0;
         ebuc_skin = SKIN_SPECIAL;
         progress_normalize();
         assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0 && ebuc_skin == SKIN_NORMAL);
-        bp_claimed = 7;
-        player_class = CLASS_SANTA;
-        progress_normalize();
-        assert(class_owned_of(CLASS_SANTA) == 1 && class_visible(CLASS_SANTA) == 1 && player_class == CLASS_SANTA);
-        assert(fabs(candies - 65.0) < 1e-9);
 
         /* Sanch sees CCP with regular modifiers only and no gift management tab. */
         adm_reset_log();
@@ -5721,6 +5902,7 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
+    test_christmas_snowballs();
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

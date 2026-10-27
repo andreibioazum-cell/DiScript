@@ -1,5 +1,11 @@
 static double winter_theme_on(void) {
-    return winter_theme == 1 && seasonal_admin_allowed() == 1;
+    /* Only the two holiday admins see the winter visuals. Sanch and regular
+     * players keep the ordinary theme; the modes-screen toggle stays locked
+     * for them. The saved winter_theme setting is kept for the next season. */
+    if (christmas_admin_allowed() != 1) {
+        return 0;
+    }
+    return 1;
 }
 
 static const char *arena_ground_tex(void) {

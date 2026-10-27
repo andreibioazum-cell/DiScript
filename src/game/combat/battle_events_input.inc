@@ -204,6 +204,7 @@ static void draw_online(void) {
     draw_remote_bricks();
     draw_gift();
     draw_boom();
+    draw_christmas_snowballs();
     draw_remote_snow();
     draw_universe();
     draw_remote_universe();
@@ -355,6 +356,11 @@ static void touch_game(double x, double y, double action, double id) {
     /* Exit battle on back button press. */
     if (action == 0 && battle_back_hit(x, y) == 1) {
         start_transition(0);
+        return;
+    }
+    /* Christmas snowball pad: one throw per second for every class. */
+    if (action == 0 && christmas_pad_hit(x, y) == 1) {
+        christmas_throw();
         return;
     }
     /* Toggle ebuC's ultimate mode on mode-button press. */

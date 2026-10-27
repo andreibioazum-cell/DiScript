@@ -41,7 +41,8 @@ static int push_state(PushCache *pc, unsigned gen) {
              "0f,\"s3x\":%.5f,\"s3y\":%.5f,\"s3hp\":%.0f,\"station\":%.0f,\"dax\":%.5f,\"day\":%.5f,\"dadx\":%.5f,"
              "\"dady\":%.5f,\"dash\":%.0f,\"gbx\":%.5f,\"gby\":%.5f,\"gbdx\":%.5f,\"gbdy\":%.5f,\"grab\":%.0f,\"uzx\":%"
              ".5f,\"uzy\":%.5f,\"universe\":%.0f,\"thud\":%.0f,\"blk\":%.0f,\"ccu\":%.0f,\"bkx\":%.5f,\"bky\":%.5f,"
-             "\"bkdx\":%.5f,\"bkdy\":%.5f,\"brick\":%.0f,\"cls\":%.0f,\"level\":%.0f,\"skin\":%.0f}",
+             "\"bkdx\":%.5f,\"bkdy\":%.5f,\"brick\":%.0f,\"xbx\":%.5f,\"xby\":%.5f,"
+             "\"xbdx\":%.5f,\"xbdy\":%.5f,\"xball\":%.0f,\"cls\":%.0f,\"level\":%.0f,\"skin\":%.0f}",
              uid, enick, clamp01(a.x), clamp01(a.y), safe(a.a), safe(a.hp), safe(a.alive), seq, clamp01(a.punch_x),
              clamp01(a.punch_y), clamp11(a.punch_dx), clamp11(a.punch_dy), safe(a.punch), clamp01(a.snow_x),
              clamp01(a.snow_y), clamp11(a.snow_dx), clamp11(a.snow_dy), safe(a.snow), clamp01(a.station_x),
@@ -51,6 +52,7 @@ static int push_state(PushCache *pc, unsigned gen) {
              clamp01(a.grab_x), clamp01(a.grab_y), clamp11(a.grab_dx), clamp11(a.grab_dy), safe(a.grab),
              clamp01(a.universe_x), clamp01(a.universe_y), safe(a.universe), safe(a.thud), safe(a.block), safe(a.ccu),
              clamp01(a.brick_x), clamp01(a.brick_y), clamp11(a.brick_dx), clamp11(a.brick_dy), safe(a.brick),
+             clamp01(a.xball_x), clamp01(a.xball_y), clamp11(a.xball_dx), clamp11(a.xball_dy), safe(a.xball),
              safe(a.cls), safe(a.level), safe(a.skin));
     net_seal_body(body, sizeof(body));
     int c = fb_http("PUT", url, body, NULL, 0);
@@ -180,7 +182,8 @@ static int claim_slot(unsigned gen) {
                 "\"sty\":0,\"sthp\":0,\"s2x\":0,\"s2y\":0,\"s2hp\":0,\"s3x\":0,\"s3y\":0,\"s3hp\":0,\"station\":0,"
                 "\"dax\":0,\"day\":0,\"dadx\":0,\"dady\":0,\"dash\":0,\"gbx\":0,\"gby\":0,\"gbdx\":0,\"gbdy\":0,"
                 "\"grab\":0,\"uzx\":0,\"uzy\":0,\"universe\":0,\"thud\":0,\"blk\":0,\"ccu\":0,\"bkx\":0,\"bky\":0,"
-                "\"bkdx\":0,\"bkdy\":0,\"brick\":0,\"cls\":%.0f,\"level\":%.0f,\"skin\":%.0f}",
+                "\"bkdx\":0,\"bkdy\":0,\"brick\":0,\"xbx\":0,\"xby\":0,\"xbdx\":0,\"xbdy\":0,"
+                "\"xball\":0,\"cls\":%.0f,\"level\":%.0f,\"skin\":%.0f}",
                 net.uid, enick, safe(net.me.cls), safe(net.me.level), safe(net.me.skin));
         }
         net_seal_body(body, sizeof(body));
@@ -245,6 +248,11 @@ static void parse_slot_actor(const char *sjson, Actor *a) {
     a->brick_dx = num(sjson, "bkdx", 0);
     a->brick_dy = num(sjson, "bkdy", 0);
     a->brick = num(sjson, "brick", 0);
+    a->xball_x = num(sjson, "xbx", 0);
+    a->xball_y = num(sjson, "xby", 0);
+    a->xball_dx = num(sjson, "xbdx", 0);
+    a->xball_dy = num(sjson, "xbdy", 0);
+    a->xball = num(sjson, "xball", 0);
     a->cls = num(sjson, "cls", 0);
     a->level = num(sjson, "level", 0);
     a->skin = num(sjson, "skin", 0);

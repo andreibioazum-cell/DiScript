@@ -342,6 +342,7 @@ static void update_game(void) {
     tick_candies();
     follow_punch();
     ball_tick();
+    christmas_tick();
     ball_fade_tick();
     super_cd = tick_down(super_cd);
     if (admin_cheat_nocd() == 1) {

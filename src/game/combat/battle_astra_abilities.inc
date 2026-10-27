@@ -45,7 +45,11 @@ static double astra_ability_allowed(void) { return astra_ability_ok; }
 /* Gate developer-restricted seasonal content. */
 static double dev_access(void) { return astra_ability_allowed(); }
 
-static double candies_on(void) { return candy_enabled == 1 && seasonal_admin_allowed() == 1; }
+static double candies_on(void) {
+    /* Sanch keeps his candies on the account, but the counter and the
+     * in-battle pickups stay visually hidden for him. */
+    return candy_enabled == 1 && seasonal_admin_allowed() == 1;
+}
 
 static double astra_ability_on(void) { return player_class == CLASS_ASTRA; }
 

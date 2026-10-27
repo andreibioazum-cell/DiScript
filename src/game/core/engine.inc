@@ -109,7 +109,7 @@ static void logic_init(void) {
     apply_theme();
     apply_winter_theme();
     start_music();
-    update_newyear_jingle();
+    update_christmas_jingle();
     cube_npc_tex_ok = png_load(CUBE_NPC_TEX);
     cube_npc_d0 = "Привет! Я Куб-НПС!";
     cube_npc_d1 = "Добро пожаловать в Cubic Battle 4!";
@@ -123,7 +123,7 @@ static void update_music(void) {
     if (music_ok == 0) {
         return;
     }
-    if (game_state == ST_SOLO || game_state == ST_ONLINE || newyear_music_active() == 1) {
+    if (game_state == ST_SOLO || game_state == ST_ONLINE || christmas_music_active() == 1) {
         music_level = clamp(music_level - dt / music_fade_out_time, 0, 1);
         snd_volume(LOBBY_MUSIC, music_volume / 100 * music_level);
         if (music_level <= 0 && snd_playing(LOBBY_MUSIC) == 1) {
@@ -180,7 +180,7 @@ static void logic_update(void) {
     } else if (game_state == ST_CLASSES) {
         classes_scroll_tick();
     }
-    update_newyear();
+    update_christmas();
     update_weather();
 }
 
@@ -225,7 +225,7 @@ static void logic_draw(void) {
         draw_studio();
     }
     /* Draw winter snow above studio splash but below epilepsy warning. */
-    draw_newyear_over_notices();
+    draw_christmas_over_notices();
     /* Draw legal documents modal above notices and screens. */
     if (docs_open == 1) {
         draw_docs();

@@ -15,6 +15,12 @@
       ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
     },
 
+    "Christmas": {
+      ".read": true,
+      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)"
+    },
+
     "event": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
       ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
@@ -187,6 +193,11 @@
             "bkdx": { ".validate": "newData.isNumber() && newData.val() >= -1.001 && newData.val() <= 1.001" },
             "bkdy": { ".validate": "newData.isNumber() && newData.val() >= -1.001 && newData.val() <= 1.001" },
             "brick": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
+            "xbx": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+            "xby": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
+            "xbdx": { ".validate": "newData.isNumber() && newData.val() >= -1.001 && newData.val() <= 1.001" },
+            "xbdy": { ".validate": "newData.isNumber() && newData.val() >= -1.001 && newData.val() <= 1.001" },
+            "xball": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
             "cls": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 6 && newData.val() != 5" },
             "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
             "skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },

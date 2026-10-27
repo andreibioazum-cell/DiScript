@@ -91,6 +91,7 @@ static void finish_game(double result) {
     enemy_grab_clear();
     /* Clear active projectiles when battle ends. */
     ball_clear_after_finish();
+    christmas_clear_after_finish();
     turret_heal_t = 0;
     universe_active = 0;
     keyboard_hide();
@@ -353,6 +354,7 @@ static void draw_controls(void) {
         draw_pad(atk2_x, atk2_y, battle_pad_r(), pad_col, sl, sls);
         draw_ult_mode();
     }
+    draw_christmas_pad();
     draw_battle_back();
 }
 
@@ -398,6 +400,7 @@ static void draw_game(void) {
     draw_enemy_shadow();
     draw_turret_shadows();
     draw_candies();
+    draw_christmas_snowballs();
     draw_player_hitbox_layer();
     draw_enemy_hitbox();
     draw_ability_hitboxes();

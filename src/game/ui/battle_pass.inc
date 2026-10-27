@@ -143,8 +143,8 @@ static void draw_bpass(void) {
         return;
     }
     screen_fill();
-    ctext_scaled(language == 1 ? "Новогодний баттл-пасс" : "New Year Battle Pass", content_top() + 6, newyear_gold + 0xFF000000,
-                 fit_text_scale(language == 1 ? "Новогодний баттл-пасс" : "New Year Battle Pass", screen_w - 32, 0.85));
+    ctext_scaled(language == 1 ? "Новогодний баттл-пасс" : "Christmas Battle Pass", content_top() + 6, christmas_gold + 0xFF000000,
+                 fit_text_scale(language == 1 ? "Новогодний баттл-пасс" : "Christmas Battle Pass", screen_w - 32, 0.85));
     double next = bp_claimed + 1;
     const char *xp_line;
     if (next > BP_TIERS) {

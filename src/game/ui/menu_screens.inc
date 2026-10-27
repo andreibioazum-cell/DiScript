@@ -42,10 +42,10 @@ static void draw_lobby(void) {
     check_achievements();
     screen_fill();
     text("Cubic Battle 4", lobby_label_x(text_ink_width("Cubic Battle 4")), lobby_title_y(), text_color);
-    if (newyear_active() == 1) {
-        const char *banner = tr_newyear_banner();
+    if (christmas_active() == 1) {
+        const char *banner = tr_christmas_banner();
         text_scaled(banner, lobby_label_x(text_ink_width(banner) * 0.6), lobby_title_y() + 34,
-                    newyear_gold + 0xFF000000, 0.6);
+                    christmas_gold + 0xFF000000, 0.6);
     }
     draw_menu_button(0, tr_play());
     draw_menu_button(1, tr_shop());

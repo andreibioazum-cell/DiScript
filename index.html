@@ -65,7 +65,7 @@
 <div id="fatal" class="hide"></div>
 <header>
   <h1>CB4 - админ-панель Realtime Database</h1>
-  <span class="tag" id="who">не авторизован</span>
+  <span class="tag" id="who">Не авторизован</span>
   <span class="pill" id="modePill">боевая база</span>
   <span class="sp"></span>
   <button id="selftest" title="Проверить, что все кнопки страницы привязаны к обработчикам">Самопроверка</button>
@@ -78,13 +78,13 @@
   <h2>Вход админа</h2>
   <p class="muted">Ник и пароль от игры (аккаунт <code>&lt;ник&gt;@cb4.game</code>).
      Мусор в корне и комнатах, <code>/event</code>, <code>/banner</code>, <code>/bans</code>,
-     <code>/AzumBuff</code> и <code>/FlashSale</code> пишут только админские аккаунты из
+     <code>/AzumBuff</code>, <code>/FlashSale</code> и <code>/Christmas</code> пишут только админские аккаунты из
      <code>firebase.rules.json</code>; чат и слоты можно чистить и обычным игрокам.</p>
   <div class="row">
-    <input id="nick" placeholder="ник" value="Dimasi4ek229" size="18">
-    <input id="pass" placeholder="пароль" type="password" size="18" autocomplete="current-password">
+    <input id="nick" placeholder="Ник" value="Dimasi4ek229" size="18">
+    <input id="pass" placeholder="Пароль" type="password" size="18" autocomplete="current-password">
     <button id="login" class="primary">Войти</button>
-    <label class="chk"><input type="checkbox" id="showPass"> показать пароль</label>
+    <label class="chk"><input type="checkbox" id="showPass"> Показать пароль</label>
   </div>
   <p class="muted" id="emailHint" style="margin:8px 0 0"></p>
   <details style="margin-top:10px">
@@ -95,15 +95,15 @@
       <button id="checkKey">Проверить ключ</button>
     </div>
     <div class="row" style="margin-top:8px">
-      <label class="chk"><input type="checkbox" id="passSuffix" checked> добавлять внутренний суффикс к паролю</label>
-      <input id="suffix" size="36" value="|cb4v1" title="хвост пароля Firebase">
+      <label class="chk"><input type="checkbox" id="passSuffix" checked> Добавлять внутренний суффикс к паролю</label>
+      <input id="suffix" size="36" value="|cb4v1" title="Хвост пароля Firebase">
       <button id="suffixHelp">Откуда взять текущий хвост?</button>
     </div>
     <p class="muted" style="margin:8px 0 0" id="suffixWarn"></p>
     <div class="row" style="margin-top:8px">
       <button id="testMode">Тестовый режим: база на этом же сервере</button>
       <button id="prodMode">Обратно на боевую базу</button>
-      <span class="muted" id="testHint">тестовый режим - для <code>test/fake_firebase.py</code>: вход любой парой
+      <span class="muted" id="testHint">Тестовый режим - для <code>test/fake_firebase.py</code>: вход любой парой
         «ник + пароль», аккаунт создаётся сам, ничего боевого не трогается</span>
     </div>
     <p class="muted" style="margin:8px 0 0">
@@ -137,29 +137,29 @@
 <section id="janitor" class="hide">
   <h2>2. Что нашлось лишнего</h2>
   <div class="row" style="margin-bottom:10px">
-    <label class="chk"><input type="checkbox" class="flt" data-k="unknown_root" checked> лишние корневые узлы</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="unknown_field" checked> левые поля в users/rooms</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="bad_user" checked> мусорные «игроки»</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="chat" checked> чат: взлом/спам</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="chat_all"> чат целиком</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="slot" checked> мёртвые/битые слоты</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="stale"> слоты-заглушки (нулевые)</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="meta"> комнаты без правильных meta</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="empty_room"> пустые старые комнаты</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="old_chat"> старый чат (сверх лимита)</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="old_banner"> устаревший баннер</label>
-    <label class="chk"><input type="checkbox" class="flt" data-k="bans"> список банов</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="unknown_root" checked> Лишние корневые узлы</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="unknown_field" checked> Левые поля в users/rooms</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="bad_user" checked> Мусорные «игроки»</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="chat" checked> Чат: взлом/спам</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="chat_all"> Чат целиком</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="slot" checked> Мёртвые/битые слоты</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="stale"> Слоты-заглушки (нулевые)</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="meta"> Комнаты без правильных meta</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="empty_room"> Пустые старые комнаты</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="old_chat"> Старый чат (сверх лимита)</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="old_banner"> Устаревший баннер</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="bans"> Список банов</label>
   </div>
   <div class="row" style="margin-bottom:10px">
-    <span class="muted">оставлять в чате последних:</span>
-    <input id="cleanChatKeep" type="number" min="0" max="500" step="1" value="20" size="5" title="сколько новых сообщений чата оставлять в каждой комнате">
-    <span class="muted">баннер старый после (ч):</span>
-    <input id="cleanBannerHours" type="number" min="0" max="8760" step="1" value="24" size="5" title="возраст баннера в часах, после которого он считается устаревшим">
+    <span class="muted">Оставлять в чате последних:</span>
+    <input id="cleanChatKeep" type="number" min="0" max="500" step="1" value="20" size="5" title="Сколько новых сообщений чата оставлять в каждой комнате">
+    <span class="muted">Баннер старый после (ч):</span>
+    <input id="cleanBannerHours" type="number" min="0" max="8760" step="1" value="24" size="5" title="Возраст баннера в часах, после которого он считается устаревшим">
     <button id="markOld">Отметить старое и ненужное</button>
     <button id="cleanOld" class="danger">Очистить старые и ненужные данные</button>
   </div>
   <div class="row" style="margin-bottom:10px">
-    <span class="muted">стоп-слова (через запятую):</span>
+    <span class="muted">Стоп-слова (через запятую):</span>
     <input id="words" size="70">
   </div>
   <div class="list" id="found"></div>
@@ -176,7 +176,7 @@
     <code>gifts</code>, уровни всех классов, <code>bp/bpx</code>, <code>playtime</code>,
     <code>pd_consent_*</code> и секрет записи <code>w</code>), живые слоты
     <code>rooms/*/players</code>, <code>event</code>, <code>banner</code>,
-    <code>AzumBuff</code>, <code>FlashSale</code>, структура комнат.
+    <code>AzumBuff</code>, <code>FlashSale</code>, <code>Christmas</code>, структура комнат.
     Список полей сверяется с <code>firebase.rules.json</code> тестом
     <code>tools/test_admin_panel.py</code>.
   </p>
@@ -187,35 +187,38 @@
 
   <h3>Ивент боя (0..5 — как в игре)</h3>
   <div class="row">
-    <button data-ev="0">0 · выкл</button>
-    <button data-ev="1">1 · диско</button>
-    <button data-ev="2">2 · плиты (конфеты)</button>
+    <button data-ev="0">0 · Выкл</button>
+    <button data-ev="1">1 · Диско</button>
+    <button data-ev="2">2 · Плиты (Конфеты)</button>
     <button data-ev="3">3 · Дед Мороз</button>
-    <button data-ev="4">4 · кубик</button>
-    <button data-ev="5">5 · колонки</button>
+    <button data-ev="4">4 · Кубик</button>
+    <button data-ev="5">5 · Колонки</button>
     <span class="muted" id="evNow"></span>
   </div>
 
   <h3>Флаги магазина</h3>
   <div class="row">
-    <button data-flag="AzumBuff" data-v="1">AzumBuff: вкл</button>
-    <button data-flag="AzumBuff" data-v="0">AzumBuff: выкл</button>
+    <button data-flag="AzumBuff" data-v="1">AzumBuff: Вкл</button>
+    <button data-flag="AzumBuff" data-v="0">AzumBuff: Выкл</button>
     <span class="sp"></span>
-    <button data-flag="FlashSale" data-v="1">FlashSale: вкл</button>
-    <button data-flag="FlashSale" data-v="0">FlashSale: выкл</button>
+    <button data-flag="FlashSale" data-v="1">FlashSale: Вкл</button>
+    <button data-flag="FlashSale" data-v="0">FlashSale: Выкл</button>
+    <span class="sp"></span>
+    <button data-flag="Christmas" data-v="1">Christmas: Вкл</button>
+    <button data-flag="Christmas" data-v="0">Christmas: Выкл</button>
     <span class="muted" id="flagNow"></span>
   </div>
 
   <h3>Баннер в лобби</h3>
   <div class="row">
-    <input id="bannerText" placeholder="текст баннера (1-96 символов)" size="40">
+    <input id="bannerText" placeholder="Текст баннера (1-96 символов)" size="40">
     <select id="bannerColor">
-      <option value="white">white</option>
-      <option value="red">red</option>
-      <option value="green">green</option>
-      <option value="blue">blue</option>
-      <option value="yellow">yellow</option>
-      <option value="pink">pink</option>
+      <option value="white">White</option>
+      <option value="red">Red</option>
+      <option value="green">Green</option>
+      <option value="blue">Blue</option>
+      <option value="yellow">Yellow</option>
+      <option value="pink">Pink</option>
     </select>
     <button id="setBanner" class="primary">Показать баннер</button>
     <button id="clearBanner" class="danger">Снять баннер</button>
@@ -232,7 +235,7 @@
   <div class="row">
     <button id="clearChat">Очистить чат комнаты</button>
     <button id="clearSlots">Сбросить слоты (кикнуть всех)</button>
-    <input id="room" value="main" size="10" title="комната">
+    <input id="room" value="main" size="10" title="Комната">
     <span class="sp"></span>
     <button id="dump">Скачать резервную копию (JSON)</button>
     <button id="restore">Загрузить копию…</button>
@@ -244,7 +247,7 @@
   <h2>Журнал</h2>
   <div class="row" style="margin-bottom:8px">
     <button id="clearLog">Очистить журнал</button>
-    <span class="muted">здесь видно каждый запрос и каждую ошибку</span>
+    <span class="muted">Здесь видно каждый запрос и каждую ошибку</span>
   </div>
   <div id="log"></div>
 </section>
@@ -267,7 +270,7 @@
     if (box) { box.className = "hide"; box.textContent = ""; }
   };
   window.addEventListener("error", function (e) {
-    show("Панель не запустилась: " + (e.message || "ошибка скрипта") +
+    show("Панель не запустилась: " + (e.message || "Ошибка скрипта") +
          (e.lineno ? " (строка " + e.lineno + ")" : "") +
          "\nКнопки работать не будут, пока ошибка не исправлена. Подробности - консоль браузера (F12).");
   });
@@ -318,7 +321,7 @@ function run(fn, ev, el){
 }
 function report(e){
   const msg = (e && e.message) ? e.message : String(e);
-  try{ log("ошибка: " + msg, "err"); }catch(_){}
+  try{ log("Ошибка: " + msg, "err"); }catch(_){}
   if(window.cb4Fatal) window.cb4Fatal("Действие не выполнено: " + msg);
   console.error(e);
 }
@@ -337,11 +340,11 @@ const DEFAULT_WORDS = [
 const num  = (lo, hi) => ({t:"num", lo, hi});
 const flag = ()      => ({t:"num", lo:0, hi:1});
 const str  = (min, max) => ({t:"str", min, max});
-const secret = ()    => ({t:"str", min:1, max:64, note:"секрет записи «w»"});
+const secret = ()    => ({t:"str", min:1, max:64, note:"Секрет записи «w»"});
 
 /* Allowed root database keys and per-node fallback targets. */
-const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale"];
-const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale"];
+const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","Christmas"];
+const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","Christmas"];
 
 const USER_REQ  = ["nick","cups","candies","cls","azum","santa","level","levels"];
 /* Per-user gift inventory counters under users/<nick>/gifts. */
@@ -356,7 +359,7 @@ const USER_FIELDS = {
   /* Write secret field validated by RTDB rules. */
   w: secret(),
   /* Plaintext password storage is forbidden by RTDB rules. */
-  pass: {t:"forbidden", why:"пароль в базе - так больше нельзя"},
+  pass: {t:"forbidden", why:"Пароль в базе - так больше нельзя"},
   cups: num(0,10000000), candies: num(0,10000000),
   cls: num(0,6), azum: flag(), santa: flag(), ebuc: flag(), astra: flag(), codecracker: flag(),
   level: num(0,3), levels: num(0,3),
@@ -400,6 +403,8 @@ const SLOT_FIELDS = {
   thud: num(0,1000000000000), blk: flag(), ccu: flag(),
   bkx: num(0,1), bky: num(0,1), bkdx: num(-1.001,1.001), bkdy: num(-1.001,1.001),
   brick: num(0,1000000000000),
+  xbx: num(0,1), xby: num(0,1), xbdx: num(-1.001,1.001), xbdy: num(-1.001,1.001),
+  xball: num(0,1000000000000),
   cls: num(0,6), level: num(0,3), skin: num(0,1)
 };
 
@@ -408,7 +413,7 @@ const CHAT_FIELDS = {uid: str(8,24), nick: str(1,16), text: str(1,96), w: secret
 
 const BANNER_FIELDS = {ts: num(0,9000000000000), text: str(1,96), color: str(1,16)};
 const EVENT_MAX = 5;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns */
-const EVENT_NAMES = ["выкл","диско","плиты","Дед Мороз","кубик","колонки"];
+const EVENT_NAMES = ["Выкл","Диско","Плиты","Дед Мороз","Кубик","Колонки"];
 const NICK_RE   = /^[A-Za-z0-9_]{1,16}$/;
 const PROD_DB_RE = /firebaseio\.com|googleapis\.com/i;
 
@@ -436,12 +441,12 @@ function updateMode(){
   const pill = $("#modePill");
   if(!pill) return;
   const test = isTest();
-  pill.textContent = test ? "тестовая база" : "боевая база";
+  pill.textContent = test ? "Тестовая база" : "Боевая база";
   pill.className = "pill" + (test ? " live" : "");
   const hint = $("#testHint");
   if(hint) hint.innerHTML = test
-    ? "сейчас панель смотрит на <b>этот же сервер</b> - можно нажимать всё подряд, боевая база не трогается"
-    : "тестовый режим - для <code>test/fake_firebase.py</code>: вход любой парой «ник + пароль», " +
+    ? "Сейчас панель смотрит на <b>этот же сервер</b> - можно нажимать всё подряд, боевая база не трогается"
+    : "Тестовый режим - для <code>test/fake_firebase.py</code>: вход любой парой «ник + пароль», " +
       "аккаунт создаётся сам, ничего боевого не трогается";
   suffixWarn();
 }
@@ -512,18 +517,18 @@ const KNOWN_SUFFIXES = ["|cb4v1", "#cb4", ""];
 
 const AUTH_ERR = {
   EMAIL_NOT_FOUND:
-    "аккаунта с таким e-mail нет в Firebase Auth. Один раз зайди в игру под этим ником - игра сама его создаст (accounts:signUp) с правильным хвостом пароля - и возвращайся сюда. Панель нарочно не создаёт аккаунты на боевой базе: созданный с чужим хвостом аккаунт потом не пустит и саму игру.",
-  INVALID_PASSWORD: "неверный пароль",
+    "Аккаунта с таким e-mail нет в Firebase Auth. Один раз зайди в игру под этим ником - игра сама его создаст (accounts:signUp) с правильным хвостом пароля - и возвращайся сюда. Панель нарочно не создаёт аккаунты на боевой базе: созданный с чужим хвостом аккаунт потом не пустит и саму игру.",
+  INVALID_PASSWORD: "Неверный пароль",
   INVALID_LOGIN_CREDENTIALS:
     "неверный пароль или такого аккаунта нет (Firebase намеренно не говорит, что именно). " +
     "Чаще всего дело в хвосте пароля: он ротирован, и «|cb4v1» теперь работает только для аккаунтов, " +
     "которые не входили в игру после ротации. Текущий хвост печатает " +
     "`python3 tools/rotate_db_secret.py --show` - вставь его в «Настройки проекта» → поле суффикса. " +
     "Панель перебирает известные варианты, так что если и это не помогло - проверь, что ник и пароль те же, что в игре.",
-  USER_DISABLED: "аккаунт отключён - Firebase Console → Authentication → Users",
-  TOO_MANY_ATTEMPTS_TRY_LATER: "слишком много попыток входа, подожди пару минут и попробуй снова",
-  OPERATION_NOT_ALLOWED: "вход по e-mail/паролю выключён - Firebase Console → Authentication → Sign-in method → Email/Password",
-  WEAK_PASSWORD: "пароль короче 6 символов - Firebase не принимает, как раз поэтому игра и добавляет суффикс",
+  USER_DISABLED: "Аккаунт отключён - Firebase Console → Authentication → Users",
+  TOO_MANY_ATTEMPTS_TRY_LATER: "Слишком много попыток входа, подожди пару минут и попробуй снова",
+  OPERATION_NOT_ALLOWED: "Вход по e-mail/паролю выключён - Firebase Console → Authentication → Sign-in method → Email/Password",
+  WEAK_PASSWORD: "Пароль короче 6 символов - Firebase не принимает, как раз поэтому игра и добавляет суффикс",
   API_KEY_INVALID: "API-ключ не подходит к этому проекту (или набран с опечаткой)",
   PERMISSION_DENIED:
     "API-ключ ограничен и из браузера не работает. В Google Cloud Console ограничения " +
@@ -531,7 +536,7 @@ const AUTH_ERR = {
     "с разрешённым referrer этой страницы либо вовсе без ограничений.",
   REFERER_BLOCKED: "API-ключ ограничен по HTTP-referrer - добавь адрес этой страницы в список разрешённых",
   NETWORK_ERROR:
-    "запрос вообще не ушёл: нет сети, база недоступна или браузер заблокировал запрос (CORS/смешанный контент). " +
+    "Запрос вообще не ушёл: нет сети, база недоступна или браузер заблокировал запрос (CORS/смешанный контент). " +
     "Если страница открыта по https, адрес базы тоже должен быть https."
 };
 function explain(msg){
@@ -563,7 +568,7 @@ async function idp(method, body){
 }
 /* Refresh short-lived Firebase ID token using stored refreshToken. */
 async function refreshToken(){
-  if(!REFRESH) throw new Error("нет refresh-токена - нужно войти заново");
+  if(!REFRESH) throw new Error("Нет refresh-токена - нужно войти заново");
   const r = await fetch(`${tokenHost()}/v1/token?key=${encodeURIComponent(key())}`,
     {method:"POST",headers:{"Content-Type":"application/json"},
      body:JSON.stringify({grant_type:"refresh_token", refresh_token:REFRESH})});
@@ -593,7 +598,7 @@ async function doLogin(){
   const email = nick.toLowerCase() + "@cb4.game";
   saveAll();
   if(!isTest() && $("#passSuffix").checked && !suffixLooksCurrent($("#suffix").value))
-    log("хвост в поле не похож на текущий (32 символа A-Za-z0-9): если вход не удастся, " +
+    log("Хвост в поле не похож на текущий (32 символа A-Za-z0-9): если вход не удастся, " +
         "возьми текущий командой python3 tools/rotate_db_secret.py --show", "warn");
   $("#login").disabled = true;
   $("#login").textContent = "Вхожу…";
@@ -618,7 +623,7 @@ async function doLogin(){
         try{
           const j = await idp("signUp", {email, password: pass + sfx});
           ok = {j, sfx, created: true};
-          log("тестовая база: аккаунт создан - " + email, "good");
+          log("Тестовая база: аккаунт создан - " + email, "good");
         }catch(e){
           if(/EMAIL_EXISTS/.test(e.message))
             throw new Error("аккаунт " + email + " существует, значит пароль (или хвост) не подошёл");
@@ -647,21 +652,21 @@ async function doLogin(){
     $("#app").classList.remove("hide");
     $("#tools").classList.remove("hide");
     $("#logout").classList.remove("hide");
-    log("вход выполнен: " + email + (ok.sfx ? " (суффикс «" + ok.sfx + "»)" : " (без суффикса)"), "good");
-    log("база: " + dbUrl() + (isTest() ? " · тестовый режим" : ""), isTest() ? "warn" : "");
-    log("токен: провайдер " + ((p.firebase || {}).sign_in_provider || "?") +
+    log("Вход выполнен: " + email + (ok.sfx ? " (суффикс «" + ok.sfx + "»)" : " (без суффикса)"), "good");
+    log("База: " + dbUrl() + (isTest() ? " · тестовый режим" : ""), isTest() ? "warn" : "");
+    log("Токен: провайдер " + ((p.firebase || {}).sign_in_provider || "?") +
         ", годен до " + new Date((p.exp || 0) * 1000).toLocaleTimeString(), "");
-    if(isAdmin) log("права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат", "good");
+    if(isAdmin) log("Права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат", "good");
     else{
-      log("это не админский аккаунт: читаются игровые узлы, чат и слоты чистить можно, а event/banner/bans/флаги, чужие users и мусор в корне/комнатах - нет", "warn");
+      log("Это не админский аккаунт: читаются игровые узлы, чат и слоты чистить можно, а event/banner/bans/флаги, чужие users и мусор в корне/комнатах - нет", "warn");
       alert("Вход прошёл, но " + email + " нет в списке админов firebase.rules.json.\n\n" +
-            "Чат и слоты (в т.ч. целиком) чистить можно; /event, /banner, /bans, /AzumBuff, /FlashSale, " +
+            "Чат и слоты (в т.ч. целиком) чистить можно; /event, /banner, /bans, /AzumBuff, /FlashSale, /Christmas, " +
             "чужие /users и мусор в корне/комнатах - нет. Корневой мусор виден и удаляется только админами.");
     }
     await scan();
   }catch(e){
-    log("вход не удался: " + e.message, "err");
-    log("что это значит: " + explain(e.message), "warn");
+    log("Вход не удался: " + e.message, "err");
+    log("Что это значит: " + explain(e.message), "warn");
     alert("Не вышло войти как " + email + "\n\n" + e.message + "\n\n" + explain(e.message) +
           (tried.length > 1 ? "\n\nПеребраны варианты суффикса:\n" + tried.join("\n") : ""));
   }finally{
@@ -679,13 +684,13 @@ function ensureToken(){
 }
 async function rtdb(path, method = "GET", body, retried){
   if(!TOKEN){
-    const e = new Error("нет входа - сначала «Войти»");
+    const e = new Error("Нет входа - сначала «Войти»");
     e.noAuth = true;
     throw e;
   }
   if(REFRESH && Date.now() > EXP){
     try{ await ensureToken(); }
-    catch(e){ log("не удалось обновить токен: " + e.message + " - " + explain(e.message), "warn"); }
+    catch(e){ log("Не удалось обновить токен: " + e.message + " - " + explain(e.message), "warn"); }
   }
   const url = `${dbUrl()}/${path}.json?auth=${encodeURIComponent(TOKEN || "")}`;
   const opt = {method};
@@ -699,7 +704,7 @@ async function rtdb(path, method = "GET", body, retried){
       try{
         await ensureToken();
         return rtdb(path, method, body, true);
-      }catch(e){ log("обновление токена не помогло: " + e.message, "err"); }
+      }catch(e){ log("Обновление токена не помогло: " + e.message, "err"); }
     }
     let msg = `${method} /${path || "(корень)"} → ${r.status} ${txt.slice(0,160)}`;
     if(r.status === 401 || r.status === 403)
@@ -732,20 +737,20 @@ async function takeSnapshot(){
   }
 }
 async function scan(){
-  $("#scan").disabled = true; $("#scanInfo").textContent = "читаю…";
+  $("#scan").disabled = true; $("#scanInfo").textContent = "Читаю…";
   try{
     const snap = await takeSnapshot();
     SNAP = snap.data;
     SCOPED = snap.scoped;
     if(SCOPED)
-      log("корень базы закрыт правилами - читаю игровые узлы по отдельности (корневой мусор виден только админам)", "warn");
+      log("Корень базы закрыт правилами - читаю игровые узлы по отдельности (корневой мусор виден только админам)", "warn");
     analyze();
-    $("#scanInfo").textContent = "снимок получен " + new Date().toLocaleTimeString() +
+    $("#scanInfo").textContent = "Снимок получен " + new Date().toLocaleTimeString() +
                                  (SCOPED ? " · корень закрыт, по узлам" : "");
-    log("снимок базы получен" + (SCOPED ? " (по узлам)" : ""), "good");
+    log("Снимок базы получен" + (SCOPED ? " (по узлам)" : ""), "good");
   }catch(e){
     $("#scanInfo").innerHTML = '<span class="err">ошибка</span>';
-    log("скан: " + e.message, "err");
+    log("Скан: " + e.message, "err");
     alert("Не удалось прочитать базу:\n" + e.message + "\n\n" + explain(e.message));
   }finally{ $("#scan").disabled = false; }
 }
@@ -754,30 +759,30 @@ const words = () => $("#words").value.split(",").map(s=>s.trim().toLowerCase()).
 function spamHit(text){
   const t = String(text).toLowerCase();
   for(const w of words()) if(w && t.includes(w)) return w;
-  if(/(.)\1{7,}/.test(t)) return "повтор символов";
-  if(t.length > 96) return "длина > 96";
-  if(/[\u0000-\u0008\u000b-\u001f]/.test(t)) return "управляющие символы";
+  if(/(.)\1{7,}/.test(t)) return "Повтор символов";
+  if(t.length > 96) return "Длина > 96";
+  if(/[\u0000-\u0008\u000b-\u001f]/.test(t)) return "Управляющие символы";
   return null;
 }
 
 /* Validate field value against schema descriptor. */
 function badValue(spec, v){
   if(!spec) return null;
-  if(spec.t === "forbidden") return spec.why || "поле запрещено правилами";
+  if(spec.t === "forbidden") return spec.why || "Поле запрещено правилами";
   if(spec.t === "num"){
-    if(typeof v !== "number" || !isFinite(v)) return "значение не число (" + typeof v + ")";
-    if(spec.lo !== undefined && v < spec.lo) return "меньше допустимого " + spec.lo;
+    if(typeof v !== "number" || !isFinite(v)) return "Значение не число (" + typeof v + ")";
+    if(spec.lo !== undefined && v < spec.lo) return "Меньше допустимого " + spec.lo;
     if(spec.hi !== undefined && v > spec.hi) return "больше допустимого " + spec.hi + " (накрутка?)";
     return null;
   }
   if(spec.t === "str"){
-    if(typeof v !== "string") return "значение не строка (" + typeof v + ")";
-    if(spec.min !== undefined && v.length < spec.min) return "строка короче " + spec.min;
-    if(spec.max !== undefined && v.length > spec.max) return "строка длиннее " + spec.max;
+    if(typeof v !== "string") return "Значение не строка (" + typeof v + ")";
+    if(spec.min !== undefined && v.length < spec.min) return "Строка короче " + spec.min;
+    if(spec.max !== undefined && v.length > spec.max) return "Строка длиннее " + spec.max;
     return null;
   }
-  if(spec.t === "bool") return typeof v === "boolean" ? null : "значение не true/false";
-  if(spec.t === "obj") return (v && typeof v === "object") ? null : "ожидался узел-объект";
+  if(spec.t === "bool") return typeof v === "boolean" ? null : "Значение не true/false";
+  if(spec.t === "obj") return (v && typeof v === "object") ? null : "Ожидался узел-объект";
   return null;
 }
 
@@ -806,54 +811,54 @@ function analyze(){
   /* Root keys */
   for(const k of Object.keys(d))
     if(!ROOT_OK.includes(k))
-      add("unknown_root", k, "корневого узла нет в игре (спам/мусор)", JSON.stringify(d[k]).slice(0,120));
+      add("unknown_root", k, "Корневого узла нет в игре (спам/мусор)", JSON.stringify(d[k]).slice(0,120));
 
   /* Event, live flags, and banner */
   if("event" in d){
     const bad = badValue(num(0, EVENT_MAX), d.event);
-    if(bad) add("unknown_field", "event", "значение ивента вне 0.." + EVENT_MAX + ": " + bad, JSON.stringify(d.event));
+    if(bad) add("unknown_field", "event", "Значение ивента вне 0.." + EVENT_MAX + ": " + bad, JSON.stringify(d.event));
   }
-  for(const f of ["AzumBuff","FlashSale"])
+  for(const f of ["AzumBuff","FlashSale","Christmas"])
     if(f in d){
       const bad = badValue(flag(), d[f]);
-      if(bad) add("unknown_field", f, "флаг должен быть 0 или 1: " + bad, JSON.stringify(d[f]));
+      if(bad) add("unknown_field", f, "Флаг должен быть 0 или 1: " + bad, JSON.stringify(d[f]));
     }
   if(d.banner !== undefined){
     if(!d.banner || typeof d.banner !== "object")
-      add("unknown_field", "banner", "баннер должен быть узлом с ts/text/color", JSON.stringify(d.banner).slice(0,80));
+      add("unknown_field", "banner", "Баннер должен быть узлом с ts/text/color", JSON.stringify(d.banner).slice(0,80));
     else{
       let bannerInvalid = false;
       for(const k of Object.keys(d.banner))
-        if(!BANNER_FIELDS[k]){ bannerInvalid = true; add("unknown_field", "banner/" + k, "в баннере нет такого поля", JSON.stringify(d.banner[k]).slice(0,60)); }
+        if(!BANNER_FIELDS[k]){ bannerInvalid = true; add("unknown_field", "banner/" + k, "В баннере нет такого поля", JSON.stringify(d.banner[k]).slice(0,60)); }
       for(const [k, spec] of Object.entries(BANNER_FIELDS))
         if(k in d.banner){
           const bad = badValue(spec, d.banner[k]);
           if(bad){ bannerInvalid = true; add("unknown_field", "banner/" + k, bad, JSON.stringify(d.banner[k]).slice(0,60)); }
         }
       if(!bannerInvalid && typeof d.banner.ts === "number" && (Date.now() - d.banner.ts) >= bannerMaxAgeMs)
-        add("old_banner", "banner", "устаревший баннер (> " + cleanBannerHours() + " ч)", String(d.banner.text || "").slice(0,80));
+        add("old_banner", "banner", "Устаревший баннер (> " + cleanBannerHours() + " ч)", String(d.banner.text || "").slice(0,80));
     }
   }
 
   /* users */
   const users = d.users || {};
   for(const [nick, u] of Object.entries(users)){
-    if(!NICK_RE.test(nick)){ add("bad_user", `users/${nick}`, "ник не проходит правила A-Za-z0-9_ (1-16)"); continue; }
-    if(typeof u !== "object" || u === null){ add("bad_user", `users/${nick}`, "не объект - мусорная запись", String(u).slice(0,80)); continue; }
+    if(!NICK_RE.test(nick)){ add("bad_user", `users/${nick}`, "Ник не проходит правила A-Za-z0-9_ (1-16)"); continue; }
+    if(typeof u !== "object" || u === null){ add("bad_user", `users/${nick}`, "Не объект - мусорная запись", String(u).slice(0,80)); continue; }
     const miss = USER_REQ.filter(f => !(f in u));
-    if(miss.length === USER_REQ.length){ add("bad_user", `users/${nick}`, "нет ни одного игрового поля"); continue; }
-    if(miss.length) add("bad_user", `users/${nick}`, "нет обязательных полей: " + miss.join(", "));
+    if(miss.length === USER_REQ.length){ add("bad_user", `users/${nick}`, "Нет ни одного игрового поля"); continue; }
+    if(miss.length) add("bad_user", `users/${nick}`, "Нет обязательных полей: " + miss.join(", "));
     const hit = spamHit(nick);
-    if(hit) add("bad_user", `users/${nick}`, "ник похож на спам/взлом: " + hit);
+    if(hit) add("bad_user", `users/${nick}`, "Ник похож на спам/взлом: " + hit);
     for(const [f, v] of Object.entries(u)){
       const spec = USER_FIELDS[f];
       if(!spec){
-        add("unknown_field", `users/${nick}/${f}`, "поле не используется игрой и не пускается правилами",
+        add("unknown_field", `users/${nick}/${f}`, "Поле не используется игрой и не пускается правилами",
             JSON.stringify(v).slice(0,80));
         continue;
       }
       if(f === "nick" && typeof v === "string" && spamHit(v)){
-        add("unknown_field", `users/${nick}/nick`, "в нике спам-текст", String(v).slice(0,80));
+        add("unknown_field", `users/${nick}/nick`, "В нике спам-текст", String(v).slice(0,80));
         continue;
       }
       if(spec.t === "obj"){
@@ -861,7 +866,7 @@ function analyze(){
         if(bad){ add("unknown_field", `users/${nick}/${f}`, bad, JSON.stringify(v).slice(0,80)); continue; }
         for(const [gk, gv] of Object.entries(v)){
           const gs = spec.fields[gk];
-          if(!gs) add("unknown_field", `users/${nick}/${f}/${gk}`, "такого подарка нет в игре", JSON.stringify(gv).slice(0,60));
+          if(!gs) add("unknown_field", `users/${nick}/${f}/${gk}`, "Такого подарка нет в игре", JSON.stringify(gv).slice(0,60));
           else{
             const gbad = badValue(gs, gv);
             if(gbad) add("unknown_field", `users/${nick}/${f}/${gk}`, gbad, JSON.stringify(gv).slice(0,60));
@@ -879,11 +884,11 @@ function analyze(){
   const rooms = d.rooms || {};
   for(const [rn, room] of Object.entries(rooms)){
     if(typeof room !== "object" || room === null){
-      add("unknown_root", `rooms/${rn}`, "комната - не объект", String(room).slice(0,80)); continue;
+      add("unknown_root", `rooms/${rn}`, "Комната - не объект", String(room).slice(0,80)); continue;
     }
     for(const k of Object.keys(room))
       if(!ROOM_OK.includes(k))
-        add("unknown_field", `rooms/${rn}/${k}`, "в комнате нет такого узла", JSON.stringify(room[k]).slice(0,100));
+        add("unknown_field", `rooms/${rn}/${k}`, "В комнате нет такого узла", JSON.stringify(room[k]).slice(0,100));
 
     /* Optional room metadata node (owner, password hash, write secret). */
     if("meta" in room){
@@ -893,10 +898,10 @@ function analyze(){
       else{
         for(const k of Object.keys(m))
           if(!META_FIELDS[k])
-            add("meta", `rooms/${rn}/meta/${k}`, "в meta нет такого поля (правила требуют owner/ph/w)",
+            add("meta", `rooms/${rn}/meta/${k}`, "В meta нет такого поля (правила требуют owner/ph/w)",
                 JSON.stringify(m[k]).slice(0,60));
         for(const k of META_REQ)
-          if(!(k in m)) add("meta", `rooms/${rn}/meta`, "в meta нет обязательного поля " + k);
+          if(!(k in m)) add("meta", `rooms/${rn}/meta`, "В meta нет обязательного поля " + k);
         for(const [k, spec] of Object.entries(META_FIELDS))
           if(k in m){
             const bad = badValue(spec, m[k]);
@@ -907,23 +912,23 @@ function analyze(){
 
     for(const [slot, p] of Object.entries(room.players || {})){
       const base = `rooms/${rn}/players/${slot}`;
-      if(!/^[0-3]$/.test(slot)){ add("slot", base, "слота с таким номером не бывает (0-3)"); continue; }
-      if(typeof p !== "object" || p === null){ add("slot", base, "слот - не объект"); continue; }
+      if(!/^[0-3]$/.test(slot)){ add("slot", base, "Слота с таким номером не бывает (0-3)"); continue; }
+      if(typeof p !== "object" || p === null){ add("slot", base, "Слот - не объект"); continue; }
       const miss = SLOT_REQ.filter(f => !(f in p));
-      if(miss.length){ add("slot", base, "битый слот, нет полей: " + miss.join(", ")); continue; }
+      if(miss.length){ add("slot", base, "Битый слот, нет полей: " + miss.join(", ")); continue; }
       if(typeof p.nick === "string" && spamHit(p.nick))
-        add("slot", base, "ник в слоте - спам/взлом: " + spamHit(p.nick), p.nick);
+        add("slot", base, "Ник в слоте - спам/взлом: " + spamHit(p.nick), p.nick);
       for(const [f, v] of Object.entries(p)){
         const spec = SLOT_FIELDS[f];
-        if(!spec){ add("unknown_field", `${base}/${f}`, "поле слота не используется игрой", JSON.stringify(v).slice(0,60)); continue; }
+        if(!spec){ add("unknown_field", `${base}/${f}`, "Поле слота не используется игрой", JSON.stringify(v).slice(0,60)); continue; }
         const bad = badValue(spec, v);
         if(bad) add("unknown_field", `${base}/${f}`, bad, JSON.stringify(v).slice(0,60));
       }
       /* Zeroed placeholder or dead slot; left unselected by default. */
       if(p.hp === 0 && p.alive === 0)
         add("stale", base, p.seq === 0 && p.x === 0 && p.y === 0
-            ? "нулевой слот-заглушка (заявка без движения)"
-            : "мёртвый неактивный слот (hp=0, alive=0)", p.nick || "");
+            ? "Нулевой слот-заглушка (заявка без движения)"
+            : "Мёртвый неактивный слот (hp=0, alive=0)", p.nick || "");
     }
 
     /* Custom rooms without any live players are abandoned and safe to remove. */
@@ -932,22 +937,22 @@ function analyze(){
         p => p && typeof p === "object" && ((p.alive || 0) > 0 || (p.hp || 0) > 0)
       );
       if(livePlayers.length === 0)
-        add("empty_room", `rooms/${rn}`, "пустая старая комната без живых игроков");
+        add("empty_room", `rooms/${rn}`, "Пустая старая комната без живых игроков");
     }
 
     const validChatIds = [];
     for(const [id, m] of Object.entries(room.chat || {})){
       const base = `rooms/${rn}/chat/${id}`;
-      if(typeof m !== "object" || m === null){ add("chat", base, "сообщение - не объект"); continue; }
+      if(typeof m !== "object" || m === null){ add("chat", base, "Сообщение - не объект"); continue; }
       const bad = CHAT_REQ.filter(f => !(f in m));
       const extra = Object.keys(m).filter(f => !CHAT_FIELDS[f]);
-      const hit = typeof m.text === "string" ? spamHit(m.text) : "нет текста";
+      const hit = typeof m.text === "string" ? spamHit(m.text) : "Нет текста";
       const nickHit = typeof m.nick === "string" ? spamHit(m.nick) : null;
       const label = `${m.nick ?? "?"}: ${String(m.text ?? "").slice(0,90)}`;
-      if(bad.length)        add("chat", base, "битое сообщение (нет " + bad.join(", ") + ")", label);
-      else if(extra.length) add("chat", base, "лишние поля: " + extra.join(", "), label);
-      else if(hit)          add("chat", base, "стоп-слово: " + hit, label);
-      else if(nickHit)      add("chat", base, "спам в нике: " + nickHit, label);
+      if(bad.length)        add("chat", base, "Битое сообщение (нет " + bad.join(", ") + ")", label);
+      else if(extra.length) add("chat", base, "Лишние поля: " + extra.join(", "), label);
+      else if(hit)          add("chat", base, "Стоп-слово: " + hit, label);
+      else if(nickHit)      add("chat", base, "Спам в нике: " + nickHit, label);
       else{
         let why = null;
         for(const [f, spec] of Object.entries(CHAT_FIELDS))
@@ -961,20 +966,20 @@ function analyze(){
     for(let i = 0; i < validChatIds.length; i++){
       const c = validChatIds[i];
       if(i < cutoff)
-        add("old_chat", c.base, "старое сообщение чата (сверх последних " + keepChat + ")", c.label);
+        add("old_chat", c.base, "Старое сообщение чата (сверх последних " + keepChat + ")", c.label);
       else
-        add("chat_all", c.base, "обычное сообщение чата", c.label);
+        add("chat_all", c.base, "Обычное сообщение чата", c.label);
     }
   }
 
   /* bans */
   for(const [n, v] of Object.entries(d.bans || {})){
     if(!NICK_RE.test(n) || typeof v !== "boolean")
-      add("unknown_field", `bans/${n}`, "битая запись бана", JSON.stringify(v));
+      add("unknown_field", `bans/${n}`, "Битая запись бана", JSON.stringify(v));
     else if(v === false)
-      add("unknown_field", `bans/${n}`, "бан снят (false) - запись лишняя");
+      add("unknown_field", `bans/${n}`, "Бан снят (false) - запись лишняя");
     else
-      add("bans", `bans/${n}`, "активный бан");
+      add("bans", `bans/${n}`, "Активный бан");
   }
 
   stats();
@@ -999,14 +1004,15 @@ function stats(){
     ["Банов", Object.keys(d.bans||{}).length],
     ["Ивент", (d.event ?? 0) + " · " + (EVENT_NAMES[d.event] || "?")],
     ["AzumBuff / FlashSale", (d.AzumBuff ?? 0) + " / " + (d.FlashSale ?? 0)],
+    ["Рождество (Christmas)", (d.Christmas ?? 0) ? "Вкл" : "Выкл"],
     ["Мусора найдено", junk]
   ];
   $("#stats").innerHTML = c.map(([k,v]) =>
     `<div class="card"><span class="muted">${esc(String(k))}</span><b>${esc(String(v))}</b></div>`).join("");
   const ev = $("#evNow");
-  if(ev) ev.textContent = "сейчас в базе: " + (d.event ?? "?");
+  if(ev) ev.textContent = "Сейчас в базе: " + (d.event ?? "?");
   const fl = $("#flagNow");
-  if(fl) fl.textContent = "в базе: AzumBuff=" + (d.AzumBuff ?? "-") + ", FlashSale=" + (d.FlashSale ?? "-");
+  if(fl) fl.textContent = "В базе: AzumBuff=" + (d.AzumBuff ?? "-") + ", FlashSale=" + (d.FlashSale ?? "-") + ", Christmas=" + (d.Christmas ?? "-");
   const bt = $("#bannerText");
   if(bt && d.banner && typeof d.banner === "object" && typeof d.banner.text === "string" && !bt.value)
     bt.value = d.banner.text;
@@ -1029,7 +1035,7 @@ function render(){
 function selInfo(){
   const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
   const n = FOUND.filter(f => on.has(f.kind) && f.sel).length;
-  $("#selInfo").textContent = "выбрано к удалению: " + n;
+  $("#selInfo").textContent = "Выбрано к удалению: " + n;
   $("#wipe").disabled = !n;
 }
 const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
@@ -1104,7 +1110,7 @@ async function wipe(){
   const worker = async () => {
     while(queue.length){
       const p = queue.shift();
-      try{ await wipeNode(p); ok++; log("удалено: " + p); }
+      try{ await wipeNode(p); ok++; log("Удалено: " + p); }
       catch(e){ fail++; log("НЕ удалено " + p + " - " + e.message, "err"); }
       done++; tick();
     }
@@ -1126,7 +1132,7 @@ async function markOldData(){
   FOUND.forEach(f => { f.sel = kinds.has(f.kind); });
   render();
   const n = FOUND.filter(f => f.sel).length;
-  log("отмечено старых и ненужных узлов: " + n, n ? "good" : "");
+  log("Отмечено старых и ненужных узлов: " + n, n ? "good" : "");
 }
 
 /* Delete all old and unneeded database nodes in a single batch run. */
@@ -1136,7 +1142,7 @@ async function cleanOldData(){
   const kinds = new Set(OLD_CLEAN_KINDS);
   const targets = FOUND.filter(f => kinds.has(f.kind));
   if(!targets.length){
-    log("чистка старых и ненужных данных: ничего лишнего не найдено", "good");
+    log("Чистка старых и ненужных данных: ничего лишнего не найдено", "good");
     alert("Старых или ненужных данных не найдено.");
     return;
   }
@@ -1152,7 +1158,7 @@ async function cleanOldData(){
   const worker = async () => {
     while(queue.length){
       const p = queue.shift();
-      try{ await wipeNode(p); ok++; log("очищено: " + p); }
+      try{ await wipeNode(p); ok++; log("Очищено: " + p); }
       catch(e){ fail++; log("НЕ очищено " + p + " - " + e.message, "err"); }
       done++; tick();
     }
@@ -1187,16 +1193,16 @@ function selfTest(){
   const buttons = $$("button");
   const inputs = $$("input,select,textarea");
   const lines = [
-    "кнопок на странице: " + buttons.length,
-    "привязано обработчиков: " + BOUND.length,
-    "полей ввода: " + inputs.length,
-    "не найдено элементов: " + (MISSING.length ? MISSING.join(", ") : "нет - всё на месте"),
-    "адрес базы: " + (dbUrl() || "(пусто)") + (isTest() ? " · тестовый режим" : " · боевая база"),
-    "вход: " + (TOKEN ? EMAIL : "не выполнен"),
-    "снимок: " + (SNAP ? Object.keys(SNAP).length + " корневых узлов" : "не получен")
+    "Кнопок на странице: " + buttons.length,
+    "Привязано обработчиков: " + BOUND.length,
+    "Полей ввода: " + inputs.length,
+    "Не найдено элементов: " + (MISSING.length ? MISSING.join(", ") : "Нет - всё на месте"),
+    "Адрес базы: " + (dbUrl() || "(пусто)") + (isTest() ? " · тестовый режим" : " · боевая база"),
+    "Вход: " + (TOKEN ? EMAIL : "Не выполнен"),
+    "Снимок: " + (SNAP ? Object.keys(SNAP).length + " корневых узлов" : "Не получен")
   ];
-  buttons.forEach(b => { if(b.disabled) lines.push("кнопка отключена: " + (b.id || b.textContent.trim())); });
-  log("самопроверка:\n  " + lines.join("\n  "), MISSING.length ? "warn" : "good");
+  buttons.forEach(b => { if(b.disabled) lines.push("Кнопка отключена: " + (b.id || b.textContent.trim())); });
+  log("Самопроверка:\n  " + lines.join("\n  "), MISSING.length ? "warn" : "good");
   alert("Самопроверка\n\n" + lines.join("\n") +
         (MISSING.length ? "\n\nСтраница собрана не полностью - эти элементы не найдены:\n" + MISSING.join("\n")
                         : "\n\nВсе кнопки привязаны к обработчикам."));
@@ -1226,13 +1232,13 @@ function boot(){
     try{
       await idp("signInWithPassword",
                 {email: "cb4-probe-" + Date.now() + "@cb4.game", password: "probe-probe-1"});
-      log("проверка ключа: ответ без ошибки - странно, но ключ точно живой", "warn");
+      log("Проверка ключа: ответ без ошибки - странно, но ключ точно живой", "warn");
     }catch(e){
       if(RETRYABLE.test(e.message))
-        log("проверка ключа: ключ работает - сервер ответил " + e.message +
+        log("Проверка ключа: ключ работает - сервер ответил " + e.message +
             " (значит запрос дошёл и не заблокирован); дело в паре «ник + пароль + суффикс»", "good");
       else
-        log("проверка ключа: " + e.message + " - " + explain(e.message), "err");
+        log("Проверка ключа: " + e.message + " - " + explain(e.message), "err");
       alert("Проверка ключа\n\n" + e.message + "\n\n" + explain(e.message));
     }finally{ b.disabled = false; }
   }, "Проверить ключ");
@@ -1260,7 +1266,7 @@ function boot(){
     $("#dbUrl").value = location.origin;
     $("#apiKey").value = "cb4-test-key";
     saveAll(); emailHint();
-    log("тестовый режим: база = " + location.origin + " (нужен запущенный test/fake_firebase.py, который и раздаёт эту страницу)", "warn");
+    log("Тестовый режим: база = " + location.origin + " (нужен запущенный test/fake_firebase.py, который и раздаёт эту страницу)", "warn");
     alert("Тестовый режим включён.\n\nБаза: " + location.origin +
           "\nВход: любой ник и любой пароль (аккаунт создастся сам).\n" +
           "Админские права в тестовой базе - у ника Dimasi4ek229.\n\nНичего боевого не трогается.");
@@ -1269,7 +1275,7 @@ function boot(){
     $("#dbUrl").value = "https://cubicbattleserver-19ae2-default-rtdb.firebaseio.com";
     $("#apiKey").value = "AIzaSyDJEqopxP5EqEoxP_ehO3jFXbNztu3DgVs";
     saveAll(); emailHint();
-    log("боевая база: " + dbUrl(), "");
+    log("Боевая база: " + dbUrl(), "");
   }, "Боевая база");
   on("#logout", () => location.reload(), "Выйти");
   on("#selftest", selfTest, "Самопроверка");
@@ -1293,8 +1299,8 @@ function boot(){
   /* Live events 0..5 */
   onAll("[data-ev]", (ev, b) => {
     const v = +b.dataset.ev;
-    if(v < 0 || v > EVENT_MAX) throw new Error("ивент должен быть 0.." + EVENT_MAX);
-    return safe(() => rtdb("event", "PUT", v), "смена ивента на " + v + " (" + EVENT_NAMES[v] + ")");
+    if(v < 0 || v > EVENT_MAX) throw new Error("Ивент должен быть 0.." + EVENT_MAX);
+    return safe(() => rtdb("event", "PUT", v), "Смена ивента на " + v + " (" + EVENT_NAMES[v] + ")");
   }, "Ивент");
 
   /* Shop flags */
@@ -1307,26 +1313,26 @@ function boot(){
     const color = $("#bannerColor").value || "white";
     if(!text){ alert("Введи текст баннера"); return; }
     if(text.length > 96){ alert("Текст баннера длиннее 96 символов - правила не пустят"); return; }
-    return safe(() => rtdb("banner", "PUT", {ts: Date.now(), text, color}), "баннер");
+    return safe(() => rtdb("banner", "PUT", {ts: Date.now(), text, color}), "Баннер");
   }, "Показать баннер");
   on("#clearBanner", () => {
     if(!confirm("Снять баннер из лобби?")) return;
-    return safe(() => rtdb("banner", "DELETE"), "снятие баннера");
+    return safe(() => rtdb("banner", "DELETE"), "Снятие баннера");
   }, "Снять баннер");
 
   /* Bans */
   on("#ban", () => { const n = nickOf("#banNick");
-    if(n) return safe(() => rtdb("bans/" + n, "PUT", true), "бан " + n); }, "Забанить");
+    if(n) return safe(() => rtdb("bans/" + n, "PUT", true), "Бан " + n); }, "Забанить");
   on("#unban", () => { const n = nickOf("#banNick");
-    if(n) return safe(() => rtdb("bans/" + n, "DELETE"), "разбан " + n); }, "Разбанить");
+    if(n) return safe(() => rtdb("bans/" + n, "DELETE"), "Разбан " + n); }, "Разбанить");
 
   /* Room maintenance */
   on("#clearChat", () => { const r = roomName();
     if(confirm("Стереть весь чат комнаты " + r + "?"))
-      return safe(() => wipeNode(`rooms/${r}/chat`), "очистка чата"); }, "Очистить чат");
+      return safe(() => wipeNode(`rooms/${r}/chat`), "Очистка чата"); }, "Очистить чат");
   on("#clearSlots", () => { const r = roomName();
     if(confirm("Сбросить все слоты игроков в " + r + "? Все выпадут из боя."))
-      return safe(() => wipeNode(`rooms/${r}/players`), "сброс слотов"); }, "Сбросить слоты");
+      return safe(() => wipeNode(`rooms/${r}/players`), "Сброс слотов"); }, "Сбросить слоты");
   on("#dump", () => {
     if(!SNAP){ alert("Сначала отсканируй базу"); return; }
     const b = new Blob([JSON.stringify(SNAP, null, 2)], {type:"application/json"});
@@ -1336,7 +1342,7 @@ function boot(){
     document.body.appendChild(a);
     a.click();
     a.remove();
-    log("резервная копия скачана (" + Object.keys(SNAP).length + " корневых узлов)", "good");
+    log("Резервная копия скачана (" + Object.keys(SNAP).length + " корневых узлов)", "good");
   }, "Скачать копию");
   on("#restore", () => { $("#restoreFile").click(); }, "Загрузить копию");
   onChange("#restoreFile", () => {
@@ -1357,7 +1363,7 @@ function boot(){
                   "\n\nТекущие значения этих узлов будут заменены.")) return;
       let ok = 0, fail = 0;
       for(const k of keys){
-        try{ await rtdb(k, "PUT", data[k]); ok++; log("восстановлено: " + k, "good"); }
+        try{ await rtdb(k, "PUT", data[k]); ok++; log("Восстановлено: " + k, "good"); }
         catch(e){ fail++; log("НЕ восстановлено " + k + " - " + e.message, "err"); }
       }
       alert("Восстановлено: " + ok + "\nОшибок: " + fail);
@@ -1376,9 +1382,9 @@ function boot(){
       window.cb4Fatal("Страница собрана не полностью: не найдены " + MISSING.join(", ") +
                       ". Часть кнопок не работает - нажми «Самопроверка».");
   }else{
-    log("панель загружена: " + BOUND.length + " обработчиков на " + $$("button").length + " кнопках - всё нажимается", "good");
-    log("база по умолчанию: " + dbUrl() + (isTest() ? " (тестовый режим)" : " (боевая)"), "");
-    log("чтобы потренироваться без риска: запусти test/fake_firebase.py и нажми «Тестовый режим»", "");
+    log("Панель загружена: " + BOUND.length + " обработчиков на " + $$("button").length + " кнопках - всё нажимается", "good");
+    log("База по умолчанию: " + dbUrl() + (isTest() ? " (тестовый режим)" : " (боевая)"), "");
+    log("Чтобы потренироваться без риска: запусти test/fake_firebase.py и нажми «Тестовый режим»", "");
   }
   selInfo();
 }

@@ -1,4 +1,4 @@
-/* Poll global server flags (AzumBuff, FlashSale) with TTL retention and timeout recovery. */
+/* Poll global server flags (AzumBuff, FlashSale, Christmas) with TTL retention and timeout recovery. */
 #define LIVE_FLAG_POLL_MS 3000
 #define LIVE_FLAG_TTL_MS 30000
 #define LIVE_FLAG_FETCH_TIMEOUT_MS 10000
@@ -14,10 +14,12 @@ static struct {
     DSMutex lock;
     LiveFlag azum;
     LiveFlag sale;
+    LiveFlag xmas;
 /* Initialize all fields explicitly to satisfy -Wmissing-field-initializers. */
 } live_flags = {.lock = DS_MUTEX_INIT,
                 .azum = {"/AzumBuff.json", 0, 0, 0, 0, 0, 0, 0},
-                .sale = {"/FlashSale.json", 0, 0, 0, 0, 0, 0, 0}};
+                .sale = {"/FlashSale.json", 0, 0, 0, 0, 0, 0, 0},
+                .xmas = {"/Christmas.json", 0, 0, 0, 0, 0, 0, 0}};
 
 static int live_flag_value(const char *json) {
     char *end;
@@ -113,8 +115,12 @@ double net_azum_buff(void) { return live_flag_get(&live_flags.azum, 0); }
 
 double net_flash_sale(void) { return live_flag_get(&live_flags.sale, 0); }
 
+/* Christmas: 1 enables the holiday theme and snowballs for everyone. */
+double net_christmas(void) { return live_flag_get(&live_flags.xmas, 0); }
+
 /* Invalidate cached flags and trigger immediate server refresh. */
 void net_live_flags_refresh(void) {
     (void)live_flag_get(&live_flags.azum, 1);
     (void)live_flag_get(&live_flags.sale, 1);
+    (void)live_flag_get(&live_flags.xmas, 1);
 }

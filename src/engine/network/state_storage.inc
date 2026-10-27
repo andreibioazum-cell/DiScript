@@ -85,6 +85,8 @@ typedef struct {
     double ccu;
     /* ebuC's projectile origin, velocity, and shot counter. */
     double brick_x, brick_y, brick_dx, brick_dy, brick;
+    /* Christmas snowball origin, velocity, and shot counter. */
+    double xball_x, xball_y, xball_dx, xball_dy, xball;
     double cls, level, skin;
     int online;
     char nick[24];

@@ -74,14 +74,16 @@ void net_publish_thud(double counter);
 void net_publish_block(double on);
 /* Publish ebuC's projectile state. */
 void net_publish_brick(double x, double y, double dx, double dy, double shot);
+void net_publish_xball(double x, double y, double dx, double dy, double shot);
 void net_publish_codecracker_super(double on);
 void net_set_class(double cls);
 double net_status(void);
 double net_slot(void);
-/* Live server flags (AzumBuff, FlashSale). */
+/* Live server flags (AzumBuff, FlashSale, Christmas). */
 double net_azum_buff(void);
 double net_flash_sale(void);
-/* Refresh both live server flags immediately. */
+double net_christmas(void);
+/* Refresh all live server flags immediately. */
 void net_live_flags_refresh(void);
 double net_event(void);
 void net_event_set(double mode);
@@ -128,6 +130,11 @@ double net_player_brick_y(double slot);
 double net_player_brick_dx(double slot);
 double net_player_brick_dy(double slot);
 double net_player_brick(double slot);
+double net_player_xball_x(double slot);
+double net_player_xball_y(double slot);
+double net_player_xball_dx(double slot);
+double net_player_xball_dy(double slot);
+double net_player_xball(double slot);
 double net_player_codecracker_super(double slot);
 double net_player_dash(double slot);
 double net_player_dash_x(double slot);

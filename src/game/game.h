@@ -19,6 +19,7 @@ int game_pc_in_battle(void);
 void game_pc_goto(double target);
 void game_pc_joy(float *x, float *y, float *r);
 void game_pc_pads(float *ax, float *ay, float *a2x, float *a2y, float *bx, float *by, float *radius);
+void game_pc_xmas_pad(float *x, float *y, float *r);
 /* Return 1 when battle cursor is over chat UI rather than the arena. */
 int game_pc_battle_mouse_ui(float x, float y);
 /* Return 1 when active class exposes a super pad. */

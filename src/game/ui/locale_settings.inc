@@ -24,11 +24,11 @@ static const char *tr_winter_toggle(void) {
     return "Winter theme: OFF";
 }
 
-static const char *tr_newyear_banner(void) {
+static const char *tr_christmas_banner(void) {
     if (language == 1) {
         return "С Новым годом!";
     }
-    return "Happy New Year!";
+    return "Merry Christmas!";
 }
 
 static const char *tr_theme_label(void) {

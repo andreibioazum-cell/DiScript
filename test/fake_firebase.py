@@ -16,10 +16,10 @@ PANEL = os.path.join(ROOT, "index.html")
 
 ADMINS = ("dimasi4ek229@cb4.game",)
 SECRET = "BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc"  # write secret ("w") from firebase.rules.json
-PUBLIC_ROOT = ("AzumBuff", "FlashSale")      # publicly readable root nodes
+PUBLIC_ROOT = ("AzumBuff", "FlashSale", "Christmas")  # publicly readable root nodes
 GAME_ROOT = ("users", "rooms", "bans", "event", "banner")
 KNOWN_ROOT = GAME_ROOT + PUBLIC_ROOT
-ADMIN_ONLY_WRITE = ("event", "banner", "bans", "AzumBuff", "FlashSale")
+ADMIN_ONLY_WRITE = ("event", "banner", "bans", "AzumBuff", "FlashSale", "Christmas")
 
 LOCK = threading.Lock()
 AUTH = {}       # email -> password
@@ -123,6 +123,7 @@ DB = {
                "color": "white"},
     "AzumBuff": 0,
     "FlashSale": 0,
+    "Christmas": 0,
         # root junk: nodes the game knows nothing about
     "freeCupsHack": {"cups": 999999},
     "testtest": "junk",

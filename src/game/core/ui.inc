@@ -242,15 +242,15 @@ static void screen_fill(void) {
     } else {
         double top = bg_screen;
         double bottom = bg_gradient_bottom;
-        if (newyear_active() == 1) {
-            top = newyear_bg_top;
-            bottom = newyear_bg_bottom;
+        if (christmas_active() == 1) {
+            top = christmas_bg_top;
+            bottom = christmas_bg_bottom;
         }
         rect(0, 0, screen_w, screen_h, top);
         draw_bottom_gradient(top, bottom);
     }
     /* Draw backdrop snow beneath UI controls and modals. */
-    draw_newyear_under_notices();
+    draw_christmas_under_notices();
 }
 
 static void draw_bottom_gradient(double top, double bottom) {

@@ -393,6 +393,7 @@ static void update_online(void) {
     tick_hitbox_fades();
     update_aim();
     ball_online_tick(); /* Tick ebuC's projectiles against current remote positions. */
+    christmas_tick(); /* Christmas snowballs for every class. */
     if (finished != 0) {
         return;
     }
