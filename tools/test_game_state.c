@@ -2782,6 +2782,142 @@ static void test_shop_price_guard(void) {
     puts("shop guard: 100-cup levels, 600-cup jackpot, no old-rule overpricing and no unowned characters");
 }
 
+/* Bot Astra reads a punch that is already flying at it: the purple shield eats
+ * that hit, the shield earns the counter-strike, and the whole thing has its own
+ * cooldown, so the bot parries the player without becoming unbeatable. */
+static void test_enemy_astra_parry(void) {
+    game_reset();
+    screen_w = 1080;
+    screen_h = 1920;
+    game_state = ST_SOLO;
+    finished = 0;
+    player_class = CLASS_ORDINARY;
+    player_level = 0;
+    player->x = 400;
+    player->y = 400;
+    player->angle = 0;
+    player->hp = player->max_hp = 100;
+    player_stun = 0;
+    revive_prot = 0;
+    enemy_class = CLASS_ASTRA;
+    enemy_level = 0;
+    enemy->x = 480;
+    enemy->y = 400;
+    enemy->angle = pi;
+    enemy->hp = enemy->max_hp = 100;
+    enemy->stun = 0;
+    enemy->freeze = 0;
+    enemy_revive_prot = 0;
+    enemy_super_cd = 0;
+    egrab_state = 0;
+    egrab_t = 0;
+    egrab_parry_t = 0;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    egrab_parry_cd = 0;
+    egrab_parry_super = 0;
+    enemy_block_left = 0;
+    double saved_dt = dt;
+    dt = 0.02;
+
+        /* The bot sees the punch during its windup and raises the shield before
+         * the hit lands - but only now and then, never on every punch. */
+    start_punch_now();
+    assert(punch->active == 1 && punch->hit == 0);
+    assert(enemy_punch_incoming() == 1);
+    int reactions = 0;
+    for (int attempt = 0; attempt < 600; attempt++) {
+        egrab_parry_t = 0;
+        egrab_unlock_t = 0;
+        egrab_ready_t = 0;
+        egrab_parry_cd = 0;
+        enemy_try_parry_reaction();
+        if (egrab_parry_t > 0) {
+            reactions++;
+        }
+    }
+    assert(reactions > 0 && reactions < 600);
+    assert(fabs((double)reactions / 600.0 - ASTRA_REACT_PARRY_CHANCE / 100.0) < 0.12);
+
+        /* A punch that cannot reach is not worth a parry. */
+    punch->active = 0;
+    egrab_parry_t = 0;
+    egrab_parry_cd = 0;
+    enemy_try_parry_reaction();
+    assert(egrab_parry_t == 0);
+
+        /* The shield answers the hit: no damage, and the strike unlocks. */
+    egrab_parry_t = 0;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    egrab_parry_super = 0;
+    double hp_before = enemy->hp;
+    enemy_start_astra_parry();
+    assert(enemy_apply_damage_at(3, player->x, player->y) == 0);
+    assert(enemy->hp == hp_before);
+    assert(fabs(egrab_unlock_t - ASTRA_STRIKE_UNLOCK_DELAY) < 1e-9);
+    assert(egrab_parry_super == 0);
+
+        /* Unlocking the strike really makes the bot strike back. */
+    enemy->angle = pi;
+    player->hp = player->max_hp = 100;
+    int struck = 0;
+    for (int frame = 0; frame < 400 && struck == 0; frame++) {
+        tick_enemy_grab();
+        tick_astra_fades();
+        if (egrab_state != 0) {
+            struck = 1;
+        }
+    }
+    assert(struck == 1);
+    egrab_state = 0;
+    egrab_parry_t = 0;
+    egrab_unlock_t = 0;
+    egrab_ready_t = 0;
+    egrab_parry_super = 0;
+
+        /* A quick reaction parry that catches nothing must not eat the super. */
+    enemy_super_cd = 0;
+    egrab_parry_t = ASTRA_REACT_PARRY_TIME;
+    egrab_parry_super = 0;
+    for (int frame = 0; frame < 60 && egrab_parry_t > 0; frame++)
+        tick_enemy_grab();
+    assert(egrab_parry_t <= 0 && enemy_super_cd == 0);
+
+        /* The super version still pays for an empty shield. */
+    enemy_super_cd = 0;
+    enemy_start_astra_parry();
+    assert(egrab_parry_super == 1);
+    for (int frame = 0; frame < 60 && egrab_parry_t > 0; frame++)
+        tick_enemy_grab();
+    assert(fabs(enemy_super_cd - astra_grab_miss_cd) < 1e-9);
+
+        /* The shields are snug rings around the cube, the Astra one a bit wider. */
+    player_block = 0;
+    stub_circle_color = 0;
+    draw_guard(player->x, player->y, player->angle, 1, player_scale);
+    double block_r = adm_last_circle_r;
+    stub_circle_color = 0;
+    draw_purple_guard(player->x, player->y, 1, player_scale);
+    double astra_r = adm_last_circle_r;
+    double cube_half = 25 * cube_scale * player_scale;
+    assert(block_r < cube_half * 1.10);          /* snug: inside the cube's own square */
+    assert(astra_r < cube_half * 1.25);          /* Astra's shield too, not a bubble */
+    assert(block_r > cube_half * 0.85);          /* still wraps the drawn cube */
+    assert(astra_r > block_r);
+    assert(fabs(block_r - cube_half * GUARD_RING_K) < 1e-4);
+    assert(fabs(astra_r - cube_half * ASTRA_GUARD_RING_K) < 1e-4);
+    assert((stub_circle_color & 0xFFFFFF) == 0xB35CFF);
+
+    dt = saved_dt;
+    game_state = ST_LOBBY;
+    player_block = 0;
+    egrab_parry_t = 0;
+    egrab_parry_cd = 0;
+    egrab_parry_super = 0;
+    puts("bot astra: parries an incoming punch, counters, and the shields are snug rings");
+}
+
 /* Every fighter winds up exactly like the ordinary cube: 0.2 s before the hit
  * lands and the same swing after it. Azum is no exception. */
 static void test_punch_windup_uniform(void) {
@@ -4998,6 +5134,7 @@ int main(void) {
     test_punch_windup_uniform();
     test_level_four();
     test_shop_price_guard();
+    test_enemy_astra_parry();
     test_codecracker_fx();
     test_fps_meter();
     test_eax229_and_rooms();
@@ -5170,7 +5307,7 @@ int main(void) {
         stub_circle_color = 0;
         draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
         assert(stub_circle_color == 0x38B35CFF);
-        assert(fabs(adm_last_circle_r - 25 * cube_scale * player_scale * 1.75 * 0.90) < 1e-4);
+        assert(fabs(adm_last_circle_r - 25 * cube_scale * player_scale * ASTRA_GUARD_RING_K) < 1e-4);
         /* Dash activates attack sprite for both player and bot Azum. */
         dash_active = 1;
         assert(player_punching_now() == 1);

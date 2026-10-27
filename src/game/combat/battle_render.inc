@@ -199,13 +199,21 @@ static void draw_player_hitbox_layer(void) {
     }
 }
 
+/* The rings hug the cube the player actually sees. The sprite art is drawn
+ * inset inside its 50x50 cell (about 0.72 of the logical half-width), so a ring
+ * that traced the square's corners would float far away from the cube as a
+ * screen-filling bubble. Astra's shield stays a touch wider than a plain block
+ * so the two still read apart. */
+#define GUARD_RING_K 0.95
+#define ASTRA_GUARD_RING_K 1.05
+
 static void draw_guard(double x, double y, double angle, double on, double scale) {
     (void)angle;
     if (on <= 0) {
         return;
     }
         /* Draw circular guard ring around fighter. */
-    double r = 25 * cube_scale * scale * 1.75;
+    double r = 25 * cube_scale * scale * GUARD_RING_K;
     circle(x, y, r, 0x2E4FC3F7);
     ring(x, y, r, clamp(r * 0.13, 3, 5), 0xCC4FC3F7);
 }
@@ -214,7 +222,7 @@ static void draw_purple_guard(double x, double y, double on, double scale) {
     if (on <= 0) {
         return;
     }
-    double r = 25 * cube_scale * scale * 1.75 * 0.90;
+    double r = 25 * cube_scale * scale * ASTRA_GUARD_RING_K;
     circle(x, y, r, 0x38B35CFF);
     ring(x, y, r, clamp(r * 0.13, 3, 5), 0xD8B35CFF);
 }

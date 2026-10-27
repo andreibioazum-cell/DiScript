@@ -128,6 +128,9 @@ static void tick_enemy_class(void) {
         return;
     }
     enemy_super_cd = tick_down(enemy_super_cd);
+    egrab_parry_cd = tick_down(egrab_parry_cd);
+    /* The Astra parries a punch that is already flying at it. */
+    enemy_try_parry_reaction();
     if (enemy_revive_prot > 0) {
         enemy_revive_prot = tick_down(enemy_revive_prot);
     }

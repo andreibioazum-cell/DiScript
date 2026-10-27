@@ -3,6 +3,7 @@ static void enemy_grab_swing(void);
 static double enemy_grab_punching(void);
 static void enemy_grab_clear(void);
 static void enemy_start_astra_parry(void);
+static void enemy_try_parry_reaction(void);
 static void enemy_on_astra_parry_block(void);
 static void enemy_grab_stop(double landed);
 static void enemy_start_grab(void);
