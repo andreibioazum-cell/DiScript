@@ -230,7 +230,7 @@ static double enemy_azum_dash_damage_for(void) {
 }
 
 static void update_azum_buff(void) {
-    double active = net_azum_buff();
+    double active = net_flags_reachable() == 1 ? net_azum_buff() : 0;
     if (active == azum_buff_active) {
         return;
     }

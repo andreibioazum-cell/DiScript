@@ -775,14 +775,20 @@ double net_auth(const char *url, const char *nick, const char *pass) {
     (void)pass;
     return 2;
 }
+/* Offline/online switch for every live Firebase-driven feature. */
+static double stub_link = 1;
 static double stub_azum_buff;
-double net_azum_buff(void) { return stub_azum_buff; }
+double net_azum_buff(void) { return stub_link == 1 ? stub_azum_buff : 0; }
 static double stub_flash_sale;
 static int stub_live_refreshes;
-double net_flash_sale(void) { return stub_flash_sale; }
+double net_flash_sale(void) { return stub_link == 1 ? stub_flash_sale : 0; }
 static double stub_christmas;
-double net_christmas(void) { return stub_christmas; }
+double net_christmas(void) { return stub_link == 1 ? stub_christmas : 0; }
 void net_live_flags_refresh(void) { stub_live_refreshes++; }
+double net_flags_reachable(void) { return stub_link; }
+static double stub_banner_ts;
+double net_banner_ts(void) { return stub_banner_ts; }
+void net_banner_clear(void) { stub_banner_ts = 0; }
 static double stub_event_mode;
 double net_event(void) { return stub_event_mode; }
 void net_event_set(double mode) { stub_event_mode = mode; }
@@ -835,6 +841,8 @@ double net_load_winter_theme(void) { return 0; }
 void net_save_winter_theme(double on) { (void)on; }
 double net_load_new_theme(void) { return 1; }
 void net_save_new_theme(double on) { (void)on; }
+double net_load_theme_mode(void) { return 0; }
+void net_save_theme_mode(double mode) { (void)mode; }
 void settings_mark_legal(void) {}
 /* The game-state harness does not link the runtime pool tick; the promo
  * test only needs the calls to exist so it can prove the message text is
@@ -2085,9 +2093,9 @@ static void test_battle_events(void) {
     player_class = CLASS_ORDINARY;
     reset_battle();
 
-        /* Azum: reduced HP across all lives (7.0). */
-    assert(fabs(azum_hp - 7.0) < 1e-9);
-    assert(fabs(player_max_hp_for(CLASS_AZUM) - 7.0 * round_hp_mult()) < 1e-9);
+        /* Azum: the full 20 HP pool for both the player and the bot. */
+    assert(fabs(azum_hp - 20.0) < 1e-9);
+    assert(fabs(player_max_hp_for(CLASS_AZUM) - 20.0 * round_hp_mult()) < 1e-9);
 
         /* Admin commands pick three DIFFERENT events. */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
@@ -2752,8 +2760,8 @@ static void test_overlay_transitions(void) {
 }
 
 
-/* Christmas snowballs: public flag, per-class throws, 3 bounces, 1 s cooldown,
- * tiny damage/push, and the Sanch / holiday-admin rules. */
+/* Christmas snowballs: ebuC's exact projectile but flat damage, a 1 s
+ * cooldown, a full-size pad, free aiming, and the Sanch / admin rules. */
 static void test_christmas_snowballs(void) {
     double saved_login = stub_login_status;
     char saved_nick[sizeof(stub_login_nick)];
@@ -2770,10 +2778,12 @@ static void test_christmas_snowballs(void) {
     (void)saved_bounces;
     snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
 
-    /* Weaker than elf ebuC's ball on every axis. */
-    assert(XMAS_RADIUS < BALL_RADIUS);
-    assert(XMAS_DAMAGE < BALL_BASE_DAMAGE);
-    assert(XMAS_MAX_BOUNCES == 3.0 && XMAS_COOLDOWN == 1.0);
+    /* Exactly ebuC's projectile, except a bounce never adds damage. */
+    assert(XMAS_RADIUS == BALL_RADIUS && XMAS_SPEED == BALL_SPEED);
+    assert(XMAS_MAX_BOUNCES == BALL_MAX_BOUNCES && XMAS_MAX_TIME == BALL_MAX_TIME);
+    assert(XMAS_BOOM_RADIUS == BALL_BOOM_RADIUS);
+    assert(XMAS_DAMAGE == BALL_BASE_DAMAGE && XMAS_COOLDOWN == 1.0);
+    assert(christmas_pad_r() == battle_pad_r());   /* as big as block/ability */
     assert(XMAS_PUSH > 0 && XMAS_PUSH < 12.0);
 
     /* Flag off, guest: no snowballs. */
@@ -2811,17 +2821,17 @@ static void test_christmas_snowballs(void) {
     christmas_throw();
     assert(xmas_ball.shot == 1);
 
-    /* Three bounces at most, then the snowball disappears. */
+    /* ebuC's bounce limit, then the snowball bursts. */
     k = 0;
-    while (k < 400 && xmas_ball.active == 1) {
+    while (k < 600 && xmas_ball.active == 1) {
         christmas_tick();
-        assert(xmas_ball.bounces <= XMAS_MAX_BOUNCES + 1);
+        assert(xmas_ball.bounces <= XMAS_MAX_BOUNCES + 2);
         k++;
     }
-    assert(xmas_ball.active == 0 && k < 400);
-    assert(xmas_ball.bounces <= XMAS_MAX_BOUNCES + 1);
+    assert(xmas_ball.active == 0 && k < 600);
+    assert(xmas_ball.bounces <= XMAS_MAX_BOUNCES + 2);
 
-    /* Cooldown expires in one second; a fresh hit deals tiny damage + push. */
+    /* Cooldown expires in one second; the burst deals flat base damage. */
     k = 0;
     while (k < 70) {
         christmas_tick();
@@ -2838,8 +2848,21 @@ static void test_christmas_snowballs(void) {
         christmas_tick();
         k++;
     }
-    assert(enemy->hp > 19 && enemy->hp <= 20);
+    assert(fabs(enemy->hp - (20.0 - BALL_BASE_DAMAGE)) < 1e-9);
     assert(enemy->x > player->x + 45);   /* knocked away, but only slightly */
+
+    /* Free aim: tapping the top of the big pad throws straight up, even
+     * though the fighter is facing right. */
+    k = 0;
+    while (k < 70) { christmas_tick(); k++; }
+    xmas_cd = 0;
+    enemy->hp = 0;
+    enemy->x = -500;
+    enemy->y = -500;
+    player->angle = 0;
+    christmas_pad_throw(christmas_pad_x(), christmas_pad_y() - christmas_pad_r());
+    assert(xmas_ball.active == 1 && xmas_ball.vy < 0 && fabs(xmas_ball.vx) < 1e-6);
+    christmas_reset();
 
     /* Sanch never gets snowballs or the theme, even with Christmas: 1. */
     stub_login_status = 2;
@@ -2848,8 +2871,11 @@ static void test_christmas_snowballs(void) {
     assert(christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 0);
     assert(bpass_allowed() == 0 && candies_on() == 0 && bpass_rewards_allowed() == 1);
     christmas_reset();
-    christmas_throw();
-    assert(xmas_ball.active == 0 && xmas_ball.shot == 2);
+    {
+        double shot_before = xmas_ball.shot;
+        christmas_throw();
+        assert(xmas_ball.active == 0 && xmas_ball.shot == shot_before);
+    }
 
     /* The two holiday admins always have Christmas, even with the flag off. */
     stub_christmas = 0;
@@ -2860,7 +2886,7 @@ static void test_christmas_snowballs(void) {
     assert(christmas_snowballs_on() == 1 && winter_theme_on() == 1);
     assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
 
-    /* A remote shot is simulated on the other clients, capped at 3 bounces. */
+    /* A remote shot is simulated on the other clients with ebuC's limits. */
     stub_login_status = 0;
     stub_christmas = 1;
     game_state = ST_ONLINE;
@@ -2882,9 +2908,9 @@ static void test_christmas_snowballs(void) {
     christmas_tick();
     assert(xmas_remote[1].on == 1);
     k = 0;
-    while (k < 400 && xmas_remote[1].on == 1) {
+    while (k < 600 && xmas_remote[1].on == 1) {
         christmas_tick();
-        assert(xmas_remote[1].bounces <= XMAS_MAX_BOUNCES + 1);
+        assert(xmas_remote[1].bounces <= XMAS_MAX_BOUNCES + 2);
         k++;
     }
     assert(xmas_remote[1].on == 0);
@@ -2912,8 +2938,150 @@ static void test_christmas_snowballs(void) {
     enemy->x = saved_ex;
     enemy->y = saved_ey;
     enemy->size = saved_esize;
-    puts("christmas: flag, all classes, 3 bounces, 1 s cooldown, tiny damage/push, Sanch and admins OK");
+    puts("christmas: ebuC physics, flat damage, big pad, free aim, 1 s cooldown, Sanch/admins OK");
 }
+
+
+/* With the Internet switched off every live server feature falls back to the
+ * ordinary game: no New Year, no AzumBuff, no FlashSale, no event, no banner. */
+static void test_offline_ordinary(void) {
+    double saved_link = stub_link, saved_login = stub_login_status;
+    double saved_xmas = stub_christmas, saved_ab = stub_azum_buff, saved_fs = stub_flash_sale;
+    double saved_ev = stub_event_mode, saved_state = game_state;
+    double saved_cls = player_class, saved_ecls = enemy_class;
+    double saved_max = player->max_hp, saved_hp = player->hp;
+    char saved_nick[sizeof(stub_login_nick)];
+    snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+
+    player_class = CLASS_ORDINARY;
+    enemy_class = CLASS_ORDINARY;
+    game_state = ST_LOBBY;
+    stub_link = 1;
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    stub_christmas = 1;
+    stub_azum_buff = 1;
+    stub_flash_sale = 1;
+    stub_event_mode = 3;
+    azum_buff_active = 0;
+    flash_sale_active = 0;
+    assert(christmas_admin_allowed() == 1);
+    assert(christmas_snowballs_on() == 1 && winter_theme_on() == 1);
+    update_azum_buff();
+    update_flash_sale();
+    assert(azum_buff_active == 1 && flash_sale_active == 1);
+    update_event();
+    assert(event_mode == 3);
+
+    /* One failed poll is enough: offline means the ordinary game. */
+    stub_link = 0;
+    assert(net_flags_reachable() == 0);
+    assert(christmas_admin_allowed() == 0);
+    assert(christmas_snowballs_on() == 0 && winter_theme_on() == 0 && christmas_active() == 0);
+    update_azum_buff();
+    update_flash_sale();
+    assert(azum_buff_active == 0 && flash_sale_active == 0);
+    update_event();
+    assert(event_mode == 0);
+    banner_t = 5;
+    game_state = ST_ONLINE;
+    update_banner();
+    assert(banner_t == 0);
+
+    stub_link = saved_link;
+    stub_login_status = saved_login;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    stub_christmas = saved_xmas;
+    stub_azum_buff = saved_ab;
+    stub_flash_sale = saved_fs;
+    stub_event_mode = saved_ev;
+    azum_buff_active = 0;
+    flash_sale_active = 0;
+    event_mode = 0;
+    game_state = saved_state;
+    player_class = saved_cls;
+    enemy_class = saved_ecls;
+    player->max_hp = saved_max;
+    player->hp = saved_hp;
+    puts("offline: ordinary theme, no Christmas/buffs/sale/event/banner OK");
+}
+
+/* The admin auto-block guards during windup and punches back when safe. */
+static void test_admin_auto_block(void) {
+    double saved_login = stub_login_status, saved_state = game_state, saved_finished = finished;
+    double saved_block = player_block, saved_cd = punch_cd, saved_left = punch_left;
+    double saved_px = player->x, saved_py = player->y, saved_pa = player->angle;
+    double saved_ex = enemy->x, saved_ey = enemy->y, saved_ehp = enemy->hp;
+    char saved_nick[sizeof(stub_login_nick)];
+    int i;
+    snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    assert(admin_modifiers_allowed() == 1);
+    game_state = ST_SOLO;
+    finished = 0;
+    player_class = CLASS_ORDINARY;
+    player->hp = player->max_hp = 20;
+    player->x = 200;
+    player->y = 200;
+    enemy->hp = enemy->max_hp = 20;
+    enemy->x = 240;
+    enemy->y = 200;
+    enemy->state = 1;
+    enemy_super_windup = 0;
+    enemy_dash_active = 0;
+    player_block = 0;
+    punch_cd = 0;
+    punch_left = 0;
+    punch->active = 0;
+    player_stun = 0;
+    player_freeze = 0;
+    dash_active = 0;
+    super_windup = 0;
+    astra_state = 0;
+    pgrab_active = 0;
+    gift->active = 0;
+    universe_active = 0;
+    boom_t = 0;
+
+    cheat_autoblock = 0;
+    autoblock_tick();
+    assert(player_block == 0);           /* off: manual control untouched */
+
+    cheat_autoblock = 1;
+    assert(admin_cheat_autoblock() == 1);
+    autoblock_tick();
+    assert(player_block == 1);           /* guard during the windup */
+
+    enemy->state = 0;
+    for (i = 0; i < 14; i++) {
+        autoblock_tick();
+    }
+    assert(player_block == 0);
+    assert(punch->active == 1);          /* punched back as soon as possible */
+    assert(fabs(player->angle) < 1e-9); /* facing the foe */
+
+    cheat_autoblock = 0;
+    autoblock_tick();
+
+    stub_login_status = saved_login;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    game_state = saved_state;
+    finished = saved_finished;
+    player_block = saved_block;
+    punch_cd = saved_cd;
+    punch_left = saved_left;
+    punch->active = 0;
+    player->x = saved_px;
+    player->y = saved_py;
+    player->angle = saved_pa;
+    enemy->x = saved_ex;
+    enemy->y = saved_ey;
+    enemy->hp = saved_ehp;
+    puts("admin: auto block guards at windup and auto punches when safe OK");
+}
+
 
 int main(void) {
     state_create();
@@ -2950,7 +3118,7 @@ int main(void) {
     assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
     assert(fabs(astra_ability_lunge_dist - 245.0) < 1e-9);
     assert(astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
-    assert(fabs(PUNCH_WINDUP - 0.2) < 1e-9);
+    assert(fabs(PUNCH_WINDUP - 0.09) < 1e-9);   /* fast windups for every fighter */
     assert(fabs(enemy_windup - PUNCH_WINDUP) < 1e-9);
     assert(fabs(enemy_super_windup_time - PUNCH_WINDUP) < 1e-9);
     assert(fabs(punch_cooldown - 0.65) < 1e-9);
@@ -2971,10 +3139,10 @@ int main(void) {
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
     assert(class_has_super(CLASS_ASTRA) == 1 && player_max_hp_for(CLASS_ASTRA) == astra_hp * round_hp_mult());
-    /* Base HP pools: Ordinary/Santa 20, Azum 7.0, Astra 20 (*0.95 = 19), ebuC 24. */
+    /* Base HP pools: Ordinary/Santa 20, Azum 20, Astra 20 (*0.95 = 19), ebuC 24. */
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
-    assert(fabs(azum_hp - 7.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
+    assert(fabs(azum_hp - 20.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
     assert(level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 && level_cost(2) == 70 &&
            level_cost(3) == 90);
@@ -4101,7 +4269,9 @@ int main(void) {
     dt = 0.02;
     start_grab_now();
     assert(player_punching_now() == 1);
-    for (int frame = 0; frame < 9; frame++)
+    /* Windup is PUNCH_WINDUP (0.09 s now); no stun until it elapses. */
+    int windup_frames = (int)(ASTRA_STRIKE_DELAY / dt + 0.999) - 1;
+    for (int frame = 0; frame < windup_frames; frame++)
         tick_astra();
     assert(enemy->stun == 0);
     tick_astra();
@@ -4131,7 +4301,7 @@ int main(void) {
     pthrow_t = 0;
     enemy_start_grab();
     assert(enemy_grab_punching() == 1);
-    for (int frame = 0; frame < 9; frame++) {
+    for (int frame = 0; frame < windup_frames; frame++) {
         tick_enemy_grab();
         tick_astra_fades();
     }
@@ -4165,7 +4335,7 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < 9; frame++) {
+    for (int frame = 0; frame < windup_frames; frame++) {
         update_remote_grabs();
         tick_astra_fades();
     }
@@ -4272,8 +4442,16 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and seven cheat labels. */
-    assert(adm_text_n == 12);
+    /* The title, close button, orb, two tabs and all cheat labels. */
+    assert(adm_text_n == 5 + ADMIN_CHEATS);
+    {
+        double saved_lang_ab = language;
+        language = 1;
+        assert(strcmp(admin_cheat_label(ADMIN_CHEATS - 1), "Авто-блок") == 0);
+        language = 0;
+        assert(strcmp(admin_cheat_label(ADMIN_CHEATS - 1), "Auto block") == 0);
+        language = saved_lang_ab;
+    }
     assert(adm_has_text(tr_admin_title()) == 1);
     assert(adm_has_text(admin_orb_label()) == 1);
     assert(adm_has_text(language == 1 ? "Читы" : "Cheats") == 1);
@@ -4760,31 +4938,46 @@ int main(void) {
         screen_h = saved_h;
     }
 
-    /* The old theme is back as a settings toggle (row 4): rose colours, a
-     * left-aligned menu and no NPC cube; tapping again brings the new one. */
+    /* Settings row 4 now cycles three themes: ordinary -> New Year -> night.
+     * The New Year one is grey/unavailable until the holiday flag is on. */
     {
-        assert(new_theme == 1);
-        assert(menu_x() == center_x(btn_w));
+        double tx = menu_x() + menu_btn_w() / 2;
+        double ty = settings_row_y(4) + settings_btn_h() / 2;
+        double saved_lang_theme = language;
+        double saved_login_theme = stub_login_status;
+        language = 0;
+        stub_login_status = 0;
+        stub_christmas = 0;
+        assert(theme_mode == 0);
+        assert(strcmp(tr_theme_label(), "Theme: Ordinary") == 0);
         game_state = ST_SETTINGS;
         t_dir = 0;
         t_target = 0;
-        logic_touch(menu_x() + menu_btn_w() / 2, settings_row_y(4) + settings_btn_h() / 2, 0, 20);
-        assert(new_theme == 0 && t_dir == 0);
-        assert(ui_purple == 0xFFD4508A && bg_screen == 0xFF3A1530);
-        assert(menu_x() == screen_margin);
-        /* The lobby labels stand exactly in the middle of the button column:
-         * centred on the buttons, not to the left of them; the battle pass
-         * button stays in its corner. */
-        assert(lobby_label_x(100) == menu_x() + (btn_w - 100) / 2);
-        assert(bpass_corner_x() == screen_w - screen_margin - bpass_corner_w());
-        /* The old theme is the rose one, so its cards are rose too. */
-        assert(card_bg == 0xFF44203A);
+        logic_touch(tx, ty, 0, 20);
+        assert(theme_mode == 1 && t_dir == 0);
+        assert(winter_theme_on() == 0);           /* locked while the flag is off */
+        assert(strcmp(tr_theme_label(), "Theme: New Year (locked)") == 0);
         press_points_clear();
-        logic_touch(menu_x() + menu_btn_w() / 2, settings_row_y(4) + settings_btn_h() / 2, 0, 21);
-        assert(new_theme == 1 && ui_purple == 0xFF5F10A0);
-        assert(lobby_label_x(100) == center_x(100));
+        logic_touch(tx, ty, 0, 21);
+        assert(theme_mode == 2);
+        assert(strcmp(tr_theme_label(), "Theme: Night") == 0);
+        assert(ui_purple == 0xFF7D6BB8 && bg_screen == 0x0C1230);
+        press_points_clear();
+        logic_touch(tx, ty, 0, 22);
+        assert(theme_mode == 0 && ui_purple == 0xFF5F10A0);
         assert(card_bg == 0xFF2A2A40);
         press_points_clear();
+        /* With the holiday flag on, the New Year theme unlocks. */
+        stub_christmas = 1;
+        theme_mode = 1;
+        assert(winter_theme_on() == 1 && christmas_active() == 1);
+        assert(strcmp(tr_theme_label(), "Theme: New Year") == 0);
+        stub_christmas = 0;
+        theme_mode = 0;
+        apply_theme();
+        t_dir = 0;
+        language = saved_lang_theme;
+        stub_login_status = saved_login_theme;
         /* Row 5 opens the legal documents window over the settings. */
         logic_touch(menu_x() + menu_btn_w() / 2, settings_row_y(5) + settings_btn_h() / 2, 0, 22);
         assert(t_dir == 1 && docs_open == 0);
@@ -4942,10 +5135,10 @@ int main(void) {
      * 2) Astra's super starts as an instant-on-press 0.4 s purple shield that
      *    blocks 100% of damage; blocking >=1 hit unlocks Grab for 0.8 s, and
      *    only then can Grab fire (otherwise Grab disappears back to Block + CD).
-     * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.2 s. */
+     * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.09 s. */
     {
         assert(fabs(block_guard - 0.25) < 1e-9);
-        assert(fabs(enemy_windup - 0.20) < 1e-9);
+        assert(fabs(enemy_windup - PUNCH_WINDUP) < 1e-9);
         dt = 1.0 / 60.0;
 
         /* 1) Normal frontal block cuts 75% of damage for player and bot. */
@@ -5112,7 +5305,8 @@ int main(void) {
         {
             double saved_dt2 = dt;
             dt = 0.02;
-            for (int f = 0; f < 9; f++)
+            int ab_frames = (int)(ASTRA_STRIKE_DELAY / dt + 0.999) - 1;
+            for (int f = 0; f < ab_frames; f++)
                 tick_astra();
             assert(enemy->stun == 0);
             tick_astra();
@@ -5153,7 +5347,8 @@ int main(void) {
         enemy_punch_a = 0;
         assert(start_enemy_attack() == 1);
         assert(enemy->state == 1 && enemy_punching_now() == 1);
-        for (int f = 0; f < 11; f++) {
+        int bot_windup_ticks = (int)(enemy_windup / dt + 0.999) - 1;
+        for (int f = 0; f < bot_windup_ticks; f++) {
             update_enemy();
             tick_hitbox_fades();
             assert(enemy->state == 1 && enemy_punching_now() == 1);
@@ -5677,14 +5872,15 @@ int main(void) {
         enemy->x = 460;
         enemy->y = 400;
         enemy->hp = enemy->max_hp = 20;
-        enemy->stun = 99; /* keep enemy stationary to verify exact 0.2 s timing */
+        enemy->stun = 99; /* keep enemy stationary to verify exact windup timing */
         punch->active = 0;
         punch_left = 0;
         punch_cd = 0;
         aim_a = 0;
         fire_punch();
         assert(punch->active == 1 && player_punching_now() == 1);
-        for (int f = 0; f < 9; f++) {
+        int pwind_ticks = (int)(PUNCH_WINDUP / dt + 0.999) - 1;
+        for (int f = 0; f < pwind_ticks; f++) {
             update_game();
             assert(player_punching_now() == 1 && fabs(enemy->hp - 20.0) < 1e-9);
         }
@@ -5695,7 +5891,7 @@ int main(void) {
         punch_left = 0;
         punch_cd = 0;
 
-        /* 3. Online remote normal punch: pose immediate, damage after 0.2 s. */
+        /* 3. Online remote normal punch: pose immediate, damage after the windup. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         finished = 0;
@@ -5716,7 +5912,7 @@ int main(void) {
         arr_set(remote_punches, 1 * punch_fields + 3, 1);
         arr_set(remote_punches, 1 * punch_fields + 4, 0);
         arr_set(remote_punches, 1 * punch_fields + 5, 0);
-        for (int f = 0; f < 9; f++) {
+        for (int f = 0; f < pwind_ticks; f++) {
             tick_remote_punches();
             update_remote_punches();
             assert(arr_get(remote_punches, 1 * punch_fields) == 1 && fabs(player->hp - 20.0) < 1e-9);
@@ -5903,6 +6099,8 @@ int main(void) {
     }
 
     test_christmas_snowballs();
+    test_offline_ordinary();
+    test_admin_auto_block();
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

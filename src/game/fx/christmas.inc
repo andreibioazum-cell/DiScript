@@ -136,9 +136,18 @@ static void update_christmas_jingle(void) {
     }
 }
 
+/* Re-apply the palette when the selected theme or the holiday flag changes
+ * (the New Year theme is grey until the flag actually unlocks it). */
+static double xmas_theme_sig = -1;
 static void update_christmas(void) {
+    double sig;
     /* Keep the public root flag polled even outside the shop. */
     (void)christmas_snowballs_on();
+    sig = theme_mode * 8 + winter_theme_on() * 4 + net_flags_reachable() * 2 + net_christmas();
+    if (sig != xmas_theme_sig) {
+        xmas_theme_sig = sig;
+        apply_theme();
+    }
     update_christmas_snow();
     update_christmas_jingle();
 }

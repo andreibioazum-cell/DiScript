@@ -343,6 +343,7 @@ static void update_game(void) {
     follow_punch();
     ball_tick();
     christmas_tick();
+    autoblock_tick();
     ball_fade_tick();
     super_cd = tick_down(super_cd);
     if (admin_cheat_nocd() == 1) {

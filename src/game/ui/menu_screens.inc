@@ -88,7 +88,15 @@ static void draw_settings(void) {
     button("English", menu_x(), settings_row_y(1), menu_btn_w(), settings_btn_h());
     button("Русский", menu_x(), settings_row_y(2), menu_btn_w(), settings_btn_h());
     button(tr_hitboxes_toggle(), menu_x(), settings_row_y(3), menu_btn_w(), settings_btn_h());
-    button(tr_theme_label(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h());
+    /* The locked New Year theme is drawn grey, exactly as an unavailable
+     * option, until the holiday flag actually switches it on. */
+    if (theme_mode == 1 && winter_theme_on() == 0) {
+        button_disabled_scaled(tr_theme_label(), menu_x(), settings_row_y(4), menu_btn_w(),
+                               settings_btn_h(), fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
+    } else {
+        button_scaled(tr_theme_label(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h(),
+                      fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
+    }
     button_scaled(tr_legal(), menu_x(), settings_row_y(5), menu_btn_w(), settings_btn_h(),
                   fit_text_scale(tr_legal(), menu_btn_w() - 24, 0.8));
 }

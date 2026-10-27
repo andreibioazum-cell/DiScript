@@ -85,6 +85,8 @@ double net_flash_sale(void);
 double net_christmas(void);
 /* Refresh all live server flags immediately. */
 void net_live_flags_refresh(void);
+/* 1 while Firebase answers the flag poller (offline => ordinary game). */
+double net_flags_reachable(void);
 double net_event(void);
 void net_event_set(double mode);
 double net_player_online(double slot);
@@ -225,6 +227,8 @@ double net_load_winter_theme(void);
 void net_save_winter_theme(double on);
 double net_load_new_theme(void);
 void net_save_new_theme(double on);
+double net_load_theme_mode(void);
+void net_save_theme_mode(double mode);
 
 void settings_mark_legal(void);
 double settings_legal_ts(void);

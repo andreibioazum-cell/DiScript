@@ -39,6 +39,11 @@ python3 test/fake_firebase.py 8080
 `Dimasi4ek229` с паролем `admin`. Подробности, список починенных поломок и
 проверки - в [docs/admin-panel.md](docs/admin-panel.md).
 
+Панель умеет чистить базу от **полей старых версий** - например,
+`gifts/emerald_hue` и `gifts/rose`, которые игра уже не использует: отдельный
+фильтр «Устаревшие поля» и кнопка «Удалить устаревшие поля» удаляют их, не
+трогая живой прогресс.
+
 ## Правовая информация
 
 Возрастная категория 12+. Пользовательское соглашение, политика обработки
@@ -94,7 +99,9 @@ python3 test/fake_firebase.py 8080
 ```
 
 then open <http://localhost:8080/>, press the test-mode button and sign in as
-`Dimasi4ek229` with the password `admin`. Details in
+`Dimasi4ek229` with the password `admin`. The panel also cleans obsolete fields
+from older game versions (`gifts/emerald_hue`, `gifts/rose`) with the dedicated
+legacy-field filter and button. Details in
 [docs/admin-panel.md](docs/admin-panel.md).
 
 ## Legal

@@ -492,13 +492,13 @@ def test_multitouch(assets: Path) -> None:
                 "--touch", "1040:408:533:0:5", "--touch", "1052:408:533:1:5",
                 # the ult pad with the stick still held: fires immediately along facing angle
                 "--touch", "1080:408:630:0:3", "--touch", "1090:408:630:1:3",
-                "--report", "1085", "--report", "1300", "--report", "1500",
+                "--report", "1081", "--report", "1300", "--report", "1500",
             ],
         )
         check("мультитач-бой без ошибок", result.returncode == 0, result.stderr[-1500:])
         reports = parse_reports(result.stdout)
         before, guarded = reports.get(890, {}), reports.get(960, {})
-        punched, fired = reports.get(1000, {}), reports.get(1085, {})
+        punched, fired = reports.get(1000, {}), reports.get(1081, {})
         after = reports.get(1500, {})
         check(
             "палец на стике двигает кубика, пока второй держит блок",
@@ -622,8 +622,8 @@ def test_longer_fights(assets: Path) -> None:
         frame = parse_reports(result.stdout).get(815, {})
         hp = float(frame.get("hp", "0"))
         foe = float(frame.get("foe", "0"))
-        # Base HP pools: Ordinary 20, Azum 7.0, Santa 20, ebuC 24, Astra 19.0, CodeCracker 12.
-        raw = {"0": 20.0, "1": 7.0, "2": 20.0, "3": 24.0, "4": 19.0, "6": 12.0}
+        # Base HP pools: Ordinary 20, Azum 20, Santa 20, ebuC 24, Astra 19.0, CodeCracker 12.
+        raw = {"0": 20.0, "1": 20.0, "2": 20.0, "3": 24.0, "4": 19.0, "6": 12.0}
         cls = frame.get("cls", "0")
         base = raw.get(cls, 20.0)
         check("здоровья не меньше, чем даёт класс", hp >= base, f"hp={hp}, база={base}")

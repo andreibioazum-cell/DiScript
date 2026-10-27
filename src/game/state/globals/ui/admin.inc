@@ -19,5 +19,7 @@ double cheat_cc;
 double cheat_estun;
 /* Trajectory preview for ebuC's bouncing projectile. */
 double cheat_ball_path;
+/* Auto guard during windup, then auto punch. */
+double cheat_autoblock;
 /* Suppresses orange stun ring for stuns applied via the admin panel. */
 double cheat_estun_mark;

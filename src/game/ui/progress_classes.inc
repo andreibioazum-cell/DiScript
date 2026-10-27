@@ -28,7 +28,7 @@ static void set_class_progress(double cls, double lv, double un) {
 #define FLASH_SALE_FRACTION 0.10
 
 static void update_flash_sale(void) {
-    double active = net_flash_sale();
+    double active = net_flags_reachable() == 1 ? net_flash_sale() : 0;
     if (active != flash_sale_active) {
         ds_log("flash sale %s (Firebase FlashSale read)", active == 1 ? "ON: all prices -10%" : "off");
     }

@@ -394,6 +394,7 @@ static void update_online(void) {
     update_aim();
     ball_online_tick(); /* Tick ebuC's projectiles against current remote positions. */
     christmas_tick(); /* Christmas snowballs for every class. */
+    autoblock_tick(); /* Admin auto block / auto punch. */
     if (finished != 0) {
         return;
     }

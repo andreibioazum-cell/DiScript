@@ -21,14 +21,17 @@ The catalogue has five stickers; the emerald is the most expensive one
 
 The first sticker used to be `rose`; it is now `poop`. Old `rose` counters may
 still sit in profiles — the rules keep accepting them, but the game neither
-shows nor spends them.
+shows nor spends them. The same applies to `gifts/emerald_hue`: the emerald is
+always rainbow now (`net_gift_hue()` returns 0), so the admin-chosen hue is no
+longer read. Both are obsolete fields; the web admin panel lists them in
+`LEGACY_FIELDS` and removes them from the database with the dedicated
+«Устаревшие поля» filter and the «Удалить устаревшие поля» button.
 
 ## Data layout
 
 ```
 users/<nick>/cups          cup balance
 users/<nick>/gifts/poop    0..999 owned stickers (cake, bear, rocket likewise)
-users/<nick>/gifts/emerald_hue   0..7, the hue of the emerald's shimmer
 ```
 
 * **Buy** — one authenticated PATCH to `users/<nick>.json` that writes the new
@@ -44,10 +47,7 @@ users/<nick>/gifts/emerald_hue   0..7, the hue of the emerald's shimmer
   sticker, while a duplicate from an event is still worth something.
 * **Admin grant** — the CCP panel's Gifts tab performs the same `+1` write; it
   does not debit cups. It only needs the recipient's nickname: nicknames are
-  unique, so the nickname already points at exactly one account. When the
-  granted sticker is the emerald, the panel also writes the chosen hue
-  (0..7) to `gifts/emerald_hue` of the same player — one path, so the other
-  counters stay untouched.
+  unique, so the nickname already points at exactly one account.
 
 The sticker counter in the buy/sell PATCH is written as a **path**, not as a
 nested object:
@@ -127,12 +127,9 @@ which writes them itself).
   over the white facets (a tint reads only on a white base - on a coloured
   sprite the hue would turn to mud); the hue drifts slowly
   (`ds_frame_seconds() * 0.08`) and the veil's strength breathes with a sine.
-  The hue is per player: 0 is the plain rainbow, 1..7 are the shades the admin
-  picked for that account.
-* The CCP panel's Gifts tab shows a row of eight colour tiles under the
-  sticker list (they appear when the emerald is selected; the chosen one is
-  outlined). Tapping a tile sets the hue that the next grant of an emerald
-  writes to the recipient.
+  The base hue is fixed to 0 (plain rainbow) for every account: `net_gift_hue()`
+  always returns 0. `gifts/emerald_hue` is a legacy field kept only in the
+  database rules for compatibility with old profiles.
 * Each card also names the sticker and its rarity in the rarity colour:
   **common** white, **rare** light blue (`#5CC8FF`), **epic** violet
   (`#C08CFF`) - and the **exclusive** emerald is signed plain white too: the

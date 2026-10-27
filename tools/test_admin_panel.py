@@ -224,6 +224,34 @@ def check_guard(js_blocks: list[str]) -> None:
 def check_schema(html: str, js: str, rules: dict) -> None:
     root_keys = [k for k in rules if not k.startswith(".") and k != "$other"]
 
+    # Obsolete fields from older game versions must be listed, findable and
+    # cleanable from the panel, while the schema still mirrors the rules.
+    legacy = re.findall(r'"([^"]+)"\s*:', extract_const(js, "LEGACY_FIELDS") or "")
+    if not legacy:
+        error("в панели нет LEGACY_FIELDS - чистить мусор старых версий нечем")
+    for path in ("users/*/gifts/emerald_hue", "users/*/gifts/rose"):
+        if path not in legacy:
+            error(f"в LEGACY_FIELDS нет устаревшего поля {path}")
+    gift_panel = spec_fields(extract_const(js, "GIFT_FIELDS"))
+    user_panel = spec_fields(extract_const(js, "USER_FIELDS"))
+    for path in legacy:
+        key = path.rsplit("/", 1)[-1]
+        if key not in gift_panel and key not in user_panel:
+            error(f"устаревшее поле {key} не описано в схеме панели, а правила его пускают")
+    if 'data-k="legacy"' not in html:
+        error("у панели нет фильтра «Устаревшие поля»")
+    if "legacy" not in list_of(extract_const(js, "OLD_CLEAN_KINDS")):
+        error("общая чистка старых данных не захватывает устаревшие поля")
+    if "legacyWhy" not in js or "resetJanitorFilters" not in js:
+        error("панель не помечает и не чистит устаревшие поля")
+
+    # All visible labels start with a capital letter (except buK/ebuC names).
+    for needle in ('id="modePill">боевая', 'placeholder="ник"', '"готово: удалено',
+                   '"чистка завершена:', '"чищу ', '"удаляю ', '"meta - не объект"',
+                   '"больше допустимого ', '"неверный пароль или такого аккаунта'):
+        if needle in html:
+            error(f"надпись начинается с маленькой буквы: {needle}")
+
     for name in ("ROOT_OK", "ROOT_PARTS"):
         panel = list_of(extract_const(js, name))
         if not panel:

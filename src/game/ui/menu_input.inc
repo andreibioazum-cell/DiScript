@@ -289,7 +289,11 @@ static void touch_settings(double x, double y) {
         return;
     }
     if (hit_settings_row(x, y, 4) == 1) {
-        new_theme = 1 - new_theme;
+        /* One press = next theme: ordinary -> New Year -> night -> ordinary. */
+        theme_mode = theme_mode + 1;
+        if (theme_mode > 2) {
+            theme_mode = 0;
+        }
         apply_theme();
         save_settings();
         return;

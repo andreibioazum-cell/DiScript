@@ -139,10 +139,28 @@ try {
   console.log("\n== 3. Уборщик: фильтры, выделение, удаление ==");
   const found = $("#found").querySelectorAll("input");
   check("нашли мусор", found.length > 0, String(found.length));
-  check("живой прогресс не в мусоре",
-        !logText().includes("users/Dimasi4ek229/gifts") &&
-        !$("#found").textContent.includes("users/Player2/gifts/emerald_hue"),
+  check("живой прогресс не в мусоре, а устаревшие поля найдены",
+        !$("#found").textContent.includes("users/Player2/gifts/poop") &&
+        $("#found").textContent.includes("users/Player2/gifts/emerald_hue") &&
+        $("#found").textContent.includes("users/Player2/gifts/rose") &&
+        /Устаревшее поле/.test($("#found").textContent),
         $("#found").textContent.slice(0, 300));
+  // One-click cleanup of fields that the current game no longer uses.
+  click("#markLegacy");
+  await sleep(150);
+  check("фильтр устаревших полей показывает только их",
+        $("#found").textContent.includes("users/Player2/gifts/emerald_hue") &&
+        !$("#found").textContent.includes("freeCupsHack"));
+  click("#cleanLegacy");
+  await waitFor(async () => (await db("users/Player2/gifts/emerald_hue", token)) === null,
+                "удаление устаревших полей");
+  check("устаревшие поля удалены из базы",
+        (await db("users/Player2/gifts/emerald_hue", token)) === null &&
+        (await db("users/Player2/gifts/rose", token)) === null &&
+        (await db("users/Dimasi4ek229/gifts/emerald_hue", token)) === null);
+  check("живые подарки и прогресс не тронуты чисткой",
+        (await db("users/Player2/gifts/emerald", token)) === 1 &&
+        (await db("users/Player2/cups", token)) === 10);
   check("корневой мусор виден", $("#found").textContent.includes("freeCupsHack"));
   check("мусорный игрок виден", $("#found").textContent.includes("xX_hack_Xx"));
   check("спам в чате виден", $("#found").textContent.includes("взлом"));
@@ -242,9 +260,9 @@ try {
   check("неправильный ник не уходит в базу",
         dialogs.some((d) => d.kind === "alert" && /A-Za-z0-9_/.test(d.text)));
 
-  /* The emerald hue tiles live in the in-game CCP panel, not in this web
-   * panel, so there is no #hueNick/#hueVal/#setHue form to drive here. The
-   * schema still accepts the field (checked by tools/test_admin_panel.py). */
+  /* emerald_hue and rose are obsolete fields now: the rules still accept
+   * them for old profiles, but the web panel finds and removes them with the
+   * dedicated "Устаревшие поля" filter (checked in section 3 above). */
 
   console.log("\n== 6. Комната: чат и слоты ==");
   setVal("#room", "main");

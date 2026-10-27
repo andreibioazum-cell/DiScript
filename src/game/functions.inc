@@ -41,6 +41,7 @@
 #include "include/prototypes/combat/battle_actions_fx.inc"
 #include "include/prototypes/combat/battle_ball.inc"
 #include "include/prototypes/combat/battle_christmas.inc"
+#include "include/prototypes/combat/battle_autoblock.inc"
 #include "include/prototypes/combat/battle_super_render.inc"
 #include "include/prototypes/combat/battle_hitboxes.inc"
 #include "include/prototypes/combat/battle_hitbox_fades.inc"

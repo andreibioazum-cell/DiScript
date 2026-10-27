@@ -113,7 +113,7 @@ static double astra_ability_self_damage(void) {
     return astra_ability_punch_damage_for(player_class, player_level, astra_ability_local());
 }
 
-/* Start Astra's 0.2s backward windup followed by fixed-length forward dash. */
+/* Start Astra's short backward windup (PUNCH_WINDUP) before the forward dash. */
 static void astra_ability_lunge_start(void) {
     astra_ability_lunge_t = 0;
     astra_ability_lunge_fx = player->x;
@@ -157,7 +157,7 @@ static void astra_ability_lunge_tick(void) {
     }
     double prev_t = astra_ability_lunge_t;
     astra_ability_lunge_t = astra_ability_lunge_t + dt;
-    /* Allow aiming direction to follow rotation during the 0.2s windup. */
+    /* Allow aiming direction to follow rotation during the short windup. */
     if (prev_t < ASTRA_PULLBACK_TIME) {
         double dx = cos(player->angle);
         double dy = sin(player->angle);

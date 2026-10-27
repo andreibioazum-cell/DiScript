@@ -31,9 +31,23 @@ static const char *tr_christmas_banner(void) {
     return "Merry Christmas!";
 }
 
+/* Three themes in one button: ordinary, New Year (grey while unavailable),
+ * and night. The label always says which one is active right now. */
 static const char *tr_theme_label(void) {
     if (language == 1) {
-        return new_theme == 1 ? "Тема: Новая" : "Тема: Старая";
+        if (theme_mode == 1) {
+            return winter_theme_on() == 1 ? "Тема: Новогодняя" : "Тема: Новогодняя (недоступна)";
+        }
+        if (theme_mode == 2) {
+            return "Тема: Ночная";
+        }
+        return "Тема: Обычная";
     }
-    return new_theme == 1 ? "Theme: New" : "Theme: Old";
+    if (theme_mode == 1) {
+        return winter_theme_on() == 1 ? "Theme: New Year" : "Theme: New Year (locked)";
+    }
+    if (theme_mode == 2) {
+        return "Theme: Night";
+    }
+    return "Theme: Ordinary";
 }

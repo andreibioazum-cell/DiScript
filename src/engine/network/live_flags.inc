@@ -15,11 +15,14 @@ static struct {
     LiveFlag azum;
     LiveFlag sale;
     LiveFlag xmas;
+    long long link_at;   /* last time any Firebase flag answer arrived */
+    int link_last_ok;    /* 1 if that last answer was HTTP 200 */
 /* Initialize all fields explicitly to satisfy -Wmissing-field-initializers. */
 } live_flags = {.lock = DS_MUTEX_INIT,
                 .azum = {"/AzumBuff.json", 0, 0, 0, 0, 0, 0, 0},
                 .sale = {"/FlashSale.json", 0, 0, 0, 0, 0, 0, 0},
-                .xmas = {"/Christmas.json", 0, 0, 0, 0, 0, 0, 0}};
+                .xmas = {"/Christmas.json", 0, 0, 0, 0, 0, 0, 0},
+                .link_at = 0, .link_last_ok = 0};
 
 static int live_flag_value(const char *json) {
     char *end;
@@ -66,8 +69,17 @@ static void *live_flag_fetch(void *arg) {
         if (code == 200) {
             flag->enabled = live_flag_value(resp);
             flag->valid_until = now_ms() + LIVE_FLAG_TTL_MS;
+            live_flags.link_at = now_ms();
+            live_flags.link_last_ok = 1;
+        } else {
+            /* Offline (or server down) means the ordinary game: no New Year,
+             * no AzumBuff, no FlashSale. A cached 1 must not survive a
+             * failed request, otherwise the holiday sticks for 30 seconds. */
+            flag->enabled = 0;
+            flag->valid_until = 0;
+            live_flags.link_at = now_ms();
+            live_flags.link_last_ok = 0;
         }
-        /* On an error the previous value and its deadline stay untouched. */
         flag->busy = 0;
     }
     ds_mutex_unlock(live_flags.lock);
@@ -117,6 +129,21 @@ double net_flash_sale(void) { return live_flag_get(&live_flags.sale, 0); }
 
 /* Christmas: 1 enables the holiday theme and snowballs for everyone. */
 double net_christmas(void) { return live_flag_get(&live_flags.xmas, 0); }
+
+/* 1 while the flag poller still hears from Firebase. Everything driven by
+ * server-side switches (holiday, buffs, sales, events, banner) falls back to
+ * its ordinary state when the Internet is switched off. */
+double net_flags_reachable(void) {
+    long long now = now_ms(), at;
+    int ok;
+    ds_mutex_lock(live_flags.lock);
+    at = live_flags.link_at;
+    ok = live_flags.link_last_ok;
+    ds_mutex_unlock(live_flags.lock);
+    /* The most recent poll must have succeeded and be fresh: one failed
+     * request (no Internet) is enough to fall back to the ordinary game. */
+    return ok == 1 && at > 0 && now - at <= LIVE_FLAG_TTL_MS ? 1 : 0;
+}
 
 /* Invalidate cached flags and trigger immediate server refresh. */
 void net_live_flags_refresh(void) {

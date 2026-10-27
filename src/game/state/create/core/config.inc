@@ -197,8 +197,8 @@ bot_dodge_speed = 305.0;
 enemy_min_distance = 55;
 enemy_punch_reach = 86;
 enemy_punch_width = 86;
-enemy_windup = 0.20;
-enemy_lock_time = 0.08;
+enemy_windup = 0.09;
+enemy_lock_time = 0.03;
 enemy_punch_time = 0.10;
 enemy_recovery = 0.14;
 enemy_cooldown_min = 0.42;
@@ -234,7 +234,7 @@ enemy_dash_cd_time = 10.5;
 enemy_station_cd_time = 8.5;
 enemy_astra_cd_time = 7.5;
 enemy_astra_range = 275;
-enemy_super_windup_time = 0.20;
+enemy_super_windup_time = 0.09;
 enemy_santa_range = 340;
 enemy_dash_min_range = 90;
 enemy_dash_max_range = 420;
@@ -302,7 +302,7 @@ azum_dash_time = 0.45;
 azum_dash_speed = 850;
 azum_dash_damage = 3.0;
 azum_dash_stun = 0.45;
-azum_hp = 7.0; astra_hp = 20;
+azum_hp = 20.0; astra_hp = 20;
 /* CodeCracker HP and overclock tuning. */
 codecracker_hp = 12;
 codecracker_speed_mult = 3;
@@ -417,6 +417,7 @@ BUTTON_CLICK_SOUND = "button_click.wav";
 button_click_ok = 0;
 
 new_theme = 1;
+theme_mode = 0;
 ui_nav_gen = 0;
 
 /* NPC cube in the lobby (debug placeholder) */

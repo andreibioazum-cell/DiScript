@@ -66,7 +66,7 @@
 <header>
   <h1>CB4 - админ-панель Realtime Database</h1>
   <span class="tag" id="who">Не авторизован</span>
-  <span class="pill" id="modePill">боевая база</span>
+  <span class="pill" id="modePill">Боевая база</span>
   <span class="sp"></span>
   <button id="selftest" title="Проверить, что все кнопки страницы привязаны к обработчикам">Самопроверка</button>
   <button id="logout" class="hide">Выйти</button>
@@ -139,6 +139,7 @@
   <div class="row" style="margin-bottom:10px">
     <label class="chk"><input type="checkbox" class="flt" data-k="unknown_root" checked> Лишние корневые узлы</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="unknown_field" checked> Левые поля в users/rooms</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="legacy" checked> Устаревшие поля из старых версий</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="bad_user" checked> Мусорные «игроки»</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="chat" checked> Чат: взлом/спам</label>
     <label class="chk"><input type="checkbox" class="flt" data-k="chat_all"> Чат целиком</label>
@@ -157,6 +158,11 @@
     <input id="cleanBannerHours" type="number" min="0" max="8760" step="1" value="24" size="5" title="Возраст баннера в часах, после которого он считается устаревшим">
     <button id="markOld">Отметить старое и ненужное</button>
     <button id="cleanOld" class="danger">Очистить старые и ненужные данные</button>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <button id="markLegacy">Найти устаревшие поля</button>
+    <button id="cleanLegacy" class="danger">Удалить устаревшие поля</button>
+    <span class="muted">Например, <code>gifts/emerald_hue</code> и <code>gifts/rose</code> - игра их больше не читает</span>
   </div>
   <div class="row" style="margin-bottom:10px">
     <span class="muted">Стоп-слова (через запятую):</span>
@@ -179,6 +185,13 @@
     <code>AzumBuff</code>, <code>FlashSale</code>, <code>Christmas</code>, структура комнат.
     Список полей сверяется с <code>firebase.rules.json</code> тестом
     <code>tools/test_admin_panel.py</code>.
+  </p>
+  <p class="muted" style="margin:8px 0 0">
+    Устаревшие поля из старых версий (<code>gifts/emerald_hue</code>,
+    <code>gifts/rose</code>) правила ещё принимают для совместимости, но игра
+    их не пишет и не читает. Панель находит их отдельным фильтром
+    «Устаревшие поля» и удаляет кнопкой «Удалить устаревшие поля», не трогая
+    живой прогресс, подарки и слоты.
   </p>
 </section>
 
@@ -226,7 +239,7 @@
 
   <h3>Баны</h3>
   <div class="row">
-    <input id="banNick" placeholder="ник" size="16">
+    <input id="banNick" placeholder="Ник" size="16">
     <button id="ban" class="danger">Забанить</button>
     <button id="unban" class="ok">Разбанить</button>
   </div>
@@ -343,6 +356,25 @@ const str  = (min, max) => ({t:"str", min, max});
 const secret = ()    => ({t:"str", min:1, max:64, note:"Секрет записи «w»"});
 
 /* Allowed root database keys and per-node fallback targets. */
+/* Поля из старых версий игры: firebase.rules.json всё ещё разрешает их для
+ * совместимости со старыми профилями, но новая версия игры их не пишет и не
+ * читает. Такие значения - мусор, который можно смело удалить из базы.
+ * "*" в шаблоне пути означает один сегмент (ник игрока). */
+const LEGACY_FIELDS = {
+  "users/*/gifts/emerald_hue": "Устаревшее поле emerald_hue: игра больше не читает оттенок изумруда",
+  "users/*/gifts/rose": "Устаревшее поле rose: старый подарок заменён на poop"
+};
+/* Return the human-readable reason when the path is an obsolete field. */
+function legacyWhy(path){
+  const parts = String(path).split("/");
+  for(const [tpl, why] of Object.entries(LEGACY_FIELDS)){
+    const t = tpl.split("/");
+    if(t.length === parts.length && t.every((seg, i) => seg === "*" || seg === parts[i]))
+      return why;
+  }
+  return null;
+}
+
 const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","Christmas"];
 const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","Christmas"];
 
@@ -350,9 +382,10 @@ const USER_REQ  = ["nick","cups","candies","cls","azum","santa","level","levels"
 /* Per-user gift inventory counters under users/<nick>/gifts. */
 const GIFT_FIELDS = {
   poop: num(0,999), cake: num(0,999), bear: num(0,999), rocket: num(0,999),
-  emerald: num(0,999), rose: num(0,999),
-  /* Admin-assigned emerald hue (0..7). */
-  emerald_hue: num(0,7)
+  emerald: num(0,999),
+  /* These two are legacy fields (see LEGACY_FIELDS): the rules still
+   * accept them, but the current game no longer uses them. */
+  rose: num(0,999), emerald_hue: num(0,7)
 };
 const USER_FIELDS = {
   nick: str(1,16),
@@ -446,13 +479,13 @@ function updateMode(){
   const hint = $("#testHint");
   if(hint) hint.innerHTML = test
     ? "Сейчас панель смотрит на <b>этот же сервер</b> - можно нажимать всё подряд, боевая база не трогается"
-    : "Тестовый режим - для <code>test/fake_firebase.py</code>: вход любой парой «ник + пароль», " +
-      "аккаунт создаётся сам, ничего боевого не трогается";
+    : "Тестовый режим - для <code>test/fake_firebase.py</code>: " +
+      "Вход любой парой «ник + пароль», аккаунт создаётся сам, ничего боевого не трогается";
   suffixWarn();
 }
 
 /* Persist panel settings in localStorage. */
-const LS = "cb4.admin.v2";
+const LS = "cb4.admin.v3";
 function cfg(){ try{ return JSON.parse(localStorage.getItem(LS) || "{}") || {}; }catch(e){ return {}; } }
 function saveCfg(p){ try{ localStorage.setItem(LS, JSON.stringify({...cfg(), ...p})); }catch(e){} }
 function loadCfg(){
@@ -520,9 +553,9 @@ const AUTH_ERR = {
     "Аккаунта с таким e-mail нет в Firebase Auth. Один раз зайди в игру под этим ником - игра сама его создаст (accounts:signUp) с правильным хвостом пароля - и возвращайся сюда. Панель нарочно не создаёт аккаунты на боевой базе: созданный с чужим хвостом аккаунт потом не пустит и саму игру.",
   INVALID_PASSWORD: "Неверный пароль",
   INVALID_LOGIN_CREDENTIALS:
-    "неверный пароль или такого аккаунта нет (Firebase намеренно не говорит, что именно). " +
-    "Чаще всего дело в хвосте пароля: он ротирован, и «|cb4v1» теперь работает только для аккаунтов, " +
-    "которые не входили в игру после ротации. Текущий хвост печатает " +
+    "Неверный пароль или такого аккаунта нет (Firebase намеренно не говорит, что именно). " +
+    "Чаще всего дело в хвосте пароля: он ротирован, и «|cb4v1» теперь работает только для аккаунтов, которые не входили в игру после ротации. " +
+    "Текущий хвост печатает " +
     "`python3 tools/rotate_db_secret.py --show` - вставь его в «Настройки проекта» → поле суффикса. " +
     "Панель перебирает известные варианты, так что если и это не помогло - проверь, что ник и пароль те же, что в игре.",
   USER_DISABLED: "Аккаунт отключён - Firebase Console → Authentication → Users",
@@ -598,8 +631,8 @@ async function doLogin(){
   const email = nick.toLowerCase() + "@cb4.game";
   saveAll();
   if(!isTest() && $("#passSuffix").checked && !suffixLooksCurrent($("#suffix").value))
-    log("Хвост в поле не похож на текущий (32 символа A-Za-z0-9): если вход не удастся, " +
-        "возьми текущий командой python3 tools/rotate_db_secret.py --show", "warn");
+    log("Хвост в поле не похож на текущий (32 символа A-Za-z0-9). " +
+        "Если вход не удастся, возьми текущий командой python3 tools/rotate_db_secret.py --show", "warn");
   $("#login").disabled = true;
   $("#login").textContent = "Вхожу…";
   const tried = [];
@@ -612,7 +645,7 @@ async function doLogin(){
         break;
       }catch(e){
         last = e;
-        tried.push((sfx ? "«" + sfx + "»" : "без суффикса") + " → " + e.message);
+        tried.push((sfx ? "«" + sfx + "»" : "Без суффикса") + " → " + e.message);
         if(!RETRYABLE.test(e.message)) break;   // stop on non-credential errors (rate limit, bad key, etc.)
       }
     }
@@ -626,15 +659,15 @@ async function doLogin(){
           log("Тестовая база: аккаунт создан - " + email, "good");
         }catch(e){
           if(/EMAIL_EXISTS/.test(e.message))
-            throw new Error("аккаунт " + email + " существует, значит пароль (или хвост) не подошёл");
+            throw new Error("Аккаунт " + email + " существует, значит пароль (или хвост) не подошёл");
           throw e;
         }
       }
       if(!ok){
-        const detail = (last && last.message) || "вход не удался";
-        throw new Error(detail + " · панель не создаёт аккаунты на боевой базе: " +
-                        "зайди один раз в игру под этим ником (игра создаст аккаунт с " +
-                        "правильным хвостом) или вставь текущий хвост из " +
+        const detail = (last && last.message) || "Вход не удался";
+        throw new Error(detail + " · Панель не создаёт аккаунты на боевой базе. " +
+                        "Зайди один раз в игру под этим ником (игра создаст аккаунт с " +
+                        "Правильным хвостом) или вставь текущий хвост из " +
                         "`python3 tools/rotate_db_secret.py --show` в поле суффикса");
       }
     }
@@ -709,8 +742,8 @@ async function rtdb(path, method = "GET", body, retried){
     let msg = `${method} /${path || "(корень)"} → ${r.status} ${txt.slice(0,160)}`;
     if(r.status === 401 || r.status === 403)
       msg += "  (401/403 = протухший токен либо правила базы; опубликуй свежие " +
-             "firebase.rules.json - мусор в корне и в комнатах пишут только админы, " +
-             "а при запрете контейнера панель удаляет по детям)";
+             "firebase.rules.json - мусор в корне и в комнатах пишут только админы. " +
+             "При запрете контейнера панель удаляет по детям)";
     throw new Error(msg);
   }
   if(!txt) return null;
@@ -772,7 +805,7 @@ function badValue(spec, v){
   if(spec.t === "num"){
     if(typeof v !== "number" || !isFinite(v)) return "Значение не число (" + typeof v + ")";
     if(spec.lo !== undefined && v < spec.lo) return "Меньше допустимого " + spec.lo;
-    if(spec.hi !== undefined && v > spec.hi) return "больше допустимого " + spec.hi + " (накрутка?)";
+    if(spec.hi !== undefined && v > spec.hi) return "Больше допустимого " + spec.hi + " (накрутка?)";
     return null;
   }
   if(spec.t === "str"){
@@ -786,9 +819,17 @@ function badValue(spec, v){
   return null;
 }
 
+/* Filters that start unchecked (destructive or noisy categories). */
+const FILTER_OFF = new Set(["bans","chat_all","stale","meta","empty_room","old_chat","old_banner"]);
+/* Restore the default set of janitor filters after a one-off cleanup. */
+function resetJanitorFilters(){
+  $$(".flt").forEach(c => { c.checked = !FILTER_OFF.has(c.dataset.k); });
+  render();
+}
+
 const OLD_CLEAN_KINDS = [
   "unknown_root","unknown_field","bad_user","chat","slot",
-  "stale","meta","empty_room","old_chat","old_banner"
+  "stale","meta","empty_room","old_chat","old_banner","legacy"
 ];
 function cleanChatKeep(){
   const v = parseInt(($("#cleanChatKeep") && $("#cleanChatKeep").value) ?? "20", 10);
@@ -802,8 +843,12 @@ function cleanBannerHours(){
 function analyze(){
   FOUND = [];
   const nonDefault = new Set(["bans","chat_all","stale","meta","empty_room","old_chat","old_banner"]);
-  const add = (kind, path, why, extra) =>
-    FOUND.push({kind, path, why, extra: extra || "", sel: !nonDefault.has(kind)});
+  const add = (kind, path, why, extra) => {
+    const lw = legacyWhy(path);
+    const k = lw ? "legacy" : kind;
+    FOUND.push({kind: k, path, why: lw || why,
+                extra: extra || "", sel: !nonDefault.has(k)});
+  };
   const d = SNAP || {};
   const keepChat = cleanChatKeep();
   const bannerMaxAgeMs = cleanBannerHours() * 3600000;
@@ -851,6 +896,13 @@ function analyze(){
     const hit = spamHit(nick);
     if(hit) add("bad_user", `users/${nick}`, "Ник похож на спам/взлом: " + hit);
     for(const [f, v] of Object.entries(u)){
+      /* Fields from older versions are junk even though the rules still
+       * accept them - offer them for removal with their own reason. */
+      if(legacyWhy(`users/${nick}/${f}`)){
+        add("unknown_field", `users/${nick}/${f}`, legacyWhy(`users/${nick}/${f}`),
+            JSON.stringify(v).slice(0,80));
+        continue;
+      }
       const spec = USER_FIELDS[f];
       if(!spec){
         add("unknown_field", `users/${nick}/${f}`, "Поле не используется игрой и не пускается правилами",
@@ -865,6 +917,11 @@ function analyze(){
         const bad = badValue(spec, v);
         if(bad){ add("unknown_field", `users/${nick}/${f}`, bad, JSON.stringify(v).slice(0,80)); continue; }
         for(const [gk, gv] of Object.entries(v)){
+          const gw = legacyWhy(`users/${nick}/${f}/${gk}`);
+          if(gw){
+            add("unknown_field", `users/${nick}/${f}/${gk}`, gw, JSON.stringify(gv).slice(0,60));
+            continue;
+          }
           const gs = spec.fields[gk];
           if(!gs) add("unknown_field", `users/${nick}/${f}/${gk}`, "Такого подарка нет в игре", JSON.stringify(gv).slice(0,60));
           else{
@@ -894,7 +951,7 @@ function analyze(){
     if("meta" in room){
       const m = room.meta;
       if(typeof m !== "object" || m === null)
-        add("meta", `rooms/${rn}/meta`, "meta - не объект", String(m).slice(0,60));
+        add("meta", `rooms/${rn}/meta`, "Meta - не объект", String(m).slice(0,60));
       else{
         for(const k of Object.keys(m))
           if(!META_FIELDS[k])
@@ -993,7 +1050,8 @@ function stats(){
   const chat = rooms.reduce((a,r)=>a+Object.keys(r?.chat||{}).length,0);
   const slots = rooms.reduce((a,r)=>a+Object.keys(r?.players||{}).length,0);
   const gifts = Object.values(d.users||{}).reduce((a,u)=>
-    a + Object.values((u && typeof u === "object" && u.gifts) || {}).length, 0);
+    a + Object.keys((u && typeof u === "object" && u.gifts) || {})
+          .filter(k => !legacyWhy(`users/x/gifts/${k}`)).length, 0);
   const junk = FOUND.filter(f=>f.kind!=="chat_all"&&f.kind!=="bans").length;
   const c = [
     ["Игроков (users)", Object.keys(d.users||{}).length],
@@ -1005,6 +1063,7 @@ function stats(){
     ["Ивент", (d.event ?? 0) + " · " + (EVENT_NAMES[d.event] || "?")],
     ["AzumBuff / FlashSale", (d.AzumBuff ?? 0) + " / " + (d.FlashSale ?? 0)],
     ["Рождество (Christmas)", (d.Christmas ?? 0) ? "Вкл" : "Выкл"],
+    ["Устаревших полей", FOUND.filter(f=>f.kind==="legacy").length],
     ["Мусора найдено", junk]
   ];
   $("#stats").innerHTML = c.map(([k,v]) =>
@@ -1106,7 +1165,7 @@ async function wipe(){
   const btn = $("#wipe"); btn.disabled = true;
   let ok = 0, fail = 0, done = 0;
   const total = plan.length, queue = [...plan];
-  const tick = () => { btn.textContent = `удаляю ${done}/${total}…`; };
+  const tick = () => { btn.textContent = `Удаляю ${done}/${total}…`; };
   const worker = async () => {
     while(queue.length){
       const p = queue.shift();
@@ -1118,7 +1177,7 @@ async function wipe(){
   tick();
   await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
   btn.textContent = "Удалить выбранное"; btn.disabled = false;
-  log(`готово: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
+  log(`Готово: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
   alert(`Удалено: ${ok}\nОшибок: ${fail}` + (fail ? "\n\nОшибки обычно = правила базы запрещают запись в этот узел (см. журнал)." : ""));
   await scan();
 }
@@ -1154,7 +1213,7 @@ async function cleanOldData(){
   const btn = $("#cleanOld"); btn.disabled = true;
   let ok = 0, fail = 0, done = 0;
   const total = plan.length, queue = [...plan];
-  const tick = () => { btn.textContent = `чищу ${done}/${total}…`; };
+  const tick = () => { btn.textContent = `Чищу ${done}/${total}…`; };
   const worker = async () => {
     while(queue.length){
       const p = queue.shift();
@@ -1166,9 +1225,55 @@ async function cleanOldData(){
   tick();
   await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
   btn.textContent = "Очистить старые и ненужные данные"; btn.disabled = false;
-  log(`чистка завершена: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
+  log(`Чистка завершена: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
   alert(`Чистка завершена.\nУдалено: ${ok}\nОшибок: ${fail}`);
   await scan();
+}
+
+/* Show only fields left over from older game versions. */
+async function markLegacyData(){
+  if(!SNAP) await scan(); else analyze();
+  $$(".flt").forEach(c => { c.checked = c.dataset.k === "legacy"; });
+  FOUND.forEach(f => { f.sel = f.kind === "legacy"; });
+  render();
+  const n = FOUND.filter(f => f.sel).length;
+  log("Найдено устаревших полей из старых версий: " + n, n ? "good" : "");
+}
+
+/* Delete every obsolete field in one batch, keeping all live progress. */
+async function cleanLegacyData(){
+  if(!SNAP) await scan(); else analyze();
+  const targets = FOUND.filter(f => f.kind === "legacy");
+  if(!targets.length){
+    log("Чистка устаревших полей: мусора из старых версий не найдено", "good");
+    alert("Устаревших полей в базе нет.");
+    return;
+  }
+  const plan = wipePlan(targets.map(f => f.path));
+  if(!plan.length) return;
+  if(!confirm(`Удалить устаревшие поля из базы?\nНайдено полей: ${targets.length}, запросов DELETE: ${plan.length}.\n\nПервые:\n` +
+              plan.slice(0,12).join("\n") + (plan.length>12?"\n…":"") +
+              (isTest() ? "" : "\n\nБаза БОЕВАЯ - отменить удаление будет нельзя."))) return;
+  const btn = $("#cleanLegacy"); btn.disabled = true;
+  let ok = 0, fail = 0, done = 0;
+  const total = plan.length, queue = [...plan];
+  const tick = () => { btn.textContent = `Удаляю ${done}/${total}…`; };
+  const worker = async () => {
+    while(queue.length){
+      const p = queue.shift();
+      try{ await wipeNode(p); ok++; log("Удалено устаревшее поле: " + p); }
+      catch(e){ fail++; log("НЕ удалено " + p + " - " + e.message, "err"); }
+      done++; tick();
+    }
+  };
+  tick();
+  await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
+  btn.textContent = "Удалить устаревшие поля"; btn.disabled = false;
+  log(`Чистка устаревших полей завершена: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`,
+      fail ? "warn" : "good");
+  alert(`Устаревших полей удалено: ${ok}\nОшибок: ${fail}`);
+  await scan();
+  resetJanitorFilters();
 }
 
 /* Targeted moderation and maintenance helpers. */
@@ -1248,19 +1353,19 @@ function boot(){
       "«|cb4v1», теперь - 32 случайных символа из NET_PASS_SECRET_* (src/engine/network.h).\n\n" +
       "Как получить текущий:\n" +
       "    python3 tools/rotate_db_secret.py --show\n" +
-      "строка «хвост пароля аккаунта» - скопируй её в поле «суффикс» выше.\n\n" +
+      "Строка «хвост пароля аккаунта» - скопируй её в поле «суффикс» выше.\n\n" +
       "Почему хвоста нет в этой странице: index.html лежит в открытом репозитории,\n" +
-      "а хвост - половина секрета аккаунтов (вторая половина - знание пароля).\n\n" +
-      "Старый «|cb4v1» тоже пробуется автоматически: по нему пустит аккаунт,\n" +
-      "который ни разу не входил в игру после ротации (игра пускает по нему один\n" +
-      "раз и сразу переписывает пароль на новый хвост).");
+      "А хвост - половина секрета аккаунтов (вторая половина - знание пароля).\n\n" +
+      "Старый «|cb4v1» тоже пробуется автоматически. " +
+      "По нему пустит только аккаунт, который ни разу не входил в игру после ротации: " +
+      "Игра пускает его один раз и сразу переписывает пароль на новый хвост.");
   }, "Откуда взять хвост");
   on("#testMode", () => {
     if(location.protocol === "file:"){
       alert("Тестовый режим работает, когда страница открыта по http.\n\n" +
             "Запусти:\n    python3 test/fake_firebase.py 8080\n" +
-            "и открой http://localhost:8080/ - этот сервер раздаёт и панель, и подставную базу\n" +
-            "одним портом, поэтому ни CORS, ни смешанный контент не мешают.");
+            "И открой http://localhost:8080/ - этот сервер раздаёт и панель, и подставную базу.\n" +
+            "Один порт - поэтому ни CORS, ни смешанный контент не мешают.");
       return;
     }
     $("#dbUrl").value = location.origin;
@@ -1289,6 +1394,8 @@ function boot(){
   onChange("#cleanBannerHours", () => { if(SNAP) analyze(); });
   on("#markOld", markOldData, "Отметить старое и ненужное");
   on("#cleanOld", cleanOldData, "Очистить старые и ненужные данные");
+  on("#markLegacy", markLegacyData, "Найти устаревшие поля");
+  on("#cleanLegacy", cleanLegacyData, "Удалить устаревшие поля");
   on("#all", () => { const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
                      FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=true; }); render(); }, "Выделить всё");
   on("#none", () => { FOUND.forEach(f=>f.sel=false); render(); }, "Снять всё");

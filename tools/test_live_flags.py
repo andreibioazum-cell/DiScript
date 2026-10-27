@@ -90,9 +90,15 @@ int main(void) {
     /* The console often stores these spellings; all three mean "on". */
     poll_azum("\"1\"", 200); assert(net_azum_buff() == 1);
     poll_azum("true", 200); assert(net_azum_buff() == 1);
-    /* One failed read must not kill a live flag; it expires by TTL instead. */
-    poll_azum("1", 403); assert(net_azum_buff() == 1);
-    poll_azum("", -1); assert(net_azum_buff() == 1);
+    /* Offline: a failed read drops the flag at once, so New Year, AzumBuff
+     * and FlashSale are all off without waiting for the TTL. */
+    assert(net_flags_reachable() == 1);
+    poll_azum("1", 403); assert(net_azum_buff() == 0);
+    poll_azum("", -1); assert(net_azum_buff() == 0);
+    assert(net_flags_reachable() == 0);
+    poll_azum("1", 200); assert(net_azum_buff() == 1);
+    assert(net_flags_reachable() == 1);
+    azum_response = "0";   /* the next poll keeps the flag off */
     clock_ms += LIVE_FLAG_TTL_MS;
     assert(net_azum_buff() == 0);
     complete_all();
@@ -136,7 +142,7 @@ int main(void) {
     thread_ok = 0;
     clock_ms += LIVE_FLAG_POLL_MS;
     assert(net_azum_buff() == 0 && !pending_n);
-    puts("live flags: async polling, exact values, errors, expiry, account-free, shop refresh OK");
+    puts("live flags: async polling, exact values, offline reset, expiry, account-free, refresh OK");
 }
 '''
 

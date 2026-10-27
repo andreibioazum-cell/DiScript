@@ -417,6 +417,7 @@ const char *BUTTON_CLICK_SOUND;
 double button_click_ok;
 /* Active UI theme: 1 = new purple gradient, 0 = classic flat rose. */
 double new_theme;
+double theme_mode;   /* 0 = ordinary, 1 = New Year, 2 = night */
 /* Navigation generation counter used to scope button press pulses to one screen. */
 double ui_nav_gen;
 const char *CUBE_NPC_TEX;

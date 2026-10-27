@@ -236,6 +236,7 @@ static void progress_reset_on_signout(void) {
     cheat_cc = 0;
     cheat_estun = 0;
     cheat_ball_path = 0;
+    cheat_autoblock = 0;
     cheat_stain = 0;
     cheat_estun_mark = 0;
     admin_panel_open = 0;
@@ -249,6 +250,7 @@ static void settings_from_storage(void) {
     show_hitboxes = net_load_hitboxes();
     winter_theme = net_load_winter_theme();
     new_theme = net_load_new_theme();
+    theme_mode = net_load_theme_mode();
     apply_theme();
 }
 
@@ -256,4 +258,5 @@ static void save_settings(void) {
     net_save_settings(language, show_hitboxes);
     net_save_winter_theme(winter_theme);
     net_save_new_theme(new_theme);
+    net_save_theme_mode(theme_mode);
 }

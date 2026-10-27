@@ -51,7 +51,9 @@ static double admin_modifiers_allowed(void) {
 /* Christmas is always on for the two holiday admins and never
  * on for Sanch. Combat modifiers in CCP stay available to all three. */
 static double christmas_admin_allowed(void) {
-    if (net_login_status() != 2) {
+    /* With the Internet off the game is completely ordinary: even the two
+     * holiday admins lose the Christmas visuals, snowballs and theme. */
+    if (net_flags_reachable() != 1 || net_login_status() != 2) {
         return 0;
     }
     if (admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1 ||

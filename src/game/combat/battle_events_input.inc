@@ -19,7 +19,8 @@ static void draw_disco(void) {
 
 static void update_event(void) {
     /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns. */
-    event_mode = net_event();
+    /* Offline: no server-run events, everything is the ordinary battle. */
+    event_mode = net_flags_reachable() == 1 ? net_event() : 0;
     if (plates_round_on() == 1 && candies_on() == 0) {
         event_mode = 0;
     }
@@ -79,7 +80,9 @@ static double banner_color_now(const char *name) {
 }
 
 static void update_banner(void) {
-    if (game_state != ST_ONLINE) {
+    /* A lobby banner is a live server message; hide it while offline. */
+    if (game_state != ST_ONLINE || net_flags_reachable() != 1) {
+        banner_t = 0;
         return;
     }
     double ts = net_banner_ts();
@@ -358,9 +361,10 @@ static void touch_game(double x, double y, double action, double id) {
         start_transition(0);
         return;
     }
-    /* Christmas snowball pad: one throw per second for every class. */
+    /* Christmas snowball pad: one throw per second for every class. The
+     * offset from the pad centre aims it, so any direction is possible. */
     if (action == 0 && christmas_pad_hit(x, y) == 1) {
-        christmas_throw();
+        christmas_pad_throw(x, y);
         return;
     }
     /* Toggle ebuC's ultimate mode on mode-button press. */

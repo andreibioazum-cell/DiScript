@@ -95,6 +95,9 @@ static int run_write(const char *dir) {
     assert(net_load_new_theme() == 1);
     net_save_new_theme(0);
     assert(net_load_new_theme() == 0);
+    assert(net_load_theme_mode() == 0);   /* ordinary theme by default */
+    net_save_theme_mode(2);
+    assert(net_load_theme_mode() == 2);   /* night survives the save */
     assert(net_load_language() == 1);
     puts("native write: settings.dat created, local wins over cloud");
     return 0;
@@ -106,6 +109,7 @@ static int run_read(const char *dir) {
     assert(net_load_hitboxes() == 0);
     assert(net_load_music_volume() == 35);
     assert(net_load_new_theme() == 0);
+    assert(net_load_theme_mode() == 2);
     puts("native read: a fresh process restores language, hitboxes, music volume and theme");
     return 0;
 }
@@ -309,6 +313,7 @@ def main():
         assert "lang 1" in saved and "hitboxes 0" in saved, saved
         assert "musicvol 35" in saved, saved
         assert "theme 0" in saved, saved
+        assert "style 2" in saved, saved
         assert "mod" not in saved, saved
         subprocess.run([*run, "read", str(data)], check=True)
 
