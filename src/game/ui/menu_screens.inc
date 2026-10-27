@@ -301,13 +301,25 @@ static double lb_place_bg(double i) {
     return card_bg;
 }
 
-/* Cup counts are whole numbers up to seven digits: %g would print "1e+07". */
+/* Cup counts are whole numbers of up to seven digits: %g would print "1e+07".
+ * The digits are built by hand on purpose - the game half of the sources has no
+ * <stdio.h> at all (the Windows build compiles it without stdio), so snprintf is
+ * not available here. */
 static const char *lb_cups_text(double v) {
-    char buf[32];
+    char buf[24];
+    int i = (int)sizeof(buf) - 1;
+    unsigned long long rest;
     if (v != v || v < 0)
         v = 0;
-    snprintf(buf, sizeof(buf), "%.0f", floor(v + 0.5));
-    return ds_concat("", buf);
+    if (v > 999999999999.0)
+        v = 999999999999.0;
+    rest = (unsigned long long)floor(v + 0.5);
+    buf[i] = 0;
+    do {
+        buf[--i] = (char)('0' + (int)(rest % 10u));
+        rest = rest / 10u;
+    } while (rest > 0 && i > 0);
+    return ds_concat("", buf + i);
 }
 
 static void draw_lb_row(double i) {
