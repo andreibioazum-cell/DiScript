@@ -87,7 +87,10 @@ static const char *dice_cube_tex(double cube) {
     if (cube == DICE_CUBE_AZUM) {
         return AZUM_CARD_TEX;
     }
-    return ORDINARY_CARD_TEX; /* Ordinary and CodeCracker (prize labels it) */
+    if (cube == DICE_CUBE_CODECRACKER) {
+        return CODECRACKER_CARD_TEX;
+    }
+    return ORDINARY_CARD_TEX; /* Ordinary */
 }
 
 static const char *dice_cube_name(double cube) {

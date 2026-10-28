@@ -107,6 +107,7 @@ SANTA_CARD_TEX = "santa_card.png";
 EBUC_CARD_TEX = "ebuc_card.png";
 EBUC_ELF_CARD_TEX = "ebuc_elf_card.png";
 ASTRA_CARD_TEX = "astra_card.png";
+CODECRACKER_CARD_TEX = "codecracker_card.png";
 ASTRA_TEX = "astra.png";
 ASTRA_PUNCH_TEX = "astra_punch.png";
 astra_ability_ok = 0;

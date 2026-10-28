@@ -38,9 +38,44 @@ static void draw_lobby_money(void) {
     money_pair(cup_s, cd_s, lobby_label_x(lw + rw + money_gap), lobby_money_y(), money_scale, money_gap);
 }
 
+static void draw_lobby_night_environment(void) {
+    if (night_theme_on() == 0) {
+        return;
+    }
+    const double ground_h = 66;
+    const double grass_tile = 64;
+    rect(0, 0, screen_w, screen_h, 0xFF0B1030);
+    rect(0, screen_h - ground_h, screen_w, ground_h, 0xFF15243A);
+    if (tex_ready(GRASS) == 1) {
+        double x = 0;
+        while (x < screen_w) {
+            tex_tint(x, screen_h - grass_tile, GRASS, 0, 0.25, 0xFF8BA56B);
+            x = x + grass_tile;
+        }
+        rect(0, screen_h - 3, screen_w, 3, 0xFFB9C6FF);
+    }
+    double i = 0;
+    while (i < 22) {
+        double hx = hash01(i * 3 + 317);
+        double hy = hash01(i * 7 + 491);
+        double hs = hash01(i * 13 + 205);
+        double fall = 3.8 + 3.5 * hs;
+        double x = 12 + hx * (screen_w - 24) + 8 * sin(snow_t * 0.45 + i);
+        double y = -12 + frac01(snow_t / fall + hy) * (screen_h + 24);
+        double twinkle = 0.65 + 0.35 * sin(snow_t * 2.0 + i * 1.8);
+        double radius = 2.2 + 2.1 * hs;
+        double rotation = snow_t * (0.7 + hs * 1.4) + i * 0.6;
+        uint32_t color = i - floor(i / 3) * 3 < 1 ? 0xDDF7C948 : 0xDDB9C6FF;
+        draw_star_rotated(x, y, radius, color, rotation);
+        circle(x, y, radius * 0.24 * twinkle, 0xFFFFFFD9);
+        i = i + 1;
+    }
+}
+
 static void draw_lobby(void) {
     check_achievements();
     screen_fill();
+    draw_lobby_night_environment();
     text("Cubic Battle 4", lobby_label_x(text_ink_width("Cubic Battle 4")), lobby_title_y(), text_color);
     if (christmas_active() == 1) {
         const char *banner = tr_christmas_banner();
@@ -112,6 +147,10 @@ static void draw_card_look(double look, double x, double y, double scale) {
 
 /* Draw rounded class portrait, falling back to battle sprite until card art uploads. */
 static void draw_class_render(double cls, double skin, double x, double y, double target_px) {
+    /* The base Ordinary cube has no character render; its unlocked gold skin does. */
+    if (cls == CLASS_ORDINARY && skin == SKIN_NORMAL) {
+        return;
+    }
     if (class_card_render_ready(cls, skin) == 1) {
         tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX, target_px * card_render_radius_frac);
         return;

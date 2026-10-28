@@ -4524,9 +4524,11 @@ int main(void) {
     pick_skin(SKIN_SPECIAL);
     assert(current_skin() == SKIN_SPECIAL && class_skin_of(CLASS_ASTRA) == SKIN_SPECIAL);
     assert(skin_flags() == 4);
-    assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_SPECIAL), "") == 0);
+    assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_SPECIAL), ASTRA_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
-    assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
+    assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), "") == 0);
+    assert(strcmp(class_card_tex(CLASS_CODECRACKER, SKIN_NORMAL), CODECRACKER_CARD_TEX) == 0);
+    assert(strcmp(dice_cube_tex(DICE_CUBE_CODECRACKER), CODECRACKER_CARD_TEX) == 0);
     assert(fabs(class_hp_of(CLASS_ASTRA) - astra_hp * 0.95 * round_hp_mult()) < 1e-9);
     /* The card keeps only its description; no rating graphic is drawn. */
     /* No developer account still hides only developer-only Santa; CodeCracker

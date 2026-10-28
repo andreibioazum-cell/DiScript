@@ -1,5 +1,5 @@
 /* Draw five-point star using sub-pixel horizontal scanline strokes. */
-static void draw_star(double cx, double cy, double r, uint32_t c) {
+static void draw_star_rotated(double cx, double cy, double r, uint32_t c, double rotation) {
     double px[10], py[10], xs[10];
     double step = r / 48;
     double y = -r;
@@ -14,7 +14,7 @@ static void draw_star(double cx, double cy, double r, uint32_t c) {
         step = 0.75;
     }
     while (i < 10) {
-        double a = -pi / 2 + i * pi / 5;
+        double a = -pi / 2 + i * pi / 5 + rotation;
         double point_r = i % 2 == 0 ? r : r * 0.45;
         px[i] = cos(a) * point_r;
         py[i] = sin(a) * point_r;
@@ -46,6 +46,10 @@ static void draw_star(double cx, double cy, double r, uint32_t c) {
         }
         y = y + step;
     }
+}
+
+static void draw_star(double cx, double cy, double r, uint32_t c) {
+    draw_star_rotated(cx, cy, r, c, 0);
 }
 
 static double class_imbalance_of(double cls) {

@@ -2,6 +2,7 @@ static void draw_menu_button(double row, const char *label);
 static void draw_lobby_nick(void);
 static void draw_lobby_money(void);
 static void draw_lobby(void);
+static void draw_lobby_night_environment(void);
 static void draw_wheel(void);
 static void draw_modes(void);
 static void draw_settings(void);
