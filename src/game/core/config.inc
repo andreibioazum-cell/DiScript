@@ -63,6 +63,16 @@ static double christmas_admin_allowed(void) {
     return 0;
 }
 
+/* Effective theme. Until the player touches the theme button, the two
+ * holiday admins keep their New Year look. Any explicit choice is final:
+ * ordinary or night means no Christmas visuals at all, even for an admin. */
+static double active_theme_mode(void) {
+    if (theme_chosen == 0 && christmas_admin_allowed() == 1) {
+        return 1;
+    }
+    return theme_mode;
+}
+
 /* Sanch gets no Christmas at all: no theme, no events, no snowballs. */
 static double sanch_no_christmas(void) {
     if (net_login_status() != 2) {

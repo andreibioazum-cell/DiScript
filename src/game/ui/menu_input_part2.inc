@@ -162,11 +162,11 @@ static double menu_button_hit(double x, double y) {
             if (hit_modes_row(x, y, i) == 1) return 1;
             i = i + 1;
         }
-        if (dev_access() == 1 && hit_modes_row(x, y, 4) == 1) return 1;
+        if (hit_modes_row(x, y, 4) == 1) return 1;
         return hit_promo_corner(x, y);
     }
     if (game_state == ST_SETTINGS) {
-        while (i <= 5) {
+        while (i <= 4) {
             if (hit_settings_row(x, y, i) == 1) return 1;
             i = i + 1;
         }

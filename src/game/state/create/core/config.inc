@@ -418,6 +418,7 @@ button_click_ok = 0;
 
 new_theme = 1;
 theme_mode = 0;
+theme_chosen = 0;
 ui_nav_gen = 0;
 
 /* NPC cube in the lobby (debug placeholder) */

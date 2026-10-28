@@ -1,22 +1,26 @@
 static double winter_theme_on(void) {
-    /* The two holiday admins always see the New Year visuals. Regular
-     * players only when they picked the New Year theme AND the holiday flag
-     * is on - until then that theme is greyed out and looks ordinary.
-     * Sanch never gets Christmas. Offline everything is ordinary. */
+    /* The chosen theme wins over the admin's forced holiday: ordinary or
+     * night means no Christmas at all on any account. Regular players only
+     * see the New Year visuals when they picked that theme AND the holiday
+     * flag is on - until then the option is grey and looks ordinary. Sanch
+     * never gets Christmas. Offline everything is ordinary. */
     if (sanch_no_christmas() == 1) {
+        return 0;
+    }
+    if (active_theme_mode() != 1) {
         return 0;
     }
     if (christmas_admin_allowed() == 1) {
         return 1;
     }
-    if (theme_mode == 1 && net_christmas() == 1) {
+    if (net_christmas() == 1) {
         return 1;
     }
     return 0;
 }
 
 /* Night theme: sleepy colours and slowly falling little stars. */
-static double night_theme_on(void) { return theme_mode == 2 ? 1 : 0; }
+static double night_theme_on(void) { return active_theme_mode() == 2 ? 1 : 0; }
 
 static const char *arena_ground_tex(void) {
     if (winter_theme_on() == 1 && snow_tex_ok == 1) {

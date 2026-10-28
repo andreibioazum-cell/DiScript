@@ -251,6 +251,7 @@ static void settings_from_storage(void) {
     winter_theme = net_load_winter_theme();
     new_theme = net_load_new_theme();
     theme_mode = net_load_theme_mode();
+    theme_chosen = net_load_theme_chosen();
     apply_theme();
 }
 
@@ -259,4 +260,5 @@ static void save_settings(void) {
     net_save_winter_theme(winter_theme);
     net_save_new_theme(new_theme);
     net_save_theme_mode(theme_mode);
+    net_save_theme_chosen(theme_chosen);
 }

@@ -2,6 +2,7 @@ static double admin_slot(const char *nick);
 static double admin_playing(void);
 static double admin_modifiers_allowed(void);
 static double christmas_admin_allowed(void);
+static double active_theme_mode(void);
 static double sanch_no_christmas(void);
 static double sanch_rewards_kept(void);
 static double seasonal_admin_allowed(void);

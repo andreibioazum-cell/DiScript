@@ -242,10 +242,14 @@ static void touch_modes(double x, double y) {
         return;
     }
     if (hit_modes_row(x, y, 4) == 1) {
-        if (seasonal_admin_allowed() == 0) {
-            return;
+        /* One press = next theme. Start from the effective one, so a holiday
+         * admin who never touched the button goes from New Year to night. */
+        theme_mode = active_theme_mode() + 1;
+        if (theme_mode > 2) {
+            theme_mode = 0;
         }
-        winter_theme = 1 - winter_theme;
+        theme_chosen = 1;
+        apply_theme();
         apply_winter_theme();
         save_settings();
         return;
@@ -289,16 +293,6 @@ static void touch_settings(double x, double y) {
         return;
     }
     if (hit_settings_row(x, y, 4) == 1) {
-        /* One press = next theme: ordinary -> New Year -> night -> ordinary. */
-        theme_mode = theme_mode + 1;
-        if (theme_mode > 2) {
-            theme_mode = 0;
-        }
-        apply_theme();
-        save_settings();
-        return;
-    }
-    if (hit_settings_row(x, y, 5) == 1) {
         docs_transition(0, 0);
         return;
     }

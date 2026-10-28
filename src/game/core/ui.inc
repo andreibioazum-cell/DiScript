@@ -191,14 +191,14 @@ static void outline_arc(double cx, double cy, double rr, double t, uint32_t c, d
 
 /* Apply active UI color palette (new purple theme vs classic rose theme). */
 static void apply_theme(void) {
-    if (theme_mode == 2) {
+    if (active_theme_mode() == 2) {
         /* Night: sleepy indigo with soft lavender cards. */
         ui_purple = 0xFF7D6BB8;
         bg_screen = 0x0C1230;
         bg_gradient_bottom = 0x2A2358;
         card_bg = 0xFF1B2150;
         card_ring = 0xFF7B86C8;
-    } else if (theme_mode == 1 && winter_theme_on() == 1) {
+    } else if (active_theme_mode() == 1 && winter_theme_on() == 1) {
         /* New Year: frosty blue. */
         ui_purple = 0xFF3E7FB5;
         bg_screen = 0x102A40;
@@ -258,7 +258,7 @@ static void screen_fill(void) {
     } else {
         double top = bg_screen;
         double bottom = bg_gradient_bottom;
-        if (theme_mode == 1 && christmas_active() == 1) {
+        if (active_theme_mode() == 1 && christmas_active() == 1) {
             top = christmas_bg_top;
             bottom = christmas_bg_bottom;
         }

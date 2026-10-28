@@ -1,12 +1,13 @@
 /* Root node Christmas: 1 gives snowballs to every class without changing
- * the visuals. The two holiday admins always have them; Sanch never does
- * (he keeps earned rewards only). Regular players see no winter theme. */
+ * the visuals. The two holiday admins have them while their New Year theme
+ * is active; an explicitly chosen ordinary/night theme removes everything
+ * Christmas. Sanch never gets them (he keeps earned rewards only). */
 static double christmas_snowballs_on(void) {
     if (sanch_no_christmas() == 1) {
         return 0;
     }
     if (christmas_admin_allowed() == 1) {
-        return 1;
+        return active_theme_mode() == 1 ? 1 : 0;
     }
     return net_christmas() == 1;
 }
@@ -143,9 +144,11 @@ static void update_christmas(void) {
     double sig;
     /* Keep the public root flag polled even outside the shop. */
     (void)christmas_snowballs_on();
-    sig = theme_mode * 8 + winter_theme_on() * 4 + net_flags_reachable() * 2 + net_christmas();
+    sig = active_theme_mode() * 16 + winter_theme_on() * 8 + christmas_admin_allowed() * 4 +
+          net_flags_reachable() * 2 + net_christmas();
     if (sig != xmas_theme_sig) {
         xmas_theme_sig = sig;
+        apply_winter_theme();
         apply_theme();
     }
     update_christmas_snow();

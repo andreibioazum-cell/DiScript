@@ -843,6 +843,10 @@ double net_load_new_theme(void) { return 1; }
 void net_save_new_theme(double on) { (void)on; }
 double net_load_theme_mode(void) { return 0; }
 void net_save_theme_mode(double mode) { (void)mode; }
+static double stub_theme_chosen_load;
+static double stub_theme_chosen_saved;
+double net_load_theme_chosen(void) { return stub_theme_chosen_load; }
+void net_save_theme_chosen(double on) { stub_theme_chosen_saved = on; }
 void settings_mark_legal(void) {}
 /* The game-state harness does not link the runtime pool tick; the promo
  * test only needs the calls to exist so it can prove the message text is
@@ -3005,6 +3009,130 @@ static void test_offline_ordinary(void) {
     player->hp = saved_hp;
     puts("offline: ordinary theme, no Christmas/buffs/sale/event/banner OK");
 }
+/* An explicit ordinary or night theme wipes every Christmas visual from an
+ * admin account. A guest who picks the New Year theme while it is locked
+ * keeps the ordinary look and sees the grey button in the cycle. */
+static void test_admin_theme_clears_christmas(void) {
+    double saved_link = stub_link, saved_login = stub_login_status;
+    double saved_xmas = stub_christmas, saved_mode = theme_mode;
+    double saved_chosen = theme_chosen, saved_candy = candy_enabled;
+    double saved_lang = language, saved_state = game_state;
+    double saved_snow_tex = snow_tex_ok, saved_jingle = christmas_jingle_ok;
+    double saved_jingle_tried = christmas_jingle_tried;
+    char saved_nick[sizeof(stub_login_nick)];
+    snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+
+    stub_link = 1;
+    stub_christmas = 0;   /* flag off: only the admin privilege is left */
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    astra_ability_refresh();
+    candy_enabled = 1;
+    language = 1;
+    snow_tex_ok = 1;
+    christmas_jingle_ok = 1;
+    christmas_jingle_tried = 1;
+    theme_chosen = 0;
+    theme_mode = 0;
+    game_state = ST_LOBBY;
+
+    /* No explicit choice yet: the holiday admin keeps the New Year look. */
+    assert(active_theme_mode() == 1 && winter_theme_on() == 1);
+    assert(christmas_active() == 1 && christmas_menu_active() == 1);
+    assert(christmas_music_active() == 1 && christmas_snowballs_on() == 1);
+    assert(candies_on() == 1);
+    apply_theme();
+    assert(ui_purple == 0xFF3E7FB5);
+    adm_reset_log();
+    draw_lobby();
+    assert(adm_has_text(tr_christmas_banner()) == 1);
+    assert(adm_has_text(tr_candies()) == 1);
+    game_state = ST_SOLO;
+    draw_arena_background();
+    assert(strcmp(last_ground, SNOW_TEX) == 0 && snow_active() == 1);
+
+    /* Ordinary theme chosen by the admin: nothing Christmas is left. */
+    theme_chosen = 1;
+    theme_mode = 0;
+    apply_theme();
+    assert(active_theme_mode() == 0 && winter_theme_on() == 0);
+    assert(christmas_active() == 0 && christmas_menu_active() == 0);
+    assert(christmas_music_active() == 0 && christmas_snowballs_on() == 0);
+    assert(candies_on() == 0 && snow_active() == 0);
+    assert(christmas_snow_under_notice_active() == 0);
+    assert(strcmp(arena_ground_tex(), GRASS) == 0);
+    assert(strcmp(tr_theme_label(), "Тема: Обычная") == 0);
+    assert(ui_purple == 0xFF5F10A0);
+    game_state = ST_LOBBY;
+    adm_reset_log();
+    draw_lobby();
+    assert(adm_has_text(tr_christmas_banner()) == 0);
+    assert(adm_has_text(tr_candies()) == 0);
+    assert(bpass_allowed() == 1);   /* earned progression is not deleted */
+
+    /* Night theme: the same, plus its own sleepy palette and stars. */
+    theme_mode = 2;
+    apply_theme();
+    assert(active_theme_mode() == 2 && night_theme_on() == 1);
+    assert(winter_theme_on() == 0 && christmas_active() == 0);
+    assert(christmas_snowballs_on() == 0 && candies_on() == 0);
+    assert(strcmp(tr_theme_label(), "Тема: Ночная") == 0);
+    assert(ui_purple == 0xFF7D6BB8 && arena_ground_rgb() == 0x0B1030);
+
+    /* New Year theme brings the admin's Christmas back. */
+    theme_mode = 1;
+    apply_theme();
+    assert(active_theme_mode() == 1 && winter_theme_on() == 1);
+    assert(christmas_active() == 1 && christmas_snowballs_on() == 1);
+    assert(candies_on() == 1 && ui_purple == 0xFF3E7FB5);
+
+    /* A guest selects New Year while it is locked: the button is grey and
+     * selected, but the game still draws the ordinary theme. */
+    stub_login_status = 0;
+    astra_ability_refresh();
+    theme_chosen = 1;
+    theme_mode = 1;
+    apply_theme();
+    assert(active_theme_mode() == 1 && winter_theme_on() == 0);
+    assert(christmas_active() == 0 && strcmp(arena_ground_tex(), GRASS) == 0);
+    assert(strcmp(tr_theme_label(), "Тема: Новогодняя (недоступна)") == 0);
+    assert(ui_purple == 0xFF5F10A0);
+    game_state = ST_MODES;
+    adm_reset_log();
+    draw_modes();
+    assert(adm_has_text("недоступна") == 1);
+    {
+        int grey = 0, i = 0;
+        while (i < adm_color_n) {
+            if (adm_colors[i] == 0xFFB4B4BC) {
+                grey = 1;
+            }
+            i = i + 1;
+        }
+        assert(grey == 1);   /* disabled button text colour */
+    }
+    /* The flag unlocks the very same selection without another press. */
+    stub_christmas = 1;
+    assert(winter_theme_on() == 1 && christmas_active() == 1);
+    apply_theme();
+    assert(ui_purple == 0xFF3E7FB5);
+
+    stub_link = saved_link;
+    stub_login_status = saved_login;
+    stub_christmas = saved_xmas;
+    theme_mode = saved_mode;
+    theme_chosen = saved_chosen;
+    candy_enabled = saved_candy;
+    language = saved_lang;
+    game_state = saved_state;
+    snow_tex_ok = saved_snow_tex;
+    christmas_jingle_ok = saved_jingle;
+    christmas_jingle_tried = saved_jingle_tried;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    astra_ability_refresh();
+    apply_theme();
+    puts("темы: кнопка на «Играть», серая зима без флага, у админа обычная/ночная без Крисмаса OK");
+}
 
 /* The admin auto-block guards during windup and punches back when safe. */
 static void test_admin_auto_block(void) {
@@ -5122,25 +5250,34 @@ int main(void) {
         screen_h = saved_h;
     }
 
-    /* Settings row 4 now cycles three themes: ordinary -> New Year -> night.
-     * The New Year one is grey/unavailable until the holiday flag is on. */
+    /* The Play screen row 4 now cycles three themes: ordinary -> New Year
+     * -> night. The New Year one is grey/unavailable until the holiday flag
+     * is on, but stays in the cycle and keeps the ordinary look. */
     {
         double tx = menu_x() + menu_btn_w() / 2;
-        double ty = settings_row_y(4) + settings_btn_h() / 2;
+        double ty = modes_row(4) + btn_h / 2;
         double saved_lang_theme = language;
         double saved_login_theme = stub_login_status;
+        double saved_mode_theme = theme_mode;
+        double saved_chosen_theme = theme_chosen;
+        char saved_nick_theme[sizeof(stub_login_nick)];
+        snprintf(saved_nick_theme, sizeof(saved_nick_theme), "%s", stub_login_nick);
         language = 0;
         stub_login_status = 0;
         stub_christmas = 0;
-        assert(theme_mode == 0);
+        theme_mode = 0;
+        theme_chosen = 0;
+        stub_theme_chosen_saved = -1;
         assert(strcmp(tr_theme_label(), "Theme: Ordinary") == 0);
-        game_state = ST_SETTINGS;
+        game_state = ST_MODES;
         t_dir = 0;
         t_target = 0;
         logic_touch(tx, ty, 0, 20);
-        assert(theme_mode == 1 && t_dir == 0);
-        assert(winter_theme_on() == 0);           /* locked while the flag is off */
+        assert(theme_mode == 1 && theme_chosen == 1 && t_dir == 0);
+        assert(stub_theme_chosen_saved == 1);   /* the choice is persisted */
+        assert(winter_theme_on() == 0);         /* locked while the flag is off */
         assert(strcmp(tr_theme_label(), "Theme: New Year (locked)") == 0);
+        assert(ui_purple == 0xFF5F10A0);        /* grey button, ordinary palette */
         press_points_clear();
         logic_touch(tx, ty, 0, 21);
         assert(theme_mode == 2);
@@ -5157,13 +5294,16 @@ int main(void) {
         assert(winter_theme_on() == 1 && christmas_active() == 1);
         assert(strcmp(tr_theme_label(), "Theme: New Year") == 0);
         stub_christmas = 0;
-        theme_mode = 0;
         apply_theme();
         t_dir = 0;
         language = saved_lang_theme;
         stub_login_status = saved_login_theme;
-        /* Row 5 opens the legal documents window over the settings. */
-        logic_touch(menu_x() + menu_btn_w() / 2, settings_row_y(5) + settings_btn_h() / 2, 0, 22);
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick_theme);
+        theme_mode = saved_mode_theme;
+        theme_chosen = saved_chosen_theme;
+        /* Settings row 4 is no longer a theme: it opens the documents. */
+        game_state = ST_SETTINGS;
+        logic_touch(menu_x() + menu_btn_w() / 2, settings_row_y(4) + settings_btn_h() / 2, 0, 23);
         assert(t_dir == 1 && docs_open == 0);
         finish_transition();
         assert(docs_open == 1 && docs_page == 0 && docs_ask == 0);
@@ -5205,27 +5345,60 @@ int main(void) {
             game_state = ST_MODES;
         }
         press_points_clear();
-        /* Row 4 is the winter toggle: guests cannot use it, but CCP moderators can. */
-        double saved_winter2 = winter_theme;
-        double saved_login_status2 = stub_login_status;
-        char saved_login_nick2[sizeof(stub_login_nick)];
-        snprintf(saved_login_nick2, sizeof(saved_login_nick2), "%s", stub_login_nick);
-        stub_login_status = 0;
-        astra_ability_ok = 0;
-        logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 24);
-        assert(winter_theme == saved_winter2 && t_dir == 0);
-        press_points_clear();
-        stub_login_status = 2;
-        snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
-        logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 25);
-        assert(winter_theme == 1 - saved_winter2 && t_dir == 0);
-        press_points_clear();
-        logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 26);
-        assert(winter_theme == saved_winter2);
-        stub_login_status = saved_login_status2;
-        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_login_nick2);
-        astra_ability_refresh();
-        press_points_clear();
+        /* Row 4 belongs to everyone now. A holiday admin starts on New Year,
+         * but an explicit ordinary/night theme removes every Christmas
+         * visual: snow, banner, jingle, candies and snowballs. */
+        {
+            double saved_mode2 = theme_mode, saved_chosen2 = theme_chosen;
+            double saved_link2 = stub_link, saved_xmas2 = stub_christmas;
+            double saved_login2 = stub_login_status, saved_candy2 = candy_enabled;
+            double saved_lang2 = language, saved_state2 = game_state;
+            char saved_nick2[sizeof(stub_login_nick)];
+            snprintf(saved_nick2, sizeof(saved_nick2), "%s", stub_login_nick);
+            stub_link = 1;
+            stub_christmas = 0;
+            stub_login_status = 2;
+            candy_enabled = 1;
+            language = 0;
+            game_state = ST_MODES;
+            snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+            astra_ability_refresh();
+            theme_mode = 0;
+            theme_chosen = 0;
+            assert(active_theme_mode() == 1);
+            assert(winter_theme_on() == 1 && christmas_active() == 1);
+            assert(christmas_snowballs_on() == 1 && candies_on() == 1);
+            assert(strcmp(tr_theme_label(), "Theme: New Year") == 0);
+            t_dir = 0;
+            press_points_clear();
+            logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 24);
+            assert(theme_mode == 2 && theme_chosen == 1 && t_dir == 0);
+            assert(strcmp(tr_theme_label(), "Theme: Night") == 0);
+            assert(winter_theme_on() == 0 && christmas_active() == 0);
+            assert(christmas_snowballs_on() == 0 && candies_on() == 0);
+            press_points_clear();
+            logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 25);
+            assert(theme_mode == 0 && strcmp(tr_theme_label(), "Theme: Ordinary") == 0);
+            assert(winter_theme_on() == 0 && christmas_active() == 0);
+            assert(christmas_snowballs_on() == 0 && candies_on() == 0);
+            press_points_clear();
+            logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 26);
+            assert(theme_mode == 1);
+            assert(winter_theme_on() == 1 && christmas_active() == 1);
+            assert(christmas_snowballs_on() == 1 && candies_on() == 1);
+            assert(bpass_allowed() == 1);       /* earned progression stays */
+            theme_mode = saved_mode2;
+            theme_chosen = saved_chosen2;
+            stub_link = saved_link2;
+            stub_christmas = saved_xmas2;
+            stub_login_status = saved_login2;
+            candy_enabled = saved_candy2;
+            language = saved_lang2;
+            game_state = saved_state2;
+            snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick2);
+            astra_ability_refresh();
+            press_points_clear();
+        }
         screen_w = saved_mw;
         screen_h = saved_mh;
         game_state = ST_LOBBY;
@@ -6284,6 +6457,7 @@ int main(void) {
 
     test_christmas_snowballs();
     test_offline_ordinary();
+    test_admin_theme_clears_christmas();
     test_admin_auto_block();
     test_admin_auto_block_astra();
     test_admin_auto_block_skill();

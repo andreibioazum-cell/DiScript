@@ -229,6 +229,8 @@ double net_load_new_theme(void);
 void net_save_new_theme(double on);
 double net_load_theme_mode(void);
 void net_save_theme_mode(double mode);
+double net_load_theme_chosen(void);
+void net_save_theme_chosen(double on);
 
 void settings_mark_legal(void);
 double settings_legal_ts(void);

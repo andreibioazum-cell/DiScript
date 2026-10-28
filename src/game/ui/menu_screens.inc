@@ -72,11 +72,15 @@ static void draw_modes(void) {
     button(tr_solo(), menu_x(), modes_row(1), menu_btn_w(), btn_h);
     button(tr_online(), menu_x(), modes_row(2), menu_btn_w(), btn_h);
     button(tr_top(), menu_x(), modes_row(3), menu_btn_w(), btn_h);
-    if (seasonal_admin_allowed() == 1) {
-        button_scaled(tr_winter_toggle(), menu_x(), modes_row(4), menu_btn_w(), btn_h, 0.8);
+    /* The theme switch lives here, behind "Играть", where the old winter
+     * toggle used to be. A locked New Year theme stays in the cycle but is
+     * drawn grey: it is selected, yet the game keeps the ordinary look. */
+    if (active_theme_mode() == 1 && winter_theme_on() == 0) {
+        button_disabled_scaled(tr_theme_label(), menu_x(), modes_row(4), menu_btn_w(), btn_h,
+                               fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
     } else {
-        /* Winter theme is available only to signed-in CCP moderators. */
-        button_disabled_scaled(tr_winter_toggle(), menu_x(), modes_row(4), menu_btn_w(), btn_h, 0.8);
+        button_scaled(tr_theme_label(), menu_x(), modes_row(4), menu_btn_w(), btn_h,
+                      fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
     }
     /* The promo code lives in the bottom-right corner, out of the column. */
     button(tr_promo(), promo_corner_x(), promo_corner_y(), promo_corner_w(), btn_h);
@@ -88,16 +92,7 @@ static void draw_settings(void) {
     button("English", menu_x(), settings_row_y(1), menu_btn_w(), settings_btn_h());
     button("Русский", menu_x(), settings_row_y(2), menu_btn_w(), settings_btn_h());
     button(tr_hitboxes_toggle(), menu_x(), settings_row_y(3), menu_btn_w(), settings_btn_h());
-    /* The locked New Year theme is drawn grey, exactly as an unavailable
-     * option, until the holiday flag actually switches it on. */
-    if (theme_mode == 1 && winter_theme_on() == 0) {
-        button_disabled_scaled(tr_theme_label(), menu_x(), settings_row_y(4), menu_btn_w(),
-                               settings_btn_h(), fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
-    } else {
-        button_scaled(tr_theme_label(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h(),
-                      fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
-    }
-    button_scaled(tr_legal(), menu_x(), settings_row_y(5), menu_btn_w(), settings_btn_h(),
+    button_scaled(tr_legal(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h(),
                   fit_text_scale(tr_legal(), menu_btn_w() - 24, 0.8));
 }
 
