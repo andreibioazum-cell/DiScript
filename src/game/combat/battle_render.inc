@@ -72,7 +72,6 @@ static void finish_game(double result) {
     punch->hit = 0;
     punch_left = 0;
     astra_punch_t = 0;
-    super_windup = 0;
     santa_follow = 0;
     drop_joy();
     gift->active = 0;
@@ -86,7 +85,6 @@ static void finish_game(double result) {
     enemy_dash_active = 0;
     enemy_dash_t = 0;
     enemy_dash_hit = 0;
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
     enemy_grab_clear();
     /* Clear active projectiles when battle ends. */
@@ -240,10 +238,10 @@ static void draw_player_body_layer(void) {
 }
 
 static double enemy_punching_now(void) {
-    if (enemy->state == 1 || enemy->state == 2 || enemy_dash_active > 0) {
+    if (enemy->state == 2 || enemy_dash_active > 0) {
         return 1;
     }
-    if (enemy_super_windup > 0 || enemy_grab_punching() == 1) {
+    if (enemy_grab_punching() == 1) {
         return 1;
     }
     return 0;

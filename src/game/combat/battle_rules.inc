@@ -86,7 +86,7 @@ static double card_look(double cls, double skin) {
 /* High-resolution shop/lobby render. Astra uses its ordinary Astra card art. */
 static const char *class_card_tex(double cls, double skin) {
     if (cls == CLASS_ORDINARY) {
-        return "";
+        return ORDINARY_CARD_TEX;
     }
     if (cls == CLASS_AZUM) {
         if (skin_is_active(cls, skin) == 1) {

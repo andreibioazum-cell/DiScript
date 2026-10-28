@@ -350,7 +350,6 @@ static void update_game(void) {
         super_cd = 0;
     }
     boom_t = tick_down(boom_t);
-    tick_super_windup();
     tick_santa_follow();
     punch_left = tick_down(punch_left);
     if (punch->active == 1 && punch->hit == 0 && punch_left <= punch_time + 1e-9) {

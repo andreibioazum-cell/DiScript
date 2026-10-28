@@ -15,12 +15,13 @@ static double start_enemy_attack(void) {
         err = err + (rand() % 100 - 50) / 100.0 * 0.35;
     }
     enemy->aim_err = err;
-    double turn_budget = enemy_attack_turn_speed * (enemy_windup - enemy_lock_time);
-    if (fabs(da) > turn_budget) {
+    /* Attack as soon as the enemy is aimed; no telegraph/windup phase. */
+    if (fabs(da) > 0.02) {
         return 0;
     }
-    enemy->state = 1;
-    enemy->state_time = enemy_windup;
+    enemy->angle = enemy->angle + err;
+    enemy->state = 2;
+    enemy->state_time = enemy_punch_time;
     enemy->hit = 0;
     enemy_punch_x = enemy->x;
     enemy_punch_y = enemy->y;
@@ -160,32 +161,6 @@ static void update_enemy(void) {
     if (enemy_block_left > 0) {
         /* Face player while guarding. */
         enemy_face_player();
-        return;
-    }
-    if (enemy->state == 1) {
-        enemy_punch_x = enemy->x;
-        enemy_punch_y = enemy->y;
-        enemy_punch_dx = cos(enemy->angle);
-        enemy_punch_dy = sin(enemy->angle);
-        enemy->state_time = enemy->state_time - dt;
-        if (enemy->state_time > enemy_lock_time) {
-            enemy_turn_prediction();
-        }
-        enemy_predict(enemy_lead);
-        double adx = aim_tx - enemy->x;
-        double ady = aim_ty - enemy->y;
-        double ad = sqrt(adx * adx + ady * ady);
-        if (ad < 1) {
-            ad = 1;
-        }
-        if (ad > reach - enemy_hit_margin) {
-            enemy_move(adx / ad * bot_speed * 0.85, ady / ad * bot_speed * 0.85);
-        }
-        if (enemy->state_time <= 1e-9) {
-            enemy->state = 2;
-            enemy->state_time = enemy_punch_time;
-            enemy->hit = 0;
-        }
         return;
     }
     if (enemy->state == 2) {

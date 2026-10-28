@@ -147,10 +147,6 @@ static void draw_card_look(double look, double x, double y, double scale) {
 
 /* Draw rounded class portrait, falling back to battle sprite until card art uploads. */
 static void draw_class_render(double cls, double skin, double x, double y, double target_px) {
-    /* The base Ordinary cube has no character render; its unlocked gold skin does. */
-    if (cls == CLASS_ORDINARY && skin == SKIN_NORMAL) {
-        return;
-    }
     if (class_card_render_ready(cls, skin) == 1) {
         tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX, target_px * card_render_radius_frac);
         return;

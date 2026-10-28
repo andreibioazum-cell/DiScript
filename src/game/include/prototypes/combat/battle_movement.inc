@@ -11,7 +11,6 @@ static void enemy_move(double vx, double vy);
 static void enemy_face_motion(void);
 static void enemy_track_player(void);
 static void enemy_predict(double lead);
-static void enemy_turn_prediction(void);
 static double enemy_would_hit(void);
 static double enemy_in_danger(void);
 static double enemy_free_window(void);

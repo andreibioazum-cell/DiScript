@@ -8,7 +8,7 @@ static double autoblock_was_on;
 static double autoblock_skill_pending;
 static double autoblock_skill_wait;
 
-/* 1 while the solo bot or a nearby online foe is in its windup/punch. */
+/* 1 while the solo bot or a nearby online foe has an active attack. */
 static double autoblock_threat(void) {
     if (player == NULL || player->hp <= 0 || finished != 0) {
         return 0;
@@ -17,10 +17,10 @@ static double autoblock_threat(void) {
         if (enemy == NULL || enemy->hp <= 0) {
             return 0;
         }
-        if (enemy->state == 1 || enemy->state == 2) {
+        if (enemy->state == 2) {
             return 1;
         }
-        if (enemy_super_windup > 0 || enemy_dash_active > 0) {
+        if (enemy_dash_active > 0) {
             return 1;
         }
         return 0;
@@ -114,7 +114,7 @@ static double autoblock_super_active(void) {
     if (player_class == CLASS_CODECRACKER) {
         return codecracker_super_t > 0 ? 1 : 0;
     }
-    return super_windup > 0 || ball.active > 0 || gift->active > 0 ? 1 : 0;
+    return ball.active > 0 || gift->active > 0 ? 1 : 0;
 }
 
 static void autoblock_reset(void) {
@@ -203,7 +203,7 @@ static void autoblock_tick(void) {
     }
     /* With no ability pending, keep the ordinary pressure with punches. */
     if (punch_cd > 0 || punch_left > 0 || player_stun > 0 || player_freeze > 0 ||
-        player_grabbed() == 1 || dash_active > 0 || super_windup > 0) {
+        player_grabbed() == 1 || dash_active > 0) {
         return;
     }
     if (autoblock_face_foe() == 1) {

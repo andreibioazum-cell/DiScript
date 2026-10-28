@@ -123,32 +123,14 @@ static void tick_enemy_grab(void) {
     double prev_ex = enemy->x;
     double prev_ey = enemy->y;
     if (egrab_t < astra_ability_lunge_time && enemy->stun <= 0) {
-        double rem = dt;
-        double cur = egrab_t;
-        if (cur < ASTRA_PULLBACK_TIME) {
-            enemy_face_player();
-            egrab_dx = cos(enemy->angle);
-            egrab_dy = sin(enemy->angle);
-            double s1 = rem;
-            if (cur + s1 > ASTRA_PULLBACK_TIME) {
-                s1 = ASTRA_PULLBACK_TIME - cur;
-            }
-            double bspd = ASTRA_PULLBACK_DIST / ASTRA_PULLBACK_TIME;
-            enemy->x = clamp(enemy->x - egrab_dx * bspd * s1, enemy->size, screen_w - enemy->size);
-            enemy->y = clamp(enemy->y - egrab_dy * bspd * s1, enemy->size, screen_h - enemy->size);
-            cur = cur + s1;
-            rem = rem - s1;
+        double s = dt;
+        if (egrab_t + s > astra_ability_lunge_time) {
+            s = astra_ability_lunge_time - egrab_t;
         }
-        if (rem > 0 && cur < astra_ability_lunge_time) {
-            double s2 = rem;
-            if (cur + s2 > astra_ability_lunge_time) {
-                s2 = astra_ability_lunge_time - cur;
-            }
-            double lspd = (astra_ability_lunge_dist + ASTRA_PULLBACK_DIST) / ASTRA_DASH_TIME;
-            enemy->x = clamp(enemy->x + egrab_dx * lspd * s2, enemy->size, screen_w - enemy->size);
-            enemy->y = clamp(enemy->y + egrab_dy * lspd * s2, enemy->size, screen_h - enemy->size);
-            tick_enemy_dust(egrab_dx * lspd, egrab_dy * lspd);
-        }
+        double lspd = astra_ability_lunge_dist / ASTRA_DASH_TIME;
+        enemy->x = clamp(enemy->x + egrab_dx * lspd * s, enemy->size, screen_w - enemy->size);
+        enemy->y = clamp(enemy->y + egrab_dy * lspd * s, enemy->size, screen_h - enemy->size);
+        tick_enemy_dust(egrab_dx * lspd, egrab_dy * lspd);
     }
     egrab_x = enemy->x;
     egrab_y = enemy->y;

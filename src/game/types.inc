@@ -5,8 +5,8 @@ typedef struct Gift Gift;
 typedef struct FighterSpritePair FighterSpritePair;
 typedef struct ScrollTrack ScrollTrack;
 
-/* Windup delay before normal punch hitbox activates across all fighters. */
-#define PUNCH_WINDUP 0.09
+/* Zero pre-hit delay; retained so online punch timing stays in sync. */
+#define PUNCH_WINDUP 0.0
 #define ASTRA_PARRY_SPEED_K 0.90
 
 struct ScrollTrack {

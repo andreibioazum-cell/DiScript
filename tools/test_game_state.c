@@ -3138,7 +3138,7 @@ static void test_admin_theme_clears_christmas(void) {
     puts("темы: кнопка на «Играть», серая зима без флага, у админа обычная/ночная без Крисмаса OK");
 }
 
-/* The admin auto-block guards during windup and punches back when safe. */
+/* The admin auto-block guards against enemy punches and answers when safe. */
 static void test_admin_auto_block(void) {
     double saved_login = stub_login_status, saved_state = game_state, saved_finished = finished;
     double saved_block = player_block, saved_cd = punch_cd, saved_left = punch_left;
@@ -3160,8 +3160,7 @@ static void test_admin_auto_block(void) {
     enemy->hp = enemy->max_hp = 20;
     enemy->x = 240;
     enemy->y = 200;
-    enemy->state = 1;
-    enemy_super_windup = 0;
+    enemy->state = 2;
     enemy_dash_active = 0;
     player_block = 0;
     punch_cd = 0;
@@ -3170,7 +3169,6 @@ static void test_admin_auto_block(void) {
     player_stun = 0;
     player_freeze = 0;
     dash_active = 0;
-    super_windup = 0;
     astra_state = 0;
     pgrab_active = 0;
     gift->active = 0;
@@ -3184,7 +3182,7 @@ static void test_admin_auto_block(void) {
     cheat_autoblock = 1;
     assert(admin_cheat_autoblock() == 1);
     autoblock_tick();
-    assert(player_block == 1);           /* guard during the windup */
+    assert(player_block == 1);           /* guard while the enemy punch is active */
 
     enemy->state = 0;
     for (i = 0; i < 14; i++) {
@@ -3211,7 +3209,7 @@ static void test_admin_auto_block(void) {
     enemy->x = saved_ex;
     enemy->y = saved_ey;
     enemy->hp = saved_ehp;
-    puts("admin: auto block guards at windup and auto punches when safe OK");
+    puts("admin: auto block guards against active punches and auto punches when safe OK");
 }
 
 
@@ -3238,8 +3236,7 @@ static void test_admin_auto_block_astra(void) {
     enemy->hp = enemy->max_hp = 20;
     enemy->x = 240;
     enemy->y = 200;
-    enemy->state = 1;
-    enemy_super_windup = 0;
+    enemy->state = 2;
     enemy_dash_active = 0;
     cheat_autoblock = 1;
     block_success_t = 0;
@@ -3259,7 +3256,6 @@ static void test_admin_auto_block_astra(void) {
     player_stun = 0;
     player_freeze = 0;
     pgrab_active = 0;
-    super_windup = 0;
     dash_active = 0;
     codecracker_super_t = 0;
     ball.active = 0;
@@ -3335,8 +3331,7 @@ static void test_admin_auto_block_skill(void) {
     enemy->hp = enemy->max_hp = 20;
     enemy->x = 245;
     enemy->y = 200;
-    enemy->state = 1;
-    enemy_super_windup = 0;
+    enemy->state = 2;
     enemy_dash_active = 0;
     cheat_autoblock = 1;
     azum_revived = 0;
@@ -3348,7 +3343,6 @@ static void test_admin_auto_block_skill(void) {
     dash_active = 0;
     dash_cd = 0;
     super_cd = 0;
-    super_windup = 0;
     queued_super = 0;
     queued_punch = 0;
     player_stun = 0;
@@ -3428,14 +3422,13 @@ int main(void) {
     assert(fabs(ASTRA_PARRY_SPEED_K - 0.90) < 1e-9);
     assert(fabs(ASTRA_STRIKE_UNLOCK_DELAY - 0.42) < 1e-9);
     assert(fabs(ASTRA_STRIKE_WINDOW - 0.85) < 1e-9);
-    assert(fabs(ASTRA_PULLBACK_TIME - PUNCH_WINDUP) < 1e-9);
+    assert(fabs(ASTRA_PULLBACK_TIME) < 1e-9);
+    assert(fabs(ASTRA_PULLBACK_DIST) < 1e-9);
     assert(fabs(ASTRA_DASH_TIME - 0.44) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_DELAY - ASTRA_PULLBACK_TIME) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_DELAY) < 1e-9);
     assert(fabs(astra_ability_lunge_dist - 245.0) < 1e-9);
     assert(astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
-    assert(fabs(PUNCH_WINDUP - 0.09) < 1e-9);   /* fast windups for every fighter */
-    assert(fabs(enemy_windup - PUNCH_WINDUP) < 1e-9);
-    assert(fabs(enemy_super_windup_time - PUNCH_WINDUP) < 1e-9);
+    assert(fabs(PUNCH_WINDUP) < 1e-9);          /* no attack windups */
     assert(fabs(punch_cooldown - 0.65) < 1e-9);
     assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
@@ -4271,16 +4264,17 @@ int main(void) {
         punch_left = 0;
         punch_cd = 0;
         super_cd = 0;
-        super_windup = 0;
         fire_super();
         assert(strcmp(stub_last_snd, "gift.wav") == 0);
+        assert(gift->active == 1); /* Santa launches immediately */
+        gift->active = 0; /* the immediate Santa cast finishes before testing ebuC's station */
         player_class = CLASS_EBUC;
         punch_left = 0;
         punch_cd = 0;
         super_cd = 0;
-        super_windup = 0;
         fire_super();
         assert(strcmp(stub_last_snd, "station.wav") == 0);
+        assert(turret_count_alive() > 0); /* ebuC's station appears immediately */
         player_class = CLASS_ASTRA;
         player->hp = 18;
         finished = 0;
@@ -4290,7 +4284,6 @@ int main(void) {
         astra_state = 0;
         astra_punch_t = 0;
         player_class = CLASS_ORDINARY;
-        super_windup = 0;
         super_cd = 0;
     }
     /* The result window: in the old theme both victory and defeat are
@@ -4408,7 +4401,7 @@ int main(void) {
     assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-9);
     assert(fabs(astra_ability_lunge_ty - 90) < 1e-9);
     astra_ability_lunge_tick();
-    assert(player->x < 300 && player->x >= 300 - ASTRA_PULLBACK_DIST - 1e-9);
+    assert(player->x > 300 && player->x < astra_ability_lunge_tx); /* forward dash begins immediately */
     int lunge_frames = 1;
     double min_x = player->x;
     while (lunge_frames < 120 && astra_ability_lunge_active() == 1) {
@@ -4417,13 +4410,13 @@ int main(void) {
             min_x = player->x;
         lunge_frames = lunge_frames + 1;
     }
-    assert(min_x < 300 - 5.0);
+    assert(min_x >= 300 - 1e-9);
     assert(fabs(player->x - astra_ability_lunge_tx) < 1e-9);
     assert(fabs(player->y - astra_ability_lunge_ty) < 1e-9);
     assert(lunge_frames * dt >= astra_ability_lunge_time - 1e-9);
     astra_state = 0;
     astra_cd = 0;
-    /* Running when casting Strike does NOT fly farther; walking is locked, turning during 0.2s aims the dash. */
+    /* Running does NOT fly farther; walking is locked and the dash starts without a windup. */
     {
         double saved_jdx = joy.dx;
         double saved_jdy = joy.dy;
@@ -4439,22 +4432,22 @@ int main(void) {
         start_grab_now();
         assert(player_vx == 0 && player_vy == 0 && astra_locked() == 1);
         assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-9);
-        /* Turn joystick downward during the 0.2s windup: cannot walk, redirects dash downward! */
+        /* Direction is locked at cast time, with no windup in which to retarget. */
         joy.dx = 0;
         joy.dy = 1;
         move_player();
         assert(player_vx == 0 && player_vy == 0);
         astra_ability_lunge_tick();
-        assert(fabs(player->angle - pi / 2) < 1e-6);
-        assert(fabs(astra_ability_lunge_tx - 300) < 1e-6);
-        assert(fabs(astra_ability_lunge_ty - (200 + astra_ability_lunge_dist)) < 1e-6);
+        assert(fabs(player->angle) < 1e-6);
+        assert(fabs(astra_ability_lunge_tx - (300 + astra_ability_lunge_dist)) < 1e-6);
+        assert(fabs(astra_ability_lunge_ty - 200) < 1e-6);
         int k = 0;
         while (k < 120 && astra_ability_lunge_active() == 1) {
             astra_ability_lunge_tick();
             k = k + 1;
         }
-        assert(fabs(player->x - 300) < 1e-6);
-        assert(fabs(player->y - (200 + astra_ability_lunge_dist)) < 1e-6);
+        assert(fabs(player->x - (300 + astra_ability_lunge_dist)) < 1e-6);
+        assert(fabs(player->y - 200) < 1e-6);
         joy.dx = saved_jdx;
         joy.dy = saved_jdy;
         screen_h = saved_sh;
@@ -4526,7 +4519,7 @@ int main(void) {
     assert(skin_flags() == 4);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_SPECIAL), ASTRA_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
-    assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), "") == 0);
+    assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_CODECRACKER, SKIN_NORMAL), CODECRACKER_CARD_TEX) == 0);
     assert(strcmp(dice_cube_tex(DICE_CUBE_CODECRACKER), CODECRACKER_CARD_TEX) == 0);
     assert(fabs(class_hp_of(CLASS_ASTRA) - astra_hp * 0.95 * round_hp_mult()) < 1e-9);
@@ -4617,11 +4610,7 @@ int main(void) {
     dt = 0.02;
     start_grab_now();
     assert(player_punching_now() == 1);
-    /* Windup is PUNCH_WINDUP (0.09 s now); no stun until it elapses. */
-    int windup_frames = (int)(ASTRA_STRIKE_DELAY / dt + 0.999) - 1;
-    for (int frame = 0; frame < windup_frames; frame++)
-        tick_astra();
-    assert(enemy->stun == 0);
+    /* Strike has no pre-hit delay: the first update applies the hit. */
     tick_astra();
     assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
@@ -4649,11 +4638,6 @@ int main(void) {
     pthrow_t = 0;
     enemy_start_grab();
     assert(enemy_grab_punching() == 1);
-    for (int frame = 0; frame < windup_frames; frame++) {
-        tick_enemy_grab();
-        tick_astra_fades();
-    }
-    assert(player_stun == 0);
     tick_enemy_grab();
     tick_astra_fades();
     assert(enemy_grab_punching() == 1);
@@ -4683,11 +4667,6 @@ int main(void) {
     stub_gdx[1] = 1;
     stub_gdy[1] = 0;
     stub_grab[1] = 1;
-    for (int frame = 0; frame < windup_frames; frame++) {
-        update_remote_grabs();
-        tick_astra_fades();
-    }
-    assert(player_stun == 0);
     update_remote_grabs();
     tick_astra_fades();
     assert(remote_grab_punching(1) == 1);
@@ -5528,10 +5507,9 @@ int main(void) {
      * 2) Astra's super starts as an instant-on-press 0.4 s purple shield that
      *    blocks 100% of damage; blocking >=1 hit unlocks Grab for 0.8 s, and
      *    only then can Grab fire (otherwise Grab disappears back to Block + CD).
-     * 3) Enemy punch switches sprite immediately, while hitbox/damage wait 0.09 s. */
+     * 3) Enemy punch switches sprite and hitbox immediately, with no pre-hit delay. */
     {
         assert(fabs(block_guard - 0.25) < 1e-9);
-        assert(fabs(enemy_windup - PUNCH_WINDUP) < 1e-9);
         dt = 1.0 / 60.0;
 
         /* 1) Normal frontal block cuts 75% of damage for player and bot. */
@@ -5722,7 +5700,7 @@ int main(void) {
         enemy->stun = 0;
         astra_cd = 0;
 
-        /* 3) Enemy punch shows punch sprite immediately, hitbox only after 0.2 s. */
+        /* 3) Enemy punch shows punch sprite and activates its hitbox immediately. */
         player_class = CLASS_ORDINARY;
         player->x = 460;
         player->y = 400;
@@ -5739,17 +5717,10 @@ int main(void) {
         enemy->state = 0;
         enemy_punch_a = 0;
         assert(start_enemy_attack() == 1);
-        assert(enemy->state == 1 && enemy_punching_now() == 1);
-        int bot_windup_ticks = (int)(enemy_windup / dt + 0.999) - 1;
-        for (int f = 0; f < bot_windup_ticks; f++) {
-            update_enemy();
-            tick_hitbox_fades();
-            assert(enemy->state == 1 && enemy_punching_now() == 1);
-            assert(enemy_punch_a == 0 && fabs(player->hp - 20.0) < 1e-9);
-        }
+        assert(enemy->state == 2 && enemy_punching_now() == 1);
         update_enemy();
         tick_hitbox_fades();
-        assert(enemy->state == 2 && enemy_punch_a > 0);
+        assert(enemy_punch_a > 0);
         update_enemy();
         assert(player->hp < 20.0);
         enemy->state = 0;
@@ -6038,17 +6009,13 @@ int main(void) {
         /* First cast: places turret and switches enemy_ball_mode to 1. */
         enemy_super_cd = 0;
         assert(enemy_tick_class_abilities() == 1);
-        assert(enemy_super_kind == 2 && enemy_ball_mode == 1);
-        for (int f = 0; f < 6; f++)
-            enemy_tick_class_abilities();
+        assert(enemy_super_kind == 0 && enemy_ball_mode == 1);
         assert(enemy_turret_count_alive() == 1 && enemy_ball_active() == 0);
 
         /* Second cast: fires bouncing projectile and switches enemy_ball_mode back to 0. */
         enemy_super_cd = 0;
         assert(enemy_tick_class_abilities() == 1);
-        assert(enemy_super_kind == 4 && enemy_ball_mode == 0);
-        for (int f = 0; f < 6; f++)
-            enemy_tick_class_abilities();
+        assert(enemy_super_kind == 0 && enemy_ball_mode == 0);
         assert(enemy_ball_active() == 1);
         for (int f = 0; f < 40 && enemy_ball_active() == 1; f++)
             tick_enemy_class();
@@ -6061,7 +6028,7 @@ int main(void) {
         enemy_ball_mode = 0;
         enemy_super_cd = 0;
         assert(enemy_tick_class_abilities() == 1);
-        assert(enemy_super_kind == 4);
+        assert(enemy_super_kind == 0 && enemy_ball_active() == 1);
         enemy_reset_class_state();
 
         /* 2) Santa alternates: cast 1 normal straight, cast 2 10%-smaller left-right zigzag, cast 3 straight, cast 4 zigzag. */
@@ -6086,8 +6053,7 @@ int main(void) {
         dt = 0.025;
 
         /* Cast 1: straight normal snowflake along +X (y stays at 360). */
-        super_windup = 0.01;
-        tick_super_windup();
+        start_super_effect_now();
         assert(gift->active == 1 && gift->shot == 1);
         for (int f = 0; f < 10; f++) {
             update_gift();
@@ -6097,8 +6063,7 @@ int main(void) {
         gift->active = 0;
 
         /* Cast 2: 10%-smaller zigzag snowflake moves forward along +X while oscillating both +Y and -Y. */
-        super_windup = 0.01;
-        tick_super_windup();
+        start_super_effect_now();
         assert(gift->active == 1 && gift->shot == 2);
         double min_y = 360.0, max_y = 360.0, prev_x = gift->x;
         for (int f = 0; f < 12; f++) {
@@ -6269,18 +6234,13 @@ int main(void) {
         enemy->x = 460;
         enemy->y = 400;
         enemy->hp = enemy->max_hp = 20;
-        enemy->stun = 99; /* keep enemy stationary to verify exact windup timing */
+        enemy->stun = 99; /* keep enemy stationary while checking immediate punch damage */
         punch->active = 0;
         punch_left = 0;
         punch_cd = 0;
         aim_a = 0;
         fire_punch();
         assert(punch->active == 1 && player_punching_now() == 1);
-        int pwind_ticks = (int)(PUNCH_WINDUP / dt + 0.999) - 1;
-        for (int f = 0; f < pwind_ticks; f++) {
-            update_game();
-            assert(player_punching_now() == 1 && fabs(enemy->hp - 20.0) < 1e-9);
-        }
         update_game();
         assert(enemy->hp < 20.0);
         enemy->stun = 0;
@@ -6288,7 +6248,7 @@ int main(void) {
         punch_left = 0;
         punch_cd = 0;
 
-        /* 3. Online remote normal punch: pose immediate, damage after the windup. */
+        /* 3. Online remote normal punch: pose and hitbox are immediate. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         finished = 0;
@@ -6309,11 +6269,6 @@ int main(void) {
         arr_set(remote_punches, 1 * punch_fields + 3, 1);
         arr_set(remote_punches, 1 * punch_fields + 4, 0);
         arr_set(remote_punches, 1 * punch_fields + 5, 0);
-        for (int f = 0; f < pwind_ticks; f++) {
-            tick_remote_punches();
-            update_remote_punches();
-            assert(arr_get(remote_punches, 1 * punch_fields) == 1 && fabs(player->hp - 20.0) < 1e-9);
-        }
         tick_remote_punches();
         update_remote_punches();
         assert(player->hp < 20.0 && arr_get(remote_punches, 1 * punch_fields) == 2);

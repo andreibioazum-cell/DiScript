@@ -172,7 +172,7 @@ static double enemy_in_punch(void) {
 }
 
 static void update_aim(void) {
-    if (punch->active == 1 && punch_left > 0 && punch_left <= punch_time + 1e-9 && super_windup <= 0 &&
+    if (punch->active == 1 && punch_left > 0 && punch_left <= punch_time + 1e-9 &&
         finished == 0) {
         aim_a = fade_up_a(aim_a, aim_fade_in);
     } else {
@@ -302,20 +302,6 @@ static void enemy_predict(double lead) {
     double erry = (rand() % 100 - 50) / 100.0 * 18;
     aim_tx = clamp(player->x + enemy->pvx * lead + errx, player->size, screen_w - player->size);
     aim_ty = clamp(player->y + enemy->pvy * lead + erry, player->size, screen_h - player->size);
-}
-
-static void enemy_turn_prediction(void) {
-    enemy_predict(enemy_lead);
-    double ta = atan2(aim_ty - enemy->y, aim_tx - enemy->x) + enemy->aim_err;
-    double da = ta - enemy->angle;
-    if (da > pi) {
-        da = da - 2 * pi;
-    }
-    if (da < 0 - pi) {
-        da = da + 2 * pi;
-    }
-    double step = enemy_attack_turn_speed * dt;
-    enemy->angle = enemy->angle + clamp(da, 0 - step, step);
 }
 
 static double enemy_would_hit(void) {

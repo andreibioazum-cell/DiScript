@@ -64,7 +64,6 @@ static void reset_battle(void) {
     boom_x = 0;
     boom_y = 0;
     freeze_a = 0;
-    super_windup = 0;
     player_freeze = 0;
     player_freeze_slow = 1;
     pfreeze_a = 0;

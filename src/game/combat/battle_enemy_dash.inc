@@ -139,6 +139,19 @@ static void tick_enemy_class(void) {
     enemy_ball_fade_tick();
 }
 
+static void enemy_start_super_now(void) {
+    if (enemy_super_kind == 1) {
+        enemy_start_snow();
+    } else if (enemy_super_kind == 2) {
+        enemy_place_turret();
+    } else if (enemy_super_kind == 3) {
+        enemy_start_grab();
+    } else if (enemy_super_kind == 4) {
+        enemy_ball_fire();
+    }
+    enemy_super_kind = 0;
+}
+
 static double enemy_tick_class_abilities(void) {
     if (game_state != ST_SOLO) {
         return 0;
@@ -152,35 +165,17 @@ static double enemy_tick_class_abilities(void) {
     if (enemy_grab_active() == 1) {
         return 1;
     }
-    if (enemy_super_windup > 0) {
-        enemy_face_player();
-        enemy_super_windup = enemy_super_windup - dt;
-        if (enemy_super_windup <= 0) {
-            enemy_super_windup = 0;
-            if (enemy_super_kind == 1) {
-                enemy_start_snow();
-            } else if (enemy_super_kind == 2) {
-                enemy_place_turret();
-            } else if (enemy_super_kind == 3) {
-                enemy_start_grab();
-            } else if (enemy_super_kind == 4) {
-                enemy_ball_fire();
-            }
-            enemy_super_kind = 0;
-        }
-        return 1;
-    }
-    if (enemy->state == 1 || enemy->state == 2 || enemy->state == 4) {
+    if (enemy->state == 2 || enemy->state == 4) {
         return 0;
     }
     double d = dist(enemy->x, enemy->y, player->x, player->y);
     if (enemy_class == CLASS_SANTA) {
         if (enemy_super_cd <= 0 && d <= enemy_santa_range) {
             enemy_super_kind = 1;
-            enemy_super_windup = enemy_super_windup_time;
             enemy_super_cd = enemy_santa_cd_time;
             enemy->state = 0;
             enemy->state_time = 0;
+            enemy_start_super_now();
             return 1;
         }
     } else if (enemy_class == CLASS_EBUC) {
@@ -192,20 +187,20 @@ static double enemy_tick_class_abilities(void) {
             }
             if (enemy_ball_mode == 1 && enemy_ball_active() == 0) {
                 enemy_super_kind = 4;
-                enemy_super_windup = enemy_super_windup_time;
                 enemy_super_cd = enemy_station_cd_time;
                 enemy_ball_mode = 0;
                 enemy->state = 0;
                 enemy->state_time = 0;
+                enemy_start_super_now();
                 return 1;
             }
             if (enemy_turret_count_alive() < turret_max) {
                 enemy_super_kind = 2;
-                enemy_super_windup = enemy_super_windup_time;
                 enemy_super_cd = enemy_station_cd_time;
                 enemy_ball_mode = 1;
                 enemy->state = 0;
                 enemy->state_time = 0;
+                enemy_start_super_now();
                 return 1;
             }
         }

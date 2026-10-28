@@ -5,7 +5,6 @@ static void fire_punch(void);
 static void tick_santa_follow(void);
 static void start_dash_now(void);
 static void fire_super(void);
-static void tick_super_windup(void);
 static double snow_is_zigzag(double shot);
 static double snow_scale_for(double shot);
 static double snow_radius_for(double shot);

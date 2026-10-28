@@ -109,7 +109,6 @@ static void stun_enemy(double t) {
         enemy->cooldown = 0.25;
         enemy->think = 0.15;
     }
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
 }
 
