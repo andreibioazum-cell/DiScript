@@ -7,6 +7,9 @@ static int apply_user_json_keep_local(const char *resp) {
     int local_ccl = 0, local_ccu = 0;
     int local_cups = 0, local_candies = 0, local_ol = 0, local_ou = 0, local_sk = 0;
     int local_lv = 0, local_lu = 0, local_bp = 0, local_bpx = 0;
+    int local_wheel_spins = 0, local_wheel_wins = 0;
+    int cloud_wheel_spins = num_int(resp, "wheel_spins", -1);
+    int cloud_wheel_wins = num_int(resp, "wheel_wins", -1);
     int cloud_bpx = num_int(resp, "bpx", -1);
     progress_read();
     pg_lock();
@@ -34,6 +37,8 @@ static int apply_user_json_keep_local(const char *resp) {
         local_lu = pg.levels_unlocked;
         local_bp = pg.bp_level;
         local_bpx = pg.bp_xp;
+        local_wheel_spins = pg.wheel_spins;
+        local_wheel_wins = pg.wheel_wins;
         local_ol = pg.ordinary_level;
         local_ou = pg.ordinary_levels_unlocked;
         local_sk = pg.azum_skin;
@@ -47,7 +52,8 @@ static int apply_user_json_keep_local(const char *resp) {
                              local_astra || local_cc || local_cls != 0 || local_bp > 0 || local_bpx > 0 ||
                              local_lv > 0 || local_lu > 0 || local_ol > 0 || local_ou > 0 || local_al > 0 ||
                              local_au > 0 || local_sl > 0 || local_su > 0 || local_el > 0 || local_eu > 0 ||
-                             local_atl > 0 || local_atu > 0 || local_ccl > 0 || local_ccu > 0 || local_sk != 0;
+                             local_atl > 0 || local_atu > 0 || local_ccl > 0 || local_ccu > 0 || local_sk != 0 ||
+                             local_wheel_spins > 0 || local_wheel_wins > 0;
     if (!local_has_progress) {
         cloud_dirty_set(0);
         return 0;
@@ -88,8 +94,17 @@ static int apply_user_json_keep_local(const char *resp) {
             pg.bp_xp = local_bpx;
         restored = 1;
     }
+    if ((dirty || cloud_wheel_spins < 0 || cloud_wheel_wins < 0) &&
+        (pg.wheel_spins != local_wheel_spins || pg.wheel_wins != local_wheel_wins)) {
+        pg.wheel_spins = local_wheel_spins;
+        pg.wheel_wins = local_wheel_wins;
+        restored = 1;
+    }
     {
-        int merged_sk = (pg.azum_skin | local_sk) & SKIN_FLAGS_MAX;
+        int merged_sk = (pg.azum_skin | (local_sk & 31)) & SKIN_FLAGS_MAX;
+        if (dirty) {
+            merged_sk = (merged_sk & ~32) | (local_sk & 32);
+        }
         if (merged_sk != pg.azum_skin) {
             pg.azum_skin = merged_sk;
             restored = 1;
@@ -205,13 +220,14 @@ static int apply_user_json_keep_local(const char *resp) {
     int sl = pg.santa_level, su = pg.santa_levels_unlocked;
     int el = pg.ebuc_level, eul = pg.ebuc_levels_unlocked;
     int bp = pg.bp_level, sk = pg.azum_skin;
+    int ws = pg.wheel_spins, ww = pg.wheel_wins;
     pg_unlock();
     if (restored) {
         pending_cls = cls;
         pending_level = lv;
         pending_skin = SKIN_OF_CLASS(sk, cls);
         progress_write(cups, candies, cls, azum, santa, ebuc, lv, lu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl,
-                       atu, (int)net_load_bp_xp(), ccl, ccu, cc);
+                       atu, (int)net_load_bp_xp(), ccl, ccu, cc, ws, ww);
         LOG("restored locally bought progress over cloud (azum=%d santa=%d ebuc=%d astra=%d codecracker=%d cls=%d)",
             azum, santa, ebuc, at, cc, cls);
         return 1;

@@ -76,7 +76,7 @@ static void clear_local_pg_on_account_switch(const char *active_nick) {
     pg.loaded = 1;
     pg_unlock();
     pending_cls = pending_level = pending_skin = 0;
-    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
 }
 
 double net_auth(const char *url, const char *nick, const char *pass) {

@@ -143,6 +143,7 @@ static void award_battle_result(double result) {
         if (bpass_allowed() == 1) {
             bp_xp = bp_xp + 10;
         }
+        wheel_award_win();
         save_progress();
         grant_achievement(ACH_FIRST_WIN);
         /* Unlock flawless-win achievement when full HP and unhit (including turret shields). */

@@ -185,6 +185,7 @@ typedef struct {
     int ebuc_level, ebuc_levels_unlocked;
     int bp_level, azum_skin;
     int bp_xp;
+    int wheel_spins, wheel_wins;
 
     int astra, astra_level, astra_levels_unlocked;
 
@@ -196,9 +197,9 @@ static Progress pg = {.lock = DS_MUTEX_INIT};
 #define BP_MAX 7
 #define SKIN_MAX 1
 
-#define SKIN_FLAGS_MAX 7
+#define SKIN_FLAGS_MAX 63
 
-#define SKIN_OF_CLASS(flags, cls) (((cls) == 3) ? (((flags) >> 1) & 1) : ((cls) == 4 ? (((flags) >> 2) & 1) : (((cls) == 6) ? 0 : ((flags) & 1))))
+#define SKIN_OF_CLASS(flags, cls) (((cls) == 3) ? (((flags) >> 1) & 1) : ((cls) == 4 ? (((flags) >> 2) & 1) : ((cls) == 0 ? (((flags) >> 5) & 1) : (((cls) == 6) ? 0 : ((flags) & 1)))))
 static int pending_cls = 0;
 static int pending_level = 0;
 
@@ -259,7 +260,7 @@ static void progress_write(int cups, int candies, int cls, int azum, int santa, 
                            int azum_levels_unlocked, int santa_level, int santa_levels_unlocked, int ebuc_level,
                            int ebuc_levels_unlocked, int bp_level, int azum_skin, int astra, int astra_level,
                            int astra_levels_unlocked, int bp_xp, int codecracker_level,
-                           int codecracker_levels_unlocked, int codecracker);
+                           int codecracker_levels_unlocked, int codecracker, int wheel_spins, int wheel_wins);
 static void progress_read(void);
 static void achievements_read(void);
 int codecracker_merge_local(int local_owned, int local_level, int local_unlocked);

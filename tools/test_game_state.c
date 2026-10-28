@@ -809,6 +809,10 @@ double net_load_santa_levels_unlocked(void) { return 0; }
 double net_load_ebuc_level(void) { return 0; }
 double net_load_ebuc_levels_unlocked(void) { return 0; }
 double net_load_azum_skin(void) { return 0; }
+static int stub_wheel_spins, stub_wheel_wins;
+int net_load_wheel_spins(void) { return stub_wheel_spins; }
+int net_load_wheel_wins(void) { return stub_wheel_wins; }
+void net_save_wheel_progress(int spins, int wins) { stub_wheel_spins = spins; stub_wheel_wins = wins; }
 double net_load_astra(void) { return 0; }
 double net_load_astra_level(void) { return 0; }
 double net_load_astra_levels_unlocked(void) { return 0; }
@@ -6495,6 +6499,23 @@ int main(void) {
     test_admin_auto_block();
     test_admin_auto_block_astra();
     test_admin_auto_block_skill();
+    ordinary_gold_owned = 1;
+    ordinary_gold_skin = SKIN_SPECIAL;
+    assert(class_look(CLASS_ORDINARY, ordinary_gold_skin) == LOOK_GOLD);
+    assert(strcmp(look_idle_tex(LOOK_GOLD), ORDINARY_GOLD_TEX) == 0);
+    assert(strcmp(look_punch_tex(LOOK_GOLD), ORDINARY_GOLD_PUNCH_TEX) == 0);
+    assert((int)skin_flags() == 48);
+    ordinary_gold_owned = 0;
+    ordinary_gold_skin = SKIN_NORMAL;
+    stub_wheel_spins = 2;
+    stub_wheel_wins = 9;
+    wheel_award_win();
+    assert(stub_wheel_spins == 3 && stub_wheel_wins == 0);
+    stub_wheel_spins = 999;
+    stub_wheel_wins = 9;
+    wheel_award_win();
+    assert(stub_wheel_spins == 999 && stub_wheel_wins == 0);
+    puts("wheel quest: each 10 wins grants one spin, capped at 999");
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

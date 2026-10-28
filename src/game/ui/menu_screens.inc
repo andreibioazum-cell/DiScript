@@ -52,6 +52,11 @@ static void draw_lobby(void) {
     draw_menu_button(2, tr_settings());
     draw_menu_button(3, tr_account());
     draw_menu_button(4, tr_achievements());
+    {
+        const char *wheel_label = language == 1 ? "Колесо" : "Fortune Wheel";
+        const char *wheel_count = ds_concat(wheel_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
+        button_scaled(wheel_count, 16, screen_h - 58, 156, 42, 0.72);
+    }
     if (bpass_allowed() == 1) {
         button(language == 1 ? "Баттл-пасс" : "Battle Pass", bpass_corner_x(), bpass_corner_y(),
                bpass_corner_w(), btn_h);
@@ -279,6 +284,48 @@ static void draw_skins(void) {
     skin_msg_t = tick_down(skin_msg_t);
     draw_msg(tr_skins_note_for(player_class), skins_msg_y(), skin_msg_t);
     draw_back();
+}
+
+static void draw_wheel(void) {
+    screen_fill();
+    ctext(language == 1 ? "Колесо фортуны" : "Fortune Wheel", title_y(), text_color);
+    const double cx = screen_w / 2, cy = screen_h / 2 - 24;
+    const double colors[6] = {0xFF4C9AFF, 0xFFFFC857, 0xFF65D6AD, 0xFFE8758A, 0xFF9B7EDE, 0xFFFFD166};
+    int i;
+    for (i = 0; i < 6; i++) {
+        double rotation = wheel_anim_t > 0 ? (1.15 - wheel_anim_t) * 540 : 0;
+        double a = (-90 + i * 60 + rotation) * 3.141592653589793 / 180;
+        double px = cx + cos(a) * 118, py = cy + sin(a) * 118;
+        circle(px, py, 29, colors[i]);
+        const char *prize;
+        if (i == 5) {
+            prize = language == 1 ? "Скин 10%" : "Skin 10%";
+        } else {
+            const char *cups_prize = i == 0 ? "1" : i == 1 ? "3" : i == 2 ? "5" : i == 3 ? "10" : "15";
+            prize = ds_concat(cups_prize, language == 1 ? " куб." : " cups");
+        }
+        ctext_scaled(prize, py + 4, 0xFFFFFFFF, i == 5 ? 0.36 : 0.45);
+    }
+    circle(cx, cy, 76, 0xFF25243B);
+    ring(cx, cy, 81, 8, 0xFFFFD166);
+    const char *quest = ds_concat(language == 1 ? "Побед: " : "Wins: ", ds_concat(ds_num_to_string((double)net_load_wheel_wins()), "/10"));
+    ctext_scaled(quest, cy - 16, text_color, 0.58);
+    ctext_scaled(language == 1 ? "Скин: 10%" : "Skin: 10%", cy + 13, 0xFFFFD166, 0.5);
+    ctext_scaled(language == 1 ? "10 побед = 1 прокрутка" : "10 Wins = 1 Spin", cy + 164, text_color, 0.58);
+    const char *spin_label = language == 1 ? "Крутить" : "Spin";
+    const char *spin_count = ds_concat(spin_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
+    button_scaled(spin_count, center_x(btn_w), screen_h - 104, btn_w, btn_h, 0.8);
+    button(tr_back(), menu_x(), modes_row(0), menu_btn_w(), btn_h);
+    if (wheel_anim_t > 0) {
+        ctext_scaled(language == 1 ? "Колесо крутится..." : "The Wheel Is Spinning...", cy + 112, text_color, 0.62);
+    } else if (wheel_result_kind == 1) {
+        ctext_scaled(language == 1 ? "Выпал золотой скин!" : "Gold Cube Skin Unlocked!", cy + 112, 0xFFFFD166, 0.68);
+    } else if (wheel_result_kind == 2) {
+        const char *won = ds_concat(language == 1 ? "Выигрыш: " : "You won ", ds_concat(ds_num_to_string(wheel_result_cups), language == 1 ? " кубков" : " cups"));
+        ctext_scaled(won, cy + 112, 0xFFFFD166, 0.68);
+    } else if (wheel_result_kind == 3) {
+        ctext_scaled(language == 1 ? "Прокруток нет" : "No Spins Available", cy + 112, 0xFFFFFFFF, 0.62);
+    }
 }
 
 static double lb_place_bg(double i) {

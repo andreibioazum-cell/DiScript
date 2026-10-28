@@ -3,7 +3,7 @@ static void progress_write(int cups, int candies, int cls, int azum, int santa, 
                            int azum_levels_unlocked, int santa_level, int santa_levels_unlocked, int ebuc_level,
                            int ebuc_levels_unlocked, int bp_level, int azum_skin, int astra, int astra_level,
                            int astra_levels_unlocked, int bp_xp, int codecracker_level,
-                           int codecracker_levels_unlocked, int codecracker) {
+                           int codecracker_levels_unlocked, int codecracker, int wheel_spins, int wheel_wins) {
     char path[320], text[512];
     if (cls == 5) {
         cls = 4;
@@ -11,11 +11,11 @@ static void progress_write(int cups, int candies, int cls, int azum, int santa, 
     }
     data_file_path(path, sizeof(path), PROGRESS_FILE);
     snprintf(text, sizeof(text),
-             "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", cups, cls, azum, santa,
+             "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d\n", cups, cls, azum, santa,
              candies, level, levels_unlocked, ordinary_level, ordinary_levels_unlocked, azum_level,
              azum_levels_unlocked, santa_level, santa_levels_unlocked, ebuc_level, ebuc_levels_unlocked, ebuc, bp_level,
              azum_skin, astra, astra_level, astra_levels_unlocked, bp_xp, codecracker_level,
-             codecracker_levels_unlocked, codecracker);
+             codecracker_levels_unlocked, codecracker, wheel_spins, wheel_wins);
     file_write_atomic(path, text);
 }
 static void progress_read(void) {
@@ -29,6 +29,7 @@ static void progress_read(void) {
     int bp_level = 0, azum_skin = 0;
     int astra = 0, astra_level = -1, astra_levels_unlocked = -1;
     int bp_xp = 0;
+    int wheel_spins = 0, wheel_wins = 0;
     /* Optional trailing CodeCracker ownership and level fields. */
     int codecracker_level = -1, codecracker_levels_unlocked = -1, codecracker = 0;
     int legacy_astra_class = 0;
@@ -41,11 +42,12 @@ static void progress_read(void) {
     data_file_path(path, sizeof(path), PROGRESS_FILE);
     f = fopen(path, "r");
     if (f) {
-        int n = fscanf(f, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", &cups, &cls,
+        int n = fscanf(f, "%d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d %d", &cups, &cls,
                        &azum, &santa, &candies, &level, &levels_unlocked, &ordinary_level, &ordinary_levels_unlocked,
                        &azum_level, &azum_levels_unlocked, &santa_level, &santa_levels_unlocked, &ebuc_level,
                        &ebuc_levels_unlocked, &ebuc, &bp_level, &azum_skin, &astra, &astra_level,
-                       &astra_levels_unlocked, &bp_xp, &codecracker_level, &codecracker_levels_unlocked, &codecracker);
+                       &astra_levels_unlocked, &bp_xp, &codecracker_level, &codecracker_levels_unlocked, &codecracker,
+                       &wheel_spins, &wheel_wins);
         legacy_astra_class = (cls == 5);
         if (n < 3) {
             cups = 0;
@@ -122,6 +124,12 @@ static void progress_read(void) {
             if (n < 25) {
                 codecracker = 0;
             }
+            if (n < 26) {
+                wheel_spins = 0;
+            }
+            if (n < 27) {
+                wheel_wins = 0;
+            }
         }
         fclose(f);
     }
@@ -184,6 +192,14 @@ static void progress_read(void) {
         azum_skin = 0;
     if (azum_skin > SKIN_FLAGS_MAX)
         azum_skin = SKIN_FLAGS_MAX;
+    if (wheel_spins < 0)
+        wheel_spins = 0;
+    if (wheel_spins > 999)
+        wheel_spins = 999;
+    if (wheel_wins < 0)
+        wheel_wins = 0;
+    if (wheel_wins > 9)
+        wheel_wins = 9;
     pg_lock();
     pg.cups = cups;
     pg.candies = candies;
@@ -203,6 +219,8 @@ static void progress_read(void) {
     pg.ebuc_levels_unlocked = ebuc_levels_unlocked;
     pg.bp_level = bp_level;
     pg.bp_xp = bp_xp < 0 ? 0 : bp_xp;
+    pg.wheel_spins = wheel_spins;
+    pg.wheel_wins = wheel_wins;
     pg.azum_skin = azum_skin;
     pg.astra = astra;
     pg.astra_level = astra_level;
@@ -376,4 +394,39 @@ double net_load_azum_skin(void) {
     v = (double)pg.azum_skin;
     pg_unlock();
     return v;
+}
+
+int net_load_wheel_spins(void) {
+    progress_read();
+    pg_lock();
+    int v = pg.wheel_spins;
+    pg_unlock();
+    return v;
+}
+
+int net_load_wheel_wins(void) {
+    progress_read();
+    pg_lock();
+    int v = pg.wheel_wins;
+    pg_unlock();
+    return v;
+}
+
+void net_save_wheel_progress(int spins, int wins) {
+    if (spins < 0) spins = 0;
+    if (spins > 999) spins = 999;
+    if (wins < 0) wins = 0;
+    if (wins > 9) wins = 9;
+    progress_read();
+    pg_lock();
+    pg.wheel_spins = spins;
+    pg.wheel_wins = wins;
+    int c = pg.cups, cd = pg.candies, k = pg.cls, a = pg.azum, sn = pg.santa, eu = pg.ebuc;
+    int lv = pg.level, lu = pg.levels_unlocked;
+    int ol = pg.ordinary_level, ou = pg.ordinary_levels_unlocked;
+    int al = pg.azum_level, au = pg.azum_levels_unlocked;
+    int sl = pg.santa_level, su = pg.santa_levels_unlocked;
+    int el = pg.ebuc_level, eul = pg.ebuc_levels_unlocked, bp = pg.bp_level, sk = pg.azum_skin;
+    pg_unlock();
+    net_save_progress_all(c, cd, k, a, sn, eu, lv, lu, ol, ou, al, au, sl, su, el, eul, bp, sk);
 }

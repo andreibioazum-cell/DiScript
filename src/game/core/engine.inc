@@ -175,6 +175,8 @@ static void logic_update(void) {
         update_promo();
     } else if (game_state == ST_ROOMS) {
         update_rooms();
+    } else if (game_state == ST_WHEEL) {
+        update_wheel();
     } else if (game_state == ST_ACHIEVEMENTS) {
         ach_scroll_tick();
     } else if (game_state == ST_CLASSES) {
@@ -211,6 +213,8 @@ static void draw_screen(void) {
         draw_promo();
     } else if (game_state == ST_ROOMS) {
         draw_rooms();
+    } else if (game_state == ST_WHEEL) {
+        draw_wheel();
     } else {
         draw_online();
     }
@@ -305,7 +309,7 @@ static double logic_back(void) {
         start_transition(ST_CLASSES);
         return 1;
     }
-    if (game_state == ST_BPASS) {
+    if (game_state == ST_BPASS || game_state == ST_WHEEL) {
         start_transition(ST_LOBBY);
         return 1;
     }

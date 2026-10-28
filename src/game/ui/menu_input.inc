@@ -203,6 +203,10 @@ static void touch_lobby(double x, double y, double action) {
         cube_npc_tap();
         return;
     }
+    if (hit_button(x, y, 16, screen_h - 58, 156, 42) == 1) {
+        start_transition(ST_WHEEL);
+        return;
+    }
     if (hit_menu_row(x, y, 0) == 1) {
         start_transition(ST_MODES);
         return;
@@ -381,5 +385,53 @@ static void touch_login(double x, double y, double action) {
         } else {
             start_transition(ST_LOBBY);
         }
+    }
+}
+
+
+static void update_wheel(void) {
+    wheel_spins = net_load_wheel_spins();
+    wheel_wins = net_load_wheel_wins();
+    if (wheel_anim_t > 0) {
+        wheel_anim_t = wheel_anim_t - dt;
+        if (wheel_anim_t < 0) wheel_anim_t = 0;
+    }
+}
+
+static void wheel_spin_do(void) {
+    int spins = net_load_wheel_spins();
+    int wins = net_load_wheel_wins();
+    if (wheel_anim_t > 0) return;
+    if (spins <= 0) {
+        wheel_result_kind = 3;
+        return;
+    }
+    spins--;
+    wheel_result_kind = 0;
+    wheel_result_cups = 0;
+    wheel_anim_t = 1.15;
+    if (rand() % 100 < 10 && ordinary_gold_owned == 0) {
+        ordinary_gold_owned = 1;
+        save_progress();
+        wheel_result_kind = 1;
+    } else {
+        int prize = rand() % 100;
+        int amount = prize < 30 ? 1 : prize < 55 ? 3 : prize < 75 ? 5 : prize < 92 ? 10 : 15;
+        cups = cups + amount;
+        wheel_result_cups = amount;
+        wheel_result_kind = 2;
+        save_progress();
+    }
+    net_save_wheel_progress(spins, wins);
+}
+
+static void touch_wheel(double x, double y) {
+    if (wheel_anim_t > 0) return;
+    if (hit_button(x, y, menu_x(), modes_row(0), menu_btn_w(), btn_h) == 1) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    if (hit_button(x, y, center_x(btn_w), screen_h - 104, btn_w, btn_h) == 1) {
+        wheel_spin_do();
     }
 }

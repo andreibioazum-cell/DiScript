@@ -18,6 +18,9 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_ASTRA) {
         pair.idle = ASTRA_TEX;
         pair.punch = ASTRA_PUNCH_TEX;
+    } else if (look == LOOK_GOLD) {
+        pair.idle = ORDINARY_GOLD_TEX;
+        pair.punch = ORDINARY_GOLD_PUNCH_TEX;
     } else if (look == LOOK_ORDINARY) {
         pair.idle = ORDINARY_TEX;
         pair.punch = PUNCH_TEX;
@@ -57,6 +60,9 @@ static double class_look(double cls, double skin) {
     if (cls == CLASS_ASTRA && skin == SKIN_SPECIAL) {
         return LOOK_ASTRA;
     }
+    if (cls == CLASS_ORDINARY && skin == SKIN_SPECIAL) {
+        return LOOK_GOLD;
+    }
     if (cls == CLASS_AZUM) {
         return LOOK_AZUM;
     }
@@ -79,6 +85,9 @@ static double card_look(double cls, double skin) {
 
 /* High-resolution shop/lobby render. Astra uses its ordinary Astra card art. */
 static const char *class_card_tex(double cls, double skin) {
+    if (cls == CLASS_ORDINARY && skin == SKIN_SPECIAL) {
+        return "";
+    }
     if (cls == CLASS_AZUM) {
         if (skin_is_active(cls, skin) == 1) {
             return AZUM_ZOMBIE_CARD_TEX;

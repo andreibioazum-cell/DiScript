@@ -47,6 +47,9 @@ static const char *tr_admin_ban_protected(void) {
 }
 
 static const char *tr_skins_note_for(double cls) {
+    if (cls == CLASS_ORDINARY) {
+        return language == 1 ? "Золотой скин выпадает с колеса фортуны" : "Gold Cube Skin Is a Fortune Wheel Reward";
+    }
     if (cls == CLASS_EBUC) {
         if (language == 1) {
             return "Скин «Эльф»: достижение «Подарок буКа»";

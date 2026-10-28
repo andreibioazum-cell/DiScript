@@ -169,6 +169,9 @@ double net_load_bp_level(void);
 void net_set_bp_xp(double v);
 double net_load_bp_xp(void);
 double net_load_azum_skin(void);
+int net_load_wheel_spins(void);
+int net_load_wheel_wins(void);
+void net_save_wheel_progress(int spins, int wins);
 
 double net_load_astra(void);
 double net_load_astra_level(void);
