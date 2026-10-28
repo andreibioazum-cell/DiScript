@@ -49,7 +49,7 @@
 
 В `firebase.rules.json` из этой ветки появились ключи CodeCracker —
 `codecracker_level` и `codecracker_levels` (у него своя ветка уровней, не
-общая с обычным кубом), а диапазон `azum_skin` расширен с 0..1 до 0..3
+общая с обычным кубом), а диапазон `azum_skin` расширен с 0..3 до 0..7 (три бита для скинов Азума, буКа и Астры)
 (раньше игра не могла записать скин, и PATCH прогресса отклонялся целиком).
 
 Пока эти правила не опубликованы, игра шлёт в базу профиль с ключами
@@ -62,7 +62,7 @@ CodeCracker, и Firebase отклоняет **весь** запрос: не по
 "codecracker_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
 ```
 
-и поправь диапазон скина на `"azum_skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" }`.
+и поправь диапазон скина на `"azum_skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" }`.
 
 Правило ниже оставлено **только для совместимости** со старыми профилями:
 раньше админ мог записать оттенок изумруда в `gifts/emerald_hue` (0..7), но

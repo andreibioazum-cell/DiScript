@@ -105,6 +105,8 @@ SANTA_CARD_TEX = "santa_card.png";
 EBUC_CARD_TEX = "ebuc_card.png";
 EBUC_ELF_CARD_TEX = "ebuc_elf_card.png";
 ASTRA_CARD_TEX = "astra_card.png";
+ASTRA_TEX = "astra.png";
+ASTRA_PUNCH_TEX = "astra_punch.png";
 astra_ability_ok = 0;
 ST_BPASS = 16;
 /* Acceleration and braking durations in seconds. */

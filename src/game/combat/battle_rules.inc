@@ -15,6 +15,9 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_ELF) {
         pair.idle = EBUC_ELF_TEX;
         pair.punch = EBUC_ELF_PUNCH_TEX;
+    } else if (look == LOOK_ASTRA) {
+        pair.idle = ASTRA_TEX;
+        pair.punch = ASTRA_PUNCH_TEX;
     } else if (look == LOOK_ORDINARY) {
         pair.idle = ORDINARY_TEX;
         pair.punch = PUNCH_TEX;
@@ -50,6 +53,9 @@ static double class_look(double cls, double skin) {
             return LOOK_ELF;
         }
         return LOOK_ZOMBIE;
+    }
+    if (cls == CLASS_ASTRA && skin == SKIN_SPECIAL) {
+        return LOOK_ASTRA;
     }
     if (cls == CLASS_AZUM) {
         return LOOK_AZUM;
@@ -89,7 +95,7 @@ static const char *class_card_tex(double cls, double skin) {
         return EBUC_CARD_TEX;
     }
     if (cls == CLASS_ASTRA) {
-        return ASTRA_CARD_TEX;
+        return skin == SKIN_SPECIAL ? "" : ASTRA_CARD_TEX;
     }
     return ORDINARY_CARD_TEX;
 }

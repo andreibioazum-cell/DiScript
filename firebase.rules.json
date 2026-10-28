@@ -105,7 +105,7 @@
         "codecracker_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
                 "bp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
         "bpx": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
-        "azum_skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+        "azum_skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
         "ach_flags": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 255" },
         "ach_revives": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000" },
         "lang": { ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)" },

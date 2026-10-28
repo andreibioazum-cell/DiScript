@@ -12,6 +12,8 @@ static void load_textures(void) {
     ebuc_punch_tex_ok = png_load(EBUC_PUNCH_TEX);
     ebuc_elf_tex_ok = png_load(EBUC_ELF_TEX);
     ebuc_elf_punch_tex_ok = png_load(EBUC_ELF_PUNCH_TEX);
+    astra_tex_ok = png_load(ASTRA_TEX);
+    astra_punch_tex_ok = png_load(ASTRA_PUNCH_TEX);
     png_load(DESPENSER_TEX);
     png_load(EBUC_ELF_DESPENSER_TEX);
     candy_tex_ok = png_load(CANDY_TEX);
@@ -45,6 +47,8 @@ static void recheck_texture_flags(void) {
     ebuc_punch_tex_ok = flag_live(ebuc_punch_tex_ok, EBUC_PUNCH_TEX);
     ebuc_elf_tex_ok = flag_live(ebuc_elf_tex_ok, EBUC_ELF_TEX);
     ebuc_elf_punch_tex_ok = flag_live(ebuc_elf_punch_tex_ok, EBUC_ELF_PUNCH_TEX);
+    astra_tex_ok = flag_live(astra_tex_ok, ASTRA_TEX);
+    astra_punch_tex_ok = flag_live(astra_punch_tex_ok, ASTRA_PUNCH_TEX);
     candy_tex_ok = flag_live(candy_tex_ok, CANDY_TEX);
     if (winter_theme_on() == 1) {
         snow_tex_ok = flag_live(snow_tex_ok, SNOW_TEX);
@@ -59,6 +63,9 @@ static double textures_all_ok(void) {
         return 0;
     }
     if (azum_zombie_tex_ok == 0 || azum_zombie_punch_tex_ok == 0) {
+        return 0;
+    }
+    if (astra_tex_ok == 0 || astra_punch_tex_ok == 0) {
         return 0;
     }
     if (santa_punch_tex_ok == 0 || ebuc_punch_tex_ok == 0 || candy_tex_ok == 0) {
@@ -124,6 +131,12 @@ static void reload_textures(void) {
     }
     if (ebuc_elf_punch_tex_ok == 0) {
         ebuc_elf_punch_tex_ok = png_load(EBUC_ELF_PUNCH_TEX);
+    }
+    if (astra_tex_ok == 0) {
+        astra_tex_ok = png_load(ASTRA_TEX);
+    }
+    if (astra_punch_tex_ok == 0) {
+        astra_punch_tex_ok = png_load(ASTRA_PUNCH_TEX);
     }
     if (tex_ready(DESPENSER_TEX) == 0) {
         png_load(DESPENSER_TEX);

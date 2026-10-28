@@ -139,7 +139,7 @@ static double levels_btn_x(void) {
 
 static double skins_btn_x(void) { return screen_w / 2 + class_action_gap / 2; }
 
-static double class_has_skins(double cls) { return cls == CLASS_AZUM || cls == CLASS_EBUC; }
+static double class_has_skins(double cls) { return cls == CLASS_AZUM || cls == CLASS_EBUC || cls == CLASS_ASTRA; }
 
 static double skins_btn_visible(void) { return class_has_skins(player_class); }
 

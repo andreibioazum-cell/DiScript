@@ -3449,6 +3449,10 @@ int main(void) {
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
+    assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_SPECIAL), ASTRA_TEX) == 0);
+    assert(strcmp(fighter_sprite(CLASS_ASTRA, 1, SKIN_SPECIAL), ASTRA_PUNCH_TEX) == 0);
+    FighterSpritePair astra_pair = look_sprite_pair(LOOK_ASTRA);
+    assert(strcmp(astra_pair.idle, ASTRA_TEX) == 0 && strcmp(astra_pair.punch, ASTRA_PUNCH_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
     assert(class_has_super(CLASS_ASTRA) == 1 && player_max_hp_for(CLASS_ASTRA) == astra_hp * round_hp_mult());
     /* Base HP pools: Ordinary/Santa 20, Azum 20, Astra 20 (*0.95 = 19), ebuC 24. */
@@ -4485,12 +4489,39 @@ int main(void) {
     screen_w = 320;
     enemy->stun = 0;
     astra_cd = 0;
-    /* Astra has no separate skin or developer variant: one ordinary card,
-     * with the current fast ability kit. */
+    /* Astra’s alternate appearance is free with the class and has its own sprite pair. */
+    double saved_astra_owned = class_owned_of(CLASS_ASTRA);
+    double saved_astra_skin = astra_skin;
+    double saved_astra_cups = cups;
+    double saved_flash_sale = flash_sale_active;
+    double saved_skin_test_login_status = stub_login_status;
+    char saved_skin_test_nick[sizeof(stub_login_nick)];
+    snprintf(saved_skin_test_nick, sizeof(saved_skin_test_nick), "%s", stub_login_nick);
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "astra_skin_test");
+    set_class_owned(CLASS_ASTRA, 0);
+    astra_skin = SKIN_NORMAL;
+    player_class = CLASS_ORDINARY;
+    cups = astra_cost;
+    flash_sale_active = 0;
+    assert(skin_unlocked_for(CLASS_ASTRA, SKIN_SPECIAL) == 0);
+    pick_class(CLASS_ASTRA);
+    assert(class_owned_of(CLASS_ASTRA) == 1 && astra_skin == SKIN_SPECIAL);
+    assert(player_class == CLASS_ASTRA && cups == 0);
+    set_class_owned(CLASS_ASTRA, saved_astra_owned);
+    astra_skin = saved_astra_skin;
+    cups = saved_astra_cups;
+    flash_sale_active = saved_flash_sale;
+    stub_login_status = saved_skin_test_login_status;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_skin_test_nick);
     player_class = CLASS_ASTRA;
-    assert(class_has_skins(CLASS_ASTRA) == 0 && class_has_skins(CLASS_ASTRA) == 0);
-    assert(skins_btn_visible() == 0 && current_skin() == SKIN_NORMAL);
+    assert(class_has_skins(CLASS_ASTRA) == 1 && class_has_skins(CLASS_ASTRA) == 1);
+    assert(skins_btn_visible() == 1 && current_skin() == SKIN_NORMAL);
+    assert(skin_unlocked_for(CLASS_ASTRA, SKIN_SPECIAL) == 1);
     pick_skin(SKIN_SPECIAL);
+    assert(current_skin() == SKIN_SPECIAL && class_skin_of(CLASS_ASTRA) == SKIN_SPECIAL);
+    assert(skin_flags() == 4);
+    assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_SPECIAL), "") == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
     assert(fabs(class_hp_of(CLASS_ASTRA) - astra_hp * 0.95 * round_hp_mult()) < 1e-9);
@@ -4519,7 +4550,7 @@ int main(void) {
     assert(stub_last_codecracker == 1 && codecracker_on() == 1);
     set_class_owned(CLASS_CODECRACKER, 0);
     player_class = CLASS_ORDINARY;
-    assert(class_skin_of(CLASS_ASTRA) == SKIN_NORMAL && current_skin() == SKIN_NORMAL);
+    assert(class_skin_of(CLASS_ASTRA) == SKIN_SPECIAL && current_skin() == SKIN_NORMAL);
     /* A guest cannot use stored seasonal rewards, but the primary CCP admin can. */
     candies = 37;
     set_class_owned(CLASS_SANTA, 1);

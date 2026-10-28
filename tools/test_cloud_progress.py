@@ -348,6 +348,12 @@ static int run_reinstall_levels(const char *dir) {
     assert(net_load_ordinary_levels_unlocked() == 2);
     assert(net_load_bp_level() == 4 && net_load_bp_xp() == 120);
     assert(net_load_azum_skin() == 3);
+    apply_user_json(
+        "{\"nick\":\"tester\",\"cups\":200,\"candies\":10,\"cls\":4,\"azum\":0,\"santa\":0,"
+        "\"ebuc\":0,\"astra\":1,\"azum_skin\":7}");
+    assert(net_load_azum_skin() == 7);
+    assert(SKIN_OF_CLASS(7, 1) == 1 && SKIN_OF_CLASS(7, 3) == 1 && SKIN_OF_CLASS(7, 4) == 1);
+    assert(SKIN_OF_CLASS(7, 6) == 0);
 
     /* Partial cloud profile with top-level levels restores active Astra/CodeCracker branch. */
     apply_user_json(

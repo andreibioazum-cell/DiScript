@@ -110,6 +110,9 @@ static double skin_flags(void) {
     if (ebuc_skin == SKIN_SPECIAL) {
         f = f + 2;
     }
+    if (astra_skin == SKIN_SPECIAL) {
+        f = f + 4;
+    }
     return f;
 }
 
@@ -131,6 +134,9 @@ static void progress_normalize(void) {
     }
     if (ebuc_skin < SKIN_NORMAL || ebuc_skin >= SKIN_COUNT) {
         ebuc_skin = SKIN_NORMAL;
+    }
+    if (astra_skin < SKIN_NORMAL || astra_skin >= SKIN_COUNT || class_owned_of(CLASS_ASTRA) == 0) {
+        astra_skin = SKIN_NORMAL;
     }
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         azum_skin = SKIN_NORMAL;
@@ -191,12 +197,9 @@ static void progress_from_storage(void) {
     astra_ability_refresh();
     codecracker_refresh();
     double skins = net_load_azum_skin();
-    ebuc_skin = SKIN_NORMAL;
-    if (skins >= 2) {
-        ebuc_skin = SKIN_SPECIAL;
-        skins = skins - 2;
-    }
-    azum_skin = skins;
+    azum_skin = skins - floor(skins / 2) * 2;
+    ebuc_skin = floor(skins / 2) - floor(skins / 4) * 2;
+    astra_skin = floor(skins / 4) - floor(skins / 8) * 2;
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         grant_achievement(ACH_LEGENDS);
     }
@@ -227,6 +230,7 @@ static void progress_reset_on_signout(void) {
     levels_unlocked = 0;
     azum_skin = SKIN_NORMAL;
     ebuc_skin = SKIN_NORMAL;
+    astra_skin = SKIN_NORMAL;
     achievement_mask = 0;
     azum_revive_count = 0;
     cheat_god = 0;

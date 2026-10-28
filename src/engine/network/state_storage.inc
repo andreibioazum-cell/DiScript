@@ -196,9 +196,9 @@ static Progress pg = {.lock = DS_MUTEX_INIT};
 #define BP_MAX 7
 #define SKIN_MAX 1
 
-#define SKIN_FLAGS_MAX 3
+#define SKIN_FLAGS_MAX 7
 
-#define SKIN_OF_CLASS(flags, cls) (((cls) == 3) ? (((flags) >> 1) & 1) : (((cls) == 4 || (cls) == 6) ? 0 : ((flags) & 1)))
+#define SKIN_OF_CLASS(flags, cls) (((cls) == 3) ? (((flags) >> 1) & 1) : ((cls) == 4 ? (((flags) >> 2) & 1) : (((cls) == 6) ? 0 : ((flags) & 1))))
 static int pending_cls = 0;
 static int pending_level = 0;
 

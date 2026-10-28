@@ -103,6 +103,8 @@ const char *SANTA_CARD_TEX;
 const char *EBUC_CARD_TEX;
 const char *EBUC_ELF_CARD_TEX;
 const char *ASTRA_CARD_TEX;
+const char *ASTRA_TEX;
+const char *ASTRA_PUNCH_TEX;
 double astra_ability_ok;
 double ST_BPASS;
 /* Player walk acceleration and braking durations. */

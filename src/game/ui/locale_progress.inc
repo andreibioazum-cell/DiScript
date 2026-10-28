@@ -268,6 +268,14 @@ static const char *tr_skin_zombie(void) {
     return "Zombie";
 }
 
+static const char *tr_skin_astra(void) {
+    return language == 1 ? "Новый образ" : "New look";
+}
+
+static const char *tr_skin_astra_hint(void) {
+    return language == 1 ? "Бесплатно при покупке Астры" : "Free with Astra";
+}
+
 static const char *tr_skin_elf(void) {
     if (language == 1) {
         return "Эльф";
