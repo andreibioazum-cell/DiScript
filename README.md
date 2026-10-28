@@ -22,6 +22,13 @@
 программный растеризатор вместо Vulkan, WinHTTP вместо JNI и перевод
 клавиатуры в касания. Подробности: [docs/pc-version.md](docs/pc-version.md).
 
+## Музыка
+
+Три оригинальных трека: обычная и новогодняя темы лобби — по **70 секунд**,
+новая тема боя Азума против Астры — **45 секунд**. Старая песня
+`azum_vs_astra.wav` и исходный mp3 удалены; вся музыка собирается из нот
+скриптом `python3 tools/generate_music.py`. Подробности: [docs/music.md](docs/music.md).
+
 ## Веб-панель админа
 
 Кроме APK в репозитории есть веб-версия - [index.html](index.html): панель
@@ -84,6 +91,13 @@ The same game as in the APK, on a desktop: a window, the mouse and the keyboard.
 The game logic is shared with Android (`src/game`, `src/engine`); the PC layer
 is the window, a software rasterizer instead of Vulkan, WinHTTP instead of JNI
 and a keyboard-to-touch bridge. Details: [docs/pc-version.md](docs/pc-version.md).
+
+## Music
+
+Three original tracks: the ordinary and New Year lobby themes are **70 seconds**
+each, and the new Azum-vs-Astra duel theme is **45 seconds**. The old
+`azum_vs_astra.wav` song and its source mp3 are gone; every track is rebuilt
+from notes with `python3 tools/generate_music.py`. Details: [docs/music.md](docs/music.md).
 
 ## Web admin panel
 

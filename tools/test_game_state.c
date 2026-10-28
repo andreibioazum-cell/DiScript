@@ -3134,6 +3134,7 @@ int main(void) {
     assert(astra_zone_reach(2) > astra_zone_reach(1));
     assert(astra_strike_damage_for(3) > astra_strike_damage_for(2));
     assert(strcmp(WINTER_JINGLE, "winter_jingle.wav") == 0);
+    assert(strcmp(SERAPHIM_MUSIC, "duel_theme.wav") == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);

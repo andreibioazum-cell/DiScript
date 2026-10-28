@@ -18,13 +18,13 @@ static void start_music(void) {
     seraphim_ok = snd_load(SERAPHIM_MUSIC);
     if (seraphim_ok == 1) {
         seraphim_level = 0;
-        ds_log("init: seraphim battle music ready");
+        ds_log("init: duel theme ready");
     } else {
-        ds_log("init: no seraphim music");
+        ds_log("init: no duel theme");
     }
 }
 
-/* Azum vs Astra matchup music helpers. */
+/* Azum-vs-Astra matchup: the original 45 s duel theme (not the old song). */
 static int seraphim_is_astra(double cls) {
     return class_is_astra(cls) == 1 || cls == 5;
 }
