@@ -257,13 +257,15 @@ static double snow_radius_for(double shot) {
 }
 
 static double snow_zigzag_lateral(double t) {
-    double u = fmod(t, 0.20) / 0.20;
+    /* Make Santa's zigzag about 1.5x wider and 1.5x quicker. */
+    double period = 0.20 / 1.5;
+    double u = fmod(t, period) / period;
     double w;
     if (u < 0) {
         u = u + 1;
     }
     w = u < 0.25 ? 4 * u : (u < 0.75 ? 2 - 4 * u : 4 * u - 4);
-    return w * 32.0;
+    return w * 32.0 * 1.5;
 }
 
 static void snow_step_pos(double x0, double y0, double dx, double dy, double t, double shot, double *ox, double *oy) {

@@ -6033,6 +6033,10 @@ int main(void) {
         assert(snow_is_zigzag(2) == 1 && fabs(snow_scale_for(2) - 0.9) < 1e-9 && fabs(snow_radius_for(2) - 21.6) < 1e-9);
         assert(snow_is_zigzag(3) == 0 && fabs(snow_scale_for(3) - 1.0) < 1e-9);
         assert(snow_is_zigzag(4) == 1 && fabs(snow_scale_for(4) - 0.9) < 1e-9);
+        /* Zigzag amplitude and frequency are both about 1.5x the old values. */
+        assert(fabs(snow_zigzag_lateral((0.20 / 1.5) * 0.25) - 48.0) < 1e-9);
+        assert(fabs(snow_zigzag_lateral((0.20 / 1.5) * 0.75) + 48.0) < 1e-9);
+        assert(fabs(snow_zigzag_lateral(0.20 / 1.5)) < 1e-9);
 
         player_class = CLASS_SANTA;
         player->x = 200;
