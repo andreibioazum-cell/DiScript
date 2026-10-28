@@ -269,11 +269,11 @@ static const char *tr_skin_zombie(void) {
 }
 
 static const char *tr_skin_astra(void) {
-    return language == 1 ? "Новый образ" : "New look";
+    return language == 1 ? "Облик Астры" : "Astra";
 }
 
 static const char *tr_skin_astra_hint(void) {
-    return language == 1 ? "Бесплатно при покупке Астры" : "Free with Astra";
+    return language == 1 ? "Открывается при покупке Астры" : "Unlocked with Astra";
 }
 
 static const char *tr_skin_elf(void) {

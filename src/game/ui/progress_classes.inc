@@ -443,7 +443,6 @@ static void pick_class(double cls) {
     }
     set_class_owned(cls, 1);
     if (cls == CLASS_ASTRA) {
-        /* Astra’s alternate sprite pair is a free bonus with the class. */
         astra_skin = SKIN_SPECIAL;
     }
     select_class(cls);

@@ -4489,7 +4489,6 @@ int main(void) {
     screen_w = 320;
     enemy->stun = 0;
     astra_cd = 0;
-    /* Astra’s alternate appearance is free with the class and has its own sprite pair. */
     double saved_astra_owned = class_owned_of(CLASS_ASTRA);
     double saved_astra_skin = astra_skin;
     double saved_astra_cups = cups;

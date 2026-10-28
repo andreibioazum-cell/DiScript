@@ -54,7 +54,7 @@ static const char *tr_skins_note_for(double cls) {
         return "Elf skin: \"ebuC's gift\" achievement";
     }
     if (cls == CLASS_ASTRA) {
-        return language == 1 ? "Скин бесплатный при покупке Астры" : "Free skin with Astra";
+        return language == 1 ? "Скин открывается при покупке Астры" : "Skin included with Astra";
     }
     return tr_skins_need_legends();
 }
