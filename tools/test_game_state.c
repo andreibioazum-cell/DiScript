@@ -3083,6 +3083,189 @@ static void test_admin_auto_block(void) {
 }
 
 
+/* Astra: the auto-block raises her PURPLE parry shield, and a successful
+ * parry answers with the strike (the class ability), not with a punch. */
+static void test_admin_auto_block_astra(void) {
+    double saved_state = game_state, saved_finished = finished;
+    double saved_cls = player_class, saved_login = stub_login_status;
+    double saved_px = player->x, saved_py = player->y, saved_pa = player->angle;
+    char saved_nick[sizeof(stub_login_nick)];
+    int i;
+    snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    game_state = ST_SOLO;
+    finished = 0;
+    dt = 1.0 / 60.0;
+    player_class = CLASS_ASTRA;
+    player->hp = player->max_hp = 20;
+    player->x = 200;
+    player->y = 200;
+    player->angle = 0;
+    enemy->hp = enemy->max_hp = 20;
+    enemy->x = 240;
+    enemy->y = 200;
+    enemy->state = 1;
+    enemy_super_windup = 0;
+    enemy_dash_active = 0;
+    cheat_autoblock = 1;
+    block_success_t = 0;
+    player_block = 0;
+    astra_parry_t = 0;
+    astra_parry_blocked = 0;
+    astra_strike_unlock_t = 0;
+    astra_grab_ready_t = 0;
+    astra_cd = 0;
+    astra_state = 0;
+    astra_t = 0;
+    queued_super = 0;
+    queued_punch = 0;
+    punch_cd = 0;
+    punch_left = 0;
+    punch->active = 0;
+    player_stun = 0;
+    player_freeze = 0;
+    pgrab_active = 0;
+    super_windup = 0;
+    dash_active = 0;
+    codecracker_super_t = 0;
+    ball.active = 0;
+    gift->active = 0;
+    universe_active = 0;
+    boom_t = 0;
+    arr_clear(station_boom_ts);
+    for (i = 0; i < turret_max; i++) {
+        arr_set(turret_spawn_t, i, 0);
+    }
+
+    autoblock_tick();
+    assert(astra_parry_t > 0);           /* the purple shield is up */
+    assert(player_block == 0);           /* no ordinary blue block */
+
+    /* The enemy's hit lands on the parry - that is a successful block. */
+    astra_on_parry_block();
+    assert(block_success_t > 0 && astra_parry_blocked == 1);
+    assert(astra_strike_unlock_t > 0);
+
+    for (i = 0; i < 180 && astra_state == 0; i++) {
+        tick_astra();
+        autoblock_tick();
+        flush_queued_action();
+    }
+    assert(astra_state == 1);            /* the strike (ability) was fired */
+    assert(punch->active == 0);          /* not an ordinary punch */
+    assert(player_block == 0);
+    autoblock_tick();
+    assert(autoblock_skill_pending == 0);
+
+    cheat_autoblock = 0;
+    autoblock_tick();
+    stub_login_status = saved_login;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    game_state = saved_state;
+    finished = saved_finished;
+    player_class = saved_cls;
+    cheat_autoblock = 0;
+    astra_state = 0;
+    astra_parry_t = 0;
+    astra_grab_ready_t = 0;
+    astra_strike_unlock_t = 0;
+    player_block = 0;
+    queued_super = 0;
+    punch->active = 0;
+    player->x = saved_px;
+    player->y = saved_py;
+    player->angle = saved_pa;
+    puts("admin: auto block uses Astra's purple parry and strikes after a block OK");
+}
+
+/* Other classes: after a successful blue block the cheat answers with their
+ * super (Azum's dash here), not with a normal punch. */
+static void test_admin_auto_block_skill(void) {
+    double saved_state = game_state, saved_finished = finished;
+    double saved_cls = player_class, saved_login = stub_login_status;
+    double saved_hp = player->hp, saved_px = player->x, saved_pa = player->angle;
+    char saved_nick[sizeof(stub_login_nick)];
+    int i;
+    snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    game_state = ST_SOLO;
+    finished = 0;
+    dt = 1.0 / 60.0;
+    player_class = CLASS_AZUM;
+    player->hp = player->max_hp = 20;
+    player->x = 200;
+    player->y = 200;
+    player->angle = 0;
+    enemy->hp = enemy->max_hp = 20;
+    enemy->x = 245;
+    enemy->y = 200;
+    enemy->state = 1;
+    enemy_super_windup = 0;
+    enemy_dash_active = 0;
+    cheat_autoblock = 1;
+    azum_revived = 0;
+    block_success_t = 0;
+    player_block = 0;
+    punch_cd = 0;
+    punch_left = 0;
+    punch->active = 0;
+    dash_active = 0;
+    dash_cd = 0;
+    super_cd = 0;
+    super_windup = 0;
+    queued_super = 0;
+    queued_punch = 0;
+    player_stun = 0;
+    player_freeze = 0;
+    pgrab_active = 0;
+    astra_state = 0;
+    gift->active = 0;
+    universe_active = 0;
+    boom_t = 0;
+    ball.active = 0;
+    codecracker_super_t = 0;
+    arr_clear(station_boom_ts);
+    for (i = 0; i < turret_max; i++) {
+        arr_set(turret_spawn_t, i, 0);
+    }
+
+    autoblock_tick();
+    assert(player_block == 1);
+
+    /* A frontal hit really lands on the raised shield. */
+    take_damage_at(3.0, enemy->x, enemy->y);
+    assert(block_success_t > 0);
+    assert(player->hp < 20);             /* guard only softened the damage */
+
+    autoblock_tick();                    /* consume the pulse, queue the ability */
+    assert(player_block == 0 && queued_super == 1);
+    flush_queued_action();
+    assert(dash_active == 1);            /* the class ability, not a punch */
+    assert(punch->active == 0);
+
+    cheat_autoblock = 0;
+    autoblock_tick();
+    stub_login_status = saved_login;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    game_state = saved_state;
+    finished = saved_finished;
+    player_class = saved_cls;
+    cheat_autoblock = 0;
+    player_block = 0;
+    dash_active = 0;
+    queued_super = 0;
+    punch->active = 0;
+    player->hp = saved_hp;
+    player->x = saved_px;
+    player->angle = saved_pa;
+    puts("admin: auto block answers a successful guard with the class ability OK");
+}
+
+
 int main(void) {
     state_create();
     state_ready = 1;
@@ -6102,6 +6285,8 @@ int main(void) {
     test_christmas_snowballs();
     test_offline_ordinary();
     test_admin_auto_block();
+    test_admin_auto_block_astra();
+    test_admin_auto_block_skill();
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

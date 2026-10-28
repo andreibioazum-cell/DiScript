@@ -75,6 +75,7 @@ mb_edy = 0;
 mb_ok = 0;
 player_was_hit = 0;
 player_block = 0;
+block_success_t = 0;
 player_vx = 0;
 player_vy = 0;
 player_stop_from = 0;

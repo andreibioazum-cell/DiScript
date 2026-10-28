@@ -75,6 +75,8 @@ double mb_edy;
 double mb_ok;
 double player_was_hit;
 double player_block;
+/* Short pulse set when a block/parry actually absorbs a hit. */
+double block_success_t;
 /* Player velocity and initial speed at braking start. */
 double player_vx;
 double player_vy;

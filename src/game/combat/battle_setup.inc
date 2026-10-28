@@ -177,6 +177,7 @@ static void reset_battle(void) {
     ds_gfx_gray(0);
     ds_gfx_shake(0, 0);
     player_block = 0;
+    block_success_t = 0;
     blk_id = -1;
     codecracker_touch_cd_left = 0;
     codecracker_super_t = 0;
