@@ -160,17 +160,46 @@ jobs:
         run: |
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/34.0.0"
+          test -s staging/classes.dex
+          test -s staging/lib/arm64-v8a/libcb_game.so
+          test -s staging/lib/armeabi-v7a/libcb_game.so
+          test -s staging/lib/x86_64/libcb_game.so
           "$BT/aapt" package -f \
             -M platform/android/AndroidManifest.xml \
             -S platform/android/res \
             -I "$ANDROID_HOME/platforms/android-35/android.jar" \
-            -F unsigned.apk ./staging/
+            -A staging/assets \
+            -F unsigned.apk
+          (
+            cd staging
+            zip -q -r ../unsigned.apk classes.dex lib
+          )
+          unzip -t unsigned.apk >/dev/null
+          APK_FILES="$(unzip -Z1 unsigned.apk)"
+          for required in \
+            assets/grass.png \
+            assets/ordinary_pumpkin_card.png \
+            assets/astra_xastra_card.png \
+            assets/sounds/lobbymusic.wav \
+            assets/fonts/ComicRelief-Regular.ttf \
+            classes.dex \
+            lib/arm64-v8a/libcb_game.so \
+            lib/armeabi-v7a/libcb_game.so \
+            lib/x86_64/libcb_game.so; do
+            grep -Fxq "$required" <<< "$APK_FILES"
+          done
+          "$BT/aapt" dump badging unsigned.apk > unsigned.badging
+          grep -Fq "package: name='com.cb4'" unsigned.badging
           "$BT/zipalign" -v 4 unsigned.apk aligned.apk
           "$BT/apksigner" sign \
             --ks platform/android/debug.keystore --ks-type PKCS12 \
             --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android \
             --out Game.apk aligned.apk
+          "$BT/zipalign" -c -v 4 Game.apk
           "$BT/apksigner" verify --verbose --print-certs Game.apk
+          "$BT/aapt" dump badging Game.apk > Game.badging
+          grep -Fq "package: name='com.cb4'" Game.badging
+          unzip -t Game.apk >/dev/null
           cp Game.apk CubicBattle4.apk
 
       - name: Publish Android APK to Release
