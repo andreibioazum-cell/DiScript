@@ -148,7 +148,12 @@ static void draw_card_look(double look, double x, double y, double scale) {
 /* Draw rounded class portrait, falling back to battle sprite until card art uploads. */
 static void draw_class_render(double cls, double skin, double x, double y, double target_px) {
     if (class_card_render_ready(cls, skin) == 1) {
-        tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX, target_px * card_render_radius_frac);
+        /* The CodeCracker artwork has a larger device frame than other class renders.
+         * Draw it smaller and centered so its frame matches the neighboring cards. */
+        double render_px = target_px * (cls == CLASS_CODECRACKER ? 0.80 : 1.0);
+        double inset = (target_px - render_px) / 2;
+        tex_round(x + inset, y + inset, class_card_tex(cls, skin), render_px / CARD_RENDER_PX,
+                  render_px * card_render_radius_frac);
         return;
     }
     draw_card_look(card_look(cls, skin), x, y, target_px / 50);

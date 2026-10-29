@@ -745,12 +745,13 @@ void tex_alpha(float x, float y, const char *name, float angle, float scale, dou
 static int gift_tex_draws;
 static const char *last_gift_tex;
 static double last_tex_scale;
+static double last_tex_x, last_tex_y;
 void tex(float x, float y, const char *name, float angle, float scale) {
-    (void)x;
-    (void)y;
     (void)angle;
     ground_tiles++;
     last_ground = name;
+    last_tex_x = x;
+    last_tex_y = y;
     last_tex_scale = scale;
     if (name && strncmp(name, "gift_", 5) == 0) {
         gift_tex_draws++;
@@ -4522,6 +4523,24 @@ int main(void) {
     assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_CODECRACKER, SKIN_NORMAL), CODECRACKER_CARD_TEX) == 0);
     assert(strcmp(dice_cube_tex(DICE_CUBE_CODECRACKER), CODECRACKER_CARD_TEX) == 0);
+    {
+        int saved_tiles = ground_tiles;
+        const char *saved_ground = last_ground;
+        double saved_scale = last_tex_scale, saved_x = last_tex_x, saved_y = last_tex_y;
+        draw_class_render(CLASS_ORDINARY, SKIN_NORMAL, 100, 200, 100);
+        assert(last_ground && strcmp(last_ground, ORDINARY_CARD_TEX) == 0);
+        assert(fabs(last_tex_scale - 100.0 / CARD_RENDER_PX) < 1e-9);
+        assert(fabs(last_tex_x - 100) < 1e-9 && fabs(last_tex_y - 200) < 1e-9);
+        draw_class_render(CLASS_CODECRACKER, SKIN_NORMAL, 100, 200, 100);
+        assert(last_ground && strcmp(last_ground, CODECRACKER_CARD_TEX) == 0);
+        assert(fabs(last_tex_scale - 80.0 / CARD_RENDER_PX) < 1e-9);
+        assert(fabs(last_tex_x - 110) < 1e-9 && fabs(last_tex_y - 210) < 1e-9);
+        ground_tiles = saved_tiles;
+        last_ground = saved_ground;
+        last_tex_scale = saved_scale;
+        last_tex_x = saved_x;
+        last_tex_y = saved_y;
+    }
     assert(fabs(class_hp_of(CLASS_ASTRA) - astra_hp * 0.95 * round_hp_mult()) < 1e-9);
     /* The card keeps only its description; no rating graphic is drawn. */
     /* No developer account still hides only developer-only Santa; CodeCracker
