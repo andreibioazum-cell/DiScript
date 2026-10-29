@@ -190,7 +190,7 @@ static const char *skin_name_for(double cls, double skin) {
         return tr_skin_astra();
     }
     if (cls == CLASS_ORDINARY) {
-        return language == 1 ? "Золотой куб" : "Gold Cube";
+        return "Pumpkin";
     }
     if (cls == CLASS_EBUC) {
         return tr_skin_elf();
@@ -202,7 +202,7 @@ static const char *skin_name_of(double skin) { return skin_name_for(player_class
 
 static const char *skin_hint_for(double cls) {
     if (cls == CLASS_ORDINARY) {
-        return language == 1 ? "Награда колеса фортуны" : "Fortune Wheel Reward";
+        return language == 1 ? "Награда колеса фортуны" : "Fortune wheel reward";
     }
     if (cls == CLASS_EBUC) {
         return tr_skin_elf_hint();

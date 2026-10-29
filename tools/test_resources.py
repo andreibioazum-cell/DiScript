@@ -125,6 +125,8 @@ def check_assets() -> None:
     assert not missing, f"Не найдены текстуры: {missing}"
 
     required = (
+        ROOT / "assets" / "textures" / "ordinary_pumpkin_card.png",
+        ROOT / "assets" / "textures" / "astra_xastra_card.png",
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",
         ROOT / "assets" / "audio" / "duel_theme.wav",

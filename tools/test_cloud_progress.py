@@ -143,7 +143,7 @@ static int run_wheel_progress(const char *dir) {
         "\"wheel_spins\":1,\"wheel_wins\":2,\"azum_skin\":16}") == 1);
     assert(net_load_wheel_spins() == 4 && net_load_wheel_wins() == 5);
     assert(net_load_azum_skin() == 48);
-    puts("wheel progress: spins, quest wins, gold skin and stale-cloud merge persist");
+    puts("wheel progress: spins, quest wins, Pumpkin skin and stale-cloud merge persist");
     return 0;
 }
 
@@ -163,15 +163,15 @@ static int run_clean(const char *dir) {
 static int run_astra(const char *dir) {
     net_set_data_path(dir);
     assert(net_load_astra() == 0);
-    net_save_astra(1, 3, 3);
+    net_save_astra(1, 4, 4);
     net_save_progress_all(90, 20, 4, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     assert(net_load_astra() == 1);
-    assert(net_load_astra_level() == 3);
-    assert(net_load_astra_levels_unlocked() == 3);
+    assert(net_load_astra_level() == 4);
+    assert(net_load_astra_levels_unlocked() == 4);
     assert(net_load_class() == 4);
     assert(apply_user_json_keep_local(CLOUD_NO_ASTRA) == 1);
     assert(net_load_astra() == 1);
-    assert(net_load_astra_level() == 3);
+    assert(net_load_astra_level() == 4);
     assert(net_load_class() == 4);
     puts("astra: an offline purchase, selection and levels survive an older cloud profile");
     return 0;
@@ -565,7 +565,7 @@ def main():
         astra.mkdir()
         subprocess.run([*run, "astra", str(astra)], check=True)
         saved = (astra / "progress.dat").read_text(encoding="utf-8").split()
-        assert len(saved) == 27 and saved[18:] == ["1", "3", "3", "0", "0", "0", "0", "0", "0"], saved
+        assert len(saved) == 27 and saved[18:] == ["1", "4", "4", "0", "0", "0", "0", "0", "0"], saved
 
         codecracker = temp / "codecracker"
         codecracker.mkdir()

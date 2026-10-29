@@ -269,7 +269,7 @@ static const char *tr_skin_zombie(void) {
 }
 
 static const char *tr_skin_astra(void) {
-    return language == 1 ? "Облик Астры" : "Astra";
+    return "Xastra";
 }
 
 static const char *tr_skin_astra_hint(void) {

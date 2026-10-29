@@ -3439,8 +3439,8 @@ int main(void) {
     assert(fabs(astra_ability_lunge_dist - 245.0) < 1e-9);
     assert(astra_ability_lunge_dist < azum_dash_speed * azum_dash_time);
     assert(fabs(PUNCH_WINDUP) < 1e-9);          /* no attack windups */
-    assert(fabs(punch_cooldown - 0.65) < 1e-9);
-    assert(fabs(ASTRA_STRIKE_STUN - 1.0) < 1e-9);
+    assert(fabs(punch_cooldown - 0.45) < 1e-9);
+    assert(fabs(ASTRA_STRIKE_STUN - 0.65) < 1e-9);
     assert(fabs(ASTRA_STRIKE_DAMAGE - 4.5) < 1e-9);
     assert(class_cost_of(CLASS_AZUM) == 85);
     assert(class_cost_of(CLASS_SANTA) == 125);
@@ -3467,8 +3467,8 @@ int main(void) {
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 20.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
-    assert(level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 && level_cost(2) == 70 &&
-           level_cost(3) == 90);
+    assert(max_level == 4 && level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 &&
+           level_cost(2) == 70 && level_cost(3) == 90 && level_cost(4) == 110);
     assert(punch_damage == 1 && santa_damage == 0.25 && ebuc_damage == 1.0);
     assert(ebuc_universe_damage >= ebuc_hp);
     azum_tex_ok = azum_punch_tex_ok = 1;
@@ -4527,9 +4527,12 @@ int main(void) {
     pick_skin(SKIN_SPECIAL);
     assert(current_skin() == SKIN_SPECIAL && class_skin_of(CLASS_ASTRA) == SKIN_SPECIAL);
     assert(skin_flags() == 4);
-    assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_SPECIAL), ASTRA_CARD_TEX) == 0);
+    assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_SPECIAL), ASTRA_XASTRA_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
+    assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_SPECIAL), ORDINARY_PUMPKIN_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
+    assert(strcmp(skin_name_for(CLASS_ASTRA, SKIN_SPECIAL), "Xastra") == 0);
+    assert(strcmp(skin_name_for(CLASS_ORDINARY, SKIN_SPECIAL), "Pumpkin") == 0);
     assert(strcmp(class_card_tex(CLASS_CODECRACKER, SKIN_NORMAL), CODECRACKER_CARD_TEX) == 0);
     assert(strcmp(dice_cube_tex(DICE_CUBE_CODECRACKER), CODECRACKER_CARD_TEX) == 0);
     {
@@ -6509,15 +6512,15 @@ int main(void) {
         language = 0;
         adm_reset_log();
         draw_lobby();
-        assert(adm_has_text("Fortune Wheel") == 1);
+        assert(adm_has_text("Fortune wheel") == 1);
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "ordinary_player");
         adm_reset_log();
         draw_lobby();
-        assert(adm_has_text("Fortune Wheel") == 0 && adm_has_text("Колесо") == 0);
+        assert(adm_has_text("Fortune wheel") == 0 && adm_has_text("Колесо") == 0);
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
         adm_reset_log();
         draw_wheel();
-        assert(adm_has_text("Fortune Wheel") == 1 && adm_has_text("Wins:") == 1);
+        assert(adm_has_text("Fortune wheel") == 1 && adm_has_text("Wins:") == 1);
         assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
         assert(adm_has_text("Chances:") == 1 && adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
         assert(adm_has_text("Back") == 1);

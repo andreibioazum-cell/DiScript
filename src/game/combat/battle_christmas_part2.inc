@@ -195,7 +195,7 @@ static void draw_christmas_snowballs(void) {
 static void draw_christmas_pad(void) {
     const char *label;
     double scale = 0.55;
-    uint32_t col = 0x7FC4E8u;
+    uint32_t col = 0x6FA6C7u;
     if (christmas_snowballs_on() == 0 || (game_state != ST_SOLO && game_state != ST_ONLINE)) {
         return;
     }

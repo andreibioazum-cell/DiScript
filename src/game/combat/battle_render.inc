@@ -304,7 +304,7 @@ static void draw_pad(double cx, double cy, double r, uint32_t col, const char *l
     double s = 1 - PRESS_SQUEEZE * p;
     double rr = r * s;
     circle(cx, cy, rr, shade(col, 1 - PRESS_SHADE * p));
-    ring(cx, cy, rr, 4, 0x000000);
+    ring(cx, cy, rr, 2, 0x000000);
     text_in_box(label, cx - rr, cy - rr, rr * 2, rr * 2, 0xFFFFFF, scale * s);
 }
 

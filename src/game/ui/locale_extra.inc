@@ -48,7 +48,7 @@ static const char *tr_admin_ban_protected(void) {
 
 static const char *tr_skins_note_for(double cls) {
     if (cls == CLASS_ORDINARY) {
-        return language == 1 ? "Золотой скин выпадает с колеса фортуны" : "Gold Cube Skin Is a Fortune Wheel Reward";
+        return language == 1 ? "Скин Pumpkin выпадает с колеса фортуны" : "Pumpkin skin is a Fortune wheel reward";
     }
     if (cls == CLASS_EBUC) {
         if (language == 1) {

@@ -193,7 +193,7 @@ typedef struct {
     int codecracker, codecracker_level, codecracker_levels_unlocked;
 } Progress;
 static Progress pg = {.lock = DS_MUTEX_INIT};
-#define LEVEL_MAX 3
+#define LEVEL_MAX 4
 #define BP_MAX 7
 #define SKIN_MAX 1
 

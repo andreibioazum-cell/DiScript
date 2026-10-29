@@ -86,7 +86,7 @@ static double card_look(double cls, double skin) {
 /* High-resolution shop/lobby render. Astra uses its ordinary Astra card art. */
 static const char *class_card_tex(double cls, double skin) {
     if (cls == CLASS_ORDINARY) {
-        return ORDINARY_CARD_TEX;
+        return skin == SKIN_SPECIAL ? ORDINARY_PUMPKIN_CARD_TEX : ORDINARY_CARD_TEX;
     }
     if (cls == CLASS_AZUM) {
         if (skin_is_active(cls, skin) == 1) {
@@ -104,7 +104,7 @@ static const char *class_card_tex(double cls, double skin) {
         return EBUC_CARD_TEX;
     }
     if (cls == CLASS_ASTRA) {
-        return ASTRA_CARD_TEX;
+        return skin == SKIN_SPECIAL ? ASTRA_XASTRA_CARD_TEX : ASTRA_CARD_TEX;
     }
     if (cls == CLASS_CODECRACKER) {
         return CODECRACKER_CARD_TEX;

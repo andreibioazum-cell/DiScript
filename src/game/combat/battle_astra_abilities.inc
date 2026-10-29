@@ -11,7 +11,7 @@ static const double astra_ability_lunge_time = ASTRA_DASH_TIME;
 #define ASTRA_STRIKE_DELAY 0.0
 #define ASTRA_STRIKE_ACTIVE (ASTRA_DASH_TIME + 0.06)
 #define ASTRA_STRIKE_TIME (ASTRA_STRIKE_DELAY + ASTRA_STRIKE_ACTIVE)
-#define ASTRA_STRIKE_STUN 1.0
+#define ASTRA_STRIKE_STUN 0.65
 #define ASTRA_STRIKE_DAMAGE 4.5
 
 static double astra_dash_progress(double u) {
