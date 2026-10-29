@@ -64,7 +64,7 @@ def main() -> int:
     if "<= 63" not in skin_rule:
         print(f"azum_skin rule rejects the packed skin flags: {skin_rule}", file=sys.stderr)
         return 1
-    for key, maximum in (("wheel_spins", "999"), ("wheel_wins", "9")):
+    for key, maximum in (("wheel_spins", "999"), ("wheel_wins", "5")):
         rule = profile.get(key, {}).get(".validate", "")
         if f"<= {maximum}" not in rule:
             print(f"{key} rule is missing or too narrow: {rule}", file=sys.stderr)

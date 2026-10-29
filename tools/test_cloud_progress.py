@@ -132,16 +132,16 @@ static int run_lower_cups(const char *dir) {
 static int run_wheel_progress(const char *dir) {
     net_set_data_path(dir);
     net_save_progress_all(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 48);
-    net_save_wheel_progress(4, 7);
+    net_save_wheel_progress(4, 5);
     assert(net_load_wheel_spins() == 4);
-    assert(net_load_wheel_wins() == 7);
+    assert(net_load_wheel_wins() == 5);
     assert(net_load_azum_skin() == 48);
     assert(SKIN_OF_CLASS(48, 0) == 1);
     cloud_dirty_set(1);
     assert(apply_user_json_keep_local(
         "{\"nick\":\"tester\",\"cups\":0,\"candies\":0,\"cls\":0,"
         "\"wheel_spins\":1,\"wheel_wins\":2,\"azum_skin\":16}") == 1);
-    assert(net_load_wheel_spins() == 4 && net_load_wheel_wins() == 7);
+    assert(net_load_wheel_spins() == 4 && net_load_wheel_wins() == 5);
     assert(net_load_azum_skin() == 48);
     puts("wheel progress: spins, quest wins, gold skin and stale-cloud merge persist");
     return 0;
@@ -540,7 +540,7 @@ def main():
         wheel.mkdir()
         subprocess.run([*run, "wheel-progress", str(wheel)], check=True)
         saved = (wheel / "progress.dat").read_text(encoding="utf-8").split()
-        assert len(saved) == 27 and saved[17] == "48" and saved[25:] == ["4", "7"], saved
+        assert len(saved) == 27 and saved[17] == "48" and saved[25:] == ["4", "5"], saved
 
         clean = temp / "clean"
         clean.mkdir()

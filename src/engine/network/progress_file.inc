@@ -198,8 +198,8 @@ static void progress_read(void) {
         wheel_spins = 999;
     if (wheel_wins < 0)
         wheel_wins = 0;
-    if (wheel_wins > 9)
-        wheel_wins = 9;
+    if (wheel_wins > 5)
+        wheel_wins = 5;
     pg_lock();
     pg.cups = cups;
     pg.candies = candies;
@@ -416,7 +416,7 @@ void net_save_wheel_progress(int spins, int wins) {
     if (spins < 0) spins = 0;
     if (spins > 999) spins = 999;
     if (wins < 0) wins = 0;
-    if (wins > 9) wins = 9;
+    if (wins > 5) wins = 5;
     progress_read();
     pg_lock();
     pg.wheel_spins = spins;

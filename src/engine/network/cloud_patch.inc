@@ -353,7 +353,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     if (wheel_spins < 0) wheel_spins = 0;
     if (wheel_spins > 999) wheel_spins = 999;
     if (wheel_wins < 0) wheel_wins = 0;
-    if (wheel_wins > 9) wheel_wins = 9;
+    if (wheel_wins > 5) wheel_wins = 5;
     pg.wheel_spins = wheel_spins;
     pg.wheel_wins = wheel_wins;
     pg.azum_skin = sk;

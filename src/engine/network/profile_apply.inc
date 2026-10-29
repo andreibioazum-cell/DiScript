@@ -142,7 +142,7 @@ static void apply_user_json(const char *resp) {
     if (wheel_spins < 0) wheel_spins = 0;
     if (wheel_spins > 999) wheel_spins = 999;
     if (wheel_wins < 0) wheel_wins = 0;
-    if (wheel_wins > 9) wheel_wins = 9;
+    if (wheel_wins > 5) wheel_wins = 5;
     pg_lock();
     pg.cups = cups;
     pg.candies = candies;

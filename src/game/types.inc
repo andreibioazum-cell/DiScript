@@ -7,6 +7,7 @@ typedef struct ScrollTrack ScrollTrack;
 
 /* Zero pre-hit delay; retained so online punch timing stays in sync. */
 #define PUNCH_WINDUP 0.0
+#define WHEEL_SPIN_DURATION 3.4
 #define ASTRA_PARRY_SPEED_K 0.90
 
 struct ScrollTrack {

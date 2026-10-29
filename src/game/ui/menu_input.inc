@@ -203,7 +203,7 @@ static void touch_lobby(double x, double y, double action) {
         cube_npc_tap();
         return;
     }
-    if (hit_button(x, y, 16, screen_h - 58, 156, 42) == 1) {
+    if (admin_playing() == 1 && hit_button(x, y, 16, screen_h - 58, 156, 42) == 1) {
         start_transition(ST_WHEEL);
         return;
     }
@@ -390,15 +390,31 @@ static void touch_login(double x, double y, double action) {
 
 
 static void update_wheel(void) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
     wheel_spins = net_load_wheel_spins();
     wheel_wins = net_load_wheel_wins();
     if (wheel_anim_t > 0) {
         wheel_anim_t = wheel_anim_t - dt;
-        if (wheel_anim_t < 0) wheel_anim_t = 0;
+        if (wheel_anim_t <= 0) {
+            wheel_anim_t = 0;
+            wheel_rotation = fmod(wheel_spin_start + wheel_spin_delta, 360.0);
+            if (wheel_rotation < 0) wheel_rotation = wheel_rotation + 360.0;
+        } else {
+            double progress = clamp(1 - wheel_anim_t / WHEEL_SPIN_DURATION, 0, 1);
+            double eased = progress * progress * (3 - 2 * progress);
+            wheel_rotation = wheel_spin_start + wheel_spin_delta * eased;
+        }
     }
 }
 
 static void wheel_spin_do(void) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
     int spins = net_load_wheel_spins();
     int wins = net_load_wheel_wins();
     if (wheel_anim_t > 0) return;
@@ -409,29 +425,42 @@ static void wheel_spin_do(void) {
     spins--;
     wheel_result_kind = 0;
     wheel_result_cups = 0;
-    wheel_anim_t = 1.15;
+    int selected_slice;
     if (rand() % 100 < 10 && ordinary_gold_owned == 0) {
         ordinary_gold_owned = 1;
-        save_progress();
         wheel_result_kind = 1;
+        selected_slice = 5;
+        save_progress();
     } else {
         int prize = rand() % 100;
         int amount = prize < 30 ? 1 : prize < 55 ? 3 : prize < 75 ? 5 : prize < 92 ? 10 : 15;
         cups = cups + amount;
         wheel_result_cups = amount;
         wheel_result_kind = 2;
+        selected_slice = amount == 1 ? 0 : amount == 3 ? 1 : amount == 5 ? 2 : amount == 10 ? 3 : 4;
         save_progress();
     }
+    wheel_result_slice = selected_slice;
+    wheel_spin_start = fmod(wheel_rotation, 360.0);
+    if (wheel_spin_start < 0) wheel_spin_start = wheel_spin_start + 360.0;
+    double align = fmod(360.0 - (selected_slice * 60.0 + wheel_spin_start), 360.0);
+    if (align < 0) align = align + 360.0;
+    wheel_spin_delta = 5 * 360.0 + align;
+    wheel_anim_t = WHEEL_SPIN_DURATION;
     net_save_wheel_progress(spins, wins);
 }
 
 static void touch_wheel(double x, double y) {
-    if (wheel_anim_t > 0) return;
-    if (hit_button(x, y, menu_x(), modes_row(0), menu_btn_w(), btn_h) == 1) {
+    if (admin_playing() == 0) {
         start_transition(ST_LOBBY);
         return;
     }
-    if (hit_button(x, y, center_x(btn_w), screen_h - 104, btn_w, btn_h) == 1) {
+    if (back_hit(x, y) == 1) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    if (wheel_anim_t > 0) return;
+    if (hit_button(x, y, center_x(btn_w), wheel_ui_button_y(), btn_w, btn_h) == 1) {
         wheel_spin_do();
     }
 }

@@ -6483,15 +6483,63 @@ int main(void) {
     assert((int)skin_flags() == 48);
     ordinary_gold_owned = 0;
     ordinary_gold_skin = SKIN_NORMAL;
-    stub_wheel_spins = 2;
-    stub_wheel_wins = 9;
-    wheel_award_win();
-    assert(stub_wheel_spins == 3 && stub_wheel_wins == 0);
-    stub_wheel_spins = 999;
-    stub_wheel_wins = 9;
-    wheel_award_win();
-    assert(stub_wheel_spins == 999 && stub_wheel_wins == 0);
-    puts("wheel quest: each 10 wins grants one spin, capped at 999");
+    {
+        double saved_login = stub_login_status;
+        char saved_nick[sizeof(stub_login_nick)];
+        snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "ordinary_player");
+        stub_wheel_spins = 2;
+        stub_wheel_wins = 5;
+        wheel_award_win();
+        assert(stub_wheel_spins == 2 && stub_wheel_wins == 5); /* Wheel is admin-only. */
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+        wheel_award_win();
+        assert(stub_wheel_spins == 3 && stub_wheel_wins == 0); /* One spin for six wins. */
+        int saved_language = language;
+        language = 0;
+        adm_reset_log();
+        draw_lobby();
+        assert(adm_has_text("Fortune Wheel") == 1);
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "ordinary_player");
+        adm_reset_log();
+        draw_lobby();
+        assert(adm_has_text("Fortune Wheel") == 0 && adm_has_text("Колесо") == 0);
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+        adm_reset_log();
+        draw_wheel();
+        assert(adm_has_text("Fortune Wheel") == 1 && adm_has_text("Wins:") == 1);
+        assert(adm_has_text("CUPS") == 1 && adm_has_text("GOLD") == 1);
+        assert(adm_has_text("Back") == 1);
+        language = saved_language;
+        stub_wheel_spins = 999;
+        stub_wheel_wins = 5;
+        wheel_award_win();
+        assert(stub_wheel_spins == 999 && stub_wheel_wins == 0);
+
+        /* The wheel eases through several turns and stops on its selected slice. */
+        stub_wheel_spins = 1;
+        stub_wheel_wins = 0;
+        wheel_anim_t = 0;
+        wheel_rotation = 0;
+        wheel_result_kind = 0;
+        double saved_dt_wheel = dt;
+        dt = 0.05;
+        wheel_spin_do();
+        assert(fabs(wheel_anim_t - WHEEL_SPIN_DURATION) < 1e-9);
+        update_wheel();
+        double first_rotation = wheel_rotation;
+        dt = 0.20;
+        update_wheel();
+        assert(wheel_rotation > first_rotation && wheel_rotation < wheel_spin_start + wheel_spin_delta);
+        while (wheel_anim_t > 0) update_wheel();
+        double alignment = fmod(wheel_result_slice * 60 + wheel_rotation, 360.0);
+        assert(alignment < 1e-6 || 360.0 - alignment < 1e-6);
+        dt = saved_dt_wheel;
+        stub_login_status = saved_login;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
+    }
+    puts("wheel quest: admin-only, one spin per six wins, capped at 999");
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

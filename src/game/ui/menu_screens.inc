@@ -87,7 +87,7 @@ static void draw_lobby(void) {
     draw_menu_button(2, tr_settings());
     draw_menu_button(3, tr_account());
     draw_menu_button(4, tr_achievements());
-    {
+    if (admin_playing() == 1) {
         const char *wheel_label = language == 1 ? "Колесо" : "Fortune Wheel";
         const char *wheel_count = ds_concat(wheel_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
         button_scaled(wheel_count, 16, screen_h - 58, 156, 42, 0.72);
@@ -327,45 +327,100 @@ static void draw_skins(void) {
 }
 
 static void draw_wheel(void) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
     screen_fill();
     ctext(language == 1 ? "Колесо фортуны" : "Fortune Wheel", title_y(), text_color);
-    const double cx = screen_w / 2, cy = screen_h / 2 - 24;
-    const double colors[6] = {0xFF4C9AFF, 0xFFFFC857, 0xFF65D6AD, 0xFFE8758A, 0xFF9B7EDE, 0xFFFFD166};
-    int i;
-    for (i = 0; i < 6; i++) {
-        double rotation = wheel_anim_t > 0 ? (1.15 - wheel_anim_t) * 540 : 0;
-        double a = (-90 + i * 60 + rotation) * 3.141592653589793 / 180;
-        double px = cx + cos(a) * 118, py = cy + sin(a) * 118;
-        circle(px, py, 29, colors[i]);
-        const char *prize;
-        if (i == 5) {
-            prize = language == 1 ? "Скин 10%" : "Skin 10%";
-        } else {
-            const char *cups_prize = i == 0 ? "1" : i == 1 ? "3" : i == 2 ? "5" : i == 3 ? "10" : "15";
-            prize = ds_concat(cups_prize, language == 1 ? " куб." : " cups");
-        }
-        ctext_scaled(prize, py + 4, 0xFFFFFFFF, i == 5 ? 0.36 : 0.45);
+    draw_back();
+
+    double radius = wheel_ui_radius();
+    double cx = screen_w / 2;
+    double cy = wheel_ui_center_y();
+    double rotation = wheel_rotation;
+    if (wheel_anim_t > 0) {
+        double progress = clamp(1 - wheel_anim_t / WHEEL_SPIN_DURATION, 0, 1);
+        double eased = progress * progress * (3 - 2 * progress);
+        rotation = wheel_spin_start + wheel_spin_delta * eased;
     }
-    circle(cx, cy, 76, 0xFF25243B);
-    ring(cx, cy, 81, 8, 0xFFFFD166);
-    const char *quest = ds_concat(language == 1 ? "Побед: " : "Wins: ", ds_concat(ds_num_to_string((double)net_load_wheel_wins()), "/10"));
-    ctext_scaled(quest, cy - 16, text_color, 0.58);
-    ctext_scaled(language == 1 ? "Скин: 10%" : "Skin: 10%", cy + 13, 0xFFFFD166, 0.5);
-    ctext_scaled(language == 1 ? "10 побед = 1 прокрутка" : "10 Wins = 1 Spin", cy + 164, text_color, 0.58);
+
+    const uint32_t colors[6] = {0xFF3384D8, 0xFF37A783, 0xFFE0A52F, 0xFFD85C68, 0xFF8263C7, 0xFF33A7B5};
+    const char *values[6] = {"+1", "+3", "+5", "+10", "+15", "ЗОЛОТО"};
+    const char *units[6] = {"КУБ.", "КУБ.", "КУБ.", "КУБ.", "КУБ.", "СКИН"};
+    if (language == 0) {
+        units[0] = "CUPS";
+        units[1] = "CUPS";
+        units[2] = "CUPS";
+        units[3] = "CUPS";
+        units[4] = "CUPS";
+        units[5] = "SKIN";
+        values[5] = "GOLD";
+    }
+
+    circle(cx, cy, radius + 9, 0xFF172033);
+    double slice = 0;
+    while (slice < 6) {
+        double center_deg = -90 + slice * 60 + rotation;
+        double start_deg = center_deg - 30;
+        int ray = 0;
+        while (ray < 12) {
+            double a = (start_deg + 2.5 + ray * 5) * 3.141592653589793 / 180;
+            line(cx, cy, cx + cos(a) * (radius - 5), cy + sin(a) * (radius - 5), radius * 0.09,
+                 colors[(int)slice]);
+            ray = ray + 1;
+        }
+        slice = slice + 1;
+    }
+    slice = 0;
+    while (slice < 6) {
+        double a = (-120 + slice * 60 + rotation) * 3.141592653589793 / 180;
+        line(cx, cy, cx + cos(a) * (radius - 4), cy + sin(a) * (radius - 4), 3, 0xFF182033);
+        slice = slice + 1;
+    }
+    ring(cx, cy, radius, 6, 0xFFFFD166);
+
+    slice = 0;
+    while (slice < 6) {
+        double a = (-90 + slice * 60 + rotation) * 3.141592653589793 / 180;
+        double px = cx + cos(a) * radius * 0.58;
+        double py = cy + sin(a) * radius * 0.58;
+        circle(px, py, radius * 0.13, 0xC9172034);
+        ring(px, py, radius * 0.13, 2, 0x99FFFFFF);
+        centered_text(values[(int)slice], px - radius * 0.13, radius * 0.26, py - radius * 0.045,
+                      0xFFFFFFFF, 0.62);
+        centered_text(units[(int)slice], px - radius * 0.13, radius * 0.26, py + radius * 0.035,
+                      0xFFF2F5FF, 0.30);
+        slice = slice + 1;
+    }
+
+    circle(cx, cy, radius * 0.23, 0xFF20283B);
+    ring(cx, cy, radius * 0.23, 5, 0xFFFFD166);
+    centered_text(language == 1 ? "УДАЧА" : "LUCK", cx - radius * 0.22, radius * 0.44, cy - 4,
+                  0xFFFFD166, 0.46);
+    line(cx, cy - radius - 20, cx, cy - radius + 5, 7, 0xFFFFD166);
+    circle(cx, cy - radius - 18, 7, 0xFFFFFFFF);
+
+    const char *progress = ds_concat(language == 1 ? "Побед: " : "Wins: ",
+                                     ds_concat(ds_num_to_string((double)net_load_wheel_wins()), "/6"));
+    ctext_scaled(progress, cy + radius + 24, text_color, 0.55);
+    if (wheel_anim_t > 0) {
+        ctext_scaled(language == 1 ? "Колесо крутится..." : "The Wheel Is Spinning...",
+                     cy + radius + 48, text_color, 0.46);
+    } else if (wheel_result_kind == 1) {
+        ctext_scaled(language == 1 ? "Выпал золотой скин!" : "Gold Cube Skin Unlocked!",
+                     cy + radius + 48, 0xFFFFD166, 0.50);
+    } else if (wheel_result_kind == 2) {
+        const char *won = ds_concat(language == 1 ? "Выигрыш: +" : "You won +",
+                                    ds_concat(ds_num_to_string(wheel_result_cups), language == 1 ? " кубков" : " cups"));
+        ctext_scaled(won, cy + radius + 48, 0xFFFFD166, 0.50);
+    } else if (wheel_result_kind == 3) {
+        ctext_scaled(language == 1 ? "Прокруток нет" : "No Spins Available",
+                     cy + radius + 48, 0xFFFFFFFF, 0.50);
+    }
     const char *spin_label = language == 1 ? "Крутить" : "Spin";
     const char *spin_count = ds_concat(spin_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
-    button_scaled(spin_count, center_x(btn_w), screen_h - 104, btn_w, btn_h, 0.8);
-    button(tr_back(), menu_x(), modes_row(0), menu_btn_w(), btn_h);
-    if (wheel_anim_t > 0) {
-        ctext_scaled(language == 1 ? "Колесо крутится..." : "The Wheel Is Spinning...", cy + 112, text_color, 0.62);
-    } else if (wheel_result_kind == 1) {
-        ctext_scaled(language == 1 ? "Выпал золотой скин!" : "Gold Cube Skin Unlocked!", cy + 112, 0xFFFFD166, 0.68);
-    } else if (wheel_result_kind == 2) {
-        const char *won = ds_concat(language == 1 ? "Выигрыш: " : "You won ", ds_concat(ds_num_to_string(wheel_result_cups), language == 1 ? " кубков" : " cups"));
-        ctext_scaled(won, cy + 112, 0xFFFFD166, 0.68);
-    } else if (wheel_result_kind == 3) {
-        ctext_scaled(language == 1 ? "Прокруток нет" : "No Spins Available", cy + 112, 0xFFFFFFFF, 0.62);
-    }
+    button_scaled(spin_count, center_x(btn_w), wheel_ui_button_y(), btn_w, btn_h, 0.8);
 }
 
 static double lb_place_bg(double i) {

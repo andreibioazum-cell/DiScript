@@ -103,9 +103,12 @@ static void save_progress(void) {
 }
 
 static void wheel_award_win(void) {
+    if (admin_playing() == 0) {
+        return;
+    }
     int spins = net_load_wheel_spins();
     int wins = net_load_wheel_wins() + 1;
-    if (wins >= 10) {
+    if (wins >= 6) {
         wins = 0;
         if (spins < 999) spins++;
         ds_log("Wheel quest complete: +1 spin");
