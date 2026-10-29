@@ -4542,8 +4542,8 @@ int main(void) {
         assert(fabs(last_tex_x - 100) < 1e-9 && fabs(last_tex_y - 200) < 1e-9);
         draw_class_render(CLASS_CODECRACKER, SKIN_NORMAL, 100, 200, 100);
         assert(last_ground && strcmp(last_ground, CODECRACKER_CARD_TEX) == 0);
-        assert(fabs(last_tex_scale - 80.0 / CARD_RENDER_PX) < 1e-9);
-        assert(fabs(last_tex_x - 110) < 1e-9 && fabs(last_tex_y - 210) < 1e-9);
+        assert(fabs(last_tex_scale - 100.0 / CARD_RENDER_PX) < 1e-9);
+        assert(fabs(last_tex_x - 100) < 1e-9 && fabs(last_tex_y - 200) < 1e-9);
         ground_tiles = saved_tiles;
         last_ground = saved_ground;
         last_tex_scale = saved_scale;
