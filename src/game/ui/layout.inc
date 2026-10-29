@@ -6,14 +6,14 @@ static double title_y(void) { return back_y + btn_h + title_gap; }
 
 static double wheel_ui_radius(void) {
     double radius = fmin(screen_w * 0.42, screen_h * 0.30);
-    double fit = (screen_h - title_y() - 45 - 70 - btn_h - 52) * 0.5;
+    double fit = (screen_h - title_y() - 45 - 70 - btn_h) * 0.5;
     radius = fmin(radius, fmin(fit, 330));
     return clamp(radius, 32, 330);
 }
 
 static double wheel_ui_center_y(void) {
     double radius = wheel_ui_radius();
-    double group_height = radius * 2 + 70 + btn_h + 52;
+    double group_height = radius * 2 + 70 + btn_h;
     double top = fmax(title_y() + 45, (screen_h - group_height) / 2);
     return top + radius;
 }
@@ -77,6 +77,16 @@ static double hit_settings_row(double px, double py, double i) {
 }
 
 static double lobby_title_y(void) { return menu_top() - 70; }
+
+static double lobby_wheel_button_x(void) { return screen_margin; }
+
+static double lobby_wheel_button_y(void) {
+    double y = screen_h - screen_margin - btn_h;
+    if (bpass_allowed() == 1 && lobby_wheel_button_x() + btn_w > bpass_corner_x()) {
+        y = y - btn_h - btn_gap;
+    }
+    return y;
+}
 
 /* Center lobby caption horizontally over the button column. */
 static double lobby_label_x(double w) {

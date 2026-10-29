@@ -18,7 +18,7 @@
 typedef struct {
     double active;
     double x, y, vx, vy;
-    double bounces, t, spin, shot;
+    double bounces, t, shot;
     double boom_x, boom_y, boom_t;
     double trail_x[XMAS_TRAIL], trail_y[XMAS_TRAIL], trail_a[XMAS_TRAIL];
 } XmasBall;
@@ -55,7 +55,6 @@ static void xmas_ball_clear(XmasBall *b) {
     b->vy = 0;
     b->bounces = 0;
     b->t = 0;
-    b->spin = 0;
     b->boom_x = 0;
     b->boom_y = 0;
     b->boom_t = 0;
@@ -134,7 +133,6 @@ static void christmas_throw_dir(double dx, double dy) {
     xmas_ball.vy = dy * XMAS_SPEED;
     xmas_ball.bounces = 0;
     xmas_ball.t = 0;
-    xmas_ball.spin = 0;
     xmas_ball.boom_t = 0;
     xmas_ball.shot = xmas_ball.shot + 1;
     xmas_cd = XMAS_COOLDOWN;

@@ -4226,6 +4226,12 @@ int main(void) {
         assert(codecracker_absorb_for(3) == 0.6);
         /* The levels screen tells the CodeCracker his own bonuses, not the
          * ordinary cube's ones. */
+        int saved_language = language;
+        language = 0;
+        assert(strcmp(tr_class_level_effect(CLASS_CODECRACKER, 1), "Overclock: contact damage +10%") == 0);
+        language = 1;
+        assert(strcmp(tr_class_level_effect(CLASS_CODECRACKER, 1), "Разгон: урон касанием +10%") == 0);
+        language = saved_language;
         assert(strcmp(tr_class_level_effect(CLASS_CODECRACKER, 1),
                       tr_class_level_effect(CLASS_ORDINARY, 1)) != 0);
         assert(strcmp(tr_class_level_effect(CLASS_CODECRACKER, 2),
@@ -6522,7 +6528,11 @@ int main(void) {
         draw_wheel();
         assert(adm_has_text("Fortune wheel") == 1 && adm_has_text("Wins:") == 1);
         assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
-        assert(adm_has_text("Chances:") == 1 && adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
+        assert(adm_has_text("Chances:") == 0 && adm_has_text("Шансы:") == 0);
+        assert(adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
+        assert(btn_w >= 156 && btn_h >= 42);
+        assert(hit_button(lobby_wheel_button_x() + btn_w / 2, lobby_wheel_button_y() + btn_h / 2,
+                          lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1);
         assert(adm_has_text("Back") == 1);
         language = saved_language;
         stub_wheel_spins = 999;

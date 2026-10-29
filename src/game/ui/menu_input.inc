@@ -203,10 +203,6 @@ static void touch_lobby(double x, double y, double action) {
         cube_npc_tap();
         return;
     }
-    if (admin_playing() == 1 && hit_button(x, y, 16, screen_h - 58, 156, 42) == 1) {
-        start_transition(ST_WHEEL);
-        return;
-    }
     if (hit_menu_row(x, y, 0) == 1) {
         start_transition(ST_MODES);
         return;
@@ -234,6 +230,12 @@ static void touch_lobby(double x, double y, double action) {
     }
     if (hit_menu_row(x, y, 4) == 1) {
         start_transition(ST_ACHIEVEMENTS);
+        return;
+    }
+    if (admin_playing() == 1 &&
+        hit_button(x, y, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1) {
+        start_transition(ST_WHEEL);
+        return;
     }
     if (bpass_allowed() == 1 && hit_bpass_corner(x, y) == 1) {
         start_transition(ST_BPASS);

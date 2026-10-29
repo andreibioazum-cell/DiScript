@@ -13,6 +13,8 @@ static double settings_top(void);
 static double settings_row_y(double i);
 static double hit_settings_row(double px, double py, double i);
 static double lobby_title_y(void);
+static double lobby_wheel_button_x(void);
+static double lobby_wheel_button_y(void);
 static double lobby_label_x(double w);
 static double lobby_hello_y(void);
 static double lobby_money_y(void);

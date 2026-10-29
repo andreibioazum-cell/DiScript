@@ -90,7 +90,7 @@ static void draw_lobby(void) {
     if (admin_playing() == 1) {
         const char *wheel_label = language == 1 ? "Колесо" : "Fortune wheel";
         const char *wheel_count = ds_concat(wheel_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
-        button_scaled(wheel_count, 16, screen_h - 58, 156, 42, 0.72);
+        button(wheel_count, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h);
     }
     if (bpass_allowed() == 1) {
         button(language == 1 ? "Баттл-пасс" : "Battle Pass", bpass_corner_x(), bpass_corner_y(),
@@ -419,28 +419,6 @@ static void draw_wheel(void) {
     double spin_y = wheel_ui_button_y();
     button(spin_count, center_x(btn_w), spin_y, btn_w, btn_h);
 
-    const char *chance_a;
-    const char *chance_b;
-    if (ordinary_gold_owned == 0) {
-        chance_a = language == 1
-            ? "Шансы: +1 Кубок — 27%, +3 Кубка — 22,5%, +5 Кубков — 18%"
-            : "Chances: +1 Cup — 27%, +3 Cups — 22.5%, +5 Cups — 18%";
-        chance_b = language == 1
-            ? "+10 Кубков — 15,3%, +15 Кубков — 7,2%, ??? — 10%"
-            : "+10 Cups — 15.3%, +15 Cups — 7.2%, ??? — 10%";
-    } else {
-        chance_a = language == 1
-            ? "Шансы: +1 Кубок — 30%, +3 Кубка — 25%, +5 Кубков — 20%"
-            : "Chances: +1 Cup — 30%, +3 Cups — 25%, +5 Cups — 20%";
-        chance_b = language == 1
-            ? "+10 Кубков — 17%, +15 Кубков — 8%, ??? — 0%"
-            : "+10 Cups — 17%, +15 Cups — 8%, ??? — 0%";
-    }
-    double chances_y = spin_y + btn_h + 8;
-    double chances_scale_a = fit_text_scale(chance_a, screen_w - 2 * screen_margin, 0.46);
-    double chances_scale_b = fit_text_scale(chance_b, screen_w - 2 * screen_margin, 0.46);
-    ctext_scaled(chance_a, chances_y, text_color, chances_scale_a);
-    ctext_scaled(chance_b, chances_y + 18, text_color, chances_scale_b);
 }
 
 static double lb_place_bg(double i) {

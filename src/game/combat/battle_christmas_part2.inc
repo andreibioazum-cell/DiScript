@@ -38,7 +38,6 @@ static void xmas_step_local(void) {
         return;
     }
     xmas_ball.t = xmas_ball.t + dt;
-    xmas_ball.spin = xmas_ball.spin + dt * 6;
     left = 1;
     while (left > 0 && xmas_ball.active == 1) {
         ox = xmas_ball.x;
@@ -150,14 +149,9 @@ static void christmas_tick(void) {
     }
 }
 
-static void xmas_draw_body(double x, double y, double spin) {
-    double hw = 26 * 0.42;
+static void xmas_draw_body(double x, double y) {
     circle(x, y, XMAS_RADIUS, 0xFFEAF7FFu);
     ring(x, y, XMAS_RADIUS, 3, 0xFF9FD3F0u);
-    tex(x - hw, y - hw, SNOWFLAKE_TEX, spin, 0.42);
-    if (show_hitboxes == 1) {
-        ring(x, y, XMAS_RADIUS, 2, 0xFFFF2D2Du);
-    }
 }
 
 static void draw_christmas_snowballs(void) {
@@ -175,14 +169,14 @@ static void draw_christmas_snowballs(void) {
         i = i + 1;
     }
     if (xmas_ball.active == 1) {
-        xmas_draw_body(xmas_ball.x, xmas_ball.y, xmas_ball.spin);
+        xmas_draw_body(xmas_ball.x, xmas_ball.y);
     }
     if (xmas_ball.boom_t > 0) {
         draw_boom_at_r(xmas_ball.boom_x, xmas_ball.boom_y, xmas_ball.boom_t, XMAS_BOOM_RADIUS);
     }
     while (s < NET_SLOTS) {
         if (xmas_remote[s].on == 1) {
-            xmas_draw_body(xmas_remote[s].x, xmas_remote[s].y, xmas_remote[s].t * 4);
+            xmas_draw_body(xmas_remote[s].x, xmas_remote[s].y);
         }
         if (xmas_remote[s].boom_t > 0) {
             draw_boom_at_r(xmas_remote[s].boom_x, xmas_remote[s].boom_y, xmas_remote[s].boom_t,

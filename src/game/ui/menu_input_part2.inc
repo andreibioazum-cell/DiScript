@@ -151,7 +151,8 @@ static double menu_button_hit(double x, double y) {
         return battle_back_hit(x, y);
     }
     if (game_state == ST_LOBBY) {
-        if (hit_button(x, y, 16, screen_h - 58, 156, 42) == 1) return 1;
+        if (admin_playing() == 1 &&
+            hit_button(x, y, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1) return 1;
         while (i <= 4) {
             if (hit_menu_row(x, y, i) == 1) return 1;
             i = i + 1;
