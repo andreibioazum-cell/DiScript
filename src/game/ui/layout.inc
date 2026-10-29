@@ -6,14 +6,14 @@ static double title_y(void) { return back_y + btn_h + title_gap; }
 
 static double wheel_ui_radius(void) {
     double radius = fmin(screen_w * 0.42, screen_h * 0.30);
-    double fit = (screen_h - title_y() - 45 - 70 - btn_h) * 0.5;
+    double fit = (screen_h - title_y() - 45 - 70 - btn_h - 52) * 0.5;
     radius = fmin(radius, fmin(fit, 330));
     return clamp(radius, 32, 330);
 }
 
 static double wheel_ui_center_y(void) {
     double radius = wheel_ui_radius();
-    double group_height = radius * 2 + 70 + btn_h;
+    double group_height = radius * 2 + 70 + btn_h + 52;
     double top = fmax(title_y() + 45, (screen_h - group_height) / 2);
     return top + radius;
 }

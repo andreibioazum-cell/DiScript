@@ -6518,7 +6518,8 @@ int main(void) {
         adm_reset_log();
         draw_wheel();
         assert(adm_has_text("Fortune Wheel") == 1 && adm_has_text("Wins:") == 1);
-        assert(adm_has_text("CUPS") == 1 && adm_has_text("GOLD") == 1);
+        assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
+        assert(adm_has_text("Chances:") == 1 && adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
         assert(adm_has_text("Back") == 1);
         language = saved_language;
         stub_wheel_spins = 999;

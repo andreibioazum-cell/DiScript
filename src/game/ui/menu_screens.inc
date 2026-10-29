@@ -342,20 +342,19 @@ static void draw_wheel(void) {
         rotation = wheel_spin_start + wheel_spin_delta * eased;
     }
 
-    const uint32_t colors[6] = {0xFF3384D8, 0xFF37A783, 0xFFE0A52F, 0xFFD85C68, 0xFF8263C7, 0xFF33A7B5};
-    const char *values[6] = {"+1", "+3", "+5", "+10", "+15", "ЗОЛОТО"};
-    const char *units[6] = {"КУБ.", "КУБ.", "КУБ.", "КУБ.", "КУБ.", "СКИН"};
+    const uint32_t colors[6] = {0xFF3384D8, 0xFF37A783, 0xFF39AAB8, 0xFFD85C68, 0xFF8263C7, 0xFF4C8FD0};
+    const char *values[6] = {"+1", "+3", "+5", "+10", "+15", "???"};
+    const char *units[6] = {"Кубки", "Кубки", "Кубки", "Кубки", "Кубки", ""};
     if (language == 0) {
-        units[0] = "CUPS";
-        units[1] = "CUPS";
-        units[2] = "CUPS";
-        units[3] = "CUPS";
-        units[4] = "CUPS";
-        units[5] = "SKIN";
-        values[5] = "GOLD";
+        units[0] = "Cups";
+        units[1] = "Cups";
+        units[2] = "Cups";
+        units[3] = "Cups";
+        units[4] = "Cups";
+        units[5] = "";
     }
 
-    circle(cx, cy, radius + 9, 0xFF172033);
+    circle(cx, cy, radius + 12, 0xFF35445A);
     double slice = 0;
     while (slice < 6) {
         double center_deg = -90 + slice * 60 + rotation;
@@ -365,35 +364,42 @@ static void draw_wheel(void) {
     slice = 0;
     while (slice < 6) {
         double a = (-120 + slice * 60 + rotation) * 3.141592653589793 / 180;
-        line(cx, cy, cx + cos(a) * (radius - 4), cy + sin(a) * (radius - 4), 3, 0xFF182033);
+        line(cx, cy, cx + cos(a) * (radius - 4), cy + sin(a) * (radius - 4), 4, 0xFFE7ECF3);
         slice = slice + 1;
     }
-    ring(cx, cy, radius, 6, 0xFFFFD166);
+    ring(cx, cy, radius + 5, 10, 0xFFE7ECF3);
 
     slice = 0;
     while (slice < 6) {
         double a = (-90 + slice * 60 + rotation) * 3.141592653589793 / 180;
         double px = cx + cos(a) * radius * 0.58;
         double py = cy + sin(a) * radius * 0.58;
-        double badge_w = radius * 0.46;
-        double badge_h = radius * 0.32;
-        double badge_x = px - badge_w * 0.5;
-        double badge_y = py - badge_h * 0.5;
-        double main_scale = fit_text_scale(values[(int)slice], badge_w - 12, 0.78);
-        double unit_scale = fit_text_scale(units[(int)slice], badge_w - 12, 0.44);
-        roundrect(badge_x, badge_y, badge_w, badge_h, badge_h * 0.34, 0xD9162032);
-        text_in_field(values[(int)slice], px - text_ink_width(values[(int)slice]) * main_scale * 0.5,
-                      badge_y + 1, badge_h * 0.54, 0xFFFFFFFF, main_scale);
-        text_in_field(units[(int)slice], px - text_ink_width(units[(int)slice]) * unit_scale * 0.5,
-                      badge_y + badge_h * 0.48, badge_h * 0.50, 0xFFF2F5FF, unit_scale);
+        double label_w = radius * 0.62;
+        double label_h = radius * 0.38;
+        double label_y = py - label_h * 0.5;
+        double main_h = label_h * (units[(int)slice][0] ? 0.56 : 1.0);
+        double main_scale = fmin(fit_text_scale(values[(int)slice], label_w, 0.86),
+                                 fmax(0.20, (main_h - 2) / text_ink_height(values[(int)slice])));
+        double main_x = px - text_ink_width(values[(int)slice]) * main_scale * 0.5;
+        text_in_field(values[(int)slice], main_x + 1, label_y + 1, main_h, 0xB0000000, main_scale);
+        text_in_field(values[(int)slice], main_x, label_y, main_h, 0xFFFFFFFF, main_scale);
+        if (units[(int)slice][0]) {
+            double unit_y = label_y + main_h;
+            double unit_h = label_h - main_h;
+            double unit_scale = fmin(fit_text_scale(units[(int)slice], label_w, 0.48),
+                                     fmax(0.20, (unit_h - 2) / text_ink_height(units[(int)slice])));
+            double unit_x = px - text_ink_width(units[(int)slice]) * unit_scale * 0.5;
+            text_in_field(units[(int)slice], unit_x + 1, unit_y + 1, unit_h, 0xB0000000, unit_scale);
+            text_in_field(units[(int)slice], unit_x, unit_y, unit_h, 0xFFF2F5FF, unit_scale);
+        }
         slice = slice + 1;
     }
 
     circle(cx, cy, radius * 0.23, 0xFF20283B);
-    ring(cx, cy, radius * 0.23, 5, 0xFFFFD166);
-    centered_text(language == 1 ? "УДАЧА" : "LUCK", cx - radius * 0.22, radius * 0.44, cy - 4,
-                  0xFFFFD166, 0.46);
-    line(cx, cy - radius - 20, cx, cy - radius + 5, 7, 0xFFFFD166);
+    ring(cx, cy, radius * 0.23, 4, 0xFFE7ECF3);
+    centered_text(language == 1 ? "Удача" : "Luck", cx - radius * 0.22, radius * 0.44, cy - 4,
+                  0xFFE7ECF3, 0.46);
+    line(cx, cy - radius - 20, cx, cy - radius + 5, 7, 0xFFE7ECF3);
     circle(cx, cy - radius - 18, 7, 0xFFFFFFFF);
 
     const char *progress = ds_concat(language == 1 ? "Побед: " : "Wins: ",
@@ -415,7 +421,31 @@ static void draw_wheel(void) {
     }
     const char *spin_label = language == 1 ? "Крутить" : "Spin";
     const char *spin_count = ds_concat(spin_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
-    button_scaled(spin_count, center_x(btn_w), wheel_ui_button_y(), btn_w, btn_h, 0.8);
+    double spin_y = wheel_ui_button_y();
+    button(spin_count, center_x(btn_w), spin_y, btn_w, btn_h);
+
+    const char *chance_a;
+    const char *chance_b;
+    if (ordinary_gold_owned == 0) {
+        chance_a = language == 1
+            ? "Шансы: +1 Кубок — 27%, +3 Кубка — 22,5%, +5 Кубков — 18%"
+            : "Chances: +1 Cup — 27%, +3 Cups — 22.5%, +5 Cups — 18%";
+        chance_b = language == 1
+            ? "+10 Кубков — 15,3%, +15 Кубков — 7,2%, ??? — 10%"
+            : "+10 Cups — 15.3%, +15 Cups — 7.2%, ??? — 10%";
+    } else {
+        chance_a = language == 1
+            ? "Шансы: +1 Кубок — 30%, +3 Кубка — 25%, +5 Кубков — 20%"
+            : "Chances: +1 Cup — 30%, +3 Cups — 25%, +5 Cups — 20%";
+        chance_b = language == 1
+            ? "+10 Кубков — 17%, +15 Кубков — 8%, ??? — 0%"
+            : "+10 Cups — 17%, +15 Cups — 8%, ??? — 0%";
+    }
+    double chances_y = spin_y + btn_h + 8;
+    double chances_scale_a = fit_text_scale(chance_a, screen_w - 2 * screen_margin, 0.46);
+    double chances_scale_b = fit_text_scale(chance_b, screen_w - 2 * screen_margin, 0.46);
+    ctext_scaled(chance_a, chances_y, text_color, chances_scale_a);
+    ctext_scaled(chance_b, chances_y + 18, text_color, chances_scale_b);
 }
 
 static double lb_place_bg(double i) {
