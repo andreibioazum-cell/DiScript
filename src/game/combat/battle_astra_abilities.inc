@@ -46,13 +46,15 @@ static double astra_ability_allowed(void) { return astra_ability_ok; }
 static double dev_access(void) { return astra_ability_allowed(); }
 
 static double candies_on(void) {
-    /* Sanch keeps his candies on the account, but the counter and the
-     * in-battle pickups stay visually hidden for him. An admin who picked
-     * the ordinary or night theme sees no Christmas counter either. */
-    if (candy_enabled != 1 || seasonal_admin_allowed() != 1) {
+    if (candy_enabled != 1) {
         return 0;
     }
-    return active_theme_mode() == 1 ? 1 : 0;
+    /* The live New Year event is global and remains usable with any visual
+     * theme; the admin preview stays tied to its New Year theme. */
+    if (net_christmas() == 1) {
+        return 1;
+    }
+    return christmas_admin_allowed() == 1 && active_theme_mode() == 1 ? 1 : 0;
 }
 
 static double astra_ability_on(void) { return player_class == CLASS_ASTRA; }

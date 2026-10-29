@@ -1,22 +1,10 @@
 static double winter_theme_on(void) {
-    /* The chosen theme wins over the admin's forced holiday: ordinary or
-     * night means no Christmas at all on any account. Regular players only
-     * see the New Year visuals when they picked that theme AND the holiday
-     * flag is on - until then the option is grey and looks ordinary. Sanch
-     * never gets Christmas. Offline everything is ordinary. */
-    if (sanch_no_christmas() == 1) {
-        return 0;
-    }
+    /* Online New Year is available to every account. Explicit ordinary/night
+     * choices affect the visuals only; offline flags fall back to ordinary. */
     if (active_theme_mode() != 1) {
         return 0;
     }
-    if (christmas_admin_allowed() == 1) {
-        return 1;
-    }
-    if (net_christmas() == 1) {
-        return 1;
-    }
-    return 0;
+    return seasonal_content_allowed();
 }
 
 /* Night theme: sleepy colours and slowly falling little stars. */

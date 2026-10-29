@@ -383,6 +383,8 @@ const USER_REQ  = ["nick","cups","candies","cls","azum","santa","level","levels"
 const GIFT_FIELDS = {
   poop: num(0,999), cake: num(0,999), bear: num(0,999), rocket: num(0,999),
   emerald: num(0,999),
+  /* Exclusive pumpkin cube is written only by the game admin. */
+  pumpkin_cube: num(0,999),
   /* These two are legacy fields (see LEGACY_FIELDS): the rules still
    * accept them, but the current game no longer uses them. */
   rose: num(0,999), emerald_hue: num(0,7)
@@ -1062,7 +1064,7 @@ function stats(){
     ["Банов", Object.keys(d.bans||{}).length],
     ["Ивент", (d.event ?? 0) + " · " + (EVENT_NAMES[d.event] || "?")],
     ["AzumBuff / FlashSale", (d.AzumBuff ?? 0) + " / " + (d.FlashSale ?? 0)],
-    ["Рождество (Christmas)", (d.Christmas ?? 0) ? "Вкл" : "Выкл"],
+    ["Новый год (Christmas)", (d.Christmas ?? 0) ? "Вкл" : "Выкл"],
     ["Устаревших полей", FOUND.filter(f=>f.kind==="legacy").length],
     ["Мусора найдено", junk]
   ];

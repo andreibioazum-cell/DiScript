@@ -4,8 +4,10 @@ Gifts work through the Realtime Database directly — there is no Cloud Function
 (`giftAction`) involved. The catalogue lives in the client
 (`src/engine/network/gifts.inc`; the UI reads the price via `net_gift_price`):
 
-The catalogue has five stickers; the emerald is the most expensive one
-(500 cups).
+The player shop has five ordinary stickers; the emerald is the most expensive
+purchasable item (500 cups). A sixth type, the Pumpkin Cube, is an exclusive
+admin-grant gift: its catalog price is 555 cups, but it is not sold, sent, or
+sellable by ordinary players.
 
 | ID | Sticker | Cost |
 | --- | --- | ---: |
@@ -15,9 +17,16 @@ The catalogue has five stickers; the emerald is the most expensive one
 | `rocket` | Ракета / Rocket | 400 |
 | `emerald` | Изумруд / Emerald | 500 |
 
-Для двух админских аккаунтов (тот же список, что в `admin_slot`) покупка
-стикера бесплатна: `gifts.inc` пишет только счётчик стикера и не трогает
-`cups`, а кнопка «Купить» для админа никогда не серая.
+Exclusive, not included in the player shop:
+
+| ID | Sticker | Catalog cost | Availability |
+| --- | --- | ---: | --- |
+| `pumpkin_cube` | Кубик-тыква / Pumpkin Cube | 555 | Admin grant only; no player purchase, send, or sale |
+
+Для основного админского аккаунта (`Dimasi4ek229`, как в `admin_slot`)
+обычные стикеры бесплатны: `gifts.inc` пишет только счётчик и не трогает
+`cups`, а кнопка «Купить» для него никогда не серая. Это не открывает покупку
+эксклюзивного `pumpkin_cube`.
 
 The first sticker used to be `rose`; it is now `poop`. Old `rose` counters may
 still sit in profiles — the rules keep accepting them, but the game neither
@@ -31,7 +40,8 @@ longer read. Both are obsolete fields; the web admin panel lists them in
 
 ```
 users/<nick>/cups          cup balance
-users/<nick>/gifts/poop    0..999 owned stickers (cake, bear, rocket likewise)
+users/<nick>/gifts/poop          0..999 owned stickers
+users/<nick>/gifts/pumpkin_cube  0..999 admin-granted exclusive stickers
 ```
 
 * **Buy** — one authenticated PATCH to `users/<nick>.json` that writes the new
@@ -47,7 +57,8 @@ users/<nick>/gifts/poop    0..999 owned stickers (cake, bear, rocket likewise)
   sticker, while a duplicate from an event is still worth something.
 * **Admin grant** — the CCP panel's Gifts tab performs the same `+1` write; it
   does not debit cups. It only needs the recipient's nickname: nicknames are
-  unique, so the nickname already points at exactly one account.
+  unique, so the nickname already points at exactly one account. The exclusive
+  `pumpkin_cube` is available only through this admin action.
 
 The sticker counter in the buy/sell PATCH is written as a **path**, not as a
 nested object:
@@ -71,7 +82,10 @@ token (`fb_http`), exactly like progress saves. No callable function is needed.
 `firebase.rules.json` allows a signed-in `@cb4.game` password player to read
 profiles, as before. For each gift counter:
 
-* the owner may set it to any value `0..999`;
+* for ordinary gift types, the owner may set the counter to any value `0..999`;
+* for `gifts/pumpkin_cube`, only an admin may write; an owner writing their
+  whole profile must leave that counter unchanged, so an ordinary profile save
+  cannot bypass the special gift rule;
 * another player may only move it from `N` to `N + 1` (one sticker per write),
   and may create a missing counter only with `1`;
 * deletes are denied (`newData.exists()` in the `.write` rule), so nobody can
@@ -147,7 +161,9 @@ which writes them itself).
   action row under the columns changes: **Buy** for a shop card,
   **Send** + **Sell** for an owned one, with the half-price refund on the
   Sell label. The recipient nickname field sits there too and is only needed
-  for Send.
+  for Send. “Inspect” is shown only for owned gifts, never for shop cards.
+  The shop remains limited to the five ordinary gifts; admin-granted
+  `pumpkin_cube` appears only in the collection after it is granted.
 * An empty collection says so **under the "MY GIFTS" heading**, in its own
   column - in the middle of the screen the line looked like a message about
   the whole page and landed on top of the shop.

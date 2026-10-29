@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Local Firebase RTDB and Auth mock server for index.html and PC tests."""
 import base64
+import copy
 import hashlib
 import json
 import os
@@ -54,7 +55,7 @@ def profile(nick, **over):
         "promo": "2027", "promo_used": 1,
         "pd_consent_ts": 1767225600, "pd_consent_ver": 2,
         "gifts": {"poop": 2, "cake": 1, "bear": 0, "rocket": 3,
-                  "emerald": 1, "emerald_hue": 4, "rose": 0},
+                  "emerald": 1, "pumpkin_cube": 0, "emerald_hue": 4, "rose": 0},
     }
     p.update(over)
     return p
@@ -216,6 +217,47 @@ def can_read(parts, email):
     return email in ADMINS                          # unknown root nodes require admin
 
 
+def profile_write_preserves_pumpkin(parts, email, method, body):
+    """Mirror the parent users/$nick write guard for non-admin profile paths."""
+    if email in ADMINS or len(parts) < 2 or parts[0] != "users":
+        return True
+    nick = parts[1]
+    if nick.lower() != email.split("@")[0].lower():
+        return True
+    if len(parts) >= 4 and parts[2:4] == ["gifts", "pumpkin_cube"]:
+        return False
+    old_profile = deep_get(DB, ["users", nick])
+    old_profile = copy.deepcopy(old_profile) if isinstance(old_profile, dict) else {}
+    if len(parts) == 2 and method == "DELETE":
+        return True  # Explicit account deletion is allowed by the Firebase rule.
+    candidate = copy.deepcopy(old_profile)
+    try:
+        value = json.loads(body.decode()) if body else None
+    except Exception:
+        return False
+    target = parts[2:]
+    if method == "PUT":
+        if not target:
+            candidate = value
+        else:
+            deep_set(candidate, target, value)
+    elif method == "PATCH":
+        if not isinstance(value, dict):
+            return False
+        for key, item in value.items():
+            deep_set(candidate, target + key.split("/"), item)
+    elif method == "DELETE":
+        if target:
+            deep_del(candidate, target)
+        else:
+            candidate = None
+    if not isinstance(candidate, dict):
+        return True
+    old_gifts = old_profile.get("gifts") if isinstance(old_profile.get("gifts"), dict) else {}
+    new_gifts = candidate.get("gifts") if isinstance(candidate.get("gifts"), dict) else {}
+    return old_gifts.get("pumpkin_cube") == new_gifts.get("pumpkin_cube")
+
+
 def can_write(parts, email):
     if not email:
         return False
@@ -240,6 +282,8 @@ def can_write(parts, email):
                 return False
         return True                                 # room slots and chat
     if head == "users":
+        if len(parts) >= 4 and parts[2] == "gifts" and parts[3] == "pumpkin_cube":
+            return email in ADMINS
         if len(parts) < 2:
             return email in ADMINS                  # full users node
         if email in ADMINS:
@@ -350,7 +394,8 @@ class Handler(BaseHTTPRequestHandler):
                 STATS["rtdb_denied"] += 1
             self._send(403, b'{"error":"Permission denied"}')
             return
-        if method != "GET" and not can_write(parts, email):
+        if method != "GET" and (not can_write(parts, email) or
+                                 not profile_write_preserves_pumpkin(parts, email, method, body)):
             with LOCK:
                 STATS["rtdb_denied"] += 1
             self._send(403, b'{"error":"Permission denied"}')

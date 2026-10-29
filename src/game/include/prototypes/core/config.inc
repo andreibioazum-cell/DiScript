@@ -5,7 +5,7 @@ static double christmas_admin_allowed(void);
 static double active_theme_mode(void);
 static double sanch_no_christmas(void);
 static double sanch_rewards_kept(void);
-static double seasonal_admin_allowed(void);
+static double seasonal_content_allowed(void);
 static double admin_gifts_allowed(void);
 static double bpass_allowed(void);
 static double bpass_rewards_allowed(void);

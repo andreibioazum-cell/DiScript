@@ -48,7 +48,7 @@
     "users": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
       "$nick": {
-        ".write": "(auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && newData.exists() && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc') || (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && !newData.exists())",
+        ".write": "(auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && newData.exists() && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && ((!data.child('gifts').child('pumpkin_cube').exists() && !newData.child('gifts').child('pumpkin_cube').exists()) || (data.child('gifts').child('pumpkin_cube').exists() && newData.child('gifts').child('pumpkin_cube').exists() && newData.child('gifts').child('pumpkin_cube').val() == data.child('gifts').child('pumpkin_cube').val()))) || (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && !newData.exists())",
         ".validate": "$nick.matches(/^[A-Za-z0-9_]{1,16}$/) && newData.hasChildren(['nick','cups','candies','cls','azum','santa','level','levels']) && (!newData.child('w').exists() || newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc')",
         "nick": { ".validate": "newData.isString() && newData.val().length <= 16" },
         "pass": { ".validate": false },
@@ -74,6 +74,10 @@
           "emerald": {
             ".write": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.exists()",
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999 && (auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() || (data.exists() ? newData.val() == data.val() + 1 : newData.val() == 1))"
+          },
+          "pumpkin_cube": {
+            ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999"
           },
           "emerald_hue": {
       ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",

@@ -6,7 +6,8 @@ static const char *gift_tex(double id) {
     if (id == 1) return "gift_cake.png";
     if (id == 2) return "gift_bear.png";
     if (id == 3) return "gift_rocket.png";
-    if (id >= 4) return "gift_emerald.png";
+    if (id == 4) return "gift_emerald.png";
+    if (id == NET_GIFT_PUMPKIN_CUBE_ID) return ORDINARY_PUMPKIN_CARD_TEX;
     return "gift_poop.png";
 }
 
@@ -51,7 +52,7 @@ static void gift_icon(double id, double x, double y, double s) {
     if (s <= 0) return;
     double sc = s / GIFT_TEX_PX;
     tex(x, y, gift_tex(id), 0, sc);
-    if (id >= 4) {
+    if (id == 4) {
         double ph = gift_emerald_phase();
         double a1 = clamp(145 + 35 * sin(gift_shimmer_t * 3.4), 95, 190);
         double a2 = clamp(85 + 35 * cos(gift_shimmer_t * 4.7), 45, 130);

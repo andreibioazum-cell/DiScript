@@ -149,17 +149,17 @@ static void admin_panel_press(double x, double y) {
         double ty = admin_content_top();
         double rhg = admin_row_h();
         double row_index = floor((y - ty) / (rhg + admin_gap()));
-        if (row_index >= 1 && row_index <= 5) {
+        if (row_index >= 1 && row_index <= NET_GIFT_TYPE_COUNT) {
             admin_gift_choice = row_index - 1;
             return;
         }
-        if (row_index == 6) {
+        if (row_index == 7) {
             keyboard_clear();
             if (admin_gift_target[0]) keyboard_type(admin_gift_target);
             keyboard_show();
             return;
         }
-        if (row_index == 7) {
+        if (row_index == 8) {
             keyboard_hide();
             if (admin_gift_target[0] && admin_gift_busy != 1) {
                 admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, 0) == 0 ? 3 : 1;
@@ -296,13 +296,14 @@ static void admin_draw_gifts(void) {
     double y = admin_content_top() + admin_row_h() + admin_gap();
     double w = admin_panel_w() - 2 * admin_pad();
     double rh = admin_row_h();
-    for (int i = 0; i < 5; ++i) {
+    for (int i = 0; i < NET_GIFT_TYPE_COUNT; ++i) {
         const char *name = admin_gift_names[i];
-        if (language == 1) name = i == 0 ? "Какашка" : i == 1 ? "Торт" : i == 2 ? "Мишка" : i == 3 ? "Ракета" : "Изумруд";
+        if (language == 1) name = i == 0 ? "Какашка" : i == 1 ? "Торт" : i == 2 ? "Мишка" :
+                                  i == 3 ? "Ракета" : i == 4 ? "Изумруд" : "Кубик-тыква · 555";
         const char *label = ds_concat(admin_gift_choice == i ? "> " : "", name);
         admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
     }
-    double target_y = y + 5 * (rh + admin_gap());
+    double target_y = y + NET_GIFT_TYPE_COUNT * (rh + admin_gap());
     roundrect(px, target_y, w, rh, 8, admin_off());
     roundrect_outline(px, target_y, w, rh, 8, 2, admin_frame());
     const char *target_label = admin_gift_target[0] ? admin_gift_target : (language == 1 ? "Ник получателя" : "Recipient nickname");

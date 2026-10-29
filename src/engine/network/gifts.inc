@@ -2,13 +2,13 @@
  * Status: 0 idle, 1 running, 2 done, 3 error, 4 missing user, 5 low cups,
  * 6 none owned, 7 invalid target, 8 collection full (999). */
 
-#define GIFT_N 5
+#define GIFT_N NET_GIFT_TYPE_COUNT
 
 static volatile int s_gift_status = 0;
 static char s_gift_recipient[24];
 static int s_gift_id = 0, s_gift_grant = 0;
 /* Cached sticker counts retained across refreshes. */
-static volatile int s_gift_counts[GIFT_N] = {0, 0, 0, 0, 0};
+static volatile int s_gift_counts[GIFT_N] = {0, 0, 0, 0, 0, 0};
 /* Account nick owning the cached sticker counts. */
 static char s_gift_nick[24];
 /* Generation counter used to discard stale refresh replies. */
@@ -17,18 +17,18 @@ static volatile int s_gift_load_gen = -1;
 static volatile int s_gift_cups = -1;
 
 static const char *gift_id(double gift) {
-    static const char *ids[GIFT_N] = {"poop", "cake", "bear", "rocket", "emerald"};
+    static const char *ids[GIFT_N] = {"poop", "cake", "bear", "rocket", "emerald", "pumpkin_cube"};
     int i = (int)gift;
     return i >= 0 && i < GIFT_N ? ids[i] : "";
 }
 
 static int gift_price(int i) {
-    static const int prices[GIFT_N] = {25, 100, 250, 400, 500};
+    static const int prices[GIFT_N] = {25, 100, 250, 400, 500, 555};
     return i >= 0 && i < GIFT_N ? prices[i] : 0;
 }
 
-/* Refund half of shop price when selling a sticker. */
-static int gift_refund_for(int i) { return gift_price(i) / 2; }
+/* The admin-only pumpkin cube has a listed value but cannot be sold. */
+static int gift_refund_for(int i) { return i == NET_GIFT_PUMPKIN_CUBE_ID ? 0 : gift_price(i) / 2; }
 
 static int gift_nick_ok(const char *nick) {
     size_t i, n;
@@ -63,6 +63,13 @@ static int gift_nick_is_admin(const char *nick) {
     return gift_nick_same(nick, "Dimasi4ek229") == 1;
 }
 
+/* Pumpkin Cube can only ever be granted by the primary admin. */
+static int gift_action_allowed(int id, const char *nick, int mode) {
+    if (id != NET_GIFT_PUMPKIN_CUBE_ID)
+        return 1;
+    return mode == 1 && gift_nick_is_admin(nick);
+}
+
 /* Fetch sticker counters from users/<nick>/gifts.json. */
 static int gift_get_counts(const char *nick, int out[GIFT_N]) {
     char url[URL], resp[2048];
@@ -77,6 +84,7 @@ static int gift_get_counts(const char *nick, int out[GIFT_N]) {
     out[2] = num_int(resp, "bear", 0);
     out[3] = num_int(resp, "rocket", 0);
     out[4] = num_int(resp, "emerald", 0);
+    out[NET_GIFT_PUMPKIN_CUBE_ID] = num_int(resp, "pumpkin_cube", 0);
     for (i = 0; i < GIFT_N; i++) {
         if (out[i] < 0)
             out[i] = 0;
@@ -227,6 +235,10 @@ static void *gift_action_job(void *arg) {
     snprintf(gift, sizeof(gift), "%s", gift_id(id));
     if (!gift[0] || !sender[0] || !fb_enabled() || !fb_ensure_token())
         goto gift_done;
+    if (!gift_action_allowed(id, sender, mode)) {
+        result = 7;
+        goto gift_done;
+    }
     if (mode == 1)
         result = gift_grant(nick, id);
     else if (mode == 2)
@@ -245,6 +257,13 @@ double net_gift_action(double gift, const char *recipient, double grant, double 
     DSThread t;
     int mode = (int)grant;
     (void)hue;
+    if ((int)gift == NET_GIFT_PUMPKIN_CUBE_ID) {
+        char sender[24];
+        lg_lock();
+        snprintf(sender, sizeof(sender), "%s", lg.session_nick);
+        lg_unlock();
+        if (!gift_action_allowed((int)gift, sender, mode)) return 0;
+    }
     if (s_gift_status == 1 || gift < 0 || gift > GIFT_N - 1 || (mode != 1 && mode != 2 && mode != 3 && mode != 0) || !recipient ||
         strlen(recipient) >= sizeof(s_gift_recipient) || (mode == 0 && !*recipient))
         return 0;
@@ -304,6 +323,7 @@ static void *gift_counts_job(void *arg) {
             n[2] = num_int(resp, "bear", 0);
             n[3] = num_int(resp, "rocket", 0);
             n[4] = num_int(resp, "emerald", 0);
+            n[NET_GIFT_PUMPKIN_CUBE_ID] = num_int(resp, "pumpkin_cube", 0);
             ok = 1;
         }
     }

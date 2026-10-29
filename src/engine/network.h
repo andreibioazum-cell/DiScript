@@ -261,7 +261,11 @@ void net_gift_refresh(void);
 double net_gift_action(double gift, const char *recipient, double grant, double hue);
 double net_gift_action_status(void);
 double net_gift_hue(void);
-/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald). */
+#define NET_GIFT_PUMPKIN_CUBE_ID 5
+#define NET_GIFT_TYPE_COUNT 6
+#define NET_GIFT_SHOP_TYPE_COUNT 5
+
+/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald, 5 pumpkin cube). */
 double net_gift_types(void);
 double net_gift_price(double gift);
 double net_gift_refund(double gift);

@@ -4,6 +4,9 @@ import json
 import sys
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[1] / "test"))
+import fake_firebase
+
 ROOT = Path(__file__).resolve().parents[1]
 RULES = ROOT / "firebase.rules.json"
 
@@ -31,7 +34,7 @@ def main() -> int:
         print(f"event rule rejects event 5: {event}", file=sys.stderr)
         return 1
     gifts = rules["users"]["$nick"]["gifts"]
-    for key in ("poop", "cake", "bear", "rocket", "emerald"):
+    for key in ("poop", "cake", "bear", "rocket", "emerald", "pumpkin_cube"):
         if key not in gifts:
             print(f"gift rule is missing: {key}", file=sys.stderr)
             return 1
@@ -39,6 +42,17 @@ def main() -> int:
             if rule not in gifts[key]:
                 print(f"gift {key} has no {rule} rule", file=sys.stderr)
                 return 1
+    pumpkin = gifts["pumpkin_cube"]
+    if "dimasi4ek229@cb4.game" not in pumpkin.get(".write", ""):
+        print("pumpkin_cube must be writable by the admin only", file=sys.stderr)
+        return 1
+    if "<= 999" not in pumpkin.get(".validate", ""):
+        print("pumpkin_cube counter must be capped at 999", file=sys.stderr)
+        return 1
+    owner_write = rules["users"]["$nick"][".write"]
+    if "gifts').child('pumpkin_cube" not in owner_write or "newData.child('gifts').child('pumpkin_cube').val() == data.child('gifts').child('pumpkin_cube').val()" not in owner_write:
+        print("owner profile writes must preserve the admin-only pumpkin_cube count", file=sys.stderr)
+        return 1
     if gifts["$other"][".validate"] is not False:
         print("unknown gift keys must be rejected", file=sys.stderr)
         return 1
@@ -69,8 +83,35 @@ def main() -> int:
         if f"<= {maximum}" not in rule:
             print(f"{key} rule is missing or too narrow: {rule}", file=sys.stderr)
             return 1
+    # The fake RTDB must enforce the same parent-profile protection as Firebase.
+    fake = fake_firebase
+    player = "Player2"
+    existing = fake.DB["users"].get(player)
+    fake.DB["users"][player] = {"cups": 100, "gifts": {"poop": 1, "pumpkin_cube": 2}}
+    player_email = "player2@cb4.game"
+    changed_profile = {"cups": 99, "gifts": {"poop": 1, "pumpkin_cube": 3}}
+    kept_profile = {"cups": 99, "gifts": {"poop": 1, "pumpkin_cube": 2}}
+    if fake.profile_write_preserves_pumpkin(["users", player], player_email, "PUT",
+                                            json.dumps(changed_profile).encode()):
+        print("fake Firebase allowed owner to alter pumpkin_cube through whole-profile PUT", file=sys.stderr)
+        return 1
+    if not fake.profile_write_preserves_pumpkin(["users", player], player_email, "PUT",
+                                                json.dumps(kept_profile).encode()):
+        print("fake Firebase rejected owner profile save preserving pumpkin_cube", file=sys.stderr)
+        return 1
+    if fake.can_write(["users", player, "gifts", "pumpkin_cube"], player_email):
+        print("fake Firebase allowed direct ordinary-player pumpkin_cube write", file=sys.stderr)
+        return 1
+    if not fake.can_write(["users", player, "gifts", "pumpkin_cube"], "dimasi4ek229@cb4.game"):
+        print("fake Firebase rejected admin pumpkin_cube write", file=sys.stderr)
+        return 1
+    if existing is None:
+        del fake.DB["users"][player]
+    else:
+        fake.DB["users"][player] = existing
     print("db rules: event 0..5, Christmas flag + snowball slot fields, "
-          "gift keys poop/cake/bear/rocket/emerald, emerald hue 0..7 for admins, "
+          "gift keys poop/cake/bear/rocket/emerald plus admin-only pumpkin_cube, "
+          "emerald hue 0..7 for admins, "
           "wheel progress and packed skins OK")
     return 0
 

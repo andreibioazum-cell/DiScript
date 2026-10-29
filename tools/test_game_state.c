@@ -134,6 +134,8 @@ static int winter_loop_calls;
 static int snowflake_draws;
 static int snowflake_tinted;
 static uint32_t snowflake_tint_color;
+static double snowflake_tint_scale;
+static int night_bottom_line_count;
 static double snowflake_centres[64];
 static int snowflake_centre_n;
 static int star_line_count;
@@ -522,6 +524,7 @@ void tex_tint(float x, float y, const char *name, float angle, float scale, uint
     if (name && SNOWFLAKE_TEX && strcmp(name, SNOWFLAKE_TEX) == 0) {
         snowflake_tinted++;
         snowflake_tint_color = color;
+        snowflake_tint_scale = scale;
         snowflake_draws++;
         if (snowflake_centre_n < 64) {
             snowflake_centres[snowflake_centre_n++] = x + 26.0 * scale;
@@ -700,6 +703,10 @@ void line(float x1, float y1, float x2, float y2, float thickness, uint32_t colo
     if (y1 > star_max_y) star_max_y = y1;
     if (y2 > star_max_y) star_max_y = y2;
     if (d1 > 30 && d1 < 50 && fabs(d1 - d2) < 0.75) fx_orbit_lines++;
+    if (color == 0xFFB9C6FFu && fabs(y1 - (screen_h - 3)) < 0.1 &&
+        fabs(y2 - (screen_h - 3)) < 0.1 && fabs(x2 - x1) > screen_w * 0.8) {
+        night_bottom_line_count++;
+    }
     adm_record_color(color);
 }
 
@@ -762,7 +769,8 @@ void tex(float x, float y, const char *name, float angle, float scale) {
     last_tex_x = x;
     last_tex_y = y;
     last_tex_scale = scale;
-    if (name && strncmp(name, "gift_", 5) == 0) {
+    if (name && (strncmp(name, "gift_", 5) == 0 ||
+                 (ORDINARY_PUMPKIN_CARD_TEX && strcmp(name, ORDINARY_PUMPKIN_CARD_TEX) == 0))) {
         gift_tex_draws++;
         last_gift_tex = name;
     }
@@ -957,7 +965,7 @@ void net_gift_count_add(double gift, double delta) {
     stub_gift_counts[i] = stub_gift_counts[i] + delta;
     if (stub_gift_counts[i] < 0) stub_gift_counts[i] = 0;
 }
-double net_gift_types(void) { return 5; }
+double net_gift_types(void) { return NET_GIFT_TYPE_COUNT; }
 void net_gift_refresh(void) {}
 /* The action can be refused (another gift operation is already running). */
 static double stub_gift_action_ok = 1;
@@ -983,9 +991,9 @@ double net_gift_cups(void) {
 }
 double net_gift_price(double gift) {
     int i = (int)gift;
-    return i == 0 ? 25 : i == 1 ? 100 : i == 2 ? 250 : i == 3 ? 400 : i == 4 ? 500 : 0;
+    return i == 0 ? 25 : i == 1 ? 100 : i == 2 ? 250 : i == 3 ? 400 : i == 4 ? 500 : i == 5 ? 555 : 0;
 }
-double net_gift_refund(double gift) { return (double)((int)net_gift_price(gift) / 2); }
+double net_gift_refund(double gift) { return (int)gift == NET_GIFT_PUMPKIN_CUBE_ID ? 0 : (double)((int)net_gift_price(gift) / 2); }
 double net_chat_is_passwd(const char *msg) {
     if (!msg || strncmp(msg, "passwd ", 7) != 0) return 0;
     const char *t = msg + 7;
@@ -1256,6 +1264,33 @@ static void test_account_screen(void) {
     puts("account: menu, password change checks, sign-out, delete needs password + full swipe right");
 }
 
+static void test_night_lobby_ground(void) {
+    double saved_mode = theme_mode, saved_chosen = theme_chosen, saved_state = game_state;
+    double saved_snow_t = snow_t;
+    int saved_w = screen_w, saved_h = screen_h;
+    screen_w = 720;
+    screen_h = 1280;
+    theme_mode = 2;
+    theme_chosen = 1;
+    game_state = ST_LOBBY;
+    snow_t = 1.25;
+    ground_tiles = 0;
+    ground_fills = 0;
+    night_bottom_line_count = 0;
+    adm_reset_log();
+    draw_lobby_night_environment();
+    assert(ground_tiles == 0);
+    assert(night_bottom_line_count == 0);
+    assert(last_ground_fill == 0xFF15243A);
+    theme_mode = saved_mode;
+    theme_chosen = saved_chosen;
+    game_state = saved_state;
+    snow_t = saved_snow_t;
+    screen_w = saved_w;
+    screen_h = saved_h;
+    puts("night lobby: no green grass texture or white bottom line");
+}
+
 /* Gifts: two columns, the shop on the left fits whole, the collection on the
  * right scrolls smoothly. A card is one PNG plus a caption in its rarity
  * colour; cards have no buttons - a tap selects, the actions sit below the
@@ -1272,7 +1307,11 @@ static void test_gifts_page(void) {
     assert(acct_gift_choice < 0 && acct_gift_own_row < 0);
     assert(str_eq(acct_gift_name(0), "Какашка") == 1);
     assert(str_eq(acct_gift_name(4), "Изумруд") == 1);
+    assert(str_eq(acct_gift_name(NET_GIFT_PUMPKIN_CUBE_ID), "Кубик-тыква") == 1);
+    assert(net_gift_types() == NET_GIFT_TYPE_COUNT);
     assert(net_gift_price(0) == 25 && net_gift_price(3) == 400 && net_gift_price(4) == 500);
+    assert(net_gift_price(NET_GIFT_PUMPKIN_CUBE_ID) == 555);
+    assert(net_gift_refund(NET_GIFT_PUMPKIN_CUBE_ID) == 0);
         /* Selling pays back half the price, buying always costs more. */
     assert(net_gift_refund(0) == 12 && net_gift_refund(1) == 50);
     assert(net_gift_refund(2) == 125 && net_gift_refund(3) == 200 && net_gift_refund(4) == 250);
@@ -1282,14 +1321,16 @@ static void test_gifts_page(void) {
     assert(str_eq(gift_tex(2), "gift_bear.png") == 1);
     assert(str_eq(gift_tex(3), "gift_rocket.png") == 1);
     assert(str_eq(gift_tex(4), "gift_emerald.png") == 1);
+    assert(str_eq(gift_tex(NET_GIFT_PUMPKIN_CUBE_ID), ORDINARY_PUMPKIN_CARD_TEX) == 1);
         /* Rarity: common white, rare blue, epic purple, exclusive rainbow (its
          * caption is drawn with text_rainbow). */
     assert(gift_rarity(0) == 0 && gift_rarity(1) == 1 && gift_rarity(2) == 2);
-    assert(gift_rarity(3) == 2 && gift_rarity(4) == 3);
+    assert(gift_rarity(3) == 2 && gift_rarity(4) == 3 && gift_rarity(NET_GIFT_PUMPKIN_CUBE_ID) == 3);
     assert(str_eq(gift_rarity_name(0), "ОБЫЧНЫЙ") == 1);
     assert(str_eq(gift_rarity_name(1), "РЕДКИЙ") == 1);
     assert(str_eq(gift_rarity_name(2), "ЭПИЧЕСКИЙ") == 1);
     assert(str_eq(gift_rarity_name(4), "ЭКСКЛЮЗИВНЫЙ") == 1);
+    assert(str_eq(gift_rarity_name(NET_GIFT_PUMPKIN_CUBE_ID), "ЭКСКЛЮЗИВНЫЙ") == 1);
     assert(gift_rarity_color(0) == 0xFFFFFFFF);
     assert(gift_rarity_color(1) == 0xFF5CC8FF);
     assert(gift_rarity_color(2) == 0xFFC08CFF);
@@ -1327,6 +1368,31 @@ static void test_gifts_page(void) {
     assert(acct_gift_own_total() == 3);
     assert(acct_gift_own_id(0) == 0 && acct_gift_own_id(1) == 0);
     assert(acct_gift_own_id(2) == 4 && acct_gift_own_id(3) == -1);
+    /* The exclusive pumpkin gift is visible in My Gifts, never in the shop. */
+    stub_gift_counts[NET_GIFT_PUMPKIN_CUBE_ID] = 1;
+    assert(acct_gift_own_total() == 4 && acct_gift_own_id(3) == NET_GIFT_PUMPKIN_CUBE_ID);
+    assert(acct_gift_shop_rows() == NET_GIFT_SHOP_TYPE_COUNT);
+    assert(hit_acct_gift(acct_gift_x(0) + 10, acct_gift_view_top() + 5, NET_GIFT_PUMPKIN_CUBE_ID) == 0);
+    acct_gift_choice = 0;
+    acct_gift_is_owned = 0;
+    acct_gift_own_row = -1;
+    adm_reset_log();
+    draw_acct_gifts();
+    assert(adm_has_text("Осмотреть") == 0);
+    acct_gift_choice = NET_GIFT_PUMPKIN_CUBE_ID;
+    acct_gift_is_owned = 1;
+    acct_gift_own_row = 3;
+    adm_reset_log();
+    draw_acct_gifts();
+    assert(adm_has_text("Осмотреть") == 1);
+    assert(acct_gift_inspect_w() == acct_w());
+    assert(hit_acct_gift_inspect(acct_x() + 10, acct_below_fields() + 5) == 1);
+    assert(hit_acct_gift_send(acct_x() + 10, acct_below_fields() + 5) == 0);
+    assert(hit_acct_gift_sell(acct_x() + acct_w() - 10, acct_below_fields() + 5) == 0);
+    stub_gift_counts[NET_GIFT_PUMPKIN_CUBE_ID] = 0;
+    acct_gift_choice = -1;
+    acct_gift_is_owned = 0;
+    acct_gift_own_row = -1;
     gift_tex_draws = 0;
     rainbow_text_n = 0;
     draw_acct_gifts();
@@ -1343,8 +1409,9 @@ static void test_gifts_page(void) {
     double y = acct_gift_view_top() + 1 * acct_gift_step() + acct_gift_card_h() / 2;
     assert(touch_acct_gift_list(acct_gift_x(0) + 20, y, 0, 11) == 1);
     assert(acct_gift_choice == 1 && acct_gift_is_owned == 0);
-    assert(hit_acct_gift_inspect(acct_x() + 10, acct_below_fields() + 5) == 1);
-    assert(hit_acct_gift_buy(acct_x() + acct_gift_inspect_w() + ACCT_GIFT_COL_GAP + 10, acct_below_fields() + 5) == 1);
+    assert(hit_acct_gift_inspect(acct_x() + 10, acct_below_fields() + 5) == 0);
+    assert(hit_acct_gift_buy(acct_x() + 10, acct_below_fields() + 5) == 1);
+    assert(hit_acct_gift_buy(acct_x() + acct_w() - 10, acct_below_fields() + 5) == 1);
     assert(hit_acct_gift_send(acct_x() + 10, acct_below_fields() + 5) == 0);
     assert(hit_acct_gift_sell(acct_x() + acct_w() - 10, acct_below_fields() + 5) == 0);
 
@@ -2792,6 +2859,7 @@ static void test_christmas_snowballs(void) {
     double saved_ehp = enemy->hp, saved_ex = enemy->x, saved_ey = enemy->y;
     double saved_esize = enemy->size;
     double saved_bounces = xmas_ball.bounces;
+    double saved_theme_mode = theme_mode, saved_theme_chosen = theme_chosen;
     int i, k;
     (void)saved_bounces;
     snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
@@ -2806,14 +2874,25 @@ static void test_christmas_snowballs(void) {
 
     /* Flag off, guest: no snowballs. */
     stub_login_status = 0;
+    theme_mode = 0;
+    theme_chosen = 0;
     stub_christmas = 0;
     assert(christmas_snowballs_on() == 0 && christmas_pad_hit(10, 10) == 0);
     assert(winter_theme_on() == 0);
 
-    /* Christmas: 1 gives snowballs to every class, with no visual theme. */
+    /* Christmas: 1 enables New Year visuals, candies, snowballs and Battle Pass for everyone. */
     stub_christmas = 1;
     assert(christmas_snowballs_on() == 1 && christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 1);
+    assert(active_theme_mode() == 1 && winter_theme_on() == 1 && christmas_active() == 1);
+    assert(candies_on() == 1 && bpass_allowed() == 1);
+    /* A saved visual choice still works without disabling the global event. */
+    theme_chosen = 1;
+    theme_mode = 0;
     assert(winter_theme_on() == 0 && christmas_active() == 0);
+    assert(christmas_snowballs_on() == 1 && candies_on() == 1 && bpass_allowed() == 1);
+    stub_login_status = 2;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "Player2");
+    assert(seasonal_content_allowed() == 1 && candies_on() == 1 && bpass_allowed() == 1);
 
     game_state = ST_SOLO;
     finished = 0;
@@ -2835,6 +2914,13 @@ static void test_christmas_snowballs(void) {
     christmas_throw();
     assert(xmas_ball.active == 1 && xmas_ball.shot == 1);
     assert(xmas_cd > 0.99 && xmas_cd < 1.01);
+    snowflake_draws = snowflake_tinted = 0;
+    snowflake_tint_scale = 0;
+    adm_reset_log();
+    draw_christmas_snowballs();
+    assert(snowflake_draws == 1 && snowflake_tinted == 1);
+    assert(snowflake_tint_color == 0xFFFFFFFFu && fabs(snowflake_tint_scale - 0.72) < 1e-6);
+    for (int c = 0; c < adm_color_n; c++) assert(adm_colors[c] != 0xFFFF2D2Du);
     /* A second throw is blocked by the cooldown and the live snowball. */
     christmas_throw();
     assert(xmas_ball.shot == 1);
@@ -2882,20 +2968,21 @@ static void test_christmas_snowballs(void) {
     assert(xmas_ball.active == 1 && xmas_ball.vy < 0 && fabs(xmas_ball.vx) < 1e-6);
     christmas_reset();
 
-    /* Sanch never gets snowballs or the theme, even with Christmas: 1. */
+    /* The global New Year event now includes every account, including Sanch. */
     stub_login_status = 2;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
-    assert(christmas_snowballs_on() == 0 && winter_theme_on() == 0);
-    assert(christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 0);
-    assert(bpass_allowed() == 0 && candies_on() == 0 && bpass_rewards_allowed() == 1);
+    assert(christmas_snowballs_on() == 1 && winter_theme_on() == 0);
+    assert(christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 1);
+    assert(bpass_allowed() == 1 && candies_on() == 1 && bpass_rewards_allowed() == 1);
     christmas_reset();
     {
         double shot_before = xmas_ball.shot;
         christmas_throw();
-        assert(xmas_ball.active == 0 && xmas_ball.shot == shot_before);
+        assert(xmas_ball.active == 1 && xmas_ball.shot == shot_before + 1);
     }
 
-    /* The two holiday admins always have Christmas, even with the flag off. */
+    /* Admins retain their New Year preview even with the global flag off. */
+    theme_chosen = 0;
     stub_christmas = 0;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     assert(christmas_snowballs_on() == 1 && winter_theme_on() == 1 && christmas_active() == 1);
@@ -2952,11 +3039,13 @@ static void test_christmas_snowballs(void) {
     player->x = saved_px;
     player->y = saved_py;
     player->angle = saved_pa;
+    theme_mode = saved_theme_mode;
+    theme_chosen = saved_theme_chosen;
     enemy->hp = saved_ehp;
     enemy->x = saved_ex;
     enemy->y = saved_ey;
     enemy->size = saved_esize;
-    puts("christmas: ebuC physics, flat damage, big pad, free aim, 1 s cooldown, Sanch/admins OK");
+    puts("christmas: ebuC physics, flat damage, full snowflake, big pad, global event OK");
 }
 
 
@@ -3597,7 +3686,7 @@ int main(void) {
     winter_theme = 1;
     stub_login_status = 0;
     astra_ability_ok = 0;
-    assert(dev_access() == 0 && seasonal_admin_allowed() == 0 && winter_theme_on() == 0 && candies_on() == 0);
+    assert(dev_access() == 0 && seasonal_content_allowed() == 0 && winter_theme_on() == 0 && candies_on() == 0);
     assert(class_visible(CLASS_SANTA) == 0);
     ground_tiles = ground_fills = 0;
     draw_arena_background();
@@ -3605,7 +3694,7 @@ int main(void) {
     stub_login_status = 2;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     astra_ability_refresh();
-    assert(dev_access() == 1 && seasonal_admin_allowed() == 1 && winter_theme_on() == 1 && candies_on() == 1);
+    assert(dev_access() == 1 && seasonal_content_allowed() == 1 && winter_theme_on() == 1 && candies_on() == 1);
     assert(class_visible(CLASS_SANTA) == 1);
     ground_tiles = ground_fills = 0;
     draw_arena_background();
@@ -4338,10 +4427,10 @@ int main(void) {
         screen_h = 720;
         admin_tab = 1;
         admin_gift_choice = 4;
-        assert(fabs(admin_content_h() - (8 * admin_row_h() + 7 * admin_gap())) < 1e-9);
+        assert(fabs(admin_content_h() - (9 * admin_row_h() + 8 * admin_gap())) < 1e-9);
         snprintf(admin_gift_target, sizeof(admin_gift_target), "%s", "tester");
         admin_gift_busy = 0;
-        double grant_y = admin_content_top() + 7 * (admin_row_h() + admin_gap()) + admin_row_h() / 2;
+        double grant_y = admin_content_top() + 8 * (admin_row_h() + admin_gap()) + admin_row_h() / 2;
         admin_panel_press(admin_panel_x() + admin_pad() + 20, grant_y);
         assert(admin_gift_busy == 1);
         admin_gift_busy = 0;
@@ -5477,7 +5566,7 @@ int main(void) {
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
         assert(is_admin() == 0 && admin_modifiers_allowed() == 1);
-        assert(seasonal_admin_allowed() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
+        assert(seasonal_content_allowed() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         bp_xp = 0;
         bp_claimed = 0;
         candies = 1000;
@@ -5788,7 +5877,7 @@ int main(void) {
         assert(is_admin() == 0 && admin_playing() == 0);
         winter_theme = 1;
         candy_enabled = 1;
-        assert(dev_access() == 0 && seasonal_admin_allowed() == 1);
+        assert(dev_access() == 0 && seasonal_content_allowed() == 1);
         assert(winter_theme_on() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
         shimmer_text_n = 0;
@@ -5807,9 +5896,11 @@ int main(void) {
         assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
         admin_panel_open = 0;
 
-        /* Sanch gets no Christmas at all: ordinary visuals, candies and the
-         * Battle Pass hidden, no snowballs - but his earned Santa and candies
-         * stay on the account forever (also in the next Christmas season). */
+        /* Without the global flag, Sanch has ordinary visuals and no event,
+         * while earned rewards remain. The live Christmas flag then grants
+         * candies and Battle Pass to him like every other online player. */
+        double saved_global_xmas = stub_christmas;
+        stub_christmas = 0;
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
         astra_ability_refresh();
@@ -5822,10 +5913,22 @@ int main(void) {
         player_class = CLASS_SANTA;
         assert(is_admin() == 0 && admin_playing() == 0);
         assert(dev_access() == 0 && sanch_no_christmas() == 1 && sanch_rewards_kept() == 1);
-        assert(seasonal_admin_allowed() == 0 && winter_theme_on() == 0 && christmas_active() == 0);
+        assert(seasonal_content_allowed() == 0 && winter_theme_on() == 0 && christmas_active() == 0);
         assert(christmas_snowballs_on() == 0 && christmas_pad_hit(10, 10) == 0);
         assert(bpass_allowed() == 0 && bpass_rewards_allowed() == 1 && candies_on() == 0);
         assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+
+        double saved_theme_mode_sanch = theme_mode;
+        double saved_theme_chosen_sanch = theme_chosen;
+        stub_christmas = 1;
+        theme_chosen = 1;
+        theme_mode = 0; /* chosen ordinary visuals do not hide the live event */
+        assert(seasonal_content_allowed() == 1 && winter_theme_on() == 0);
+        assert(bpass_allowed() == 1 && bpass_rewards_allowed() == 1 && candies_on() == 1);
+        assert(christmas_snowballs_on() == 1);
+        stub_christmas = 0;
+        theme_mode = saved_theme_mode_sanch;
+        theme_chosen = saved_theme_chosen_sanch;
 
         progress_normalize();
         assert(fabs(candies - 77.0) < 1e-9);
@@ -5866,6 +5969,8 @@ int main(void) {
         winter_theme = 0;
         player_class = CLASS_ORDINARY;
         set_class_owned(CLASS_SANTA, 0);
+
+        stub_christmas = saved_global_xmas;
 
         /* Dimasi4ek229 retains full CCP (both Cheats & Gifts), winter theme, and BP (Tier 6 = +100 cups). */
         snprintf(stub_login_nick, sizeof(stub_login_nick), "Dimasi4ek229");
@@ -6490,6 +6595,7 @@ int main(void) {
     test_christmas_snowballs();
     test_offline_ordinary();
     test_admin_theme_clears_christmas();
+    test_night_lobby_ground();
     test_admin_auto_block();
     test_admin_auto_block_astra();
     test_admin_auto_block_skill();
@@ -6528,6 +6634,13 @@ int main(void) {
         draw_wheel();
         assert(adm_has_text("Fortune wheel") == 1 && adm_has_text("Wins:") == 1);
         assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
+        int hub_dark = 0, hub_mid = 0, hub_old_color = 0;
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if (adm_colors[ci] == 0xFF161616u) hub_dark = 1;
+            if (adm_colors[ci] == 0xFFBDBDBDu) hub_mid = 1;
+            if (adm_colors[ci] == 0xFF20283Bu) hub_old_color = 1;
+        }
+        assert(hub_dark == 1 && hub_mid == 1 && hub_old_color == 0);
         assert(adm_has_text("Chances:") == 0 && adm_has_text("Шансы:") == 0);
         assert(adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
         assert(btn_w >= 156 && btn_h >= 42);

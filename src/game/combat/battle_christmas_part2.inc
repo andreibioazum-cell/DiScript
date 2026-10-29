@@ -150,8 +150,13 @@ static void christmas_tick(void) {
 }
 
 static void xmas_draw_body(double x, double y) {
+    double flake_scale = 0.72;
+    double flake_half = 32 * flake_scale;
     circle(x, y, XMAS_RADIUS, 0xFFEAF7FFu);
     ring(x, y, XMAS_RADIUS, 3, 0xFF9FD3F0u);
+    /* Full, clear white snowflake in the same clean winter style as ebuC's
+     * elf kit; the red hitbox/debug outline is deliberately not rendered. */
+    tex_tint(x - flake_half, y - flake_half, SNOWFLAKE_TEX, 0, flake_scale, 0xFFFFFFFFu);
 }
 
 static void draw_christmas_snowballs(void) {

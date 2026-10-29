@@ -43,17 +43,8 @@ static void draw_lobby_night_environment(void) {
         return;
     }
     const double ground_h = 66;
-    const double grass_tile = 64;
     rect(0, 0, screen_w, screen_h, 0xFF0B1030);
     rect(0, screen_h - ground_h, screen_w, ground_h, 0xFF15243A);
-    if (tex_ready(GRASS) == 1) {
-        double x = 0;
-        while (x < screen_w) {
-            tex_tint(x, screen_h - grass_tile, GRASS, 0, 0.25, 0xFF8BA56B);
-            x = x + grass_tile;
-        }
-        rect(0, screen_h - 3, screen_w, 3, 0xFFB9C6FF);
-    }
     double i = 0;
     while (i < 22) {
         double hx = hash01(i * 3 + 317);
@@ -393,8 +384,11 @@ static void draw_wheel(void) {
         slice = slice + 1;
     }
 
-    circle(cx, cy, radius * 0.23, 0xFF20283B);
-    ring(cx, cy, radius * 0.23, 4, 0xFFE7ECF3);
+    circle(cx, cy, radius * 0.23, 0xFF161616);
+    ring(cx, cy, radius * 0.23, 4, 0xFFF2F2F2);
+    circle(cx, cy, radius * 0.13, 0xFFBDBDBD);
+    ring(cx, cy, radius * 0.13, 2, 0xFF2A2A2A);
+    circle(cx, cy, radius * 0.045, 0xFF202020);
     line(cx, cy - radius + 20, cx, cy - radius + 5, 5, 0xFFE7ECF3);
 
     const char *progress = ds_concat(language == 1 ? "Побед: " : "Wins: ",

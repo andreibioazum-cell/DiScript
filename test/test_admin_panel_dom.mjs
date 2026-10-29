@@ -236,6 +236,12 @@ try {
   await waitFor(async () => (await db("Christmas", token)) === 0, "Christmas=0");
   check("Christmas выключен", (await db("Christmas", token)) === 0);
 
+  const pumpkinGift = await fetch(`${BASE}/users/Player2/gifts/pumpkin_cube.json?auth=${encodeURIComponent(token)}`, {
+    method: "PUT", headers: { "Content-Type": "application/json" }, body: "1"
+  });
+  check("админ может выдать подарок Кубик-тыква", pumpkinGift.ok &&
+        (await db("users/Player2/gifts/pumpkin_cube", token)) === 1);
+
   setVal("#bannerText", "Тестовый баннер");
   click("#setBanner");
   const banner = await waitFor(async () => {

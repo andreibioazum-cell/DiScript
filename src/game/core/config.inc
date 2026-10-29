@@ -48,8 +48,9 @@ static double admin_modifiers_allowed(void) {
     return 0;
 }
 
-/* Christmas is always on for the two holiday admins and never
- * on for Sanch. Combat modifiers in CCP stay available to all three. */
+/* Holiday admins retain their New Year preview when the global flag is off.
+ * The live global Christmas event is handled below for every online player;
+ * combat modifiers in CCP stay available to all three moderators. */
 static double christmas_admin_allowed(void) {
     /* With the Internet off the game is completely ordinary: even the two
      * holiday admins lose the Christmas visuals, snowballs and theme. */
@@ -63,17 +64,21 @@ static double christmas_admin_allowed(void) {
     return 0;
 }
 
-/* Effective theme. Until the player touches the theme button, the two
- * holiday admins keep their New Year look. Any explicit choice is final:
- * ordinary or night means no Christmas visuals at all, even for an admin. */
+/* The global holiday flag gives every player a New Year default until they
+ * explicitly choose a theme. A saved ordinary/night choice remains respected. */
+static double seasonal_content_allowed(void) {
+    return net_christmas() == 1 || christmas_admin_allowed() == 1 ? 1 : 0;
+}
+
 static double active_theme_mode(void) {
-    if (theme_chosen == 0 && christmas_admin_allowed() == 1) {
+    if (theme_chosen == 0 && seasonal_content_allowed() == 1) {
         return 1;
     }
     return theme_mode;
 }
 
-/* Sanch gets no Christmas at all: no theme, no events, no snowballs. */
+/* Identify Sanch so his earned rewards remain available when the global
+ * event is off; the active global Christmas flag still covers all players. */
 static double sanch_no_christmas(void) {
     if (net_login_status() != 2) {
         return 0;
@@ -87,25 +92,21 @@ static double sanch_rewards_kept(void) {
     return sanch_no_christmas();
 }
 
-/* Seasonal theme and Battle Pass belong to the two holiday admins only. */
-static double seasonal_admin_allowed(void) {
-    return christmas_admin_allowed();
-}
 
 /* Return 1 when signed-in player can manage gifts in CCP. */
 static double admin_gifts_allowed(void) {
     return admin_playing();
 }
 
-/* Return 1 when a signed-in CCP moderator has access to the Battle Pass. */
+/* Return 1 when the online player has seasonal Battle Pass access. */
 static double bpass_allowed(void) {
-    return seasonal_admin_allowed();
+    return seasonal_content_allowed();
 }
 
-/* Keep earned Battle Pass rewards (Santa from tier 7) for the holiday admins
- * and for Sanch, who keeps his rewards even without the holiday itself. */
+/* Keep already-earned Battle Pass rewards visible when seasonal access is
+ * off; Sanch's claimed Santa and candies persist even between events. */
 static double bpass_rewards_allowed(void) {
-    if (seasonal_admin_allowed() == 1 || sanch_rewards_kept() == 1) {
+    if (seasonal_content_allowed() == 1 || sanch_rewards_kept() == 1) {
         return 1;
     }
     return 0;

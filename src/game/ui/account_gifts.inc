@@ -3,13 +3,18 @@
 /* Two-column sticker shop and owned collection UI. */
 
 #define ACCT_GIFT_GAP 10
-#define ACCT_GIFT_COL_GAP 12
+#define ACCT_GIFT_COL_GAP 28
 #define ACCT_GIFT_PANEL_PAD 8
 
 static double acct_gift_cols_top(void) { return acct_top() + 58; }
 static double acct_gift_head_h(void) { return 30; }
 static double acct_gift_view_top(void) { return acct_gift_cols_top() + acct_gift_head_h(); }
 static double acct_gift_shop_rows(void) {
+    double n = net_gift_types();
+    if (n > NET_GIFT_SHOP_TYPE_COUNT) n = NET_GIFT_SHOP_TYPE_COUNT;
+    return n > 1 ? n : 1;
+}
+static double acct_gift_type_count(void) {
     double n = net_gift_types();
     return n > 1 ? n : 1;
 }
@@ -37,7 +42,8 @@ static const char *acct_gift_name(double i) {
     if (i == 1) return language == 1 ? "Торт" : "Cake";
     if (i == 2) return language == 1 ? "Мишка" : "Teddy Bear";
     if (i == 3) return language == 1 ? "Ракета" : "Rocket";
-    return language == 1 ? "Изумруд" : "Emerald";
+    if (i == 4) return language == 1 ? "Изумруд" : "Emerald";
+    return language == 1 ? "Кубик-тыква" : "Pumpkin Cube";
 }
 static const char *acct_gift_cups_line(double n) {
     return ds_concat(ds_concat(ds_num_to_string(n), " "), tr_cups_unit());
@@ -47,7 +53,7 @@ static const char *acct_gift_cups_line(double n) {
 
 static double acct_gift_own_total(void) {
     double n = 0, i = 0;
-    while (i < acct_gift_shop_rows()) {
+    while (i < acct_gift_type_count()) {
         n = n + net_gift_count(i);
         i = i + 1;
     }
@@ -57,7 +63,7 @@ static double acct_gift_own_total(void) {
 static double acct_gift_own_id(double row) {
     double base = 0, i = 0;
     if (row < 0) return -1;
-    while (i < acct_gift_shop_rows()) {
+    while (i < acct_gift_type_count()) {
         double c = net_gift_count(i);
         if (row < base + c) return i;
         base = base + c;
@@ -152,26 +158,31 @@ static double hit_acct_gift_any(double x, double y) {
 }
 /* Return width of action-row buttons (Look, Buy/Gift, Sell). */
 static double acct_gift_inspect_w(void) {
-    double cols = acct_gift_is_owned == 1 ? 3 : 2;
-    return (acct_w() - (cols - 1) * ACCT_GIFT_COL_GAP) / cols;
+    if (acct_gift_is_owned == 1 && acct_gift_sel_id() == NET_GIFT_PUMPKIN_CUBE_ID) {
+        return acct_w();
+    }
+    return (acct_w() - 2 * ACCT_GIFT_COL_GAP) / 3;
 }
 static double acct_gift_action_x(double col) {
     return acct_x() + (acct_gift_inspect_w() + ACCT_GIFT_COL_GAP) * col;
 }
 static double hit_acct_gift_buy(double x, double y) {
     return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 0 &&
-           hit_button(x, y, acct_gift_action_x(1), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
+           hit_button(x, y, acct_x(), acct_below_fields(), acct_w(), btn_h) == 1;
 }
 static double hit_acct_gift_send(double x, double y) {
     return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 1 &&
+           acct_gift_sel_id() != NET_GIFT_PUMPKIN_CUBE_ID &&
            hit_button(x, y, acct_gift_action_x(1), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
 }
 static double hit_acct_gift_sell(double x, double y) {
     return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 1 &&
+           acct_gift_sel_id() != NET_GIFT_PUMPKIN_CUBE_ID &&
            hit_button(x, y, acct_gift_action_x(2), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
 }
 static double hit_acct_gift_inspect(double x, double y) {
-    return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_busy != 1 && acct_gift_view_open == 0 &&
+    return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 1 &&
+           acct_gift_busy != 1 && acct_gift_view_open == 0 &&
            hit_button(x, y, acct_x(), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
 }
 
@@ -390,16 +401,16 @@ static void draw_acct_gifts(void) {
         const char *hint = language == 1 ? "Нажмите на стикер" : "Tap a sticker";
         ctext_scaled(hint, acct_below_fields() + (btn_h - 16) / 2, text_color, 0.55);
     } else if (acct_gift_is_owned == 0) {
-                /* Draw Look and Buy buttons; admins buy without spending cups. */
-                double bw = acct_gift_inspect_w();
-        const char *look = language == 1 ? "Осмотреть" : "Inspect";
+        /* The shop has only a purchase action; full-resolution inspection is
+         * reserved for stickers already in My Gifts. */
         const char *buy = ds_concat(language == 1 ? "Купить · " : "Buy · ",
                                     acct_gift_cups_line(acct_gift_price(acct_gift_sel_id())));
-        button_scaled(look, acct_x(), acct_below_fields(), bw, btn_h, fit_text_scale(look, bw - 12, 0.56));
         if (admin_playing() == 0 && cups < acct_gift_price(acct_gift_sel_id())) {
-            button_disabled_scaled(buy, acct_gift_action_x(1), acct_below_fields(), bw, btn_h, fit_text_scale(buy, bw - 24, 0.6));
+            button_disabled_scaled(buy, acct_x(), acct_below_fields(), acct_w(), btn_h,
+                                   fit_text_scale(buy, acct_w() - 24, 0.6));
         } else {
-            button_scaled(buy, acct_gift_action_x(1), acct_below_fields(), bw, btn_h, fit_text_scale(buy, bw - 24, 0.6));
+            button_scaled(buy, acct_x(), acct_below_fields(), acct_w(), btn_h,
+                          fit_text_scale(buy, acct_w() - 24, 0.6));
         }
     } else {
         double bw = acct_gift_inspect_w();
@@ -408,6 +419,9 @@ static void draw_acct_gifts(void) {
         const char *sell = ds_concat(language == 1 ? "Продать · +" : "Sell · +",
                                      acct_gift_cups_line(acct_gift_refund(acct_gift_sel_id())));
         button_scaled(look, acct_x(), acct_below_fields(), bw, btn_h, fit_text_scale(look, bw - 12, 0.56));
+        if (acct_gift_sel_id() == NET_GIFT_PUMPKIN_CUBE_ID) {
+            return;
+        }
         button_scaled(send, acct_gift_action_x(1), acct_below_fields(), bw, btn_h, fit_text_scale(send, bw - 12, 0.56));
         button_scaled(sell, acct_gift_action_x(2), acct_below_fields(), bw, btn_h, fit_text_scale(sell, bw - 12, 0.52));
     }
