@@ -87,6 +87,10 @@ static int ds_vk_build_geometry(void) {
         case DS_CMD_CIRCLE:
             geo_circle(c->v.ci.x, c->v.ci.y, c->v.ci.r, c->v.ci.c);
             break;
+        case DS_CMD_SECTOR:
+            geo_sector(c->v.sec.x, c->v.sec.y, c->v.sec.r, c->v.sec.start_deg,
+                       c->v.sec.sweep_deg, c->v.sec.c);
+            break;
         case DS_CMD_RING:
             geo_ring(c->v.rg.x, c->v.rg.y, c->v.rg.r, c->v.rg.th, c->v.rg.c);
             break;

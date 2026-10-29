@@ -709,6 +709,15 @@ static double candy_scale_drawn;
 static double candy_x_drawn;
 static double candy_y_drawn;
 static uint32_t candy_circle_color;
+void sector(float x, float y, float r, float start_deg, float sweep_deg, uint32_t color) {
+    (void)x;
+    (void)y;
+    (void)r;
+    (void)start_deg;
+    (void)sweep_deg;
+    adm_record_color(color);
+}
+
 void circle(float x, float y, float r, uint32_t color) {
     if (r > 20) fx_big_circle_count++;
     candy_circle_color = color;

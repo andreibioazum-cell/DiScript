@@ -288,6 +288,17 @@ void circle(float x, float y, float r, uint32_t c) {
     p->v.ci.r = r;
     p->v.ci.c = pack_c(c);
 }
+void sector(float x, float y, float r, float start_deg, float sweep_deg, uint32_t c) {
+    DSCmd *p = push(DS_CMD_SECTOR);
+    if (!p)
+        return;
+    p->v.sec.x = x;
+    p->v.sec.y = y;
+    p->v.sec.r = r;
+    p->v.sec.start_deg = start_deg;
+    p->v.sec.sweep_deg = sweep_deg;
+    p->v.sec.c = pack_c(c);
+}
 void ring(float x, float y, float r, float t, uint32_t c) {
     DSCmd *p = push(DS_CMD_RING);
     if (!p)

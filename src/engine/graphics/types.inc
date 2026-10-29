@@ -72,7 +72,8 @@ typedef enum {
     DS_CMD_TEX_ROUND,
     DS_CMD_TEX_FADE,
     DS_CMD_TEXT_RAINBOW,
-    DS_CMD_SCISSOR
+    DS_CMD_SCISSOR,
+    DS_CMD_SECTOR
 } DSCommand;
 typedef struct {
     DSCommand t;
@@ -97,6 +98,10 @@ typedef struct {
             float x1, y1, x2, y2, th;
             uint32_t c;
         } ln;
+        struct {
+            float x, y, r, start_deg, sweep_deg;
+            uint32_t c;
+        } sec;
         struct {
             float x, y, a, sc;
             Texture *tx;

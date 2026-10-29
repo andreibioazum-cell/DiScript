@@ -362,14 +362,7 @@ static void draw_wheel(void) {
     double slice = 0;
     while (slice < 6) {
         double center_deg = -90 + slice * 60 + rotation;
-        double start_deg = center_deg - 30;
-        int ray = 0;
-        while (ray < 12) {
-            double a = (start_deg + 2.5 + ray * 5) * 3.141592653589793 / 180;
-            line(cx, cy, cx + cos(a) * (radius - 5), cy + sin(a) * (radius - 5), radius * 0.09,
-                 colors[(int)slice]);
-            ray = ray + 1;
-        }
+        sector(cx, cy, radius - 3, center_deg - 30, 60, colors[(int)slice]);
         slice = slice + 1;
     }
     slice = 0;
@@ -385,12 +378,17 @@ static void draw_wheel(void) {
         double a = (-90 + slice * 60 + rotation) * 3.141592653589793 / 180;
         double px = cx + cos(a) * radius * 0.58;
         double py = cy + sin(a) * radius * 0.58;
-        circle(px, py, radius * 0.13, 0xC9172034);
-        ring(px, py, radius * 0.13, 2, 0x99FFFFFF);
-        centered_text(values[(int)slice], px - radius * 0.13, radius * 0.26, py - radius * 0.045,
-                      0xFFFFFFFF, 0.62);
-        centered_text(units[(int)slice], px - radius * 0.13, radius * 0.26, py + radius * 0.035,
-                      0xFFF2F5FF, 0.30);
+        double badge_w = radius * 0.46;
+        double badge_h = radius * 0.32;
+        double badge_x = px - badge_w * 0.5;
+        double badge_y = py - badge_h * 0.5;
+        double main_scale = fit_text_scale(values[(int)slice], badge_w - 12, 0.78);
+        double unit_scale = fit_text_scale(units[(int)slice], badge_w - 12, 0.44);
+        roundrect(badge_x, badge_y, badge_w, badge_h, badge_h * 0.34, 0xD9162032);
+        text_in_field(values[(int)slice], px - text_ink_width(values[(int)slice]) * main_scale * 0.5,
+                      badge_y + 1, badge_h * 0.54, 0xFFFFFFFF, main_scale);
+        text_in_field(units[(int)slice], px - text_ink_width(units[(int)slice]) * unit_scale * 0.5,
+                      badge_y + badge_h * 0.48, badge_h * 0.50, 0xFFF2F5FF, unit_scale);
         slice = slice + 1;
     }
 

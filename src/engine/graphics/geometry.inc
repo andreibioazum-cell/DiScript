@@ -168,6 +168,33 @@ static int geo_circle(float x, float y, float r, uint32_t c) {
     return 1;
 }
 
+static int geo_sector(float x, float y, float r, float start_deg, float sweep_deg, uint32_t c) {
+    if (!isfinite(x + y + r + start_deg + sweep_deg) || r <= 0 || sweep_deg == 0)
+        return 1;
+    if (sweep_deg > 360)
+        sweep_deg = 360;
+    else if (sweep_deg < -360)
+        sweep_deg = -360;
+    int n = (int)ceilf(fabsf(sweep_deg) / 4.0f);
+    if (n < 1)
+        n = 1;
+    if (n > 90)
+        n = 90;
+    size_t base = geo_vn;
+    if (!geo_push_vert(x, y, 0.5f, 0.5f, c))
+        return 0;
+    for (int i = 0; i <= n; i++) {
+        float a = (start_deg + sweep_deg * ((float)i / (float)n)) * (float)(M_PI / 180.0);
+        if (!geo_push_vert(x + cosf(a) * r, y + sinf(a) * r, 0, 0, c))
+            return 0;
+    }
+    for (int i = 1; i <= n; i++)
+        if (!geo_push_index((uint16_t)base) || !geo_push_index((uint16_t)(base + i)) ||
+            !geo_push_index((uint16_t)(base + i + 1)))
+            return 0;
+    return 1;
+}
+
 static int geo_ring(float x, float y, float r, float th, uint32_t c) {
     if (!isfinite(x + y + r + th) || r <= 0 || th <= 0)
         return 1;

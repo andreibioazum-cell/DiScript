@@ -81,6 +81,7 @@ void cb_button_gradient(float x, float y, float w, float h, float r, uint32_t co
 
 void rect_rot(float x, float y, float w, float h, float angle, uint32_t color);
 void circle(float x, float y, float r, uint32_t color);
+void sector(float x, float y, float r, float start_deg, float sweep_deg, uint32_t color);
 void ring(float x, float y, float r, float t, uint32_t color);
 void line(float x1, float y1, float x2, float y2, float thickness, uint32_t color);
 void ds_set_asset_manager(AAssetManager *assets);
