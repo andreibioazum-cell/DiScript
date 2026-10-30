@@ -1308,10 +1308,7 @@ static void test_lobby_ball(void) {
     double x = lobby_ball_x, y = lobby_ball_y;
     assert(lobby_ball_touch(x, y, 0, 91) == 1 && lobby_ball_pointer == 91);
     assert(lobby_ball_touch(x, y, 1, 91) == 1);
-    assert(lobby_ball_emotion == 1 && lobby_ball_speech_t > 0);
-    double ex = lobby_ball_emotion_x(), ey = lobby_ball_emotion_y(2);
-    assert(lobby_ball_touch(ex, ey, 0, 92) == 1);
-    assert(lobby_ball_emotion == 2);
+    assert(lobby_ball_phrase == 0 && lobby_ball_speech_t > 0);
 
     x = lobby_ball_x;
     y = lobby_ball_y;
@@ -1319,16 +1316,29 @@ static void test_lobby_ball(void) {
     assert(lobby_ball_touch(x + 45, y - 35, 2, 93) == 1);
     assert(fabs(lobby_ball_x - (x + 45)) < 1e-9);
     assert(lobby_ball_touch(x + 45, y - 35, 1, 93) == 1);
-    assert(lobby_ball_vx > 0 && lobby_ball_vy < 0 && lobby_ball_emotion == 1);
+    assert(lobby_ball_vx > 1000 && lobby_ball_vy < -1000);
     double before_y = lobby_ball_y;
     dt = 0.05;
     lobby_ball_tick();
     assert(lobby_ball_y < before_y);
 
-    lobby_ball_y = lobby_ball_floor() - lobby_ball_r + 5;
+    /* An upward full-force throw hits the visible ceiling and rebounds. */
+    lobby_ball_x = lobby_ball_default_x();
+    lobby_ball_y = lobby_ball_min_y() + 2;
+    lobby_ball_vy = -2200;
+    int ceiling_bounced = 0;
+    for (int i = 0; i < 24; i++) {
+        lobby_ball_tick();
+        assert(lobby_ball_y >= lobby_ball_min_y() - 1e-9);
+        if (lobby_ball_vy > 0) ceiling_bounced = 1;
+    }
+    assert(ceiling_bounced == 1);
+
+    lobby_ball_x = lobby_ball_default_x();
+    lobby_ball_y = lobby_ball_max_y() - 4;
     lobby_ball_vy = 150;
     lobby_ball_tick();
-    assert(lobby_ball_y <= lobby_ball_floor() - lobby_ball_r && lobby_ball_vy < 0);
+    assert(lobby_ball_y <= lobby_ball_max_y() && lobby_ball_vy < 0);
 
     /* The engine routes full pointer gestures from lobby to the physics toy. */
     t_dir = 0;
@@ -1346,7 +1356,13 @@ static void test_lobby_ball(void) {
     logic_touch(x + 35, y - 28, 1, 94);
     assert(lobby_ball_pointer < 0 && lobby_ball_vx > 0 && lobby_ball_vy < 0);
     press_points_clear();
+    adm_reset_log();
     lobby_ball_draw();
+    for (int ci = 0; ci < adm_color_n; ci++) {
+        assert(adm_colors[ci] != 0x77FFFFFFu); /* no glossy white spot */
+        assert(adm_colors[ci] != 0x55302650u); /* no floating shadow */
+        assert(adm_colors[ci] != 0xFFFFFFFFu); /* monochrome dark speech bubble, no white UI chip */
+    }
     lobby_ball_initialized = 0;
     lobby_ball_pointer = -1;
     lobby_ball_vx = lobby_ball_vy = 0;
@@ -1354,7 +1370,7 @@ static void test_lobby_ball(void) {
     game_state = saved_state;
     screen_w = saved_w;
     screen_h = saved_h;
-    puts("lobby ball: tap, emotion selector, drag-and-throw, gravity and floor bounce OK");
+    puts("lobby ball: velocity-based throw, fixed face, ceiling/floor/side rebounds OK");
 }
 
 /* Gifts: two columns, the shop on the left fits whole, the collection on the
@@ -6712,14 +6728,13 @@ int main(void) {
         draw_wheel();
         assert(adm_has_text("Fortune wheel") == 1 && adm_has_text("Wins:") == 1);
         assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
-        int hub_black = 0, hub_extra = 0;
+        int hub_fill = 0, hub_grey_ring = 0, white_outline = 0;
         for (int ci = 0; ci < adm_color_n; ci++) {
-            if (adm_colors[ci] == 0xFF000000u) hub_black = 1;
-            if (adm_colors[ci] == 0xFF161616u || adm_colors[ci] == 0xFFF2F2F2u ||
-                adm_colors[ci] == 0xFFBDBDBDu || adm_colors[ci] == 0xFF2A2A2Au ||
-                adm_colors[ci] == 0xFF202020u) hub_extra = 1;
+            if (adm_colors[ci] == 0xFF101010u) hub_fill = 1;
+            if (adm_colors[ci] == 0xFF6A6A6Au) hub_grey_ring = 1;
+            if (adm_colors[ci] == 0xFFE7ECF3u) white_outline = 1;
         }
-        assert(hub_black == 1 && hub_extra == 0);
+        assert(hub_fill == 1 && hub_grey_ring == 1 && white_outline == 0);
         assert(adm_has_text("Chances:") == 0 && adm_has_text("Шансы:") == 0);
         assert(adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
         assert(btn_w >= 156 && btn_h >= 42);

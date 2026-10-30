@@ -346,7 +346,7 @@ static void draw_wheel(void) {
         units[5] = "";
     }
 
-    circle(cx, cy, radius + 7, 0xFF35445A);
+    circle(cx, cy, radius + 7, 0xFF3C3C3C);
     double slice = 0;
     while (slice < 6) {
         double center_deg = -90 + slice * 60 + rotation;
@@ -356,10 +356,10 @@ static void draw_wheel(void) {
     slice = 0;
     while (slice < 6) {
         double a = (-120 + slice * 60 + rotation) * 3.141592653589793 / 180;
-        line(cx, cy, cx + cos(a) * (radius - 6), cy + sin(a) * (radius - 6), 3, 0xFFE7ECF3);
+        line(cx, cy, cx + cos(a) * (radius - 6), cy + sin(a) * (radius - 6), 3, 0xFFB0B0B0);
         slice = slice + 1;
     }
-    ring(cx, cy, radius + 4, 6, 0xFFE7ECF3);
+    ring(cx, cy, radius + 4, 6, 0xFF828282);
 
     slice = 0;
     while (slice < 6) {
@@ -385,9 +385,10 @@ static void draw_wheel(void) {
         slice = slice + 1;
     }
 
-    /* The hub is intentionally only a clean black outline. */
-    ring(cx, cy, radius * 0.23, 4, 0xFF000000);
-    line(cx, cy - radius + 20, cx, cy - radius + 5, 5, 0xFFE7ECF3);
+    /* Monochrome hub: a near-black solid centre with a neutral grey outline. */
+    circle(cx, cy, radius * 0.23 - 2, 0xFF101010);
+    ring(cx, cy, radius * 0.23, 4, 0xFF6A6A6A);
+    line(cx, cy - radius + 20, cx, cy - radius + 5, 5, 0xFFB0B0B0);
 
     const char *progress = ds_concat(language == 1 ? "Побед: " : "Wins: ",
                                      ds_concat(ds_num_to_string((double)net_load_wheel_wins()), "/6"));
