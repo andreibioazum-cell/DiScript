@@ -97,7 +97,7 @@ static int run_write(const char *dir) {
     assert(net_load_new_theme() == 0);
     assert(net_load_theme_mode() == 0);   /* ordinary theme by default */
     net_save_theme_mode(2);
-    assert(net_load_theme_mode() == 2);   /* night survives the save */
+    assert(net_load_theme_mode() == 2);   /* Halloween survives the save */
     assert(net_load_theme_chosen() == 0);
     net_save_theme_chosen(1);            /* the theme button was pressed */
     assert(net_load_theme_chosen() == 1);

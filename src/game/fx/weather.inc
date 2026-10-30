@@ -1,5 +1,5 @@
 static double winter_theme_on(void) {
-    /* Online New Year is available to every account. Explicit ordinary/night
+    /* Online New Year is available to every account. Explicit ordinary/Halloween
      * choices affect the visuals only; offline flags fall back to ordinary. */
     if (active_theme_mode() != 1) {
         return 0;
@@ -7,8 +7,8 @@ static double winter_theme_on(void) {
     return seasonal_content_allowed();
 }
 
-/* Night theme: sleepy colours and slowly falling little stars. */
-static double night_theme_on(void) { return active_theme_mode() == 2 ? 1 : 0; }
+/* The manually selected Halloween theme is available offline too. */
+static double halloween_theme_on(void) { return active_theme_mode() == 2 ? 1 : 0; }
 
 static const char *arena_ground_tex(void) {
     if (winter_theme_on() == 1 && snow_tex_ok == 1) {
@@ -18,8 +18,8 @@ static const char *arena_ground_tex(void) {
 }
 
 static double arena_ground_rgb(void) {
-    if (night_theme_on() == 1) {
-        return 0x0B1030;
+    if (halloween_theme_on() == 1) {
+        return 0x241207;
     }
     if (winter_theme_on() == 1 && snow_tex_ok == 1) {
         return snow_ground_rgb;
@@ -30,8 +30,8 @@ static double arena_ground_rgb(void) {
 static void draw_arena_background(void) {
     const char *ground = arena_ground_tex();
     rect(0, 0, screen_w, screen_h, arena_ground_rgb());
-    if (night_theme_on() == 1) {
-        /* A plain dark arena: the falling stars are drawn by draw_snow(). */
+    if (halloween_theme_on() == 1) {
+        /* Keep the arena clear of grass; orange embers are drawn over it. */
         return;
     }
     if (tex_ready(ground) == 0) {
@@ -56,7 +56,7 @@ static double snow_active(void) {
 }
 
 static void update_weather(void) {
-    if (snow_active() == 0 && night_theme_on() == 0) {
+    if (snow_active() == 0 && halloween_theme_on() == 0) {
         return;
     }
     snow_t = snow_t + dt;
@@ -94,7 +94,7 @@ static void flake_refresh(double b, double i, double cyc) {
 }
 
 static void draw_snow(void) {
-    draw_night_stars();
+    draw_halloween_embers();
     if (snow_active() == 0) {
         return;
     }
@@ -132,35 +132,25 @@ static void draw_snow(void) {
     }
 }
 
-/* Falling sleepy stars for the night theme. Drawn with primitives only, so
- * no extra texture has to be shipped. Uses the same clock as the snow. */
-#define NIGHT_STARS 30
-static void draw_night_stars(void) {
+/* Glowing orange embers for the Halloween theme, drawn with primitives. */
+#define HALLOWEEN_EMBERS 30
+static void draw_halloween_embers(void) {
     double i = 0;
-    if (night_theme_on() == 0) {
+    if (halloween_theme_on() == 0) {
         return;
     }
-    while (i < NIGHT_STARS) {
+    while (i < HALLOWEEN_EMBERS) {
         double hx = hash01(i * 3 + 17);
         double hy = hash01(i * 7 + 91);
         double hs = hash01(i * 13 + 5);
         double fall = 3.5 + 4.5 * hs;
-        double sz = 0.5 + 0.9 * hs;
-        double x = 20 + hx * (screen_w - 40) + 12 * sin(snow_t * 0.5 + i);
-        double y = -30 + frac01(snow_t / fall + hy) * (screen_h + 60);
-        double tw = 0.55 + 0.45 * sin(snow_t * 2.2 + i * 1.7);
-        double rgb = 0xB9C6FF;
-        double arm = (3 + 4 * sz) * (0.7 + 0.3 * tw);
-        uint32_t col;
-        if (ds_mod(i, 3) == 1) {
-            rgb = 0xFFE9B0;
-        } else if (ds_mod(i, 3) == 2) {
-            rgb = 0x9FB4FF;
-        }
-        col = (uint32_t)((unsigned)(int)(110 + 140 * tw) * 0x1000000u + rgb);
-        line(x - arm, y, x + arm, y, 1.6, col);
-        line(x, y - arm, x, y + arm, 1.6, col);
-        circle(x, y, 1.4 + 1.4 * sz, col);
+        double size = 1.0 + 2.0 * hs;
+        double x = 20 + hx * fmax(0, screen_w - 40) + 9 * sin(snow_t * 0.5 + i);
+        double y = -20 + frac01(snow_t / fall + hy) * (screen_h + 40);
+        double glow = 0.55 + 0.45 * sin(snow_t * 2.2 + i * 1.7);
+        uint32_t color = (uint32_t)((unsigned)(int)(125 + 120 * glow) * 0x1000000u + 0x00FF7A18u);
+        line(x, y - size * 2, x - 1.5 * size, y + size * 2, 1.2 + size * 0.35, color);
+        circle(x, y, size * (0.7 + 0.3 * glow), color);
         i = i + 1;
     }
 }

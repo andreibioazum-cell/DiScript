@@ -135,7 +135,7 @@ static int snowflake_draws;
 static int snowflake_tinted;
 static uint32_t snowflake_tint_color;
 static double snowflake_tint_scale;
-static int night_bottom_line_count;
+static int halloween_bottom_line_count;
 static double snowflake_centres[64];
 static int snowflake_centre_n;
 static int star_line_count;
@@ -572,11 +572,16 @@ int snd_play(const char *name) {
     }
     return 1;
 }
+static int halloween_playing = 0;
+static double halloween_vol = 0;
 static int seraphim_playing = 0;
 static double seraphim_vol = 0;
 int snd_loop(const char *name) {
     if (name && LOBBY_MUSIC && strcmp(name, LOBBY_MUSIC) == 0) {
         lobby_playing = 1;
+    }
+    if (name && HALLOWEEN_MUSIC && strcmp(name, HALLOWEEN_MUSIC) == 0) {
+        halloween_playing = 1;
     }
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0) {
         winter_playing = 1;
@@ -590,6 +595,8 @@ int snd_loop(const char *name) {
 int snd_playing(const char *name) {
     if (name && LOBBY_MUSIC && strcmp(name, LOBBY_MUSIC) == 0)
         return lobby_playing;
+    if (name && HALLOWEEN_MUSIC && strcmp(name, HALLOWEEN_MUSIC) == 0)
+        return halloween_playing;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         return winter_playing;
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
@@ -599,12 +606,16 @@ int snd_playing(const char *name) {
 void snd_stop(const char *name) {
     if (name && LOBBY_MUSIC && strcmp(name, LOBBY_MUSIC) == 0)
         lobby_playing = 0;
+    if (name && HALLOWEEN_MUSIC && strcmp(name, HALLOWEEN_MUSIC) == 0)
+        halloween_playing = 0;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         winter_playing = 0;
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
         seraphim_playing = 0;
 }
 void snd_volume(const char *name, double volume) {
+    if (name && HALLOWEEN_MUSIC && strcmp(name, HALLOWEEN_MUSIC) == 0)
+        halloween_vol = volume;
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
         seraphim_vol = volume;
 }
@@ -711,7 +722,7 @@ void line(float x1, float y1, float x2, float y2, float thickness, uint32_t colo
     if (d1 > 30 && d1 < 50 && fabs(d1 - d2) < 0.75) fx_orbit_lines++;
     if (color == 0xFFB9C6FFu && fabs(y1 - (screen_h - 3)) < 0.1 &&
         fabs(y2 - (screen_h - 3)) < 0.1 && fabs(x2 - x1) > screen_w * 0.8) {
-        night_bottom_line_count++;
+        halloween_bottom_line_count++;
     }
     adm_record_color(color);
 }
@@ -1268,7 +1279,7 @@ static void test_account_screen(void) {
     puts("account: menu, password change checks, sign-out, delete needs password + full swipe right");
 }
 
-static void test_night_lobby_ground(void) {
+static void test_halloween_lobby_ground(void) {
     double saved_mode = theme_mode, saved_chosen = theme_chosen, saved_state = game_state;
     double saved_snow_t = snow_t;
     int saved_w = screen_w, saved_h = screen_h;
@@ -1280,19 +1291,19 @@ static void test_night_lobby_ground(void) {
     snow_t = 1.25;
     ground_tiles = 0;
     ground_fills = 0;
-    night_bottom_line_count = 0;
+    halloween_bottom_line_count = 0;
     adm_reset_log();
-    draw_lobby_night_environment();
+    draw_lobby_halloween_environment();
     assert(ground_tiles == 0);
-    assert(night_bottom_line_count == 0);
-    assert(last_ground_fill == 0xFF15243A);
+    assert(halloween_bottom_line_count == 0);
+    assert(last_ground_fill == 0xFF2D1708);
     theme_mode = saved_mode;
     theme_chosen = saved_chosen;
     game_state = saved_state;
     snow_t = saved_snow_t;
     screen_w = saved_w;
     screen_h = saved_h;
-    puts("night lobby: no green grass texture or white bottom line");
+    puts("Halloween lobby: no green grass texture or white bottom line");
 }
 
 static void test_lobby_ball(void) {
@@ -1309,6 +1320,7 @@ static void test_lobby_ball(void) {
     lobby_ball_vx = lobby_ball_vy = 0;
     lobby_ball_tick();
     assert(lobby_ball_initialized == 1);
+    assert(lobby_ball_ceiling() == 0 && fabs(lobby_ball_min_y() - lobby_ball_r) < 1e-9);
     assert(fabs(lobby_ball_y - (lobby_ball_floor() - lobby_ball_r)) < 1e-9);
 
     double x = lobby_ball_x, y = lobby_ball_y;
@@ -1346,7 +1358,7 @@ static void test_lobby_ball(void) {
     lobby_ball_tick();
     assert(lobby_ball_y <= lobby_ball_max_y() && lobby_ball_vy < 0);
     lobby_ball_y = lobby_ball_min_y();
-    assert(lobby_ball_bubble_y() + 39 <= lobby_ball_y - lobby_ball_r + 1e-9);
+    assert(lobby_ball_bubble_y() < 0); /* hide it instead of overlapping at the very top */
     lobby_ball_y = lobby_ball_max_y();
     assert(lobby_ball_bubble_y() + 39 <= lobby_ball_y - lobby_ball_r + 1e-9);
 
@@ -2493,13 +2505,13 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(ball.vx - 0.6 * BALL_SPEED) < 1e-6 && fabs(ball.vy + 0.8 * BALL_SPEED) < 1e-6);
     ball_reset();
 
-    /* Solo enemies deal reduced damage and reduced Azum dash damage. */
+    /* Solo enemies now deal full class damage instead of the old 20% cut. */
     assert(fabs(enemy_dash_damage - 2.8) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 0.80) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 0.80) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 0.80) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 1.00) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 1.00) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 1.00) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 1.00) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.00) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
     /* ebuC ball bounce scaling: 0.5 base dmg, +2.8 on first bounce, x1.28 gain and x1.04 speed per bounce. */
@@ -3248,7 +3260,7 @@ static void test_offline_ordinary(void) {
     player->hp = saved_hp;
     puts("offline: ordinary theme, no Christmas/buffs/sale/event/banner OK");
 }
-/* An explicit ordinary or night theme wipes every Christmas visual from an
+/* An explicit ordinary or Halloween theme wipes every Christmas visual from an
  * admin account. A guest who picks the New Year theme while it is locked
  * keeps the ordinary look and sees the grey button in the cycle. */
 static void test_admin_theme_clears_christmas(void) {
@@ -3309,14 +3321,14 @@ static void test_admin_theme_clears_christmas(void) {
     assert(adm_has_text(tr_candies()) == 0);
     assert(bpass_allowed() == 1);   /* earned progression is not deleted */
 
-    /* Night theme: the same, plus its own sleepy palette and stars. */
+    /* Halloween theme: the same, plus its orange palette and ember effects. */
     theme_mode = 2;
     apply_theme();
-    assert(active_theme_mode() == 2 && night_theme_on() == 1);
+    assert(active_theme_mode() == 2 && halloween_theme_on() == 1);
     assert(winter_theme_on() == 0 && christmas_active() == 0);
     assert(christmas_snowballs_on() == 0 && candies_on() == 0);
-    assert(strcmp(tr_theme_label(), "Тема: Ночная") == 0);
-    assert(ui_purple == 0xFF7D6BB8 && arena_ground_rgb() == 0x0B1030);
+    assert(strcmp(tr_theme_label(), "Тема: Хэллоуин") == 0);
+    assert(ui_purple == 0xFFE87922 && arena_ground_rgb() == 0x241207);
 
     /* New Year theme brings the admin's Christmas back. */
     theme_mode = 1;
@@ -3370,7 +3382,52 @@ static void test_admin_theme_clears_christmas(void) {
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
     astra_ability_refresh();
     apply_theme();
-    puts("темы: кнопка на «Играть», серая зима без флага, у админа обычная/ночная без Крисмаса OK");
+    puts("Темы: кнопка на «Играть», серая зима без флага, у админа обычная/Хэллоуин без новогоднего контента — OK");
+}
+
+static void test_halloween_music_switch(void) {
+    const char *saved_track = lobby_music_current;
+    double saved_ok = music_ok, saved_level = music_level;
+    double saved_mode = theme_mode, saved_chosen = theme_chosen;
+    double saved_state = game_state, saved_xmas = stub_christmas;
+    int saved_lobby_playing = lobby_playing;
+    int saved_halloween_playing = halloween_playing;
+    double saved_halloween_vol = halloween_vol;
+
+    stub_christmas = 0;
+    theme_chosen = 1;
+    theme_mode = 0;
+    game_state = ST_LOBBY;
+    lobby_music_current = LOBBY_MUSIC;
+    lobby_playing = 1;
+    halloween_playing = 0;
+    music_ok = 1;
+    music_level = 1;
+
+    theme_mode = 2;
+    apply_theme();
+    update_music();
+    assert(strcmp(lobby_music_current, HALLOWEEN_MUSIC) == 0);
+    assert(lobby_playing == 0 && halloween_playing == 1);
+
+    theme_mode = 0;
+    apply_theme();
+    update_music();
+    assert(strcmp(lobby_music_current, LOBBY_MUSIC) == 0);
+    assert(halloween_playing == 0 && lobby_playing == 1);
+
+    lobby_music_current = saved_track;
+    music_ok = saved_ok;
+    music_level = saved_level;
+    theme_mode = saved_mode;
+    theme_chosen = saved_chosen;
+    game_state = saved_state;
+    stub_christmas = saved_xmas;
+    lobby_playing = saved_lobby_playing;
+    halloween_playing = saved_halloween_playing;
+    halloween_vol = saved_halloween_vol;
+    apply_theme();
+    puts("Хэллоуинская музыка переключается вместе с темой и возвращается к обычной — OK");
 }
 
 /* The admin auto-block guards against enemy punches and answers when safe. */
@@ -3691,6 +3748,7 @@ int main(void) {
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 20.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
+    assert(enemy_damage_mult_for(CLASS_ORDINARY) == 1.0); /* enemies deal full class damage now */
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
     assert(max_level == 4 && level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 &&
            level_cost(2) == 70 && level_cost(3) == 90 && level_cost(4) == 110);
@@ -4030,14 +4088,15 @@ int main(void) {
     studio_open = 0;
     warn_open = 1;
     /* The jingle must take over even while the startup notice is visible; do
-     * not let the ordinary lobby loop block it. */
+     * not let either lobby loop block it. */
     music_ok = 1;
     music_level = 1;
     lobby_playing = 1;
+    halloween_playing = 1;
     winter_playing = 0;
     winter_loop_calls = 0;
     update_christmas_jingle();
-    assert(lobby_playing == 0 && winter_playing == 1);
+    assert(lobby_playing == 0 && halloween_playing == 0 && winter_playing == 1);
     assert(winter_loop_calls == 1 && music_level == 0);
     update_music();
     assert(lobby_playing == 0);
@@ -5569,7 +5628,7 @@ int main(void) {
     }
 
     /* The Play screen row 4 now cycles three themes: ordinary -> New Year
-     * -> night. The New Year one is grey/unavailable until the holiday flag
+     * -> Halloween. The New Year one is grey/unavailable until the holiday flag
      * is on, but stays in the cycle and keeps the ordinary look. */
     {
         double tx = menu_x() + menu_btn_w() / 2;
@@ -5599,8 +5658,8 @@ int main(void) {
         press_points_clear();
         logic_touch(tx, ty, 0, 21);
         assert(theme_mode == 2);
-        assert(strcmp(tr_theme_label(), "Theme: Night") == 0);
-        assert(ui_purple == 0xFF7D6BB8 && bg_screen == 0x0C1230);
+        assert(strcmp(tr_theme_label(), "Theme: Halloween") == 0);
+        assert(ui_purple == 0xFFE87922 && bg_screen == 0x241207);
         press_points_clear();
         logic_touch(tx, ty, 0, 22);
         assert(theme_mode == 0 && ui_purple == 0xFF5F10A0);
@@ -5664,7 +5723,7 @@ int main(void) {
         }
         press_points_clear();
         /* Row 4 belongs to everyone now. A holiday admin starts on New Year,
-         * but an explicit ordinary/night theme removes every Christmas
+         * but an explicit ordinary/Halloween theme removes every Christmas
          * visual: snow, banner, jingle, candies and snowballs. */
         {
             double saved_mode2 = theme_mode, saved_chosen2 = theme_chosen;
@@ -5691,7 +5750,7 @@ int main(void) {
             press_points_clear();
             logic_touch(menu_x() + menu_btn_w() / 2, modes_row(4) + btn_h / 2, 0, 24);
             assert(theme_mode == 2 && theme_chosen == 1 && t_dir == 0);
-            assert(strcmp(tr_theme_label(), "Theme: Night") == 0);
+            assert(strcmp(tr_theme_label(), "Theme: Halloween") == 0);
             assert(winter_theme_on() == 0 && christmas_active() == 0);
             assert(christmas_snowballs_on() == 0 && candies_on() == 0);
             press_points_clear();
@@ -6782,7 +6841,8 @@ int main(void) {
     test_christmas_snowballs();
     test_offline_ordinary();
     test_admin_theme_clears_christmas();
-    test_night_lobby_ground();
+    test_halloween_music_switch();
+    test_halloween_lobby_ground();
     test_lobby_ball();
     test_admin_auto_block();
     test_admin_auto_block_astra();

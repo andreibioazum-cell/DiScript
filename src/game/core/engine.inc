@@ -5,12 +5,30 @@ static void play_button_click(void) {
     }
 }
 
+static const char *lobby_music_for_theme(void) {
+    return halloween_theme_on() == 1 ? HALLOWEEN_MUSIC : LOBBY_MUSIC;
+}
+
+static void select_lobby_music(void) {
+    const char *wanted = lobby_music_for_theme();
+    if (lobby_music_current != NULL && strcmp(lobby_music_current, wanted) == 0) {
+        return;
+    }
+    if (lobby_music_current != NULL && snd_playing(lobby_music_current) == 1) {
+        snd_stop(lobby_music_current);
+    }
+    lobby_music_current = wanted;
+    music_level = 0;
+    music_ok = snd_load(lobby_music_current);
+}
+
 static void start_music(void) {
-    music_ok = snd_load(LOBBY_MUSIC);
+    lobby_music_current = NULL;
+    select_lobby_music();
     if (music_ok == 1) {
         music_level = 1;
-        snd_volume(LOBBY_MUSIC, music_volume / 100);
-        snd_loop(LOBBY_MUSIC);
+        snd_volume(lobby_music_current, music_volume / 100);
+        snd_loop(lobby_music_current);
         ds_log("init: lobby music on");
     } else {
         ds_log("init: no lobby music");
@@ -72,8 +90,8 @@ static void update_seraphim_music(void) {
             seraphim_ok = snd_load(SERAPHIM_MUSIC);
             if (seraphim_ok == 0) return;
         }
-        if (snd_playing(LOBBY_MUSIC) == 1) {
-            snd_stop(LOBBY_MUSIC);
+        if (lobby_music_current != NULL && snd_playing(lobby_music_current) == 1) {
+            snd_stop(lobby_music_current);
             music_level = 0;
         }
         if (snd_playing(SERAPHIM_MUSIC) == 0) {
@@ -121,23 +139,24 @@ static void logic_init(void) {
 }
 
 static void update_music(void) {
+    select_lobby_music();
     if (music_ok == 0) {
         return;
     }
     if (game_state == ST_SOLO || game_state == ST_ONLINE || christmas_music_active() == 1) {
         music_level = clamp(music_level - dt / music_fade_out_time, 0, 1);
-        snd_volume(LOBBY_MUSIC, music_volume / 100 * music_level);
-        if (music_level <= 0 && snd_playing(LOBBY_MUSIC) == 1) {
-            snd_stop(LOBBY_MUSIC);
+        snd_volume(lobby_music_current, music_volume / 100 * music_level);
+        if (music_level <= 0 && snd_playing(lobby_music_current) == 1) {
+            snd_stop(lobby_music_current);
         }
         return;
     }
-    if (snd_playing(LOBBY_MUSIC) == 0) {
+    if (snd_playing(lobby_music_current) == 0) {
         music_level = 0;
-        snd_loop(LOBBY_MUSIC);
+        snd_loop(lobby_music_current);
     }
     music_level = clamp(music_level + dt / music_fade_in_time, 0, 1);
-    snd_volume(LOBBY_MUSIC, music_volume / 100 * music_level);
+    snd_volume(lobby_music_current, music_volume / 100 * music_level);
 }
 
 static void logic_update(void) {

@@ -66,7 +66,7 @@ static double christmas_admin_allowed(void) {
 }
 
 /* The global holiday flag gives every player a New Year default until they
- * explicitly choose a theme. A saved ordinary/night choice remains respected. */
+ * explicitly choose a theme. A saved ordinary/Halloween choice remains respected. */
 static double seasonal_content_allowed(void) {
     return net_christmas() == 1 || christmas_admin_allowed() == 1 ? 1 : 0;
 }

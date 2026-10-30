@@ -120,9 +120,12 @@ static void update_christmas_jingle(void) {
         return;
     }
     if (christmas_music_active() == 1) {
-        /* Stop standard lobby music when switching to winter track. */
+        /* Stop either lobby loop when switching to the winter track. */
         if (snd_playing(LOBBY_MUSIC) == 1) {
             snd_stop(LOBBY_MUSIC);
+        }
+        if (snd_playing(HALLOWEEN_MUSIC) == 1) {
+            snd_stop(HALLOWEEN_MUSIC);
         }
         music_level = 0;
         snd_volume(WINTER_JINGLE, music_volume / 100 * winter_jingle_volume);

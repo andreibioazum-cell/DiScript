@@ -38,13 +38,13 @@ static void draw_lobby_money(void) {
     money_pair(cup_s, cd_s, lobby_label_x(lw + rw + money_gap), lobby_money_y(), money_scale, money_gap);
 }
 
-static void draw_lobby_night_environment(void) {
-    if (night_theme_on() == 0) {
+static void draw_lobby_halloween_environment(void) {
+    if (halloween_theme_on() == 0) {
         return;
     }
     const double ground_h = 66;
-    rect(0, 0, screen_w, screen_h, 0xFF0B1030);
-    rect(0, screen_h - ground_h, screen_w, ground_h, 0xFF15243A);
+    rect(0, 0, screen_w, screen_h, 0xFF241207);
+    rect(0, screen_h - ground_h, screen_w, ground_h, 0xFF2D1708);
     double i = 0;
     while (i < 22) {
         double hx = hash01(i * 3 + 317);
@@ -56,9 +56,9 @@ static void draw_lobby_night_environment(void) {
         double twinkle = 0.65 + 0.35 * sin(snow_t * 2.0 + i * 1.8);
         double radius = 2.2 + 2.1 * hs;
         double rotation = snow_t * (0.7 + hs * 1.4) + i * 0.6;
-        uint32_t color = i - floor(i / 3) * 3 < 1 ? 0xDDF7C948 : 0xDDB9C6FF;
+        uint32_t color = i - floor(i / 3) * 3 < 1 ? 0xDDEF7522 : 0xDDAE4215;
         draw_star_rotated(x, y, radius, color, rotation);
-        circle(x, y, radius * 0.24 * twinkle, 0xFFFFFFD9);
+        circle(x, y, radius * 0.24 * twinkle, 0xDDFF9A35);
         i = i + 1;
     }
 }
@@ -66,7 +66,7 @@ static void draw_lobby_night_environment(void) {
 static void draw_lobby(void) {
     check_achievements();
     screen_fill();
-    draw_lobby_night_environment();
+    draw_lobby_halloween_environment();
     if (new_theme == 1) {
         draw_lobby_npc_sprite();
     }

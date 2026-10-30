@@ -254,7 +254,7 @@ static void touch_modes(double x, double y) {
     }
     if (hit_modes_row(x, y, 4) == 1) {
         /* One press = next theme. Start from the effective one, so a holiday
-         * admin who never touched the button goes from New Year to night. */
+         * admin who never touched the button goes from New Year to Halloween. */
         theme_mode = active_theme_mode() + 1;
         if (theme_mode > 2) {
             theme_mode = 0;

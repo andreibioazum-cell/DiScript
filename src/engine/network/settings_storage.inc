@@ -237,7 +237,7 @@ void net_save_new_theme(double on) {
     settings_write();
 }
 
-/* Three-way menu theme: 0 ordinary, 1 New Year, 2 night. */
+/* Three-way menu theme: 0 ordinary, 1 New Year, 2 Halloween. */
 double net_load_theme_mode(void) {
     double v;
     settings_read();

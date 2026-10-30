@@ -240,7 +240,8 @@ static double azum_dash_damage_for(void) {
     return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }
 
-#define ENEMY_OTHER_DAMAGE_MULT 0.80
+/* Enemies now deal their full class damage instead of the old 20% reduction. */
+#define ENEMY_OTHER_DAMAGE_MULT 1.00
 
 static double enemy_damage_mult_for(double cls) {
     (void)cls;

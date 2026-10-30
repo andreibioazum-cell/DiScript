@@ -21,7 +21,8 @@ static double lobby_ball_phrase;
 static double lobby_ball_initialized;
 
 static double lobby_ball_floor(void) { return screen_h - 14; }
-static double lobby_ball_ceiling(void) { return fmax(64, screen_h * 0.11); }
+/* Let the ball reach the actual top edge; its radius keeps the sprite on-screen. */
+static double lobby_ball_ceiling(void) { return 0; }
 static double lobby_ball_radius(void) { return clamp(fmin(screen_w, screen_h) * 0.065, 23, 38); }
 static double lobby_ball_left(void) { return lobby_ball_radius() + 3; }
 static double lobby_ball_right(void) { return fmax(lobby_ball_left() + 2 * lobby_ball_radius(), screen_w - lobby_ball_radius() - 3); }
@@ -30,7 +31,8 @@ static double lobby_ball_min_y(void) { return lobby_ball_ceiling() + lobby_ball_
 static double lobby_ball_max_y(void) { return lobby_ball_floor() - lobby_ball_radius(); }
 static double lobby_ball_bubble_y(void) {
     double y = lobby_ball_y - lobby_ball_r - 43;
-    return y < 8 ? 8 : y;
+    /* Hide the bubble rather than pinning it over the ball at the top edge. */
+    return y < 8 ? -1 : y;
 }
 
 static const char *lobby_ball_phrase_text(void) {
@@ -136,12 +138,14 @@ static void lobby_ball_draw(void) {
         w = fmin(w, fmax(80, screen_w - 16));
         double bx = clamp(x - w * 0.5, 8, screen_w - w - 8);
         double by = lobby_ball_bubble_y();
-        roundrect(bx, by, w, 31, 10, 0xFF252525);
-        roundrect_outline(bx, by, w, 31, 10, 1.5, 0xFF777777);
-        line(x - 5, by + 29, x, by + 38, 1.8, 0xFF777777);
-        line(x, by + 38, x + 5, by + 29, 1.8, 0xFF777777);
-        text_scaled(phrase, bx + (w - text_ink_width(phrase) * 0.78) * 0.5,
-                    by + 8, 0xFFDDDDDD, 0.78);
+        if (by >= 0) {
+            roundrect(bx, by, w, 31, 10, 0xFF252525);
+            roundrect_outline(bx, by, w, 31, 10, 1.5, 0xFF777777);
+            line(x - 5, by + 29, x, by + 38, 1.8, 0xFF777777);
+            line(x, by + 38, x + 5, by + 29, 1.8, 0xFF777777);
+            text_scaled(phrase, bx + (w - text_ink_width(phrase) * 0.78) * 0.5,
+                        by + 8, 0xFFDDDDDD, 0.78);
+        }
     }
 }
 

@@ -219,12 +219,12 @@ static void outline_arc(double cx, double cy, double rr, double t, uint32_t c, d
 /* Apply active UI color palette (new purple theme vs classic rose theme). */
 static void apply_theme(void) {
     if (active_theme_mode() == 2) {
-        /* Night: sleepy indigo with soft lavender cards. */
-        ui_purple = 0xFF7D6BB8;
-        bg_screen = 0x0C1230;
-        bg_gradient_bottom = 0x2A2358;
-        card_bg = 0xFF1B2150;
-        card_ring = 0xFF7B86C8;
+        /* Halloween: pumpkin-orange accents on a dark brown background. */
+        ui_purple = 0xFFE87922;
+        bg_screen = 0x241207;
+        bg_gradient_bottom = 0x5A2A0B;
+        card_bg = 0xFF32190A;
+        card_ring = 0xFFFF9A32;
     } else if (active_theme_mode() == 1 && winter_theme_on() == 1) {
         /* New Year: frosty blue. */
         ui_purple = 0xFF3E7FB5;
@@ -292,9 +292,9 @@ static void screen_fill(void) {
         rect(0, 0, screen_w, screen_h, top);
         draw_bottom_gradient(top, bottom);
     }
-    /* Draw backdrop snow / falling stars beneath UI controls and modals. */
+    /* Draw New Year snow or Halloween embers beneath UI controls and modals. */
     draw_christmas_under_notices();
-    draw_night_stars();
+    draw_halloween_embers();
 }
 
 static void draw_bottom_gradient(double top, double bottom) {

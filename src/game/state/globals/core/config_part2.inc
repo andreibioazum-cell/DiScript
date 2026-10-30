@@ -1,5 +1,6 @@
 double music_ok;
 double music_level;
+const char *lobby_music_current;
 double music_fade_in_time;
 double music_fade_out_time;
 double music_volume;

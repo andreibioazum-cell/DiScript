@@ -1,5 +1,6 @@
 music_ok = 0;
 music_level = 1;
+lobby_music_current = NULL;
 music_fade_in_time = 0.25;
 music_fade_out_time = 1.0;
 music_volume = 50;
