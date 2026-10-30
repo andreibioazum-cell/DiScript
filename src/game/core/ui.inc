@@ -88,8 +88,35 @@ static void money_pair(const char *left, const char *right, double x, double y, 
     text_scaled(right, x + lw + gap, y, text_color, scale);
 }
 
+static uint32_t efy_gradient_color(double t, double phase, int index) {
+    const double shimmer = 0.045 * sin(phase * 2.1 - index * 1.2);
+    const double gold_r = 1.0, gold_g = 0.78, gold_b = 0.20;
+    const double purple_r = 0.64, purple_g = 0.30, purple_b = 1.0;
+    t = clamp(t + shimmer, 0, 1);
+    uint32_t r = (uint32_t)floor((gold_r + (purple_r - gold_r) * t) * 255 + 0.5);
+    uint32_t g = (uint32_t)floor((gold_g + (purple_g - gold_g) * t) * 255 + 0.5);
+    uint32_t b = (uint32_t)floor((gold_b + (purple_b - gold_b) * t) * 255 + 0.5);
+    return 0xFF000000u | (r << 16) | (g << 8) | b;
+}
+
+static void draw_efy_gradient_nick(const char *nick, double x, double y, double scale) {
+    if (!nick || !admin_nick_equal(nick, "Efy")) return;
+    double phase = gift_shimmer_time();
+    int len = (int)strlen(nick);
+    for (int i = 0; i < len; i++) {
+        char glyph[2] = {nick[i], 0};
+        double t = len > 1 ? (double)i / (double)(len - 1) : 0;
+        text_scaled(glyph, x, y, efy_gradient_color(t, phase, i), scale);
+        x += text_ink_width(glyph) * scale;
+    }
+}
+
 static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale) {
     uint32_t col = admin_color_of(nick, base);
+    if (admin_nick_equal(nick, "Efy") == 1) {
+        draw_efy_gradient_nick(nick, x, y, scale);
+        return;
+    }
     if (nick_shimmers(nick) == 1) {
         text_shimmer(nick, x, y, col, scale, gift_shimmer_time());
         return;

@@ -124,7 +124,7 @@ static void finish_game(double result) {
 }
 
 /* Apply battle cup payout and win achievements unless an admin cheat was used.
- * Online battles never move Cups: the cup ladder stays an offline reward. */
+ * Online matches normally leave Cups alone; the live plate event has a winner prize. */
 static void award_battle_result(double result) {
     int online = (game_state == ST_ONLINE);
     if (result == 1) {
@@ -134,6 +134,8 @@ static void award_battle_result(double result) {
         }
         if (online == 0) {
             cups = cups + cup_win;
+        } else if (event_mode == 6) {
+            cups = cups + 35;
         }
         if (candies_on() == 1) {
             candies = candies + candy_win;
@@ -148,7 +150,9 @@ static void award_battle_result(double result) {
         if (player->hp >= player->max_hp && player_was_hit == 0) {
             grant_achievement(ACH_LAST_HP);
         }
-        if (online == 1) {
+        if (online == 1 && event_mode == 6) {
+            ds_log("win: weak-hit plate event, +35 cups +%g candies", candy_win);
+        } else if (online == 1) {
             ds_log("win: online battle, cups unchanged (+%g candies)", candy_win);
         } else {
             ds_log("win +%g cups +%g candies", cup_win, candy_win);
@@ -377,8 +381,12 @@ static void draw_result(const char *title) {
     }
     ctext_scaled(title, y + 36, 0xFFFFFF, 1.12);
     if (game_state == ST_ONLINE) {
-        /* An online fight leaves the cup ladder alone: say so instead of a number. */
-        ctext_scaled(tr_cups_online(), y + 126, 0xFFFFFF, 0.9);
+        if (event_mode == 6 && finished == 1 && admin_cups_allowed() == 1) {
+            ctext_scaled(language == 1 ? "Победа: +35 кубков" : "Victory: +35 cups", y + 126, 0xFFFFFF, 0.9);
+        } else {
+            /* Ordinary online fights leave the cup ladder alone. */
+            ctext_scaled(tr_cups_online(), y + 126, 0xFFFFFF, 0.9);
+        }
     } else if (admin_cups_allowed() == 0) {
         ctext_scaled(finished == 2 ? tr_cups_admin() : tr_cups_cheated(), y + 126, 0xFFFFFF, 0.9);
     } else if (finished == 2) {

@@ -5,6 +5,8 @@ static double plate_bx(void);
 static double plate_by(void);
 static double me_on_plate(double px, double py);
 static double fighter_on_plate(double px, double py);
+static double weak_hit_plate_active(void);
+static double weak_hit_damage_mult(void);
 static void plates_throw_candy(void);
 static double plates_candies_left(void);
 static void plates_collect_candies(void);

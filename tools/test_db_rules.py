@@ -30,8 +30,8 @@ def main() -> int:
             print(f"slot rule is missing Christmas field: {key}", file=sys.stderr)
             return 1
     event = rules["event"][".validate"]
-    if "<= 5" not in event:
-        print(f"event rule rejects event 5: {event}", file=sys.stderr)
+    if "<= 6" not in event:
+        print(f"event rule rejects event 6: {event}", file=sys.stderr)
         return 1
     gifts = rules["users"]["$nick"]["gifts"]
     for key in ("poop", "cake", "bear", "rocket", "emerald", "pumpkin_cube"):
@@ -103,7 +103,7 @@ def main() -> int:
         del fake.DB["users"][player]
     else:
         fake.DB["users"][player] = existing
-    print("db rules: event 0..5, Christmas flag + snowball slot fields, "
+    print("db rules: event 0..6, Christmas flag + snowball slot fields, "
           "gift keys poop/cake/bear/rocket/emerald plus admin-only pumpkin_cube, "
           "rainbow-rendered emerald without emerald_hue, "
           "wheel progress and packed skins OK")

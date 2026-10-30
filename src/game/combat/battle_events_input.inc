@@ -18,7 +18,7 @@ static void draw_disco(void) {
 }
 
 static void update_event(void) {
-    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns. */
+    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates. */
     /* Offline: no server-run events, everything is the ordinary battle. */
     event_mode = net_flags_reachable() == 1 ? net_event() : 0;
     if (plates_round_on() == 1 && candies_on() == 0) {
@@ -139,6 +139,10 @@ static void draw_overhead_nick(const char *nick, double cx, double top_y, uint32
     double w = text_ink_width(nick) * 0.5;
     double th = text_ink_height(nick) * 0.5;
     double tt = text_ink_top(nick) * 0.5;
+    if (admin_nick_equal(nick, "Efy") == 1) {
+        draw_efy_gradient_nick(nick, cx - w / 2, top_y - 12 - th - tt, 0.5);
+        return;
+    }
     if (nick_shimmers(nick) == 1) {
         text_shimmer(nick, cx - w / 2, top_y - 12 - th - tt, col, 0.5, gift_shimmer_time());
         return;

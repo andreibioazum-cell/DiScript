@@ -7,7 +7,7 @@ static const char *gift_tex(double id) {
     if (id == 2) return "gift_bear.png";
     if (id == 3) return "gift_rocket.png";
     if (id == 4) return "gift_emerald.png";
-    if (id == NET_GIFT_PUMPKIN_CUBE_ID) return ORDINARY_PUMPKIN_CARD_TEX;
+    if (id == NET_GIFT_PUMPKIN_CUBE_ID) return "gift_pumpkin_cube.png";
     return "gift_poop.png";
 }
 

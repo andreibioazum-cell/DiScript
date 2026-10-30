@@ -1415,7 +1415,7 @@ static void test_gifts_page(void) {
     assert(str_eq(gift_tex(2), "gift_bear.png") == 1);
     assert(str_eq(gift_tex(3), "gift_rocket.png") == 1);
     assert(str_eq(gift_tex(4), "gift_emerald.png") == 1);
-    assert(str_eq(gift_tex(NET_GIFT_PUMPKIN_CUBE_ID), ORDINARY_PUMPKIN_CARD_TEX) == 1);
+    assert(str_eq(gift_tex(NET_GIFT_PUMPKIN_CUBE_ID), "gift_pumpkin_cube.png") == 1);
         /* Rarity: common white, rare blue, epic purple, exclusive special. */
     assert(gift_rarity(0) == 0 && gift_rarity(1) == 1 && gift_rarity(2) == 2);
     assert(gift_rarity(3) == 2 && gift_rarity(4) == 3 && gift_rarity(NET_GIFT_PUMPKIN_CUBE_ID) == 3);
@@ -2309,6 +2309,7 @@ static void test_battle_events(void) {
     assert(admin_handle("event 3") == 1 && stub_event_mode == 3);
     assert(admin_handle("event 4") == 1 && stub_event_mode == 4);
     assert(admin_handle("event 5") == 1 && stub_event_mode == 5);
+    assert(admin_handle("event 6") == 1 && stub_event_mode == 6);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "x");
     stub_login_status = 2;
@@ -2408,11 +2409,28 @@ static void test_battle_events(void) {
     event_mode = 0;
     tick_plates_event();
     assert(plates_prev_mode == 0 && plates_phase == 0);
+
+    /* Event 6: any fighter on either plate weakens all hits to one third. */
+    game_state = ST_ONLINE;
+    event_mode = 6;
+    player->hp = player->max_hp = 20;
+    player->x = screen_w * 0.5;
+    player->y = screen_h * 0.8;
+    arr_set(remotes, remote_fields + 1, plate_ax());
+    arr_set(remotes, remote_fields + 2, plate_ay());
+    arr_set(remotes, remote_fields + 5, 1);
+    assert(weak_hit_plate_active() == 1 && fabs(weak_hit_damage_mult() - 1.0 / 3.0) < 1e-9);
+    take_damage(3);
+    assert(fabs(player->hp - 19.0) < 1e-9);
+    arr_set(remotes, remote_fields + 5, 0);
+    assert(weak_hit_plate_active() == 0 && weak_hit_damage_mult() == 1);
+    event_mode = 0;
+    game_state = ST_LOBBY;
     stub_net_slot = -1;
     game_state = ST_LOBBY;
     screen_w = saved_w;
     screen_h = saved_h;
-    puts("events: plates 2, Santa 3, cube 4, Columns 5, Azum HP -2%");
+    puts("events: plates 2, Santa 3, cube 4, Columns 5, weak-hit plates 6, Azum HP -2%");
 }
 
 static void test_eax229_and_rooms(void) {
@@ -4311,6 +4329,11 @@ int main(void) {
     assert(admin_slot("QWERTYUIOPAJ1234") == 0);
     assert(admin_slot("qwertyuiopaj1234") == 0);
     assert(admin_slot("regular_player") == 0);
+    assert(admin_slot("Efy") == 0 && admin_slot("efy") == 0);
+    assert((uint32_t)admin_color_of("EFY", 0xFFFFFFFFu) == 0xFFFFD54Au);
+    assert((uint32_t)admin_head_color_of("efy", 0xFFFFFFFFu) == 0xFFB388FFu);
+    assert(nick_shimmers("eFy") == 1);
+    assert(efy_gradient_color(0, 0, 0) != efy_gradient_color(1, 0, 2));
         /* Dev rights come from the profile (nick), not the password: the password
          * can be changed as often as you like, the right stays; only nick and login
          * matter. */
@@ -5167,6 +5190,18 @@ int main(void) {
     assert(adm_has_text(tr_cups_online()) == 1);
     finished = 0;
     game_state = ST_LOBBY;
+    event_mode = 6;
+    game_state = ST_ONLINE;
+    cups = 10;
+    award_battle_result(1);
+    assert(cups == 45); /* The event winner gets 35 cups. */
+    finished = 1;
+    adm_reset_log();
+    draw_result(tr_victory());
+    assert(adm_has_text("Победа: +35 кубков") == 1);
+    finished = 0;
+    event_mode = 0;
+    game_state = ST_LOBBY;
 
     /* Every single one of the 8 admin panel switches blocks both cup awards
      * and cup deductions while enabled. */
@@ -5976,8 +6011,7 @@ int main(void) {
         game_state = ST_LOBBY;
     }
 
-    /* All three CCP moderators get the seasonal theme and Battle Pass; only Dimasi4ek229
-     * keeps admin-panel Gifts access. */
+    /* CCP modifiers remain separate from full admin rights and gift access. */
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
@@ -6067,6 +6101,20 @@ int main(void) {
         ebuc_skin = SKIN_SPECIAL;
         progress_normalize();
         assert(skin_unlocked_for(CLASS_EBUC, SKIN_SPECIAL) == 0 && ebuc_skin == SKIN_NORMAL);
+
+        /* Efy gets the moderator CCP without gift management or primary admin rights. */
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Efy");
+        astra_ability_refresh();
+        assert(is_admin() == 0 && admin_playing() == 0 && admin_slot("Efy") == 0);
+        assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
+        admin_panel_open = 1;
+        admin_tab = 1;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        assert(admin_tab == 0);
+        adm_reset_log();
+        admin_draw();
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        admin_panel_open = 0;
 
         /* Sanch sees CCP with regular modifiers only and no gift management tab. */
         adm_reset_log();

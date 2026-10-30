@@ -98,7 +98,8 @@ static double enemy_apply_damage(double dmg) {
         dmg_from_k = 0;
         return 1;
     }
-    /* Apply admin damage multiplier. */
+    /* Apply event and admin damage multipliers. */
+    dmg = dmg * weak_hit_damage_mult();
     dmg = dmg * admin_cheat_damage_mult();
     if (enemy_revive_prot > 0) {
         dmg_from_k = 0;

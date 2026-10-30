@@ -295,7 +295,7 @@ def check_schema(html: str, js: str, rules: dict) -> None:
 
     compare("banner", spec_fields(extract_const(js, "BANNER_FIELDS")), rules["banner"])
 
-        # Event range: the rules allow 0..5, so the panel buttons must match.
+        # Event range: the rules allow 0..6, so the event commands must match.
     event_rule = rules["event"][".validate"]
     upper = re.search(r"<=\s*(\d+)", event_rule)
     panel_max = extract_const(js, "EVENT_MAX")
@@ -390,6 +390,8 @@ def check_fake_server() -> None:
             error("админ не читает корень")
         if request(f"{base}/event.json?auth={admin}", "PUT", 4)[0] != 200:
             error("админ не пишет event=4 (кубик)")
+        if request(f"{base}/event.json?auth={admin}", "PUT", 6)[0] != 200:
+            error("админ не пишет event=6 (слабые удары)")
         if request(f"{base}/freeCupsHack.json?auth={admin}", "DELETE")[0] != 200:
             error("админ не удаляет корневой мусор")
 

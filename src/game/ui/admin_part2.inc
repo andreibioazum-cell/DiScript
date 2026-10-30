@@ -48,6 +48,12 @@ static double admin_handle(const char *msg) {
         ds_log("admin: event 5 columns");
         return 1;
     }
+    if (str_eq(msg, "event 6") == 1) {
+        net_event_set(6);
+        net_chat_send(ds_concat(ds_concat("СОБЫТИЕ «СЛАБЫЕ УДАРЫ» от ", by), "! Встаньте на плиту!"));
+        ds_log("admin: event 6 weak-hit plates");
+        return 1;
+    }
     if (net_chat_is_passwd(msg) == 1) {
         const char *t1 = net_chat_passwd_target(msg);
         const char *np = net_chat_passwd_new(msg);

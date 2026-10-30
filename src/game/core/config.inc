@@ -42,7 +42,8 @@ static double admin_modifiers_allowed(void) {
     }
     if (admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1 ||
         admin_nick_equal(net_login_nick(), SANCH_NICK) == 1 ||
-        admin_nick_equal(net_login_nick(), QWERTY_NICK) == 1) {
+        admin_nick_equal(net_login_nick(), QWERTY_NICK) == 1 ||
+        admin_nick_equal(net_login_nick(), "Efy") == 1) {
         return 1;
     }
     return 0;
@@ -127,6 +128,9 @@ static double admin_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, QWERTY_NICK) == 1) {
         return qwerty_color;
     }
+    if (admin_nick_equal(nick, "Efy") == 1) {
+        return 0xFFFFD54Au;
+    }
     return base;
 }
 
@@ -140,13 +144,17 @@ static double admin_head_color_of(const char *nick, double base) {
     if (admin_nick_equal(nick, QWERTY_NICK) == 1) {
         return qwerty_head_color;
     }
+    if (admin_nick_equal(nick, "Efy") == 1) {
+        return 0xFFB388FFu;
+    }
     return base;
 }
 
 static double nick_shimmers(const char *nick) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1 ||
         admin_nick_equal(nick, SANCH_NICK) == 1 ||
-        admin_nick_equal(nick, QWERTY_NICK) == 1) {
+        admin_nick_equal(nick, QWERTY_NICK) == 1 ||
+        admin_nick_equal(nick, "Efy") == 1) {
         return 1;
     }
     return 0;

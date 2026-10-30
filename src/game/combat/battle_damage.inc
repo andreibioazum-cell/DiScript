@@ -24,6 +24,7 @@ static double block_covers(void) {
 }
 
 static double take_damage(double dmg) {
+    dmg = dmg * weak_hit_damage_mult();
     if (astra_parry_active() == 1) {
         dmg_from_k = 0;
         if (dmg > 0) {
