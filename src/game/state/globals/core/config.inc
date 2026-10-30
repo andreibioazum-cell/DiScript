@@ -441,7 +441,10 @@ double theme_chosen;
 /* Navigation generation counter used to scope button press pulses to one screen. */
 double ui_nav_gen;
 const char *CUBE_NPC_TEX;
+const char *HELPY_NPC_TEX;
 double cube_npc_tex_ok;
+double helpy_npc_tex_ok;
+double cube_npc_speaker;
 double cube_npc_bob_t;
 double cube_npc_dialogue_active;
 double cube_npc_dialogue_line;

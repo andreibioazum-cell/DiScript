@@ -111,6 +111,7 @@ static void logic_init(void) {
     start_music();
     update_christmas_jingle();
     cube_npc_tex_ok = png_load(CUBE_NPC_TEX);
+    helpy_npc_tex_ok = png_load(HELPY_NPC_TEX);
     cube_npc_d0 = "Привет! Я Куб-НПС!";
     cube_npc_d1 = "Добро пожаловать в Cubic Battle 4!";
     cube_npc_d2 = "Попробуй режим Solo или Online!";

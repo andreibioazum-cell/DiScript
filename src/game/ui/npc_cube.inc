@@ -1,6 +1,22 @@
 /* Lobby NPC cube and UTF-8 typewriter dialogue panel. */
 
+static const char *helpy_dialogue_text(void) {
+    if (language == 1) {
+        if (cube_npc_dialogue_line == 0) return "Привет! Я Хелпи.";
+        if (cube_npc_dialogue_line == 1) return "Я помогу тебе освоиться в лобби.";
+        if (cube_npc_dialogue_line == 2) return "Выбирай класс и отправляйся в бой!";
+        if (cube_npc_dialogue_line == 3) return "Не забудь потренировать блок.";
+        return "Увидимся на арене!";
+    }
+    if (cube_npc_dialogue_line == 0) return "Hi! I'm Helpy.";
+    if (cube_npc_dialogue_line == 1) return "I'll help you around the lobby.";
+    if (cube_npc_dialogue_line == 2) return "Pick a class and jump into battle!";
+    if (cube_npc_dialogue_line == 3) return "Remember to practice your block.";
+    return "See you in the arena!";
+}
+
 static const char *cube_npc_dialogue_text(void) {
+    if (cube_npc_speaker == 1) return helpy_dialogue_text();
     if (cube_npc_dialogue_line == 0) return cube_npc_d0;
     if (cube_npc_dialogue_line == 1) return cube_npc_d1;
     if (cube_npc_dialogue_line == 2) return cube_npc_d2;
@@ -75,6 +91,10 @@ static double cube_npc_draw_sz = 60;
 static double cube_npc_x;
 static double cube_npc_y;
 static double cube_npc_hit_r = 34;
+static double helpy_npc_draw_sz = 72;
+static double helpy_npc_x;
+static double helpy_npc_y;
+static double helpy_npc_hit_r = 40;
 
 /* The dialogue window: big portrait, big text, kept low. */
 static double dial_panel_h = 150;
@@ -85,8 +105,9 @@ static double dial_text_sc = 1.05;
 static double dial_anim;
 static double dial_anim_time = 0.18;
 
-static void cube_npc_tap(void) {
-    if (cube_npc_dialogue_active == 0) {
+static void cube_npc_tap(double speaker) {
+    if (cube_npc_dialogue_active == 0 || speaker != cube_npc_speaker) {
+        cube_npc_speaker = speaker;
         cube_npc_dialogue_active = 1;
         cube_npc_dialogue_line = 0;
         cube_npc_dialogue_chars = 0;
@@ -180,12 +201,25 @@ static void draw_lobby_npc_cube(void) {
     cube_npc_x = 20;
     cube_npc_y = screen_h - cube_npc_draw_sz - dial_panel_h - 14;
     double bob = sin(cube_npc_bob_t * 2.0) * 3;
-    /* Cube sprite */
+    /* Existing lobby cube. */
     if (cube_npc_tex_ok == 1) {
         tex(cube_npc_x, cube_npc_y + bob, CUBE_NPC_TEX, 0, cube_npc_draw_sz / 512.0);
     } else {
         roundrect(cube_npc_x, cube_npc_y + bob, cube_npc_draw_sz, cube_npc_draw_sz, 6, ui_purple);
     }
+
+    /* Helpy uses the original 512px transparent sprite, displayed slightly larger. */
+    helpy_npc_x = screen_w - helpy_npc_draw_sz - 20;
+    helpy_npc_y = screen_h - helpy_npc_draw_sz - dial_panel_h - 14;
+    double helpy_bob = sin(cube_npc_bob_t * 2.0 + 1.2) * 3;
+    if (helpy_npc_tex_ok == 1) {
+        tex(helpy_npc_x, helpy_npc_y + helpy_bob, HELPY_NPC_TEX, 0, helpy_npc_draw_sz / 512.0);
+    } else {
+        roundrect(helpy_npc_x, helpy_npc_y + helpy_bob, helpy_npc_draw_sz, helpy_npc_draw_sz, 9, 0xFF383838);
+    }
+    draw_overhead_nick(language == 1 ? "Хелпи" : "Helpy", helpy_npc_x + helpy_npc_draw_sz / 2,
+                       helpy_npc_y + helpy_bob, 0xFFDDDDDD);
+
     /* === Dialogue panel: slides up and fades in from below === */
     double e = dial_anim;
     if (cube_npc_dialogue_active != 1 && e <= 0) {
@@ -209,8 +243,10 @@ static void draw_lobby_npc_cube(void) {
     double ptm = (ph - dial_portrait_sz) / 2;
     double ptx = px + 12;
     double pty = py + ptm;
-    if (cube_npc_tex_ok == 1) {
-        tex_alpha(ptx, pty, CUBE_NPC_TEX, 0, dial_portrait_sz / 512.0, alpha);
+    const char *portrait_tex = cube_npc_speaker == 1 ? HELPY_NPC_TEX : CUBE_NPC_TEX;
+    double portrait_loaded = cube_npc_speaker == 1 ? helpy_npc_tex_ok : cube_npc_tex_ok;
+    if (portrait_loaded == 1) {
+        tex_alpha(ptx, pty, portrait_tex, 0, dial_portrait_sz / 512.0, alpha);
     } else {
         roundrect(ptx, pty, dial_portrait_sz, dial_portrait_sz, 8, a8 * 16777216 + 0x8040FF);
     }
@@ -249,6 +285,12 @@ static void draw_lobby_npc_cube(void) {
 static double hit_npc_cube(double px, double py) {
     return hit_rect(px, py, cube_npc_x - cube_npc_hit_r + cube_npc_draw_sz / 2,
                     cube_npc_y - cube_npc_hit_r + cube_npc_draw_sz / 2, cube_npc_hit_r * 2, cube_npc_hit_r * 2);
+}
+
+static double hit_npc_helpy(double px, double py) {
+    return hit_rect(px, py, helpy_npc_x - helpy_npc_hit_r + helpy_npc_draw_sz / 2,
+                    helpy_npc_y - helpy_npc_hit_r + helpy_npc_draw_sz / 2,
+                    helpy_npc_hit_r * 2, helpy_npc_hit_r * 2);
 }
 
 static double hit_npc_panel(double px, double py) {

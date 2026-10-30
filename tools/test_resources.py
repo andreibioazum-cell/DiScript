@@ -118,6 +118,12 @@ def check_assets() -> None:
             names |= set(re.findall(r'"([A-Za-z0-9_./-]+\.png)"', source.read_text(encoding="utf-8")))
     assert names, "В исходниках не найдены ссылки на текстуры"
     assert (ROOT / "assets" / "textures" / "Event columns.png").is_file(), "Не найдена текстура дня рождения колонок"
+    helpy = ROOT / "assets" / "textures" / "npc_helpy.png"
+    assert helpy.is_file(), "Не найдена текстура NPC Хелпи"
+    with helpy.open("rb") as sprite:
+        header = sprite.read(24)
+    assert header[:8] == b"\x89PNG\r\n\x1a\n", "Текстура Хелпи должна быть PNG"
+    assert (int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")) == (512, 512), "Текстура Хелпи должна быть 512x512"
     missing = [
         name for name in sorted(names)
         if not (ROOT / "assets" / "textures" / name.split("/")[-1]).is_file()

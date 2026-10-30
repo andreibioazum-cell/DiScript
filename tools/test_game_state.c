@@ -5389,6 +5389,17 @@ int main(void) {
         assert(cube_npc_dialogue_active == 0 && t_dir == 0);
         cube_npc_dialogue_line = 0;
         cube_npc_dialogue_chars = 0;
+        language = 1;
+        helpy_npc_tex_ok = 1;
+        draw_lobby_npc_cube();
+        logic_touch(helpy_npc_x + helpy_npc_draw_sz / 2, helpy_npc_y + helpy_npc_draw_sz / 2, 0, 8);
+        press_points_drop(8);
+        assert(cube_npc_dialogue_active == 1 && cube_npc_speaker == 1);
+        assert(strcmp(cube_npc_dialogue_text(), "Привет! Я Хелпи.") == 0);
+        cube_npc_dialogue_active = 0;
+        cube_npc_dialogue_line = 0;
+        cube_npc_dialogue_chars = 0;
+        language = 0;
 
         /* The shop buttons fire on the press; a drag no longer cancels them. */
         game_state = ST_CLASSES;

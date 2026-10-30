@@ -195,16 +195,26 @@ static void touch_lobby(double x, double y, double action, double id) {
     if (action != 0) {
         return;
     }
-    /* NPC cube tap or dialogue panel tap (the cube lives in the new theme) */
-    if (new_theme == 1 && (hit_npc_cube(x, y) == 1 || hit_npc_panel(x, y) == 1)) {
+    /* Helpy and the cube share a dialogue window; tapping either selects its speaker. */
+    if (new_theme == 1 && hit_npc_helpy(x, y) == 1) {
         play_button_click();
-        cube_npc_tap();
+        cube_npc_tap(1);
+        return;
+    }
+    if (new_theme == 1 && hit_npc_cube(x, y) == 1) {
+        play_button_click();
+        cube_npc_tap(0);
+        return;
+    }
+    if (new_theme == 1 && hit_npc_panel(x, y) == 1) {
+        play_button_click();
+        cube_npc_tap(cube_npc_speaker);
         return;
     }
     /* Advance or close active NPC dialogue without triggering underlying menu rows. */
     if (new_theme == 1 && cube_npc_dialogue_active == 1) {
         play_button_click();
-        cube_npc_tap();
+        cube_npc_tap(cube_npc_speaker);
         return;
     }
     if (hit_menu_row(x, y, 0) == 1) {

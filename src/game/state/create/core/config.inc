@@ -441,7 +441,10 @@ ui_nav_gen = 0;
 
 /* NPC cube in the lobby (debug placeholder) */
 CUBE_NPC_TEX = "npc_cube.png";
+HELPY_NPC_TEX = "npc_helpy.png";
 cube_npc_tex_ok = 0;
+helpy_npc_tex_ok = 0;
+cube_npc_speaker = 0;
 cube_npc_bob_t = 0;
 
 /* NPC dialogue system (typewriter-style speech bubble) */
