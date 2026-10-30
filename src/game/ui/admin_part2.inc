@@ -162,7 +162,7 @@ static void admin_panel_press(double x, double y) {
         if (row_index == 8) {
             keyboard_hide();
             if (admin_gift_target[0] && admin_gift_busy != 1) {
-                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1, 0) == 0 ? 3 : 1;
+                admin_gift_busy = net_gift_action(admin_gift_choice, admin_gift_target, 1) == 0 ? 3 : 1;
             }
             return;
         }
@@ -299,7 +299,7 @@ static void admin_draw_gifts(void) {
     for (int i = 0; i < NET_GIFT_TYPE_COUNT; ++i) {
         const char *name = admin_gift_names[i];
         if (language == 1) name = i == 0 ? "Какашка" : i == 1 ? "Торт" : i == 2 ? "Мишка" :
-                                  i == 3 ? "Ракета" : i == 4 ? "Изумруд" : "Кубик-тыква · 555";
+                                  i == 3 ? "Ракета" : i == 4 ? "Изумруд" : "Тыква-куб";
         const char *label = ds_concat(admin_gift_choice == i ? "> " : "", name);
         admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
     }

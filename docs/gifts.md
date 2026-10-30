@@ -4,10 +4,11 @@ Gifts work through the Realtime Database directly — there is no Cloud Function
 (`giftAction`) involved. The catalogue lives in the client
 (`src/engine/network/gifts.inc`; the UI reads the price via `net_gift_price`):
 
-The player shop has five ordinary stickers; the emerald is the most expensive
-purchasable item (500 cups). A sixth type, the Pumpkin Cube, is an exclusive
-admin-grant gift: its catalog price is 555 cups, but it is not sold, sent, or
-sellable by ordinary players.
+The shop sells five ordinary stickers; the emerald is the most expensive
+purchasable item (500 cups). The catalogue also shows **Тыква-куб / Pumpkin Cube**
+as a read-only exclusive card with a 555-cup value. Players cannot buy, send, or
+sell it; only an administrator can grant it. Its card uses the ordinary Pumpkin
+card illustration.
 
 | ID | Sticker | Cost |
 | --- | --- | ---: |
@@ -17,11 +18,11 @@ sellable by ordinary players.
 | `rocket` | Ракета / Rocket | 400 |
 | `emerald` | Изумруд / Emerald | 500 |
 
-Exclusive, not included in the player shop:
+Read-only exclusive catalogue card (not purchasable in the player shop):
 
 | ID | Sticker | Catalog cost | Availability |
 | --- | --- | ---: | --- |
-| `pumpkin_cube` | Кубик-тыква / Pumpkin Cube | 555 | Admin grant only; no player purchase, send, or sale |
+| `pumpkin_cube` | Тыква-куб / Pumpkin Cube | 555 | Admin grant only; no player purchase, send, or sale |
 
 Для основного админского аккаунта (`Dimasi4ek229`, как в `admin_slot`)
 обычные стикеры бесплатны: `gifts.inc` пишет только счётчик и не трогает
@@ -30,11 +31,10 @@ Exclusive, not included in the player shop:
 
 The first sticker used to be `rose`; it is now `poop`. Old `rose` counters may
 still sit in profiles — the rules keep accepting them, but the game neither
-shows nor spends them. The same applies to `gifts/emerald_hue`: the emerald is
-always rainbow now (`net_gift_hue()` returns 0), so the admin-chosen hue is no
-longer read. Both are obsolete fields; the web admin panel lists them in
-`LEGACY_FIELDS` and removes them from the database with the dedicated
-«Устаревшие поля» filter and the «Удалить устаревшие поля» button.
+shows nor spends them. The old `gifts/emerald_hue` field has been removed from
+the Firebase rules. The emerald itself now has one permanent green tint; there
+is no per-player hue or rainbow animation. The admin panel still finds both old
+fields in `LEGACY_FIELDS` so they can be removed from existing profiles.
 
 ## Data layout
 
@@ -135,25 +135,18 @@ which writes them itself).
   192x192 with transparency) and drawn by `gift_icon()` in
   `src/game/ui/gift_icons.inc`; the pixel font is never asked for a symbol.
   A card shows its picture once - there is no second sprite or badge.
-* The emerald shimmers. The stone itself is drawn white
-  (`tools/gen_gift_textures.py`), and on top of it the engine draws a second,
-  translucent copy of the sprite in the current hue, so a coloured veil flows
-  over the white facets (a tint reads only on a white base - on a coloured
-  sprite the hue would turn to mud); the hue drifts slowly
-  (`ds_frame_seconds() * 0.08`) and the veil's strength breathes with a sine.
-  The base hue is fixed to 0 (plain rainbow) for every account: `net_gift_hue()`
-  always returns 0. `gifts/emerald_hue` is a legacy field kept only in the
-  database rules for compatibility with old profiles.
+* The emerald texture is a white faceted stone drawn with one fixed green tint
+  (`GIFT_EMERALD_TINT`). It does not shimmer, change hue, or read a per-player
+  color field; the shared animation clock is used only for player-name shimmer.
 * Each card also names the sticker and its rarity in the rarity colour:
   **common** white, **rare** light blue (`#5CC8FF`), **epic** violet
-  (`#C08CFF`) - and the **exclusive** emerald is signed plain white too: the
-  colour belongs to the stone itself, which drifts through the hue wheel. The
-  catalogue is poop common, cake rare, teddy bear and rocket epic, emerald
-  exclusive.
-* The page has two columns: the shop on the left and the player's own
-  stickers on the right. The whole catalogue fits the left column at once;
+  (`#C08CFF`), and **exclusive** white. The emerald artwork itself stays one
+  steady green. The catalogue is poop common, cake rare, teddy bear and rocket
+  epic, emerald and Pumpkin Cube exclusive.
+* The page has two independently scrollable columns: the shop on the left and
+  the player's own stickers on the right. Each list is clipped to its viewport;
   the collection lists **one card per owned sticker** - two poops are two
-  cards - and scrolls smoothly with inertia, without snapping to rows, and
+  cards - and both lists scroll smoothly with inertia, without snapping to rows, and
   with a gentle glide (the fling is capped, so the list no longer flies past
   the sticker under the finger). Every card is clipped by hand to the list
   window, so nothing spills over the header or the field below.

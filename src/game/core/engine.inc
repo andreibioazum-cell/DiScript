@@ -153,6 +153,7 @@ static void logic_update(void) {
     update_button_press();
     admin_tick();
     if (game_state == ST_LOBBY) {
+        lobby_ball_tick();
         cube_npc_bob_t = cube_npc_bob_t + dt;
         cube_npc_tick();
         if (cube_npc_dialogue_active == 1) {
@@ -401,6 +402,10 @@ static void logic_touch(double x, double y, double action, double id) {
         touch_rooms(x, y, action, id);
         return;
     }
+    if (game_state == ST_LOBBY && action != 0) {
+        touch_lobby(x, y, action, id);
+        return;
+    }
     if (action != 0) {
         return;
     }
@@ -413,7 +418,7 @@ static void logic_touch(double x, double y, double action, double id) {
         play_button_click();
     }
     if (game_state == ST_LOBBY) {
-        touch_lobby(x, y, 0);
+        touch_lobby(x, y, 0, id);
     } else {
         touch_menu(x, y, 0, id);
     }

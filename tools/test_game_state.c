@@ -969,13 +969,11 @@ double net_gift_types(void) { return NET_GIFT_TYPE_COUNT; }
 void net_gift_refresh(void) {}
 /* The action can be refused (another gift operation is already running). */
 static double stub_gift_action_ok = 1;
-double net_gift_action(double gift, const char *recipient, double grant, double hue) {
-    (void)gift; (void)recipient; (void)grant; (void)hue;
+double net_gift_action(double gift, const char *recipient, double grant) {
+    (void)gift; (void)recipient; (void)grant;
     return stub_gift_action_ok;
 }
-/* The emerald's hue: 0 - the usual rainbow, 1..7 - the one the admin picked. */
-static double stub_gift_hue = 0;
-double net_gift_hue(void) { return stub_gift_hue; }
+/* Legacy gift action status; emerald color is fixed and has no profile hue. */
 static double stub_gift_status;
 double net_gift_action_status(void) {
     double v = stub_gift_status;
@@ -1291,6 +1289,74 @@ static void test_night_lobby_ground(void) {
     puts("night lobby: no green grass texture or white bottom line");
 }
 
+static void test_lobby_ball(void) {
+    int saved_w = screen_w, saved_h = screen_h;
+    double saved_state = game_state, saved_dt = dt;
+    screen_w = 720;
+    screen_h = 1280;
+    game_state = ST_LOBBY;
+    acct_open = 0;
+    docs_open = warn_open = studio_open = 0;
+    dt = 1.0 / 60.0;
+    lobby_ball_initialized = 0;
+    lobby_ball_pointer = -1;
+    lobby_ball_vx = lobby_ball_vy = 0;
+    lobby_ball_tick();
+    assert(lobby_ball_initialized == 1);
+    assert(fabs(lobby_ball_y - (lobby_ball_floor() - lobby_ball_r)) < 1e-9);
+
+    double x = lobby_ball_x, y = lobby_ball_y;
+    assert(lobby_ball_touch(x, y, 0, 91) == 1 && lobby_ball_pointer == 91);
+    assert(lobby_ball_touch(x, y, 1, 91) == 1);
+    assert(lobby_ball_emotion == 1 && lobby_ball_speech_t > 0);
+    double ex = lobby_ball_emotion_x(), ey = lobby_ball_emotion_y(2);
+    assert(lobby_ball_touch(ex, ey, 0, 92) == 1);
+    assert(lobby_ball_emotion == 2);
+
+    x = lobby_ball_x;
+    y = lobby_ball_y;
+    assert(lobby_ball_touch(x, y, 0, 93) == 1);
+    assert(lobby_ball_touch(x + 45, y - 35, 2, 93) == 1);
+    assert(fabs(lobby_ball_x - (x + 45)) < 1e-9);
+    assert(lobby_ball_touch(x + 45, y - 35, 1, 93) == 1);
+    assert(lobby_ball_vx > 0 && lobby_ball_vy < 0 && lobby_ball_emotion == 1);
+    double before_y = lobby_ball_y;
+    dt = 0.05;
+    lobby_ball_tick();
+    assert(lobby_ball_y < before_y);
+
+    lobby_ball_y = lobby_ball_floor() - lobby_ball_r + 5;
+    lobby_ball_vy = 150;
+    lobby_ball_tick();
+    assert(lobby_ball_y <= lobby_ball_floor() - lobby_ball_r && lobby_ball_vy < 0);
+
+    /* The engine routes full pointer gestures from lobby to the physics toy. */
+    t_dir = 0;
+    admin_panel_open = 0;
+    docs_open = warn_open = studio_open = 0;
+    acct_open = 0;
+    press_points_clear();
+    lobby_ball_x = lobby_ball_default_x();
+    lobby_ball_y = lobby_ball_floor() - lobby_ball_r;
+    lobby_ball_vx = lobby_ball_vy = 0;
+    x = lobby_ball_x;
+    y = lobby_ball_y;
+    logic_touch(x, y, 0, 94);
+    logic_touch(x + 35, y - 28, 2, 94);
+    logic_touch(x + 35, y - 28, 1, 94);
+    assert(lobby_ball_pointer < 0 && lobby_ball_vx > 0 && lobby_ball_vy < 0);
+    press_points_clear();
+    lobby_ball_draw();
+    lobby_ball_initialized = 0;
+    lobby_ball_pointer = -1;
+    lobby_ball_vx = lobby_ball_vy = 0;
+    dt = saved_dt;
+    game_state = saved_state;
+    screen_w = saved_w;
+    screen_h = saved_h;
+    puts("lobby ball: tap, emotion selector, drag-and-throw, gravity and floor bounce OK");
+}
+
 /* Gifts: two columns, the shop on the left fits whole, the collection on the
  * right scrolls smoothly. A card is one PNG plus a caption in its rarity
  * colour; cards have no buttons - a tap selects, the actions sit below the
@@ -1307,7 +1373,8 @@ static void test_gifts_page(void) {
     assert(acct_gift_choice < 0 && acct_gift_own_row < 0);
     assert(str_eq(acct_gift_name(0), "Какашка") == 1);
     assert(str_eq(acct_gift_name(4), "Изумруд") == 1);
-    assert(str_eq(acct_gift_name(NET_GIFT_PUMPKIN_CUBE_ID), "Кубик-тыква") == 1);
+    assert(str_eq(acct_gift_name(NET_GIFT_PUMPKIN_CUBE_ID), "Тыква-куб") == 1);
+    assert(str_eq(admin_gift_names[NET_GIFT_PUMPKIN_CUBE_ID], "Pumpkin Cube") == 1);
     assert(net_gift_types() == NET_GIFT_TYPE_COUNT);
     assert(net_gift_price(0) == 25 && net_gift_price(3) == 400 && net_gift_price(4) == 500);
     assert(net_gift_price(NET_GIFT_PUMPKIN_CUBE_ID) == 555);
@@ -1322,8 +1389,7 @@ static void test_gifts_page(void) {
     assert(str_eq(gift_tex(3), "gift_rocket.png") == 1);
     assert(str_eq(gift_tex(4), "gift_emerald.png") == 1);
     assert(str_eq(gift_tex(NET_GIFT_PUMPKIN_CUBE_ID), ORDINARY_PUMPKIN_CARD_TEX) == 1);
-        /* Rarity: common white, rare blue, epic purple, exclusive rainbow (its
-         * caption is drawn with text_rainbow). */
+        /* Rarity: common white, rare blue, epic purple, exclusive special. */
     assert(gift_rarity(0) == 0 && gift_rarity(1) == 1 && gift_rarity(2) == 2);
     assert(gift_rarity(3) == 2 && gift_rarity(4) == 3 && gift_rarity(NET_GIFT_PUMPKIN_CUBE_ID) == 3);
     assert(str_eq(gift_rarity_name(0), "ОБЫЧНЫЙ") == 1);
@@ -1337,21 +1403,22 @@ static void test_gifts_page(void) {
         /* The columns stand side by side and do not overlap. */
     assert(acct_gift_x(0) + acct_gift_col_w() < acct_gift_x(1));
     assert(acct_gift_x(1) + acct_gift_col_w() <= acct_x() + acct_w() + 1e-9);
-        /* The whole catalogue (five stickers) fits the window without scrolling. */
-    for (double i = 0; i < 5; i++) {
+        /* Four catalogue cards fit; the remaining rows require shop scrolling. */
+    for (double i = 0; i < 4; i++) {
         double cy = acct_gift_view_top() + i * acct_gift_step();
         assert(cy >= acct_gift_view_top());
         assert(cy + acct_gift_card_h() <= acct_gift_view_bottom() + 1e-9);
         assert(hit_acct_gift(acct_gift_x(0) + 10, cy + 5, i) == 1);
     }
+    assert(acct_gift_shop_scroll_needed() == 1 && acct_gift_shop_scroll_max() > 0);
         /* Empty collection: no rows and no scrolling. */
     assert(acct_gift_own_total() == 0 && acct_gift_scroll_max() == 0);
     gift_tex_draws = 0;
     last_gift_tex = "";
     draw_acct_gifts();
-        /* Five shop cards are five pictures, no repeats. */
-    assert(gift_tex_draws == 5);
-    assert(str_eq(last_gift_tex, "gift_emerald.png") == 1);
+        /* The visible shop viewport draws four catalogue pictures; lower rows scroll in. */
+    assert(gift_tex_draws == 4);
+    assert(str_eq(last_gift_tex, "gift_rocket.png") == 1);
         /* An empty collection says "no gifts yet" under the MY GIFTS header, in
          * the right column, not in the middle of the screen. */
     text_watch("Пока нет подарков");
@@ -1368,11 +1435,23 @@ static void test_gifts_page(void) {
     assert(acct_gift_own_total() == 3);
     assert(acct_gift_own_id(0) == 0 && acct_gift_own_id(1) == 0);
     assert(acct_gift_own_id(2) == 4 && acct_gift_own_id(3) == -1);
-    /* The exclusive pumpkin gift is visible in My Gifts, never in the shop. */
+    /* Pumpkin Cube is shown as a read-only exclusive shop card and appears
+     * in My Gifts only after an administrator grants it. */
     stub_gift_counts[NET_GIFT_PUMPKIN_CUBE_ID] = 1;
     assert(acct_gift_own_total() == 4 && acct_gift_own_id(3) == NET_GIFT_PUMPKIN_CUBE_ID);
-    assert(acct_gift_shop_rows() == NET_GIFT_SHOP_TYPE_COUNT);
-    assert(hit_acct_gift(acct_gift_x(0) + 10, acct_gift_view_top() + 5, NET_GIFT_PUMPKIN_CUBE_ID) == 0);
+    assert(acct_gift_shop_rows() == NET_GIFT_TYPE_COUNT);
+    assert(acct_gift_price(NET_GIFT_PUMPKIN_CUBE_ID) == 555);
+    acct_gift_shop_scroll = acct_gift_shop_scroll_max();
+    double pumpkin_y = acct_gift_view_top() + 3 * acct_gift_step() + acct_gift_card_h() / 2;
+    assert(hit_acct_gift(acct_gift_x(0) + 10, pumpkin_y, NET_GIFT_PUMPKIN_CUBE_ID) == 1);
+    acct_gift_choice = NET_GIFT_PUMPKIN_CUBE_ID;
+    acct_gift_is_owned = 0;
+    acct_gift_own_row = -1;
+    assert(hit_acct_gift_buy(acct_x() + 10, acct_below_fields() + 5) == 0);
+    adm_reset_log();
+    draw_acct_gifts();
+    assert(adm_has_text("выдаёт администратор") == 1);
+    acct_gift_shop_scroll = 0;
     acct_gift_choice = 0;
     acct_gift_is_owned = 0;
     acct_gift_own_row = -1;
@@ -1396,8 +1475,8 @@ static void test_gifts_page(void) {
     gift_tex_draws = 0;
     rainbow_text_n = 0;
     draw_acct_gifts();
-        /* Five shop cards and three owned ones, each with its own picture. */
-    assert(gift_tex_draws == 8);
+        /* Four visible shop cards and three owned ones, each with its own picture. */
+    assert(gift_tex_draws == 7);
         /* The emerald caption is white: the colour lives on the stone itself. */
     int rainbow_emerald = 0;
     for (int i = 0; i < rainbow_text_n; i++)
@@ -1408,6 +1487,7 @@ static void test_gifts_page(void) {
         /* A shop card: selection and "Look | Buy" under the columns. */
     double y = acct_gift_view_top() + 1 * acct_gift_step() + acct_gift_card_h() / 2;
     assert(touch_acct_gift_list(acct_gift_x(0) + 20, y, 0, 11) == 1);
+    assert(touch_acct_gift_list(acct_gift_x(0) + 20, y, 1, 11) == 1);
     assert(acct_gift_choice == 1 && acct_gift_is_owned == 0);
     assert(hit_acct_gift_inspect(acct_x() + 10, acct_below_fields() + 5) == 0);
     assert(hit_acct_gift_buy(acct_x() + 10, acct_below_fields() + 5) == 1);
@@ -1536,24 +1616,34 @@ static void test_gifts_page(void) {
     net_gift_count_add(3, -1);
     acct_msg = "";
 
-    /* Collection scrolls like achievements: smooth sliding-window inertia,
-     * thumb-roll rejection, right-margin thumb zone, stationary-hold stop,
-     * multi-touch guard, and clean scissor restore. */
+    /* Both gift columns scroll independently; compact height makes the five-row
+     * shop list scroll too, while the long collection keeps its inertia checks. */
+    double saved_scroll_screen_h = screen_h;
+    screen_h = 720;
     stub_gift_counts[0] = 15;
     assert(acct_gift_scroll_needed() == 1 && acct_gift_scroll_max() > 0);
     acct_gift_scroll = 0;
     acct_gift_vel = 0;
     double sy = acct_gift_view_top() + 40;
+    assert(acct_gift_shop_scroll_needed() == 1);
+    double shop_x = acct_gift_panel_x(0) + acct_gift_panel_w() - 3;
+    assert(touch_acct_gift_list(shop_x, sy, 0, 20) == 1);
+    assert(touch_acct_gift_list(shop_x, sy - 45, 2, 20) == 1);
+    assert(fabs(acct_gift_shop_scroll - 45) < 1e-9 && acct_gift_scroll == 0);
+    assert(touch_acct_gift_list(shop_x, sy - 45, 1, 20) == 1);
+    acct_gift_shop_scroll = 0;
+    acct_gift_shop_vel = 0;
+    double sx = acct_gift_panel_x(1) + acct_gift_panel_w() - 3;
     /* Right-margin thumb swipe (outside center column) scrolls smoothly. */
-    assert(touch_acct_gift_list(screen_w - 20, sy, 0, 14) == 1);
+    assert(touch_acct_gift_list(sx, sy, 0, 14) == 1);
     /* Secondary pointer cannot hijack an active collection drag. */
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, sy + 50, 0, 19) == 1);
     assert(acct_gift_drag == 14);
-    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 2, 14) == 1);
+    assert(touch_acct_gift_list(sx, sy - 60, 2, 14) == 1);
     /* Duplicate zero-delta move does not wipe velocity. */
-    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 2, 14) == 1);
-    assert(fabs(acct_gift_scroll - 60) < 1e-9);
-    assert(touch_acct_gift_list(screen_w - 20, sy - 60, 1, 14) == 1);
+    assert(touch_acct_gift_list(sx, sy - 60, 2, 14) == 1);
+    assert(fabs(acct_gift_scroll - 60) < 1e-9 && acct_gift_shop_scroll == 0);
+    assert(touch_acct_gift_list(sx, sy - 60, 1, 14) == 1);
     assert(acct_gift_drag < 0);
     assert(acct_gift_vel > 100 && fabs(acct_gift_vel) <= 2200 + 1e-9);
     assert(fabs(acct_gift_scroll - 60) < 1e-9);
@@ -1593,6 +1683,7 @@ static void test_gifts_page(void) {
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, ty, 0, 15) == 1);
     assert(touch_acct_gift_list(acct_gift_x(1) + 20, ty, 1, 15) == 1);
     assert(acct_gift_own_sel() == 3 && acct_gift_sel_id() == 0);
+    screen_h = saved_scroll_screen_h;
 
     stub_scissor_calls = 0;
     stub_scissor_active = 0;
@@ -4408,17 +4499,10 @@ int main(void) {
         assert(result_face_color() == 0xFF5F10A0);
         finished = 0;
     }
-    /* Emerald is strictly rainbow everywhere (even in CCP). */
+    /* Emerald uses one fixed tint everywhere, including the admin panel. */
     {
-        stub_gift_hue = 0;
         assert(gift_rarity(4) == 3 && strcmp(gift_tex(4), "gift_emerald.png") == 0);
-        assert(gift_emerald_base_hue() == 0);
-        assert(gift_hue_color(0.0) == 0xFFFF0000u);
-        assert(gift_hue_color(1.0 / 3.0) == 0xFF00FF00u);
-        stub_gift_hue = 4;
-        assert(gift_emerald_base_hue() == 0);
-        assert(gift_hue_color(0.5) == 0xFF00FFFFu);
-        stub_gift_hue = 0;
+        assert(GIFT_EMERALD_TINT == 0xFF00A85Au);
     }
     /* CCP gift tab has 8 rows (tabs + 5 gifts + nick + grant) without any hue picker. */
     {
@@ -6005,17 +6089,10 @@ int main(void) {
         bp_claimed = 0;
         bp_xp = 0;
 
-        stub_gift_hue = 0;
         stub_frame_seconds = 0.05;
         gift_shimmer_t = 0;
-        uint32_t c0 = gift_hue_color(gift_emerald_phase());
-        for (int f = 0; f < 16; f++)
-            gift_shimmer_tick();
-        uint32_t c1 = gift_hue_color(gift_emerald_phase());
-        for (int f = 0; f < 16; f++)
-            gift_shimmer_tick();
-        uint32_t c2 = gift_hue_color(gift_emerald_phase());
-        assert(c0 != c1 && c1 != c2 && c0 != c2);
+        for (int f = 0; f < 16; f++) gift_shimmer_tick();
+        assert(gift_shimmer_t > 0 && GIFT_EMERALD_TINT == 0xFF00A85Au);
         stub_frame_seconds = 0;
     }
 
@@ -6596,6 +6673,7 @@ int main(void) {
     test_offline_ordinary();
     test_admin_theme_clears_christmas();
     test_night_lobby_ground();
+    test_lobby_ball();
     test_admin_auto_block();
     test_admin_auto_block_astra();
     test_admin_auto_block_skill();
@@ -6634,13 +6712,14 @@ int main(void) {
         draw_wheel();
         assert(adm_has_text("Fortune wheel") == 1 && adm_has_text("Wins:") == 1);
         assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
-        int hub_dark = 0, hub_mid = 0, hub_old_color = 0;
+        int hub_black = 0, hub_extra = 0;
         for (int ci = 0; ci < adm_color_n; ci++) {
-            if (adm_colors[ci] == 0xFF161616u) hub_dark = 1;
-            if (adm_colors[ci] == 0xFFBDBDBDu) hub_mid = 1;
-            if (adm_colors[ci] == 0xFF20283Bu) hub_old_color = 1;
+            if (adm_colors[ci] == 0xFF000000u) hub_black = 1;
+            if (adm_colors[ci] == 0xFF161616u || adm_colors[ci] == 0xFFF2F2F2u ||
+                adm_colors[ci] == 0xFFBDBDBDu || adm_colors[ci] == 0xFF2A2A2Au ||
+                adm_colors[ci] == 0xFF202020u) hub_extra = 1;
         }
-        assert(hub_dark == 1 && hub_mid == 1 && hub_old_color == 0);
+        assert(hub_black == 1 && hub_extra == 0);
         assert(adm_has_text("Chances:") == 0 && adm_has_text("Шансы:") == 0);
         assert(adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
         assert(btn_w >= 156 && btn_h >= 42);

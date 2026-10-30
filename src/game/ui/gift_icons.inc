@@ -1,6 +1,7 @@
-/* Gift sticker sprite rendering, rarity colors, and emerald hue shimmer. */
+/* Gift sticker sprite rendering and rarity colors. */
 
 #define GIFT_TEX_PX 192.0
+#define GIFT_EMERALD_TINT 0xFF00A85Au
 
 static const char *gift_tex(double id) {
     if (id == 1) return "gift_cake.png";
@@ -26,40 +27,16 @@ static void gift_shimmer_tick(void) {
     }
 }
 
-/* Emerald base hue is fixed to 0 (always rainbow). */
-static double gift_emerald_base_hue(void) { return 0.0; }
-
-/* Continuous rainbow shimmer across the full hue wheel over elapsed time. */
-static double gift_emerald_phase(void) { return gift_shimmer_t * 0.42; }
-
+/* Keep the emerald fixed green; the shared clock still animates nicknames. */
 static double gift_shimmer_time(void) { return gift_shimmer_t; }
 
-/* The hue colour comes from the same wheel as the rainbow letters. */
-static uint32_t gift_hue_color(double hue) {
-    double h = hue - floor(hue);
-    double r = fabs(h * 6 - 3) - 1, g = 2 - fabs(h * 6 - 2), b = 2 - fabs(h * 6 - 4);
-    if (r < 0) r = 0;
-    if (r > 1) r = 1;
-    if (g < 0) g = 0;
-    if (g > 1) g = 1;
-    if (b < 0) b = 0;
-    if (b > 1) b = 1;
-    return 0xFF000000u | ((uint32_t)(r * 255) << 16) | ((uint32_t)(g * 255) << 8) | (uint32_t)(b * 255);
-}
-
-/* Draw sticker sprite; overlay animated hue tint for emerald. */
+/* The gem has one stable emerald-green tint, with no account hue setting. */
 static void gift_icon(double id, double x, double y, double s) {
     if (s <= 0) return;
     double sc = s / GIFT_TEX_PX;
     tex(x, y, gift_tex(id), 0, sc);
     if (id == 4) {
-        double ph = gift_emerald_phase();
-        double a1 = clamp(145 + 35 * sin(gift_shimmer_t * 3.4), 95, 190);
-        double a2 = clamp(85 + 35 * cos(gift_shimmer_t * 4.7), 45, 130);
-        uint32_t c1 = gift_hue_color(ph);
-        uint32_t c2 = gift_hue_color(ph + 0.18);
-        tex_tint(x, y, gift_tex(id), 0, sc, (uint32_t)(((unsigned)(int)a1) << 24) | (c1 & 0x00FFFFFFu));
-        tex_tint(x, y, gift_tex(id), 0, sc, (uint32_t)(((unsigned)(int)a2) << 24) | (c2 & 0x00FFFFFFu));
+        tex_tint(x, y, gift_tex(id), 0, sc, GIFT_EMERALD_TINT);
     }
 }
 

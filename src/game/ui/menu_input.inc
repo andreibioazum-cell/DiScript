@@ -187,7 +187,11 @@ static void open_leaderboard(void) {
     start_transition(ST_LEADERBOARD);
 }
 
-static void touch_lobby(double x, double y, double action) {
+static void touch_lobby(double x, double y, double action, double id) {
+    if (lobby_ball_touch(x, y, action, id) == 1) {
+        press_points_drop(id);
+        return;
+    }
     if (action != 0) {
         return;
     }

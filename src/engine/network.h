@@ -258,9 +258,8 @@ double net_gift_count(double gift);
 /* Adjust cached local count for one sticker. */
 void net_gift_count_add(double gift, double delta);
 void net_gift_refresh(void);
-double net_gift_action(double gift, const char *recipient, double grant, double hue);
+double net_gift_action(double gift, const char *recipient, double grant);
 double net_gift_action_status(void);
-double net_gift_hue(void);
 #define NET_GIFT_PUMPKIN_CUBE_ID 5
 #define NET_GIFT_TYPE_COUNT 6
 #define NET_GIFT_SHOP_TYPE_COUNT 5

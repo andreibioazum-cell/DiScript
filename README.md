@@ -47,9 +47,9 @@ python3 test/fake_firebase.py 8080
 проверки - в [docs/admin-panel.md](docs/admin-panel.md).
 
 Панель умеет чистить базу от **полей старых версий** - например,
-`gifts/emerald_hue` и `gifts/rose`, которые игра уже не использует: отдельный
-фильтр «Устаревшие поля» и кнопка «Удалить устаревшие поля» удаляют их, не
-трогая живой прогресс.
+`gifts/emerald_hue` и `gifts/rose`, которые игра уже не использует. Оттенок
+`emerald_hue` уже удалён из Firebase rules; отдельный фильтр «Устаревшие поля»
+удаляет такие остатки из профилей, не трогая живой прогресс.
 
 ## Правовая информация
 
@@ -115,8 +115,8 @@ python3 test/fake_firebase.py 8080
 then open <http://localhost:8080/>, press the test-mode button and sign in as
 `Dimasi4ek229` with the password `admin`. The panel also cleans obsolete fields
 from older game versions (`gifts/emerald_hue`, `gifts/rose`) with the dedicated
-legacy-field filter and button. Details in
-[docs/admin-panel.md](docs/admin-panel.md).
+legacy-field filter and button; `emerald_hue` is no longer accepted by Firebase
+rules. Details in [docs/admin-panel.md](docs/admin-panel.md).
 
 ## Legal
 

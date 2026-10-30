@@ -89,6 +89,7 @@ static void draw_lobby(void) {
     }
     draw_lobby_nick();
     draw_lobby_money();
+    lobby_ball_draw();
     if (new_theme == 1) {
         draw_lobby_npc_cube();
     }
@@ -384,11 +385,8 @@ static void draw_wheel(void) {
         slice = slice + 1;
     }
 
-    circle(cx, cy, radius * 0.23, 0xFF161616);
-    ring(cx, cy, radius * 0.23, 4, 0xFFF2F2F2);
-    circle(cx, cy, radius * 0.13, 0xFFBDBDBD);
-    ring(cx, cy, radius * 0.13, 2, 0xFF2A2A2A);
-    circle(cx, cy, radius * 0.045, 0xFF202020);
+    /* The hub is intentionally only a clean black outline. */
+    ring(cx, cy, radius * 0.23, 4, 0xFF000000);
     line(cx, cy - radius + 20, cx, cy - radius + 5, 5, 0xFFE7ECF3);
 
     const char *progress = ds_concat(language == 1 ? "Побед: " : "Wins: ",

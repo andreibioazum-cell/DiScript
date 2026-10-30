@@ -79,10 +79,6 @@
             ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999"
           },
-          "emerald_hue": {
-      ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
-      ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7"
-     },
      "rose": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" },
           "$other": { ".validate": false }
         },

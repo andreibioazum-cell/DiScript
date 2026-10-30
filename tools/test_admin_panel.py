@@ -237,7 +237,9 @@ def check_schema(html: str, js: str, rules: dict) -> None:
     for path in legacy:
         key = path.rsplit("/", 1)[-1]
         if key not in gift_panel and key not in user_panel:
-            error(f"устаревшее поле {key} не описано в схеме панели, а правила его пускают")
+            gifts_rule = rules.get("users", {}).get("$nick", {}).get("gifts", {})
+            if key in gifts_rule:
+                error(f"устаревшее поле {key} не описано в схеме панели, хотя правила его допускают")
     if 'data-k="legacy"' not in html:
         error("у панели нет фильтра «Устаревшие поля»")
     if "legacy" not in list_of(extract_const(js, "OLD_CLEAN_KINDS")):

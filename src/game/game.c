@@ -27,6 +27,7 @@
 #include "ui/legal.inc"
 #include "ui/chat.inc"
 #include "ui/npc_cube.inc"
+#include "ui/lobby_ball.inc"
 #include "ui/class_stars.inc"
 #include "ui/menu_screens.inc"
 #include "ui/achievements.inc"

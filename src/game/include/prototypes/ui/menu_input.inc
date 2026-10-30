@@ -18,7 +18,7 @@ static double studio_bg_rgb(double rgb);
 static void draw_studio(void);
 static void open_online(void);
 static void open_leaderboard(void);
-static void touch_lobby(double x, double y, double action);
+static void touch_lobby(double x, double y, double action, double id);
 static void touch_wheel(double x, double y);
 static void update_wheel(void);
 static void wheel_spin_do(void);

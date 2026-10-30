@@ -239,7 +239,7 @@ try {
   const pumpkinGift = await fetch(`${BASE}/users/Player2/gifts/pumpkin_cube.json?auth=${encodeURIComponent(token)}`, {
     method: "PUT", headers: { "Content-Type": "application/json" }, body: "1"
   });
-  check("админ может выдать подарок Кубик-тыква", pumpkinGift.ok &&
+  check("админ может выдать подарок Тыква-куб", pumpkinGift.ok &&
         (await db("users/Player2/gifts/pumpkin_cube", token)) === 1);
 
   setVal("#bannerText", "Тестовый баннер");
@@ -266,9 +266,9 @@ try {
   check("неправильный ник не уходит в базу",
         dialogs.some((d) => d.kind === "alert" && /A-Za-z0-9_/.test(d.text)));
 
-  /* emerald_hue and rose are obsolete fields now: the rules still accept
-   * them for old profiles, but the web panel finds and removes them with the
-   * dedicated "Устаревшие поля" filter (checked in section 3 above). */
+  /* emerald_hue and rose are obsolete fields: rules reject new hue writes,
+   * while rose remains for old profiles; the web panel finds and removes both
+   * with the dedicated "Устаревшие поля" filter (checked in section 3 above). */
 
   console.log("\n== 6. Комната: чат и слоты ==");
   setVal("#room", "main");

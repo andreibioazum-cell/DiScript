@@ -188,8 +188,9 @@
   </p>
   <p class="muted" style="margin:8px 0 0">
     Устаревшие поля из старых версий (<code>gifts/emerald_hue</code>,
-    <code>gifts/rose</code>) правила ещё принимают для совместимости, но игра
-    их не пишет и не читает. Панель находит их отдельным фильтром
+    <code>gifts/rose</code>) больше не используются игрой; <code>emerald_hue</code>
+    уже запрещён правилами, а <code>rose</code> оставлен только для старых профилей.
+    Панель находит их отдельным фильтром
     «Устаревшие поля» и удаляет кнопкой «Удалить устаревшие поля», не трогая
     живой прогресс, подарки и слоты.
   </p>
@@ -385,9 +386,8 @@ const GIFT_FIELDS = {
   emerald: num(0,999),
   /* Exclusive pumpkin cube is written only by the game admin. */
   pumpkin_cube: num(0,999),
-  /* These two are legacy fields (see LEGACY_FIELDS): the rules still
-   * accept them, but the current game no longer uses them. */
-  rose: num(0,999), emerald_hue: num(0,7)
+  /* rose remains accepted for old profiles; emerald_hue is no longer a rule key. */
+  rose: num(0,999)
 };
 const USER_FIELDS = {
   nick: str(1,16),

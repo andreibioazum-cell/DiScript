@@ -98,7 +98,7 @@ python3 test/fake_firebase.py 8080
   считались живой прогресс и рабочие узлы:
   * корневые `AzumBuff`, `FlashSale` и `Christmas` (`live_flags.inc`) —
     предлагались к удалению как «корневого узла нет в игре»;
-  * `users/<ник>/gifts/*` (подарки, `emerald_hue`, `rose`) — весь узел;
+  * `users/<ник>/gifts/*` (подарки, включая старые `emerald_hue` и `rose`) — весь узел;
   * `astra`, `astra_level(s)`, `codecracker_level(s)`, `bpx`, `playtime`,
     `pd_consent_ts`, `pd_consent_ver`, `showfps`, `classic`, `winter` — как
     «поле не используется игрой»;
@@ -204,11 +204,9 @@ python3 test/fake_firebase.py 8080
 
 ## Чистка мусора из старых версий
 
-`firebase.rules.json` до сих пор разрешает два поля, которые игра уже не пишет и
-не читает: `users/<ник>/gifts/emerald_hue` (оттенок изумруда, который раньше
-выдавал админ) и `users/<ник>/gifts/rose` (первый стикер, заменённый на
-`poop`). Старые профили могли их сохранить, поэтому правила оставили для
-совместимости, а в базе это уже ненужный мусор. `gifts/pumpkin_cube` — не
+Старые профили могут содержать `users/<ник>/gifts/emerald_hue` и
+`users/<ник>/gifts/rose`. `emerald_hue` уже запрещён правилами, а `rose`
+оставлен для совместимости со старыми профилями; игра оба поля игнорирует. `gifts/pumpkin_cube` — не
 устаревшее поле: это эксклюзивный подарок, выдаваемый только администратором;
 правила также запрещают игроку изменить его счётчик сохранением всего профиля.
 
@@ -226,4 +224,3 @@ python3 test/fake_firebase.py 8080
 `LEGACY_FIELDS` и наличие фильтра проверяет `tools/test_admin_panel.py`, а
 `test/test_admin_panel_dom.mjs` нажимает обе новые кнопки и смотрит, что поля
 действительно исчезли из базы, а `gifts/emerald` и `cups` остались.
-

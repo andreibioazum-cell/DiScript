@@ -56,14 +56,8 @@ def main() -> int:
     if gifts["$other"][".validate"] is not False:
         print("unknown gift keys must be rejected", file=sys.stderr)
         return 1
-    # The emerald's hue is chosen by an admin and stored next to the counters:
-    # the rule has to allow 0..7 and to let only the admin write it.
-    hue = gifts.get("emerald_hue", {})
-    if "<= 7" not in hue.get(".validate", ""):
-        print(f"emerald_hue rule is missing or too narrow: {hue}", file=sys.stderr)
-        return 1
-    if "dimasi4ek229@cb4.game" not in hue.get(".write", ""):
-        print(f"emerald_hue must be written by an admin only: {hue}", file=sys.stderr)
+    if "emerald_hue" in gifts or gifts["$other"][".validate"] is not False:
+        print("emerald_hue must be removed and unknown gift fields rejected", file=sys.stderr)
         return 1
     profile = rules["users"]["$nick"]
     # The CodeCracker keeps a level branch of its own, so the profile has to
@@ -111,7 +105,7 @@ def main() -> int:
         fake.DB["users"][player] = existing
     print("db rules: event 0..5, Christmas flag + snowball slot fields, "
           "gift keys poop/cake/bear/rocket/emerald plus admin-only pumpkin_cube, "
-          "emerald hue 0..7 for admins, "
+          "fixed-color emerald without emerald_hue, "
           "wheel progress and packed skins OK")
     return 0
 

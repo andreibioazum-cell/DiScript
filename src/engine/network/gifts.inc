@@ -253,10 +253,9 @@ gift_done:
 }
 
 /* Start asynchronous gift action; returns 1 if started, 0 if rejected. */
-double net_gift_action(double gift, const char *recipient, double grant, double hue) {
+double net_gift_action(double gift, const char *recipient, double grant) {
     DSThread t;
     int mode = (int)grant;
-    (void)hue;
     if ((int)gift == NET_GIFT_PUMPKIN_CUBE_ID) {
         char sender[24];
         lg_lock();
@@ -294,8 +293,6 @@ double net_gift_cups(void) {
     return v;
 }
 
-/* Emerald is always rainbow (hue 0). */
-double net_gift_hue(void) { return 0; }
 
 /* Return number of sticker types. */
 double net_gift_types(void) { return (double)GIFT_N; }
