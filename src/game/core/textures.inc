@@ -4,6 +4,7 @@ static void load_textures(void) {
     ordinary_punch_tex_ok = png_load(PUNCH_TEX);
     ordinary_gold_tex_ok = png_load(ORDINARY_GOLD_TEX);
     ordinary_gold_punch_tex_ok = png_load(ORDINARY_GOLD_PUNCH_TEX);
+    ordinary_pumpkin_tex_ok = png_load(ORDINARY_PUMPKIN_TEX);
     azum_tex_ok = png_load(AZUM_TEX);
     azum_punch_tex_ok = png_load(AZUM_PUNCH_TEX);
     azum_zombie_tex_ok = png_load(AZUM_ZOMBIE_TEX);
@@ -41,6 +42,7 @@ static void recheck_texture_flags(void) {
     ordinary_punch_tex_ok = flag_live(ordinary_punch_tex_ok, PUNCH_TEX);
     ordinary_gold_tex_ok = flag_live(ordinary_gold_tex_ok, ORDINARY_GOLD_TEX);
     ordinary_gold_punch_tex_ok = flag_live(ordinary_gold_punch_tex_ok, ORDINARY_GOLD_PUNCH_TEX);
+    ordinary_pumpkin_tex_ok = flag_live(ordinary_pumpkin_tex_ok, ORDINARY_PUMPKIN_TEX);
     azum_tex_ok = flag_live(azum_tex_ok, AZUM_TEX);
     azum_punch_tex_ok = flag_live(azum_punch_tex_ok, AZUM_PUNCH_TEX);
     azum_zombie_tex_ok = flag_live(azum_zombie_tex_ok, AZUM_ZOMBIE_TEX);
@@ -64,7 +66,7 @@ static double textures_all_ok(void) {
         return 0;
     }
     if (ordinary_punch_tex_ok == 0 || ordinary_gold_tex_ok == 0 || ordinary_gold_punch_tex_ok == 0 ||
-        azum_tex_ok == 0 || azum_punch_tex_ok == 0) {
+        ordinary_pumpkin_tex_ok == 0 || azum_tex_ok == 0 || azum_punch_tex_ok == 0) {
         return 0;
     }
     if (azum_zombie_tex_ok == 0 || azum_zombie_punch_tex_ok == 0) {
@@ -106,6 +108,9 @@ static void reload_textures(void) {
     }
     if (ordinary_gold_punch_tex_ok == 0) {
         ordinary_gold_punch_tex_ok = png_load(ORDINARY_GOLD_PUNCH_TEX);
+    }
+    if (ordinary_pumpkin_tex_ok == 0) {
+        ordinary_pumpkin_tex_ok = png_load(ORDINARY_PUMPKIN_TEX);
     }
     if (ordinary_tex_ok == 0) {
         ordinary_tex_ok = png_load(ORDINARY_TEX);

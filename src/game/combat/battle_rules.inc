@@ -21,6 +21,10 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_GOLD) {
         pair.idle = ORDINARY_GOLD_TEX;
         pair.punch = ORDINARY_GOLD_PUNCH_TEX;
+    } else if (look == LOOK_PUMPKIN) {
+        /* The cube is a static fighter sprite; it stays readable while striking too. */
+        pair.idle = ORDINARY_PUMPKIN_TEX;
+        pair.punch = ORDINARY_PUMPKIN_TEX;
     } else if (look == LOOK_ORDINARY) {
         pair.idle = ORDINARY_TEX;
         pair.punch = PUNCH_TEX;
@@ -61,7 +65,7 @@ static double class_look(double cls, double skin) {
         return LOOK_ASTRA;
     }
     if (cls == CLASS_ORDINARY && skin == SKIN_SPECIAL) {
-        return LOOK_GOLD;
+        return LOOK_PUMPKIN;
     }
     if (cls == CLASS_AZUM) {
         return LOOK_AZUM;

@@ -126,6 +126,7 @@ def check_assets() -> None:
 
     required = (
         ROOT / "assets" / "textures" / "ordinary_pumpkin_card.png",
+        ROOT / "assets" / "textures" / "ordinary_pumpkin.png",
         ROOT / "assets" / "textures" / "astra_xastra_card.png",
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",

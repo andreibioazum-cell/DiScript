@@ -72,6 +72,7 @@ const char *ORDINARY_TEX;
 const char *PUNCH_TEX;
 const char *ORDINARY_GOLD_TEX;
 const char *ORDINARY_GOLD_PUNCH_TEX;
+const char *ORDINARY_PUMPKIN_TEX;
 const char *AZUM_TEX;
 const char *AZUM_PUNCH_TEX;
 const char *SANTA_TEX;

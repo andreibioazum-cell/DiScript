@@ -72,6 +72,7 @@ ORDINARY_TEX = "ordinary.png";
 PUNCH_TEX = "ordinary_punch.png";
 ORDINARY_GOLD_TEX = "ordinary_gold.png";
 ORDINARY_GOLD_PUNCH_TEX = "ordinary_gold_punch.png";
+ORDINARY_PUMPKIN_TEX = "ordinary_pumpkin.png";
 AZUM_TEX = "azum.png";
 AZUM_PUNCH_TEX = "azum_punch.png";
 SANTA_TEX = "santa.png";

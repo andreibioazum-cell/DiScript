@@ -4334,6 +4334,23 @@ int main(void) {
     assert((uint32_t)admin_head_color_of("efy", 0xFFFFFFFFu) == 0xFFB388FFu);
     assert(nick_shimmers("eFy") == 1);
     assert(efy_gradient_color(0, 0, 0) != efy_gradient_color(1, 0, 2));
+    {
+        double saved_efy_shimmer = gift_shimmer_t;
+        gift_shimmer_t = 0;
+        adm_reset_log();
+        draw_styled_nick("Efy", 10, 10, 0xFFFFFFFFu, 0.6);
+        int e_nick_gold = 0, e_nick_purple = 0, e_nick_white = 0;
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            if (adm_colors[ci] == 0xFFFFC733u) e_nick_gold = 1;
+            if (adm_colors[ci] == 0xFFFFFFFFu) e_nick_white = 1;
+            if (((adm_colors[ci] >> 8) & 255u) < 128u && (adm_colors[ci] & 255u) > 192u) e_nick_purple = 1;
+        }
+        assert(e_nick_gold == 1 && e_nick_purple == 1 && e_nick_white == 0);
+        adm_reset_log();
+        draw_overhead_nick("Efy", 100, 100, 0xFFFFFFFFu);
+        assert(adm_color_n == 3 && adm_colors[0] != 0xFFFFFFFFu && adm_colors[2] != 0xFFFFFFFFu);
+        gift_shimmer_t = saved_efy_shimmer;
+    }
         /* Dev rights come from the profile (nick), not the password: the password
          * can be changed as often as you like, the right stays; only nick and login
          * matter. */
@@ -6769,9 +6786,10 @@ int main(void) {
     test_admin_auto_block_skill();
     ordinary_gold_owned = 1;
     ordinary_gold_skin = SKIN_SPECIAL;
-    assert(class_look(CLASS_ORDINARY, ordinary_gold_skin) == LOOK_GOLD);
-    assert(strcmp(look_idle_tex(LOOK_GOLD), ORDINARY_GOLD_TEX) == 0);
-    assert(strcmp(look_punch_tex(LOOK_GOLD), ORDINARY_GOLD_PUNCH_TEX) == 0);
+    assert(class_look(CLASS_ORDINARY, ordinary_gold_skin) == LOOK_PUMPKIN);
+    assert(strcmp(look_idle_tex(LOOK_PUMPKIN), ORDINARY_PUMPKIN_TEX) == 0);
+    assert(strcmp(look_punch_tex(LOOK_PUMPKIN), ORDINARY_PUMPKIN_TEX) == 0);
+    assert(look_ready(LOOK_PUMPKIN) == 1);
     assert((int)skin_flags() == 48);
     ordinary_gold_owned = 0;
     ordinary_gold_skin = SKIN_NORMAL;
