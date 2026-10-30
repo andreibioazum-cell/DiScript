@@ -87,14 +87,10 @@ static const char *dial_slice(const char *s, double off, double len) {
     return buf;
 }
 
-static double cube_npc_draw_sz = 60;
-static double cube_npc_x;
-static double cube_npc_y;
-static double cube_npc_hit_r = 34;
-static double helpy_npc_draw_sz = 72;
+static double helpy_npc_draw_sz = 512;
 static double helpy_npc_x;
 static double helpy_npc_y;
-static double helpy_npc_hit_r = 40;
+static double helpy_npc_hit_r = 256;
 
 /* The dialogue window: big portrait, big text, kept low. */
 static double dial_panel_h = 150;
@@ -197,21 +193,18 @@ static double dial_wrap(const char *vis, double max_w, double sc, double *starts
     return n;
 }
 
-static void draw_lobby_npc_cube(void) {
-    cube_npc_x = 20;
-    cube_npc_y = screen_h - cube_npc_draw_sz - dial_panel_h - 14;
-    double bob = sin(cube_npc_bob_t * 2.0) * 3;
-    /* Existing lobby cube. */
-    if (cube_npc_tex_ok == 1) {
-        tex(cube_npc_x, cube_npc_y + bob, CUBE_NPC_TEX, 0, cube_npc_draw_sz / 512.0);
-    } else {
-        roundrect(cube_npc_x, cube_npc_y + bob, cube_npc_draw_sz, cube_npc_draw_sz, 6, ui_purple);
-    }
-
-    /* Helpy uses the original 512px transparent sprite, displayed slightly larger. */
-    helpy_npc_x = screen_w - helpy_npc_draw_sz - 20;
+static void draw_lobby_npc_sprite(void) {
+    /* Replace the old left-side cube NPC with Helpy's full 512px sprite. */
+    helpy_npc_draw_sz = 512;
+    double fit_w = screen_w - 20;
+    double fit_h = screen_h - dial_panel_h - 28;
+    if (helpy_npc_draw_sz > fit_w) helpy_npc_draw_sz = fit_w;
+    if (helpy_npc_draw_sz > fit_h) helpy_npc_draw_sz = fit_h;
+    if (helpy_npc_draw_sz < 1) helpy_npc_draw_sz = 1;
+    helpy_npc_hit_r = helpy_npc_draw_sz / 2;
+    helpy_npc_x = 20;
     helpy_npc_y = screen_h - helpy_npc_draw_sz - dial_panel_h - 14;
-    double helpy_bob = sin(cube_npc_bob_t * 2.0 + 1.2) * 3;
+    double helpy_bob = sin(cube_npc_bob_t * 2.0) * 3;
     if (helpy_npc_tex_ok == 1) {
         tex(helpy_npc_x, helpy_npc_y + helpy_bob, HELPY_NPC_TEX, 0, helpy_npc_draw_sz / 512.0);
     } else {
@@ -219,8 +212,10 @@ static void draw_lobby_npc_cube(void) {
     }
     draw_overhead_nick(language == 1 ? "Хелпи" : "Helpy", helpy_npc_x + helpy_npc_draw_sz / 2,
                        helpy_npc_y + helpy_bob, 0xFFDDDDDD);
+}
 
-    /* === Dialogue panel: slides up and fades in from below === */
+static void draw_lobby_npc_dialogue(void) {
+    /* === Helpy dialogue panel: slides up and fades in from below === */
     double e = dial_anim;
     if (cube_npc_dialogue_active != 1 && e <= 0) {
         return;
@@ -239,7 +234,7 @@ static void draw_lobby_npc_cube(void) {
     /* Panel background - dark gray */
     roundrect(px, py, pw, ph, 12, a8 * 16777216 + 0x1A1A1A);
     roundrect_outline(px, py, pw, ph, 12, 2, a8 * 16777216 + 0xCCCCCC);
-    /* Portrait: NPC cube on the left */
+    /* Helpy portrait on the left */
     double ptm = (ph - dial_portrait_sz) / 2;
     double ptx = px + 12;
     double pty = py + ptm;
@@ -282,19 +277,6 @@ static void draw_lobby_npc_cube(void) {
     }
 }
 
-static double hit_npc_cube(double px, double py) {
-    return hit_rect(px, py, cube_npc_x - cube_npc_hit_r + cube_npc_draw_sz / 2,
-                    cube_npc_y - cube_npc_hit_r + cube_npc_draw_sz / 2, cube_npc_hit_r * 2, cube_npc_hit_r * 2);
-}
-
 static double hit_npc_helpy(double px, double py) {
-    return hit_rect(px, py, helpy_npc_x - helpy_npc_hit_r + helpy_npc_draw_sz / 2,
-                    helpy_npc_y - helpy_npc_hit_r + helpy_npc_draw_sz / 2,
-                    helpy_npc_hit_r * 2, helpy_npc_hit_r * 2);
-}
-
-static double hit_npc_panel(double px, double py) {
-    if (cube_npc_dialogue_active != 1 || dial_anim < 0.25) return 0;
-    double pm = dial_panel_margin;
-    return hit_rect(px, py, pm, screen_h - dial_panel_h - pm, screen_w - 2 * pm, dial_panel_h);
+    return hit_rect(px, py, helpy_npc_x, helpy_npc_y, helpy_npc_draw_sz, helpy_npc_draw_sz);
 }

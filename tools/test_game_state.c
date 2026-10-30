@@ -5366,37 +5366,29 @@ int main(void) {
         (void)button_press_k(menu_x(), menu_row(0), btn_w, btn_h);
         assert(press_phase[0] == 0);
 
-        /* The NPC cube opens its dialogue on the press as well. */
-        cube_npc_d0 = "d0";
-        cube_npc_d1 = "d1";
-        cube_npc_d2 = "d2";
-        cube_npc_d3 = "d3";
-        cube_npc_d4 = "d4";
-        draw_lobby_npc_cube();
-        logic_touch(cube_npc_x + 30, cube_npc_y + 30, 0, 1);
-        assert(cube_npc_dialogue_active == 1);
-        /* Tapping the screen outside the dialogue is its skip action: the talk
-         * advances and the menu rows behind it never fire. */
-        double ch0 = cube_npc_dialogue_chars;
-        logic_touch(tx, ty, 0, 1);
-        assert(t_dir == 0); /* the Play row did not fire */
-        assert(cube_npc_dialogue_active == 1 && cube_npc_dialogue_chars > ch0);
-        n = 0;
-        while (cube_npc_dialogue_active == 1 && n < 20) {
-            logic_touch(tx, ty, 0, 1);
-            n = n + 1;
-        }
-        assert(cube_npc_dialogue_active == 0 && t_dir == 0);
-        cube_npc_dialogue_line = 0;
-        cube_npc_dialogue_chars = 0;
+        /* Helpy replaces the old left-side cube and opens the lobby dialogue. */
         language = 1;
         helpy_npc_tex_ok = 1;
-        draw_lobby_npc_cube();
+        draw_lobby_npc_sprite();
+        assert(helpy_npc_draw_sz == screen_w - 20);
+        assert(helpy_npc_x == 20);
         logic_touch(helpy_npc_x + helpy_npc_draw_sz / 2, helpy_npc_y + helpy_npc_draw_sz / 2, 0, 8);
         press_points_drop(8);
         assert(cube_npc_dialogue_active == 1 && cube_npc_speaker == 1);
         assert(strcmp(cube_npc_dialogue_text(), "Привет! Я Хелпи.") == 0);
-        cube_npc_dialogue_active = 0;
+        /* Tapping outside advances Helpy and never triggers the menu underneath. */
+        double ch0 = cube_npc_dialogue_chars;
+        logic_touch(tx, ty, 0, 8);
+        press_points_drop(8);
+        assert(t_dir == 0);
+        assert(cube_npc_dialogue_active == 1 && cube_npc_dialogue_chars > ch0);
+        n = 0;
+        while (cube_npc_dialogue_active == 1 && n < 20) {
+            logic_touch(tx, ty, 0, 8);
+            press_points_drop(8);
+            n = n + 1;
+        }
+        assert(cube_npc_dialogue_active == 0 && t_dir == 0);
         cube_npc_dialogue_line = 0;
         cube_npc_dialogue_chars = 0;
         language = 0;

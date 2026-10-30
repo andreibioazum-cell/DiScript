@@ -67,6 +67,9 @@ static void draw_lobby(void) {
     check_achievements();
     screen_fill();
     draw_lobby_night_environment();
+    if (new_theme == 1) {
+        draw_lobby_npc_sprite();
+    }
     text("Cubic Battle 4", lobby_label_x(text_ink_width("Cubic Battle 4")), lobby_title_y(), text_color);
     if (christmas_active() == 1) {
         const char *banner = tr_christmas_banner();
@@ -91,7 +94,7 @@ static void draw_lobby(void) {
     draw_lobby_money();
     lobby_ball_draw();
     if (new_theme == 1) {
-        draw_lobby_npc_cube();
+        draw_lobby_npc_dialogue();
     }
     if (str_len(banned_msg) > 0) {
         ctext(banned_msg, lobby_msg_y(), text_color);
