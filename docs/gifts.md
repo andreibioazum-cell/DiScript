@@ -136,7 +136,7 @@ which writes them itself).
   192x192 with transparency) and drawn by `gift_icon()` in
   `src/game/ui/gift_icons.inc`; the pixel font is never asked for a symbol.
   A card shows its picture once - there is no second sprite or badge. Pumpkin
-  Cube uses its own centered, sticker-sized crop of the cube artwork.
+  Cube uses its own centered, sticker-sized cube icon.
 * The emerald texture is a white faceted stone tinted with a smoothly cycling
   rainbow hue. Its animation uses the local shimmer clock and does not read a
   per-player color field.
