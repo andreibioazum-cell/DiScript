@@ -507,6 +507,8 @@ void bye_notice_show(const char *text) {
 }
 static int fx_ring_count;
 static int fx_big_circle_count;
+static int emerald_tint_draws;
+static uint32_t last_emerald_tint;
 void ring(float x, float y, float r, float t, uint32_t color) {
     fx_ring_count++;
     (void)x;
@@ -521,6 +523,10 @@ void tex_tint(float x, float y, const char *name, float angle, float scale, uint
     (void)scale;
     ground_tiles++;
     last_ground = name;
+    if (name && strcmp(name, "gift_emerald.png") == 0) {
+        emerald_tint_draws++;
+        last_emerald_tint = color;
+    }
     if (name && SNOWFLAKE_TEX && strcmp(name, SNOWFLAKE_TEX) == 0) {
         snowflake_tinted++;
         snowflake_tint_color = color;
@@ -1339,6 +1345,10 @@ static void test_lobby_ball(void) {
     lobby_ball_vy = 150;
     lobby_ball_tick();
     assert(lobby_ball_y <= lobby_ball_max_y() && lobby_ball_vy < 0);
+    lobby_ball_y = lobby_ball_min_y();
+    assert(lobby_ball_bubble_y() + 39 <= lobby_ball_y - lobby_ball_r + 1e-9);
+    lobby_ball_y = lobby_ball_max_y();
+    assert(lobby_ball_bubble_y() + 39 <= lobby_ball_y - lobby_ball_r + 1e-9);
 
     /* The engine routes full pointer gestures from lobby to the physics toy. */
     t_dir = 0;
@@ -1361,7 +1371,8 @@ static void test_lobby_ball(void) {
     for (int ci = 0; ci < adm_color_n; ci++) {
         assert(adm_colors[ci] != 0x77FFFFFFu); /* no glossy white spot */
         assert(adm_colors[ci] != 0x55302650u); /* no floating shadow */
-        assert(adm_colors[ci] != 0xFFFFFFFFu); /* monochrome dark speech bubble, no white UI chip */
+        assert(adm_colors[ci] != 0x665D5D5Du); /* no visible lobby rails */
+        assert(adm_colors[ci] != 0xFFFFFFFFu); /* dark speech bubble, no white UI chip */
     }
     lobby_ball_initialized = 0;
     lobby_ball_pointer = -1;
@@ -4515,10 +4526,21 @@ int main(void) {
         assert(result_face_color() == 0xFF5F10A0);
         finished = 0;
     }
-    /* Emerald uses one fixed tint everywhere, including the admin panel. */
+    /* Emerald tint cycles through rainbow hues and the renderer uses that color. */
     {
+        double saved_shimmer = gift_shimmer_t;
+        gift_shimmer_t = 0;
+        uint32_t c0 = gift_emerald_tint();
+        gift_shimmer_t = 1.25;
+        uint32_t c1 = gift_emerald_tint();
+        gift_shimmer_t = 2.50;
+        uint32_t c2 = gift_emerald_tint();
         assert(gift_rarity(4) == 3 && strcmp(gift_tex(4), "gift_emerald.png") == 0);
-        assert(GIFT_EMERALD_TINT == 0xFF00A85Au);
+        assert(c0 != c1 && c1 != c2 && c0 != c2);
+        emerald_tint_draws = 0;
+        gift_icon(4, 8, 9, 48);
+        assert(emerald_tint_draws == 1 && last_emerald_tint == c2);
+        gift_shimmer_t = saved_shimmer;
     }
     /* CCP gift tab has 8 rows (tabs + 5 gifts + nick + grant) without any hue picker. */
     {
@@ -6107,8 +6129,12 @@ int main(void) {
 
         stub_frame_seconds = 0.05;
         gift_shimmer_t = 0;
+        uint32_t hue0 = gift_emerald_tint();
         for (int f = 0; f < 16; f++) gift_shimmer_tick();
-        assert(gift_shimmer_t > 0 && GIFT_EMERALD_TINT == 0xFF00A85Au);
+        uint32_t hue1 = gift_emerald_tint();
+        for (int f = 0; f < 16; f++) gift_shimmer_tick();
+        uint32_t hue2 = gift_emerald_tint();
+        assert(gift_shimmer_t > 0 && hue0 != hue1 && hue1 != hue2 && hue0 != hue2);
         stub_frame_seconds = 0;
     }
 

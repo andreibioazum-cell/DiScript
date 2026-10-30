@@ -23,11 +23,15 @@ static double lobby_ball_initialized;
 static double lobby_ball_floor(void) { return screen_h - 14; }
 static double lobby_ball_ceiling(void) { return fmax(64, screen_h * 0.11); }
 static double lobby_ball_radius(void) { return clamp(fmin(screen_w, screen_h) * 0.065, 23, 38); }
-static double lobby_ball_left(void) { return fmax(lobby_ball_radius() + 3, screen_w * 0.47); }
+static double lobby_ball_left(void) { return lobby_ball_radius() + 3; }
 static double lobby_ball_right(void) { return fmax(lobby_ball_left() + 2 * lobby_ball_radius(), screen_w - lobby_ball_radius() - 3); }
 static double lobby_ball_default_x(void) { return clamp(screen_w - lobby_ball_radius() - 62, lobby_ball_left(), lobby_ball_right()); }
 static double lobby_ball_min_y(void) { return lobby_ball_ceiling() + lobby_ball_radius(); }
 static double lobby_ball_max_y(void) { return lobby_ball_floor() - lobby_ball_radius(); }
+static double lobby_ball_bubble_y(void) {
+    double y = lobby_ball_y - lobby_ball_r - 43;
+    return y < 8 ? 8 : y;
+}
 
 static const char *lobby_ball_phrase_text(void) {
     if (language == 1) {
@@ -122,11 +126,7 @@ static void lobby_ball_draw(void) {
     double x = lobby_ball_x;
     double y = lobby_ball_y;
     double r = lobby_ball_r;
-    /* The narrow monochrome rails make the ceiling and floor bounces visible. */
-    line(lobby_ball_left() - r, lobby_ball_ceiling(), lobby_ball_right() + r, lobby_ball_ceiling(),
-         2, 0x665D5D5D);
-    line(lobby_ball_left() - r, lobby_ball_floor(), lobby_ball_right() + r, lobby_ball_floor(),
-         2, 0x665D5D5D);
+    /* Boundaries are physical but invisible: keep the lobby free of rails. */
     circle(x, y, r, 0xFF4A3EAA);
     circle(x, y - 2, r - 4, 0xFF897BDF);
     lobby_ball_draw_face(x, y, r / 32.0, 0xFF252044);
@@ -135,7 +135,7 @@ static void lobby_ball_draw(void) {
         double w = fmax(76, text_ink_width(phrase) * 0.82 + 24);
         w = fmin(w, fmax(80, screen_w - 16));
         double bx = clamp(x - w * 0.5, 8, screen_w - w - 8);
-        double by = fmax(lobby_ball_ceiling() + 8, y - r - 47);
+        double by = lobby_ball_bubble_y();
         roundrect(bx, by, w, 31, 10, 0xFF252525);
         roundrect_outline(bx, by, w, 31, 10, 1.5, 0xFF777777);
         line(x - 5, by + 29, x, by + 38, 1.8, 0xFF777777);

@@ -32,9 +32,10 @@ Read-only exclusive catalogue card (not purchasable in the player shop):
 The first sticker used to be `rose`; it is now `poop`. Old `rose` counters may
 still sit in profiles — the rules keep accepting them, but the game neither
 shows nor spends them. The old `gifts/emerald_hue` field has been removed from
-the Firebase rules. The emerald itself now has one permanent green tint; there
-is no per-player hue or rainbow animation. The admin panel still finds both old
-fields in `LEGACY_FIELDS` so they can be removed from existing profiles.
+the Firebase rules. The emerald now cycles smoothly through rainbow hues using
+a local animation clock; no per-player hue is stored. The admin panel still
+finds both old fields in `LEGACY_FIELDS` so they can be removed from existing
+profiles.
 
 ## Data layout
 
@@ -135,9 +136,9 @@ which writes them itself).
   192x192 with transparency) and drawn by `gift_icon()` in
   `src/game/ui/gift_icons.inc`; the pixel font is never asked for a symbol.
   A card shows its picture once - there is no second sprite or badge.
-* The emerald texture is a white faceted stone drawn with one fixed green tint
-  (`GIFT_EMERALD_TINT`). It does not shimmer, change hue, or read a per-player
-  color field; the shared animation clock is used only for player-name shimmer.
+* The emerald texture is a white faceted stone tinted with a smoothly cycling
+  rainbow hue. Its animation uses the local shimmer clock and does not read a
+  per-player color field.
 * Each card also names the sticker and its rarity in the rarity colour:
   **common** white, **rare** light blue (`#5CC8FF`), **epic** violet
   (`#C08CFF`), and **exclusive** white. The emerald artwork itself stays one

@@ -105,7 +105,7 @@ def main() -> int:
         fake.DB["users"][player] = existing
     print("db rules: event 0..5, Christmas flag + snowball slot fields, "
           "gift keys poop/cake/bear/rocket/emerald plus admin-only pumpkin_cube, "
-          "fixed-color emerald without emerald_hue, "
+          "rainbow-rendered emerald without emerald_hue, "
           "wheel progress and packed skins OK")
     return 0
 

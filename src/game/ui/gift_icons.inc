@@ -1,7 +1,6 @@
 /* Gift sticker sprite rendering and rarity colors. */
 
 #define GIFT_TEX_PX 192.0
-#define GIFT_EMERALD_TINT 0xFF00A85Au
 
 static const char *gift_tex(double id) {
     if (id == 1) return "gift_cake.png";
@@ -27,16 +26,35 @@ static void gift_shimmer_tick(void) {
     }
 }
 
-/* Keep the emerald fixed green; the shared clock still animates nicknames. */
+/* The same clock smoothly moves the gem through the full HSV color wheel. */
 static double gift_shimmer_time(void) { return gift_shimmer_t; }
 
-/* The gem has one stable emerald-green tint, with no account hue setting. */
+static uint32_t gift_emerald_tint(void) {
+    double phase = fmod(gift_shimmer_t * 0.14, 1.0);
+    if (phase < 0) phase = phase + 1;
+    double sector = phase * 6;
+    int i = (int)floor(sector);
+    double f = sector - i;
+    double r = 0, g = 0, b = 0;
+    if (i == 0) { r = 1; g = f; }
+    else if (i == 1) { r = 1 - f; g = 1; }
+    else if (i == 2) { g = 1; b = f; }
+    else if (i == 3) { g = 1 - f; b = 1; }
+    else if (i == 4) { r = f; b = 1; }
+    else { r = 1; b = 1 - f; }
+    uint32_t ri = (uint32_t)floor(r * 255 + 0.5);
+    uint32_t gi = (uint32_t)floor(g * 255 + 0.5);
+    uint32_t bi = (uint32_t)floor(b * 255 + 0.5);
+    return 0xFF000000u | (ri << 16) | (gi << 8) | bi;
+}
+
+/* Draw a continuously cycling rainbow tint; hue is not stored in profiles. */
 static void gift_icon(double id, double x, double y, double s) {
     if (s <= 0) return;
     double sc = s / GIFT_TEX_PX;
     tex(x, y, gift_tex(id), 0, sc);
     if (id == 4) {
-        tex_tint(x, y, gift_tex(id), 0, sc, GIFT_EMERALD_TINT);
+        tex_tint(x, y, gift_tex(id), 0, sc, gift_emerald_tint());
     }
 }
 
