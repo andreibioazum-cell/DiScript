@@ -11,12 +11,13 @@ void net_logout(void) {
     pg.level = pg.levels_unlocked = pg.ordinary_level = pg.ordinary_levels_unlocked = 0;
     pg.azum_level = pg.azum_levels_unlocked = pg.santa_level = pg.santa_levels_unlocked = 0;
     pg.ebuc_level = pg.ebuc_levels_unlocked = pg.bp_level = pg.bp_xp = pg.azum_skin = 0;
+    pg.wheel_spins = pg.wheel_wins = 0;
     pg.astra = pg.astra_level = pg.astra_levels_unlocked = 0;
     pg.codecracker = pg.codecracker_level = pg.codecracker_levels_unlocked = 0;
     pg.loaded = 1;
     pg_unlock();
     cloud_dirty_set(0);
-    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
+    progress_write(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     ds_mutex_lock(ach_lock);
     ach_loaded = 1;
     ach_flags = 0;

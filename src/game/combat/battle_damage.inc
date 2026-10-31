@@ -24,6 +24,7 @@ static double block_covers(void) {
 }
 
 static double take_damage(double dmg) {
+    dmg = dmg * weak_hit_damage_mult();
     if (astra_parry_active() == 1) {
         dmg_from_k = 0;
         if (dmg > 0) {
@@ -44,6 +45,9 @@ static double take_damage(double dmg) {
     /* Reduce frontal damage while blocking. */
     if (player_block == 1 && block_covers() == 1) {
         real = real * block_guard;
+        if (dmg > 0) {
+            block_success_t = 0.75;
+        }
     }
     dmg_from_k = 0;
     if (player_class == CLASS_CODECRACKER && codecracker_super_t > 0) {
@@ -106,7 +110,6 @@ static void stun_enemy(double t) {
         enemy->cooldown = 0.25;
         enemy->think = 0.15;
     }
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
 }
 

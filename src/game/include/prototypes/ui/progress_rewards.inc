@@ -6,6 +6,7 @@ static void check_achievements(void);
 static void check_meet_eax229(void);
 static void check_buk_elf_achievement(void);
 static void save_progress(void);
+static void wheel_award_win(void);
 static void progress_reset_on_signout(void);
 static double skin_flags(void);
 static void progress_push_to_net(void);

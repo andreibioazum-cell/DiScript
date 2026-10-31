@@ -129,6 +129,24 @@ static int run_lower_cups(const char *dir) {
     return 0;
 }
 
+static int run_wheel_progress(const char *dir) {
+    net_set_data_path(dir);
+    net_save_progress_all(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 48);
+    net_save_wheel_progress(4, 5);
+    assert(net_load_wheel_spins() == 4);
+    assert(net_load_wheel_wins() == 5);
+    assert(net_load_azum_skin() == 48);
+    assert(SKIN_OF_CLASS(48, 0) == 1);
+    cloud_dirty_set(1);
+    assert(apply_user_json_keep_local(
+        "{\"nick\":\"tester\",\"cups\":0,\"candies\":0,\"cls\":0,"
+        "\"wheel_spins\":1,\"wheel_wins\":2,\"azum_skin\":16}") == 1);
+    assert(net_load_wheel_spins() == 4 && net_load_wheel_wins() == 5);
+    assert(net_load_azum_skin() == 48);
+    puts("wheel progress: spins, quest wins, Pumpkin skin and stale-cloud merge persist");
+    return 0;
+}
+
 static int run_clean(const char *dir) {
     net_set_data_path(dir);
     net_save_progress_all(100, 50, 3, 1, 0, 1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
@@ -145,15 +163,15 @@ static int run_clean(const char *dir) {
 static int run_astra(const char *dir) {
     net_set_data_path(dir);
     assert(net_load_astra() == 0);
-    net_save_astra(1, 3, 3);
+    net_save_astra(1, 4, 4);
     net_save_progress_all(90, 20, 4, 0, 0, 0, 3, 3, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0);
     assert(net_load_astra() == 1);
-    assert(net_load_astra_level() == 3);
-    assert(net_load_astra_levels_unlocked() == 3);
+    assert(net_load_astra_level() == 4);
+    assert(net_load_astra_levels_unlocked() == 4);
     assert(net_load_class() == 4);
     assert(apply_user_json_keep_local(CLOUD_NO_ASTRA) == 1);
     assert(net_load_astra() == 1);
-    assert(net_load_astra_level() == 3);
+    assert(net_load_astra_level() == 4);
     assert(net_load_class() == 4);
     puts("astra: an offline purchase, selection and levels survive an older cloud profile");
     return 0;
@@ -348,6 +366,12 @@ static int run_reinstall_levels(const char *dir) {
     assert(net_load_ordinary_levels_unlocked() == 2);
     assert(net_load_bp_level() == 4 && net_load_bp_xp() == 120);
     assert(net_load_azum_skin() == 3);
+    apply_user_json(
+        "{\"nick\":\"tester\",\"cups\":200,\"candies\":10,\"cls\":4,\"azum\":0,\"santa\":0,"
+        "\"ebuc\":0,\"astra\":1,\"azum_skin\":7}");
+    assert(net_load_azum_skin() == 7);
+    assert(SKIN_OF_CLASS(7, 1) == 1 && SKIN_OF_CLASS(7, 3) == 1 && SKIN_OF_CLASS(7, 4) == 1);
+    assert(SKIN_OF_CLASS(7, 6) == 0);
 
     /* Partial cloud profile with top-level levels restores active Astra/CodeCracker branch. */
     apply_user_json(
@@ -433,6 +457,7 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "stale-dirty") == 0) return run_stale_dirty(argv[2]);
     if (strcmp(argv[1], "lower-cups") == 0) return run_lower_cups(argv[2]);
     if (strcmp(argv[1], "clean") == 0) return run_clean(argv[2]);
+    if (strcmp(argv[1], "wheel-progress") == 0) return run_wheel_progress(argv[2]);
     if (strcmp(argv[1], "astra") == 0) return run_astra(argv[2]);
     if (strcmp(argv[1], "codecracker") == 0) return run_codecracker(argv[2]);
     if (strcmp(argv[1], "legacy-local") == 0) return run_legacy_local(argv[2]);
@@ -511,6 +536,12 @@ def main():
         subprocess.run([*run, "offline-buy", str(offline)], check=True)
         assert (offline / "progress.dirty").exists()
 
+        wheel = temp / "wheel"
+        wheel.mkdir()
+        subprocess.run([*run, "wheel-progress", str(wheel)], check=True)
+        saved = (wheel / "progress.dat").read_text(encoding="utf-8").split()
+        assert len(saved) == 27 and saved[17] == "48" and saved[25:] == ["4", "5"], saved
+
         clean = temp / "clean"
         clean.mkdir()
         subprocess.run([*run, "clean", str(clean)], check=True)
@@ -534,13 +565,13 @@ def main():
         astra.mkdir()
         subprocess.run([*run, "astra", str(astra)], check=True)
         saved = (astra / "progress.dat").read_text(encoding="utf-8").split()
-        assert len(saved) == 25 and saved[18:] == ["1", "3", "3", "0", "0", "0", "0"], saved
+        assert len(saved) == 27 and saved[18:] == ["1", "4", "4", "0", "0", "0", "0", "0", "0"], saved
 
         codecracker = temp / "codecracker"
         codecracker.mkdir()
         subprocess.run([*run, "codecracker", str(codecracker)], check=True)
         saved = (codecracker / "progress.dat").read_text(encoding="utf-8").split()
-        assert len(saved) == 25 and saved[22:25] == ["3", "3", "1"], saved
+        assert len(saved) == 27 and saved[22:25] == ["3", "3", "1"] and saved[25:] == ["0", "0"], saved
 
         legacy_local = temp / "legacy-local"
         legacy_local.mkdir()

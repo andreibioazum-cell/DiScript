@@ -233,6 +233,9 @@ static void pc_apply_event(PcEvent *e, int frame) {
     case 13:
         game_pc_pick_class(e->state);
         break;
+    case 15:
+        pc_ctl_snowball(e->action);
+        break;
     case 11: {
         float nx = 0, ny = 0, px = 0, py = 0, bx = 0, by = 0, bw = 0, bh = 0;
         const char *sep;

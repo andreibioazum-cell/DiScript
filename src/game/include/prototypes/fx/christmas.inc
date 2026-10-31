@@ -1,0 +1,14 @@
+static double christmas_active(void);
+static double christmas_snowballs_on(void);
+static double christmas_menu_active(void);
+static void update_christmas_snow(void);
+static void christmas_flake_grow(double count);
+static void christmas_flake_refresh(double b, double i, double cyc);
+static void draw_christmas_snow(void);
+static double christmas_music_active(void);
+static void update_christmas_jingle(void);
+static void update_christmas(void);
+static double christmas_snow_under_notice_active(void);
+static double christmas_snow_over_notice_active(void);
+static void draw_christmas_under_notices(void);
+static void draw_christmas_over_notices(void);

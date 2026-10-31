@@ -38,28 +38,63 @@ static void draw_lobby_money(void) {
     money_pair(cup_s, cd_s, lobby_label_x(lw + rw + money_gap), lobby_money_y(), money_scale, money_gap);
 }
 
+static void draw_lobby_halloween_environment(void) {
+    if (halloween_theme_on() == 0) {
+        return;
+    }
+    const double ground_h = 66;
+    rect(0, 0, screen_w, screen_h, 0xFF241207);
+    rect(0, screen_h - ground_h, screen_w, ground_h, 0xFF2D1708);
+    double i = 0;
+    while (i < 22) {
+        double hx = hash01(i * 3 + 317);
+        double hy = hash01(i * 7 + 491);
+        double hs = hash01(i * 13 + 205);
+        double fall = 3.8 + 3.5 * hs;
+        double x = 12 + hx * (screen_w - 24) + 8 * sin(snow_t * 0.45 + i);
+        double y = -12 + frac01(snow_t / fall + hy) * (screen_h + 24);
+        double twinkle = 0.65 + 0.35 * sin(snow_t * 2.0 + i * 1.8);
+        double radius = 2.2 + 2.1 * hs;
+        double rotation = snow_t * (0.7 + hs * 1.4) + i * 0.6;
+        uint32_t color = i - floor(i / 3) * 3 < 1 ? 0xDDEF7522 : 0xDDAE4215;
+        draw_star_rotated(x, y, radius, color, rotation);
+        circle(x, y, radius * 0.24 * twinkle, 0xDDFF9A35);
+        i = i + 1;
+    }
+}
+
 static void draw_lobby(void) {
     check_achievements();
     screen_fill();
+    draw_lobby_halloween_environment();
+    if (new_theme == 1) {
+        draw_lobby_npc_sprite();
+    }
     text("Cubic Battle 4", lobby_label_x(text_ink_width("Cubic Battle 4")), lobby_title_y(), text_color);
-    if (newyear_active() == 1) {
-        const char *banner = tr_newyear_banner();
+    if (christmas_active() == 1) {
+        const char *banner = tr_christmas_banner();
         text_scaled(banner, lobby_label_x(text_ink_width(banner) * 0.6), lobby_title_y() + 34,
-                    newyear_gold + 0xFF000000, 0.6);
+                    christmas_gold + 0xFF000000, 0.6);
     }
     draw_menu_button(0, tr_play());
     draw_menu_button(1, tr_shop());
     draw_menu_button(2, tr_settings());
     draw_menu_button(3, tr_account());
     draw_menu_button(4, tr_achievements());
+    if (admin_playing() == 1) {
+        const char *wheel_label = language == 1 ? "Колесо" : "Fortune wheel";
+        const char *wheel_count = ds_concat(wheel_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
+        button(wheel_count, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h);
+    }
     if (bpass_allowed() == 1) {
         button(language == 1 ? "Баттл-пасс" : "Battle Pass", bpass_corner_x(), bpass_corner_y(),
                bpass_corner_w(), btn_h);
     }
     draw_lobby_nick();
     draw_lobby_money();
+    lobby_ball_draw();
     if (new_theme == 1) {
-        draw_lobby_npc_cube();
+        draw_lobby_npc_dialogue();
     }
     if (str_len(banned_msg) > 0) {
         ctext(banned_msg, lobby_msg_y(), text_color);
@@ -72,11 +107,15 @@ static void draw_modes(void) {
     button(tr_solo(), menu_x(), modes_row(1), menu_btn_w(), btn_h);
     button(tr_online(), menu_x(), modes_row(2), menu_btn_w(), btn_h);
     button(tr_top(), menu_x(), modes_row(3), menu_btn_w(), btn_h);
-    if (seasonal_admin_allowed() == 1) {
-        button_scaled(tr_winter_toggle(), menu_x(), modes_row(4), menu_btn_w(), btn_h, 0.8);
+    /* The theme switch lives here, behind "Играть", where the old winter
+     * toggle used to be. A locked New Year theme stays in the cycle but is
+     * drawn grey: it is selected, yet the game keeps the ordinary look. */
+    if (active_theme_mode() == 1 && winter_theme_on() == 0) {
+        button_disabled_scaled(tr_theme_label(), menu_x(), modes_row(4), menu_btn_w(), btn_h,
+                               fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
     } else {
-        /* Winter theme is available only to signed-in CCP moderators. */
-        button_disabled_scaled(tr_winter_toggle(), menu_x(), modes_row(4), menu_btn_w(), btn_h, 0.8);
+        button_scaled(tr_theme_label(), menu_x(), modes_row(4), menu_btn_w(), btn_h,
+                      fit_text_scale(tr_theme_label(), menu_btn_w() - 24, 0.8));
     }
     /* The promo code lives in the bottom-right corner, out of the column. */
     button(tr_promo(), promo_corner_x(), promo_corner_y(), promo_corner_w(), btn_h);
@@ -88,8 +127,7 @@ static void draw_settings(void) {
     button("English", menu_x(), settings_row_y(1), menu_btn_w(), settings_btn_h());
     button("Русский", menu_x(), settings_row_y(2), menu_btn_w(), settings_btn_h());
     button(tr_hitboxes_toggle(), menu_x(), settings_row_y(3), menu_btn_w(), settings_btn_h());
-    button(tr_theme_label(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h());
-    button_scaled(tr_legal(), menu_x(), settings_row_y(5), menu_btn_w(), settings_btn_h(),
+    button_scaled(tr_legal(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h(),
                   fit_text_scale(tr_legal(), menu_btn_w() - 24, 0.8));
 }
 
@@ -105,7 +143,9 @@ static void draw_card_look(double look, double x, double y, double scale) {
 /* Draw rounded class portrait, falling back to battle sprite until card art uploads. */
 static void draw_class_render(double cls, double skin, double x, double y, double target_px) {
     if (class_card_render_ready(cls, skin) == 1) {
-        tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX, target_px * card_render_radius_frac);
+        /* Keep all class portraits at the same size inside their cards. */
+        tex_round(x, y, class_card_tex(cls, skin), target_px / CARD_RENDER_PX,
+                  target_px * card_render_radius_frac);
         return;
     }
     draw_card_look(card_look(cls, skin), x, y, target_px / 50);
@@ -276,6 +316,108 @@ static void draw_skins(void) {
     skin_msg_t = tick_down(skin_msg_t);
     draw_msg(tr_skins_note_for(player_class), skins_msg_y(), skin_msg_t);
     draw_back();
+}
+
+static void draw_wheel(void) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    screen_fill();
+    ctext(language == 1 ? "Колесо фортуны" : "Fortune wheel", title_y(), text_color);
+    draw_back();
+
+    double radius = wheel_ui_radius();
+    double cx = screen_w / 2;
+    double cy = wheel_ui_center_y();
+    double rotation = wheel_rotation;
+    if (wheel_anim_t > 0) {
+        double progress = clamp(1 - wheel_anim_t / WHEEL_SPIN_DURATION, 0, 1);
+        double eased = progress * progress * (3 - 2 * progress);
+        rotation = wheel_spin_start + wheel_spin_delta * eased;
+    }
+
+    const uint32_t colors[6] = {0xFF3384D8, 0xFF37A783, 0xFF39AAB8, 0xFFD85C68, 0xFF8263C7, 0xFF4C8FD0};
+    const char *values[6] = {"+1", "+3", "+5", "+10", "+15", "???"};
+    const char *units[6] = {"Кубки", "Кубки", "Кубки", "Кубки", "Кубки", ""};
+    if (language == 0) {
+        units[0] = "Cups";
+        units[1] = "Cups";
+        units[2] = "Cups";
+        units[3] = "Cups";
+        units[4] = "Cups";
+        units[5] = "";
+    }
+
+    const uint32_t wheel_outline = 0xFF828282;
+    const double wheel_outline_px = 4;
+    /* A single neutral-grey rim backs every sector; all dividers use the same stroke. */
+    circle(cx, cy, radius + wheel_outline_px, wheel_outline);
+    double slice = 0;
+    while (slice < 6) {
+        double center_deg = -90 + slice * 60 + rotation;
+        sector(cx, cy, radius, center_deg - 30, 60, colors[(int)slice]);
+        slice = slice + 1;
+    }
+    slice = 0;
+    while (slice < 6) {
+        double a = (-120 + slice * 60 + rotation) * 3.141592653589793 / 180;
+        line(cx, cy, cx + cos(a) * radius, cy + sin(a) * radius,
+             wheel_outline_px, wheel_outline);
+        slice = slice + 1;
+    }
+
+    slice = 0;
+    while (slice < 6) {
+        double a = (-90 + slice * 60 + rotation) * 3.141592653589793 / 180;
+        double px = cx + cos(a) * radius * 0.58;
+        double py = cy + sin(a) * radius * 0.58;
+        double label_w = radius * 0.62;
+        double label_h = radius * 0.38;
+        double label_y = py - label_h * 0.5;
+        double main_h = label_h * (units[(int)slice][0] ? 0.56 : 1.0);
+        double main_scale = fmin(fit_text_scale(values[(int)slice], label_w, 0.86),
+                                 fmax(0.20, (main_h - 2) / text_ink_height(values[(int)slice])));
+        double main_x = px - text_ink_width(values[(int)slice]) * main_scale * 0.5;
+        text_in_field(values[(int)slice], main_x, label_y, main_h, 0xFFFFFFFF, main_scale);
+        if (units[(int)slice][0]) {
+            double unit_y = label_y + main_h;
+            double unit_h = label_h - main_h;
+            double unit_scale = fmin(fit_text_scale(units[(int)slice], label_w, 0.48),
+                                     fmax(0.20, (unit_h - 2) / text_ink_height(units[(int)slice])));
+            double unit_x = px - text_ink_width(units[(int)slice]) * unit_scale * 0.5;
+            text_in_field(units[(int)slice], unit_x, unit_y, unit_h, 0xFFF2F5FF, unit_scale);
+        }
+        slice = slice + 1;
+    }
+
+    /* Monochrome hub: a near-black solid centre with a neutral grey outline. */
+    circle(cx, cy, radius * 0.23 - 2, 0xFF101010);
+    ring(cx, cy, radius * 0.23, wheel_outline_px, wheel_outline);
+    line(cx, cy - radius + 20, cx, cy - radius + 5, wheel_outline_px, wheel_outline);
+
+    const char *progress = ds_concat(language == 1 ? "Побед: " : "Wins: ",
+                                     ds_concat(ds_num_to_string((double)net_load_wheel_wins()), "/6"));
+    ctext_scaled(progress, cy + radius + 24, text_color, 0.55);
+    if (wheel_anim_t > 0) {
+        ctext_scaled(language == 1 ? "Колесо крутится..." : "The wheel is spinning...",
+                     cy + radius + 48, text_color, 0.46);
+    } else if (wheel_result_kind == 1) {
+        ctext_scaled(language == 1 ? "Выпал скин Pumpkin!" : "Pumpkin skin unlocked!",
+                     cy + radius + 48, 0xFFFFD166, 0.50);
+    } else if (wheel_result_kind == 2) {
+        const char *won = ds_concat(language == 1 ? "Выигрыш: +" : "You won +",
+                                    ds_concat(ds_num_to_string(wheel_result_cups), language == 1 ? " кубков" : " cups"));
+        ctext_scaled(won, cy + radius + 48, 0xFFFFD166, 0.50);
+    } else if (wheel_result_kind == 3) {
+        ctext_scaled(language == 1 ? "Прокруток нет" : "No spins available",
+                     cy + radius + 48, 0xFFFFFFFF, 0.50);
+    }
+    const char *spin_label = language == 1 ? "Крутить" : "Spin";
+    const char *spin_count = ds_concat(spin_label, ds_concat(" (", ds_concat(ds_num_to_string((double)net_load_wheel_spins()), ")")));
+    double spin_y = wheel_ui_button_y();
+    button(spin_count, center_x(btn_w), spin_y, btn_w, btn_h);
+
 }
 
 static double lb_place_bg(double i) {

@@ -7,6 +7,7 @@ static double admin_cheat_damage_mult(void);
 static double admin_cheat_speed_mult(void);
 static double admin_cheat_nocd(void);
 static double admin_cheat_ball_path(void);
+static double admin_cheat_autoblock(void);
 static double admin_any_cheat_on(void);
 static void admin_battle_stain_reset(void);
 static double admin_cups_allowed(void);

@@ -2,6 +2,9 @@ static void load_textures(void) {
     grass_tex_ok = png_load(GRASS);
     ordinary_tex_ok = png_load(ORDINARY_TEX);
     ordinary_punch_tex_ok = png_load(PUNCH_TEX);
+    ordinary_gold_tex_ok = png_load(ORDINARY_GOLD_TEX);
+    ordinary_gold_punch_tex_ok = png_load(ORDINARY_GOLD_PUNCH_TEX);
+    ordinary_pumpkin_tex_ok = png_load(ORDINARY_PUMPKIN_TEX);
     azum_tex_ok = png_load(AZUM_TEX);
     azum_punch_tex_ok = png_load(AZUM_PUNCH_TEX);
     azum_zombie_tex_ok = png_load(AZUM_ZOMBIE_TEX);
@@ -12,6 +15,8 @@ static void load_textures(void) {
     ebuc_punch_tex_ok = png_load(EBUC_PUNCH_TEX);
     ebuc_elf_tex_ok = png_load(EBUC_ELF_TEX);
     ebuc_elf_punch_tex_ok = png_load(EBUC_ELF_PUNCH_TEX);
+    astra_tex_ok = png_load(ASTRA_TEX);
+    astra_punch_tex_ok = png_load(ASTRA_PUNCH_TEX);
     png_load(DESPENSER_TEX);
     png_load(EBUC_ELF_DESPENSER_TEX);
     candy_tex_ok = png_load(CANDY_TEX);
@@ -35,6 +40,9 @@ static void recheck_texture_flags(void) {
     grass_tex_ok = flag_live(grass_tex_ok, GRASS);
     ordinary_tex_ok = flag_live(ordinary_tex_ok, ORDINARY_TEX);
     ordinary_punch_tex_ok = flag_live(ordinary_punch_tex_ok, PUNCH_TEX);
+    ordinary_gold_tex_ok = flag_live(ordinary_gold_tex_ok, ORDINARY_GOLD_TEX);
+    ordinary_gold_punch_tex_ok = flag_live(ordinary_gold_punch_tex_ok, ORDINARY_GOLD_PUNCH_TEX);
+    ordinary_pumpkin_tex_ok = flag_live(ordinary_pumpkin_tex_ok, ORDINARY_PUMPKIN_TEX);
     azum_tex_ok = flag_live(azum_tex_ok, AZUM_TEX);
     azum_punch_tex_ok = flag_live(azum_punch_tex_ok, AZUM_PUNCH_TEX);
     azum_zombie_tex_ok = flag_live(azum_zombie_tex_ok, AZUM_ZOMBIE_TEX);
@@ -45,8 +53,10 @@ static void recheck_texture_flags(void) {
     ebuc_punch_tex_ok = flag_live(ebuc_punch_tex_ok, EBUC_PUNCH_TEX);
     ebuc_elf_tex_ok = flag_live(ebuc_elf_tex_ok, EBUC_ELF_TEX);
     ebuc_elf_punch_tex_ok = flag_live(ebuc_elf_punch_tex_ok, EBUC_ELF_PUNCH_TEX);
+    astra_tex_ok = flag_live(astra_tex_ok, ASTRA_TEX);
+    astra_punch_tex_ok = flag_live(astra_punch_tex_ok, ASTRA_PUNCH_TEX);
     candy_tex_ok = flag_live(candy_tex_ok, CANDY_TEX);
-    if (winter_theme == 1) {
+    if (winter_theme_on() == 1) {
         snow_tex_ok = flag_live(snow_tex_ok, SNOW_TEX);
     }
 }
@@ -55,16 +65,20 @@ static double textures_all_ok(void) {
     if (grass_tex_ok == 0 || ordinary_tex_ok == 0 || santa_tex_ok == 0 || ebuc_tex_ok == 0) {
         return 0;
     }
-    if (ordinary_punch_tex_ok == 0 || azum_tex_ok == 0 || azum_punch_tex_ok == 0) {
+    if (ordinary_punch_tex_ok == 0 || ordinary_gold_tex_ok == 0 || ordinary_gold_punch_tex_ok == 0 ||
+        ordinary_pumpkin_tex_ok == 0 || azum_tex_ok == 0 || azum_punch_tex_ok == 0) {
         return 0;
     }
     if (azum_zombie_tex_ok == 0 || azum_zombie_punch_tex_ok == 0) {
         return 0;
     }
+    if (astra_tex_ok == 0 || astra_punch_tex_ok == 0) {
+        return 0;
+    }
     if (santa_punch_tex_ok == 0 || ebuc_punch_tex_ok == 0 || candy_tex_ok == 0) {
         return 0;
     }
-    if (winter_theme == 1 && snow_tex_ok == 0) {
+    if (winter_theme_on() == 1 && snow_tex_ok == 0) {
         return 0;
     }
     return 1;
@@ -88,6 +102,15 @@ static void reload_textures(void) {
     }
     if (grass_tex_ok == 0) {
         grass_tex_ok = png_load(GRASS);
+    }
+    if (ordinary_gold_tex_ok == 0) {
+        ordinary_gold_tex_ok = png_load(ORDINARY_GOLD_TEX);
+    }
+    if (ordinary_gold_punch_tex_ok == 0) {
+        ordinary_gold_punch_tex_ok = png_load(ORDINARY_GOLD_PUNCH_TEX);
+    }
+    if (ordinary_pumpkin_tex_ok == 0) {
+        ordinary_pumpkin_tex_ok = png_load(ORDINARY_PUMPKIN_TEX);
     }
     if (ordinary_tex_ok == 0) {
         ordinary_tex_ok = png_load(ORDINARY_TEX);
@@ -125,6 +148,12 @@ static void reload_textures(void) {
     if (ebuc_elf_punch_tex_ok == 0) {
         ebuc_elf_punch_tex_ok = png_load(EBUC_ELF_PUNCH_TEX);
     }
+    if (astra_tex_ok == 0) {
+        astra_tex_ok = png_load(ASTRA_TEX);
+    }
+    if (astra_punch_tex_ok == 0) {
+        astra_punch_tex_ok = png_load(ASTRA_PUNCH_TEX);
+    }
     if (tex_ready(DESPENSER_TEX) == 0) {
         png_load(DESPENSER_TEX);
     }
@@ -134,7 +163,7 @@ static void reload_textures(void) {
     if (candy_tex_ok == 0) {
         candy_tex_ok = png_load(CANDY_TEX);
     }
-    if (winter_theme == 1 && snow_tex_ok == 0) {
+    if (winter_theme_on() == 1 && snow_tex_ok == 0) {
         snow_tex_ok = png_load(SNOW_TEX);
     }
     if (textures_all_ok() == 1) {
@@ -143,7 +172,7 @@ static void reload_textures(void) {
 }
 
 static void apply_winter_theme(void) {
-    if (winter_theme == 1) {
+    if (winter_theme_on() == 1) {
         snow_tex_ok = png_load(SNOW_TEX);
         return;
     }

@@ -14,7 +14,7 @@
 #include "state/globals/combat/battle_event_dice.inc"
 #include "state/globals/combat/battle_event_columns.inc"
 #include "state/globals/fx/weather.inc"
-#include "state/globals/fx/newyear.inc"
+#include "state/globals/fx/christmas.inc"
 #include "state/globals/ui/chat_bubbles.inc"
 
 #include "objects.inc"
@@ -36,7 +36,7 @@ static void state_create(void) {
 #include "state/create/combat/battle_event_dice.inc"
 #include "state/create/combat/battle_event_columns.inc"
 #include "state/create/fx/weather.inc"
-#include "state/create/fx/newyear.inc"
+#include "state/create/fx/christmas.inc"
 #include "state/create/ui/chat_bubbles.inc"
 }
 
@@ -229,9 +229,9 @@ static void state_destroy(void) {
         arr_free(flake_cache);
         flake_cache = NULL;
     }
-    if (newyear_flake_cache) {
-        arr_free(newyear_flake_cache);
-        newyear_flake_cache = NULL;
+    if (christmas_flake_cache) {
+        arr_free(christmas_flake_cache);
+        christmas_flake_cache = NULL;
     }
     if (player) {
         player_free(player);

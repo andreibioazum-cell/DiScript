@@ -9,6 +9,7 @@ static void reset_battle(void) {
         player_vel_reset();
     reset_remote_smooth();
     ball_reset();
+    christmas_reset();
     player->max_hp = astra_ability_max_hp_for(player_class, astra_ability_local());
     player->hp = player->max_hp;
     player->size = 25 * player_scale;
@@ -63,7 +64,6 @@ static void reset_battle(void) {
     boom_x = 0;
     boom_y = 0;
     freeze_a = 0;
-    super_windup = 0;
     player_freeze = 0;
     player_freeze_slow = 1;
     pfreeze_a = 0;
@@ -176,6 +176,7 @@ static void reset_battle(void) {
     ds_gfx_gray(0);
     ds_gfx_shake(0, 0);
     player_block = 0;
+    block_success_t = 0;
     blk_id = -1;
     codecracker_touch_cd_left = 0;
     codecracker_super_t = 0;

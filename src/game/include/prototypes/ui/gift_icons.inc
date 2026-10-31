@@ -6,7 +6,4 @@ static const char *gift_rarity_name(double id);
 static uint32_t gift_rarity_color(double id);
 static void gift_text_rarity(const char *s, double x, double y, double w, double h, double id, double sc);
 static void gift_text_rarity_left(const char *s, double x, double y, double h, double id, double sc);
-static double gift_emerald_base_hue(void);
-static double gift_emerald_phase(void);
 static double gift_shimmer_time(void);
-static uint32_t gift_hue_color(double hue);

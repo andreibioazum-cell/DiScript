@@ -22,12 +22,19 @@
 программный растеризатор вместо Vulkan, WinHTTP вместо JNI и перевод
 клавиатуры в касания. Подробности: [docs/pc-version.md](docs/pc-version.md).
 
+## Музыка
+
+Три оригинальных трека: обычная и новогодняя темы лобби — по **70 секунд**,
+новая тема боя Азума против Астры — **45 секунд**. Старая песня
+`azum_vs_astra.wav` и исходный mp3 удалены; вся музыка собирается из нот
+скриптом `python3 tools/generate_music.py`. Подробности: [docs/music.md](docs/music.md).
+
 ## Веб-панель админа
 
 Кроме APK в репозитории есть веб-версия - [index.html](index.html): панель
 админа для базы Firebase (вход по нику и паролю от игры, снимок базы, поиск и
-удаление мусора, ивенты 0..5, баннер, флаги магазина, баны, чистка чата и
-слотов, резервная копия). Сборка не нужна: открой файл в браузере.
+удаление мусора, ивенты 0..5, баннер, флаги магазина, `Christmas` (снежки
+для всех классов), баны, чистка чата и слотов, резервная копия). Сборка не нужна: открой файл в браузере.
 
 Потренироваться без боевой базы можно так:
 
@@ -38,6 +45,11 @@ python3 test/fake_firebase.py 8080
 затем открой <http://localhost:8080/>, нажми «Тестовый режим» и войди как
 `Dimasi4ek229` с паролем `admin`. Подробности, список починенных поломок и
 проверки - в [docs/admin-panel.md](docs/admin-panel.md).
+
+Панель умеет чистить базу от **полей старых версий** - например,
+`gifts/emerald_hue` и `gifts/rose`, которые игра уже не использует. Оттенок
+`emerald_hue` уже удалён из Firebase rules; отдельный фильтр «Устаревшие поля»
+удаляет такие остатки из профилей, не трогая живой прогресс.
 
 ## Правовая информация
 
@@ -80,12 +92,19 @@ The game logic is shared with Android (`src/game`, `src/engine`); the PC layer
 is the window, a software rasterizer instead of Vulkan, WinHTTP instead of JNI
 and a keyboard-to-touch bridge. Details: [docs/pc-version.md](docs/pc-version.md).
 
+## Music
+
+Three original tracks: the ordinary and New Year lobby themes are **70 seconds**
+each, and the new Azum-vs-Astra duel theme is **45 seconds**. The old
+`azum_vs_astra.wav` song and its source mp3 are gone; every track is rebuilt
+from notes with `python3 tools/generate_music.py`. Details: [docs/music.md](docs/music.md).
+
 ## Web admin panel
 
 Besides the APK the repository contains a web version - [index.html](index.html):
 the Firebase admin panel (sign in with the game nick and password, database
-snapshot, junk search and cleanup, events 0..5, banner, shop flags, bans, chat
-and slot cleanup, backup copy). No build step: open the file in a browser.
+snapshot, junk search and cleanup, events 0..5, banner, shop flags, `Christmas`
+(snowballs for every class), bans, chat and slot cleanup, backup copy). No build step: open the file in a browser.
 
 To practise without touching the live database run
 
@@ -94,8 +113,10 @@ python3 test/fake_firebase.py 8080
 ```
 
 then open <http://localhost:8080/>, press the test-mode button and sign in as
-`Dimasi4ek229` with the password `admin`. Details in
-[docs/admin-panel.md](docs/admin-panel.md).
+`Dimasi4ek229` with the password `admin`. The panel also cleans obsolete fields
+from older game versions (`gifts/emerald_hue`, `gifts/rose`) with the dedicated
+legacy-field filter and button; `emerald_hue` is no longer accepted by Firebase
+rules. Details in [docs/admin-panel.md](docs/admin-panel.md).
 
 ## Legal
 

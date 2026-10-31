@@ -102,6 +102,22 @@ static void save_progress(void) {
     progress_push_to_net();
 }
 
+static void wheel_award_win(void) {
+    if (admin_playing() == 0) {
+        return;
+    }
+    int spins = net_load_wheel_spins();
+    int wins = net_load_wheel_wins() + 1;
+    if (wins >= 6) {
+        wins = 0;
+        if (spins < 999) spins++;
+        ds_log("Wheel quest complete: +1 spin");
+    }
+    wheel_spins = spins;
+    wheel_wins = wins;
+    net_save_wheel_progress(spins, wins);
+}
+
 static double skin_flags(void) {
     double f = 0;
     if (azum_skin == SKIN_SPECIAL) {
@@ -109,6 +125,15 @@ static double skin_flags(void) {
     }
     if (ebuc_skin == SKIN_SPECIAL) {
         f = f + 2;
+    }
+    if (astra_skin == SKIN_SPECIAL) {
+        f = f + 4;
+    }
+    if (ordinary_gold_owned == 1) {
+        f = f + 16;
+    }
+    if (ordinary_gold_skin == SKIN_SPECIAL) {
+        f = f + 32;
     }
     return f;
 }
@@ -132,6 +157,11 @@ static void progress_normalize(void) {
     if (ebuc_skin < SKIN_NORMAL || ebuc_skin >= SKIN_COUNT) {
         ebuc_skin = SKIN_NORMAL;
     }
+    if (astra_skin < SKIN_NORMAL || astra_skin >= SKIN_COUNT || class_owned_of(CLASS_ASTRA) == 0) {
+        astra_skin = SKIN_NORMAL;
+    }
+    ordinary_gold_owned = ordinary_gold_owned == 1 ? 1 : 0;
+    if (ordinary_gold_owned == 0) ordinary_gold_skin = SKIN_NORMAL;
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         azum_skin = SKIN_NORMAL;
     }
@@ -167,6 +197,8 @@ static void progress_normalize(void) {
 
 static void progress_from_storage(void) {
     bp_xp = net_load_bp_xp();
+    wheel_spins = net_load_wheel_spins();
+    wheel_wins = net_load_wheel_wins();
     bp_claimed = net_load_bp_level();
     if (bp_claimed < 0) bp_claimed = 0;
     if (bp_claimed > 7) bp_claimed = 7;
@@ -191,12 +223,11 @@ static void progress_from_storage(void) {
     astra_ability_refresh();
     codecracker_refresh();
     double skins = net_load_azum_skin();
-    ebuc_skin = SKIN_NORMAL;
-    if (skins >= 2) {
-        ebuc_skin = SKIN_SPECIAL;
-        skins = skins - 2;
-    }
-    azum_skin = skins;
+    azum_skin = skins - floor(skins / 2) * 2;
+    ebuc_skin = floor(skins / 2) - floor(skins / 4) * 2;
+    astra_skin = floor(skins / 4) - floor(skins / 8) * 2;
+    ordinary_gold_owned = floor(skins / 16) - floor(skins / 32) * 2;
+    ordinary_gold_skin = floor(skins / 32) - floor(skins / 64) * 2;
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         grant_achievement(ACH_LEGENDS);
     }
@@ -227,6 +258,11 @@ static void progress_reset_on_signout(void) {
     levels_unlocked = 0;
     azum_skin = SKIN_NORMAL;
     ebuc_skin = SKIN_NORMAL;
+    astra_skin = SKIN_NORMAL;
+    ordinary_gold_skin = SKIN_NORMAL;
+    ordinary_gold_owned = 0;
+    wheel_spins = 0;
+    wheel_wins = 0;
     achievement_mask = 0;
     azum_revive_count = 0;
     cheat_god = 0;
@@ -236,6 +272,7 @@ static void progress_reset_on_signout(void) {
     cheat_cc = 0;
     cheat_estun = 0;
     cheat_ball_path = 0;
+    cheat_autoblock = 0;
     cheat_stain = 0;
     cheat_estun_mark = 0;
     admin_panel_open = 0;
@@ -249,6 +286,8 @@ static void settings_from_storage(void) {
     show_hitboxes = net_load_hitboxes();
     winter_theme = net_load_winter_theme();
     new_theme = net_load_new_theme();
+    theme_mode = net_load_theme_mode();
+    theme_chosen = net_load_theme_chosen();
     apply_theme();
 }
 
@@ -256,4 +295,6 @@ static void save_settings(void) {
     net_save_settings(language, show_hitboxes);
     net_save_winter_theme(winter_theme);
     net_save_new_theme(new_theme);
+    net_save_theme_mode(theme_mode);
+    net_save_theme_chosen(theme_chosen);
 }

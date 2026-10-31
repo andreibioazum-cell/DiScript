@@ -5,7 +5,6 @@ Gift *gift;
 double enemy_class;
 double enemy_level;
 double enemy_super_cd;
-double enemy_super_windup;
 double enemy_super_kind;
 double enemy_revived;
 double enemy_revive_prot;
@@ -47,7 +46,6 @@ double super_cd;
 double boom_t;
 double boom_x;
 double boom_y;
-double super_windup;
 double queued_punch;
 double queued_super;
 double freeze_a;
@@ -75,6 +73,8 @@ double mb_edy;
 double mb_ok;
 double player_was_hit;
 double player_block;
+/* Short pulse set when a block/parry actually absorbs a hit. */
+double block_success_t;
 /* Player velocity and initial speed at braking start. */
 double player_vx;
 double player_vy;

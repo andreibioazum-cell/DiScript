@@ -329,7 +329,26 @@ static void draw_plate(double cx, double cy, double k, double lit) {
     }
 }
 
+static double weak_hit_plate_active(void) {
+    if (game_state != ST_ONLINE || event_mode != 6) return 0;
+    return fighter_on_plate(plate_ax(), plate_ay()) == 1 || fighter_on_plate(plate_bx(), plate_by()) == 1;
+}
+
+static double weak_hit_damage_mult(void) {
+    return weak_hit_plate_active() == 1 ? (1.0 / 3.0) : 1.0;
+}
+
 static void draw_event_plates(void) {
+    if (event_mode == 6) {
+        plate_a_lit = fighter_on_plate(plate_ax(), plate_ay());
+        plate_b_lit = fighter_on_plate(plate_bx(), plate_by());
+        draw_plate(plate_ax(), plate_ay(), 1, plate_a_lit);
+        draw_plate(plate_bx(), plate_by(), 1, plate_b_lit);
+        const char *hint = language == 1 ? "Встаньте на плиту: урон будет втрое меньше" : "Stand on a plate: hits deal one third damage";
+        double tw = text_ink_width(hint) * 0.46;
+        text_scaled(hint, (screen_w - tw) / 2, screen_h * 0.14, 0xFFFFFFFF, 0.46);
+        return;
+    }
     if (event_mode != 2 || plates_phase >= 3 || plates_finished == 1) {
         return;
     }

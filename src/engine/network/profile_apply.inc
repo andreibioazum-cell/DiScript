@@ -27,6 +27,8 @@ static void apply_user_json(const char *resp) {
     int bp_level = num_int(resp, "bp", 0);
     int bp_xp_v = num_int(resp, "bpx", -1);
     int azum_skin = num_int(resp, "azum_skin", 0);
+    int wheel_spins = num_int(resp, "wheel_spins", 0);
+    int wheel_wins = num_int(resp, "wheel_wins", 0);
     if (levels_unlocked < 0)
         levels_unlocked = level;
     if (cups < 0)
@@ -137,6 +139,10 @@ static void apply_user_json(const char *resp) {
         azum_skin = 0;
     if (azum_skin > SKIN_FLAGS_MAX)
         azum_skin = SKIN_FLAGS_MAX;
+    if (wheel_spins < 0) wheel_spins = 0;
+    if (wheel_spins > 999) wheel_spins = 999;
+    if (wheel_wins < 0) wheel_wins = 0;
+    if (wheel_wins > 5) wheel_wins = 5;
     pg_lock();
     pg.cups = cups;
     pg.candies = candies;
@@ -155,6 +161,8 @@ static void apply_user_json(const char *resp) {
     pg.ebuc_level = ebuc_level;
     pg.ebuc_levels_unlocked = ebuc_levels_unlocked;
     pg.bp_level = bp_level;
+    pg.wheel_spins = wheel_spins;
+    pg.wheel_wins = wheel_wins;
     if (bp_xp_v > pg.bp_xp)
         pg.bp_xp = bp_xp_v;
     pg.azum_skin = azum_skin;
@@ -178,7 +186,8 @@ static void apply_user_json(const char *resp) {
         progress_write(cups, candies, cls, azum, santa, ebuc, level, levels_unlocked, ordinary_level,
                        ordinary_levels_unlocked, azum_level, azum_levels_unlocked, santa_level, santa_levels_unlocked,
                        ebuc_level, ebuc_levels_unlocked, bp_level, azum_skin, astra, astra_level,
-                       astra_levels_unlocked, bpx_keep, codecracker_level, codecracker_levels_unlocked, codecracker);
+                       astra_levels_unlocked, bpx_keep, codecracker_level, codecracker_levels_unlocked, codecracker,
+                       wheel_spins, wheel_wins);
     }
 
     int cloud_ach_flags = num_int(resp, "ach_flags", -1);

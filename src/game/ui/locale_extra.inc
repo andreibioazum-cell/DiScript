@@ -47,11 +47,17 @@ static const char *tr_admin_ban_protected(void) {
 }
 
 static const char *tr_skins_note_for(double cls) {
+    if (cls == CLASS_ORDINARY) {
+        return language == 1 ? "Скин Pumpkin выпадает с колеса фортуны" : "Pumpkin skin is a Fortune wheel reward";
+    }
     if (cls == CLASS_EBUC) {
         if (language == 1) {
             return "Скин «Эльф»: достижение «Подарок буКа»";
         }
         return "Elf skin: \"ebuC's gift\" achievement";
+    }
+    if (cls == CLASS_ASTRA) {
+        return language == 1 ? "Скин открывается при покупке Астры" : "Skin included with Astra";
     }
     return tr_skins_need_legends();
 }

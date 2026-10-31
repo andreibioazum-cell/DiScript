@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Host tests for the live Firebase flags (AzumBuff, FlashSale),
+"""Host tests for the live Firebase flags (AzumBuff, FlashSale, Christmas),
 without Firebase access or real threads."""
 import os
 from pathlib import Path
@@ -22,15 +22,15 @@ typedef int DSThread;
 #define NET_FIREBASE_URL "https://test.invalid"
 static long long clock_ms = 100;
 static int thread_ok = 1, reads;
-static int azum_code = 200, sale_code = 200;
-static const char *azum_response = "1", *sale_response = "0";
-static void *(*pending[3])(void *);
-static void *pending_arg[3];
+static int azum_code = 200, sale_code = 200, xmas_code = 200;
+static const char *azum_response = "1", *sale_response = "0", *xmas_response = "0";
+static void *(*pending[4])(void *);
+static void *pending_arg[4];
 static int pending_n;
 static long long now_ms(void) { return clock_ms; }
 static DSThread ds_thread_start(void *(*fn)(void *), void *arg) {
     if (!thread_ok) return 0;
-    assert(pending_n < 3);
+    assert(pending_n < 4);
     pending[pending_n] = fn;
     pending_arg[pending_n] = arg;
     pending_n++;
@@ -45,9 +45,13 @@ static int fb_http(const char *method, const char *url, const char *body, char *
         snprintf(out, cap, "%s", azum_response);
         return azum_code;
     }
-    assert(strcmp(url, NET_FIREBASE_URL "/FlashSale.json") == 0);
-    snprintf(out, cap, "%s", sale_response);
-    return sale_code;
+    if (strcmp(url, NET_FIREBASE_URL "/FlashSale.json") == 0) {
+        snprintf(out, cap, "%s", sale_response);
+        return sale_code;
+    }
+    assert(strcmp(url, NET_FIREBASE_URL "/Christmas.json") == 0);
+    snprintf(out, cap, "%s", xmas_response);
+    return xmas_code;
 }
 #include "engine/network/live_flags.inc"
 static void complete_all(void) {
@@ -86,9 +90,15 @@ int main(void) {
     /* The console often stores these spellings; all three mean "on". */
     poll_azum("\"1\"", 200); assert(net_azum_buff() == 1);
     poll_azum("true", 200); assert(net_azum_buff() == 1);
-    /* One failed read must not kill a live flag; it expires by TTL instead. */
-    poll_azum("1", 403); assert(net_azum_buff() == 1);
-    poll_azum("", -1); assert(net_azum_buff() == 1);
+    /* Offline: a failed read drops the flag at once, so New Year, AzumBuff
+     * and FlashSale are all off without waiting for the TTL. */
+    assert(net_flags_reachable() == 1);
+    poll_azum("1", 403); assert(net_azum_buff() == 0);
+    poll_azum("", -1); assert(net_azum_buff() == 0);
+    assert(net_flags_reachable() == 0);
+    poll_azum("1", 200); assert(net_azum_buff() == 1);
+    assert(net_flags_reachable() == 1);
+    azum_response = "0";   /* the next poll keeps the flag off */
     clock_ms += LIVE_FLAG_TTL_MS;
     assert(net_azum_buff() == 0);
     complete_all();
@@ -112,13 +122,27 @@ int main(void) {
     assert(net_flash_sale() == 0 && net_azum_buff() == 0);
     complete_all();
     assert(net_flash_sale() == 0 && net_azum_buff() == 1);
+    /* Christmas is an independent third node with the same rules. */
+    assert(net_christmas() == 0);
+    complete_all(); /* Christmas fetch answered "0" */
+    assert(net_christmas() == 0);
+    xmas_response = "1";
+    clock_ms += LIVE_FLAG_POLL_MS;
+    assert(net_christmas() == 0);
+    complete_all();
+    assert(net_christmas() == 1);
+    xmas_response = "0";
+    net_live_flags_refresh();
+    assert(net_christmas() == 0);
+    complete_all();
+    assert(net_christmas() == 0);
     /* The flag simply follows the node; there is no account state that
      * could keep it off for one player and on for another. */
     assert(net_azum_buff() == 1);
     thread_ok = 0;
     clock_ms += LIVE_FLAG_POLL_MS;
     assert(net_azum_buff() == 0 && !pending_n);
-    puts("live flags: async polling, exact values, errors, expiry, account-free, shop refresh OK");
+    puts("live flags: async polling, exact values, offline reset, expiry, account-free, refresh OK");
 }
 '''
 

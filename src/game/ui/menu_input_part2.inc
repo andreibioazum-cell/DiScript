@@ -151,6 +151,8 @@ static double menu_button_hit(double x, double y) {
         return battle_back_hit(x, y);
     }
     if (game_state == ST_LOBBY) {
+        if (admin_playing() == 1 &&
+            hit_button(x, y, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1) return 1;
         while (i <= 4) {
             if (hit_menu_row(x, y, i) == 1) return 1;
             i = i + 1;
@@ -162,11 +164,11 @@ static double menu_button_hit(double x, double y) {
             if (hit_modes_row(x, y, i) == 1) return 1;
             i = i + 1;
         }
-        if (dev_access() == 1 && hit_modes_row(x, y, 4) == 1) return 1;
+        if (hit_modes_row(x, y, 4) == 1) return 1;
         return hit_promo_corner(x, y);
     }
     if (game_state == ST_SETTINGS) {
-        while (i <= 5) {
+        while (i <= 4) {
             if (hit_settings_row(x, y, i) == 1) return 1;
             i = i + 1;
         }
@@ -213,6 +215,10 @@ static double menu_button_hit(double x, double y) {
     if (game_state == ST_ROOMS) {
         return rooms_any_hit(x, y);
     }
+    if (game_state == ST_WHEEL) {
+        return hit_button(x, y, menu_x(), modes_row(0), menu_btn_w(), btn_h) == 1 ||
+               hit_button(x, y, center_x(btn_w), screen_h - 104, btn_w, btn_h) == 1;
+    }
     if (game_state == ST_ACHIEVEMENTS || game_state == ST_LEADERBOARD) {
         return back_hit(x, y);
     }
@@ -230,6 +236,10 @@ static void touch_menu(double x, double y, double action, double id) {
     }
     if (game_state == ST_ROOMS) {
         touch_rooms(x, y, action, id);
+        return;
+    }
+    if (game_state == ST_WHEEL) {
+        if (action == 0) touch_wheel(x, y);
         return;
     }
     if (action != 0) {

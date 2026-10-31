@@ -74,15 +74,19 @@ void net_publish_thud(double counter);
 void net_publish_block(double on);
 /* Publish ebuC's projectile state. */
 void net_publish_brick(double x, double y, double dx, double dy, double shot);
+void net_publish_xball(double x, double y, double dx, double dy, double shot);
 void net_publish_codecracker_super(double on);
 void net_set_class(double cls);
 double net_status(void);
 double net_slot(void);
-/* Live server flags (AzumBuff, FlashSale). */
+/* Live server flags (AzumBuff, FlashSale, Christmas). */
 double net_azum_buff(void);
 double net_flash_sale(void);
-/* Refresh both live server flags immediately. */
+double net_christmas(void);
+/* Refresh all live server flags immediately. */
 void net_live_flags_refresh(void);
+/* 1 while Firebase answers the flag poller (offline => ordinary game). */
+double net_flags_reachable(void);
 double net_event(void);
 void net_event_set(double mode);
 double net_player_online(double slot);
@@ -128,6 +132,11 @@ double net_player_brick_y(double slot);
 double net_player_brick_dx(double slot);
 double net_player_brick_dy(double slot);
 double net_player_brick(double slot);
+double net_player_xball_x(double slot);
+double net_player_xball_y(double slot);
+double net_player_xball_dx(double slot);
+double net_player_xball_dy(double slot);
+double net_player_xball(double slot);
 double net_player_codecracker_super(double slot);
 double net_player_dash(double slot);
 double net_player_dash_x(double slot);
@@ -160,6 +169,9 @@ double net_load_bp_level(void);
 void net_set_bp_xp(double v);
 double net_load_bp_xp(void);
 double net_load_azum_skin(void);
+int net_load_wheel_spins(void);
+int net_load_wheel_wins(void);
+void net_save_wheel_progress(int spins, int wins);
 
 double net_load_astra(void);
 double net_load_astra_level(void);
@@ -218,6 +230,10 @@ double net_load_winter_theme(void);
 void net_save_winter_theme(double on);
 double net_load_new_theme(void);
 void net_save_new_theme(double on);
+double net_load_theme_mode(void);
+void net_save_theme_mode(double mode);
+double net_load_theme_chosen(void);
+void net_save_theme_chosen(double on);
 
 void settings_mark_legal(void);
 double settings_legal_ts(void);
@@ -242,10 +258,13 @@ double net_gift_count(double gift);
 /* Adjust cached local count for one sticker. */
 void net_gift_count_add(double gift, double delta);
 void net_gift_refresh(void);
-double net_gift_action(double gift, const char *recipient, double grant, double hue);
+double net_gift_action(double gift, const char *recipient, double grant);
 double net_gift_action_status(void);
-double net_gift_hue(void);
-/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald). */
+#define NET_GIFT_PUMPKIN_CUBE_ID 5
+#define NET_GIFT_TYPE_COUNT 6
+#define NET_GIFT_SHOP_TYPE_COUNT 5
+
+/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald, 5 pumpkin cube). */
 double net_gift_types(void);
 double net_gift_price(double gift);
 double net_gift_refund(double gift);

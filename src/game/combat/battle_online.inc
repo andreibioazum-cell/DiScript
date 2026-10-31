@@ -393,6 +393,8 @@ static void update_online(void) {
     tick_hitbox_fades();
     update_aim();
     ball_online_tick(); /* Tick ebuC's projectiles against current remote positions. */
+    christmas_tick(); /* Christmas snowballs for every class. */
+    autoblock_tick(); /* Admin auto block / auto punch. */
     if (finished != 0) {
         return;
     }
@@ -414,7 +416,6 @@ static void update_online(void) {
         super_cd = 0;
     }
     boom_t = tick_down(boom_t);
-    tick_super_windup();
     tick_santa_follow();
     update_dust();
     update_gift();

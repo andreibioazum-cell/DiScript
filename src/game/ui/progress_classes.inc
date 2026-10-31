@@ -28,7 +28,7 @@ static void set_class_progress(double cls, double lv, double un) {
 #define FLASH_SALE_FRACTION 0.10
 
 static void update_flash_sale(void) {
-    double active = net_flash_sale();
+    double active = net_flags_reachable() == 1 ? net_flash_sale() : 0;
     if (active != flash_sale_active) {
         ds_log("flash sale %s (Firebase FlashSale read)", active == 1 ? "ON: all prices -10%" : "off");
     }
@@ -149,6 +149,12 @@ static double class_skin_of(double cls) {
     if (cls == CLASS_AZUM) {
         return azum_skin;
     }
+    if (cls == CLASS_ASTRA) {
+        return astra_skin;
+    }
+    if (cls == CLASS_ORDINARY) {
+        return ordinary_gold_skin;
+    }
     return SKIN_NORMAL;
 }
 
@@ -165,14 +171,26 @@ static double skin_unlocked_for(double cls, double skin) {
     if (cls == CLASS_AZUM && has_achievement(ACH_LEGENDS) == 1) {
         return 1;
     }
+    if (cls == CLASS_ASTRA && class_owned_of(CLASS_ASTRA) == 1) {
+        return 1;
+    }
+    if (cls == CLASS_ORDINARY && ordinary_gold_owned == 1) {
+        return 1;
+    }
     return 0;
 }
 
 static double skin_unlocked(double skin) { return skin_unlocked_for(player_class, skin); }
 
 static const char *skin_name_for(double cls, double skin) {
-    if (skin != SKIN_SPECIAL || (cls != CLASS_EBUC && cls != CLASS_AZUM)) {
+    if (skin != SKIN_SPECIAL || (cls != CLASS_EBUC && cls != CLASS_AZUM && cls != CLASS_ASTRA && cls != CLASS_ORDINARY)) {
         return tr_skin_normal();
+    }
+    if (cls == CLASS_ASTRA) {
+        return tr_skin_astra();
+    }
+    if (cls == CLASS_ORDINARY) {
+        return "Pumpkin";
     }
     if (cls == CLASS_EBUC) {
         return tr_skin_elf();
@@ -183,8 +201,14 @@ static const char *skin_name_for(double cls, double skin) {
 static const char *skin_name_of(double skin) { return skin_name_for(player_class, skin); }
 
 static const char *skin_hint_for(double cls) {
+    if (cls == CLASS_ORDINARY) {
+        return language == 1 ? "Награда колеса фортуны" : "Fortune wheel reward";
+    }
     if (cls == CLASS_EBUC) {
         return tr_skin_elf_hint();
+    }
+    if (cls == CLASS_ASTRA) {
+        return tr_skin_astra_hint();
     }
     return tr_skin_legends_hint();
 }
@@ -202,6 +226,11 @@ static void pick_skin(double skin) {
     }
     if (player_class == CLASS_EBUC) {
         ebuc_skin = skin;
+    } else if (player_class == CLASS_ASTRA) {
+        astra_skin = skin;
+    } else if (player_class == CLASS_ORDINARY) {
+        ordinary_gold_skin = skin;
+        ordinary_gold_owned = 1;
     } else {
         azum_skin = skin;
     }
@@ -428,6 +457,9 @@ static void pick_class(double cls) {
         if (cups < 0) cups = 0;
     }
     set_class_owned(cls, 1);
+    if (cls == CLASS_ASTRA) {
+        astra_skin = SKIN_SPECIAL;
+    }
     select_class(cls);
     ds_log("bought class %g", cls);
 }

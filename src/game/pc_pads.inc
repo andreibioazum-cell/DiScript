@@ -40,6 +40,13 @@ void game_pc_pads(float *ax, float *ay, float *a2x, float *a2y, float *bx, float
         *radius = (float)battle_pad_r();
 }
 
+/* Christmas snowball pad position for the PC keyboard bridge. */
+void game_pc_xmas_pad(float *x, float *y, float *r) {
+    if (x) *x = (float)christmas_pad_x();
+    if (y) *y = (float)christmas_pad_y();
+    if (r) *r = (float)christmas_pad_r();
+}
+
 /* The super pad is drawn (and armed) only for classes that have a super. */
 int game_pc_has_super(void) { return class_has_super(player_class) == 1 ? 1 : 0; }
 
@@ -90,7 +97,9 @@ double game_pc_charge(void) { return 0; }
 void game_pc_wheel(float steps) {
     if (docs_open == 1 || warn_open == 1 || studio_open == 1) return;
     if (acct_open == ACCT_GIFTS && acct_gift_view_open == 0) {
-        acct_gift_scroll_by(-(double)steps * 64.0);
+        double delta = -(double)steps * 64.0;
+        acct_gift_shop_scroll_by(delta);
+        acct_gift_scroll_by(delta);
     } else if (game_state == ST_ACHIEVEMENTS && acct_open == 0) {
         ach_scroll_by(-(double)steps * 64.0);
     } else if (game_state == ST_ROOMS && rooms_mode == ROOMS_MODE_LIST && acct_open == 0) {

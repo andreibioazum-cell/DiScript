@@ -72,7 +72,6 @@ static void finish_game(double result) {
     punch->hit = 0;
     punch_left = 0;
     astra_punch_t = 0;
-    super_windup = 0;
     santa_follow = 0;
     drop_joy();
     gift->active = 0;
@@ -86,11 +85,11 @@ static void finish_game(double result) {
     enemy_dash_active = 0;
     enemy_dash_t = 0;
     enemy_dash_hit = 0;
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
     enemy_grab_clear();
     /* Clear active projectiles when battle ends. */
     ball_clear_after_finish();
+    christmas_clear_after_finish();
     turret_heal_t = 0;
     universe_active = 0;
     keyboard_hide();
@@ -125,7 +124,7 @@ static void finish_game(double result) {
 }
 
 /* Apply battle cup payout and win achievements unless an admin cheat was used.
- * Online battles never move Cups: the cup ladder stays an offline reward. */
+ * Online matches normally leave Cups alone; the live plate event has a winner prize. */
 static void award_battle_result(double result) {
     int online = (game_state == ST_ONLINE);
     if (result == 1) {
@@ -135,6 +134,8 @@ static void award_battle_result(double result) {
         }
         if (online == 0) {
             cups = cups + cup_win;
+        } else if (event_mode == 6) {
+            cups = cups + 35;
         }
         if (candies_on() == 1) {
             candies = candies + candy_win;
@@ -142,13 +143,16 @@ static void award_battle_result(double result) {
         if (bpass_allowed() == 1) {
             bp_xp = bp_xp + 10;
         }
+        wheel_award_win();
         save_progress();
         grant_achievement(ACH_FIRST_WIN);
         /* Unlock flawless-win achievement when full HP and unhit (including turret shields). */
         if (player->hp >= player->max_hp && player_was_hit == 0) {
             grant_achievement(ACH_LAST_HP);
         }
-        if (online == 1) {
+        if (online == 1 && event_mode == 6) {
+            ds_log("win: weak-hit plate event, +35 cups +%g candies", candy_win);
+        } else if (online == 1) {
             ds_log("win: online battle, cups unchanged (+%g candies)", candy_win);
         } else {
             ds_log("win +%g cups +%g candies", cup_win, candy_win);
@@ -238,10 +242,10 @@ static void draw_player_body_layer(void) {
 }
 
 static double enemy_punching_now(void) {
-    if (enemy->state == 1 || enemy->state == 2 || enemy_dash_active > 0) {
+    if (enemy->state == 2 || enemy_dash_active > 0) {
         return 1;
     }
-    if (enemy_super_windup > 0 || enemy_grab_punching() == 1) {
+    if (enemy_grab_punching() == 1) {
         return 1;
     }
     return 0;
@@ -304,7 +308,7 @@ static void draw_pad(double cx, double cy, double r, uint32_t col, const char *l
     double s = 1 - PRESS_SQUEEZE * p;
     double rr = r * s;
     circle(cx, cy, rr, shade(col, 1 - PRESS_SHADE * p));
-    ring(cx, cy, rr, 4, 0x000000);
+    ring(cx, cy, rr, 2, 0x000000);
     text_in_box(label, cx - rr, cy - rr, rr * 2, rr * 2, 0xFFFFFF, scale * s);
 }
 
@@ -353,6 +357,7 @@ static void draw_controls(void) {
         draw_pad(atk2_x, atk2_y, battle_pad_r(), pad_col, sl, sls);
         draw_ult_mode();
     }
+    draw_christmas_pad();
     draw_battle_back();
 }
 
@@ -376,8 +381,12 @@ static void draw_result(const char *title) {
     }
     ctext_scaled(title, y + 36, 0xFFFFFF, 1.12);
     if (game_state == ST_ONLINE) {
-        /* An online fight leaves the cup ladder alone: say so instead of a number. */
-        ctext_scaled(tr_cups_online(), y + 126, 0xFFFFFF, 0.9);
+        if (event_mode == 6 && finished == 1 && admin_cups_allowed() == 1) {
+            ctext_scaled(language == 1 ? "Победа: +35 кубков" : "Victory: +35 cups", y + 126, 0xFFFFFF, 0.9);
+        } else {
+            /* Ordinary online fights leave the cup ladder alone. */
+            ctext_scaled(tr_cups_online(), y + 126, 0xFFFFFF, 0.9);
+        }
     } else if (admin_cups_allowed() == 0) {
         ctext_scaled(finished == 2 ? tr_cups_admin() : tr_cups_cheated(), y + 126, 0xFFFFFF, 0.9);
     } else if (finished == 2) {
@@ -398,6 +407,7 @@ static void draw_game(void) {
     draw_enemy_shadow();
     draw_turret_shadows();
     draw_candies();
+    draw_christmas_snowballs();
     draw_player_hitbox_layer();
     draw_enemy_hitbox();
     draw_ability_hitboxes();

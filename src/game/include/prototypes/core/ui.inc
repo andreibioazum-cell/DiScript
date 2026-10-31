@@ -12,6 +12,7 @@ static void text_in_field(const char *label, double x, double y, double h, uint3
 static double fit_text_scale(const char *s, double w, double max_scale);
 static void centered_text(const char *label, double x, double w, double y, uint32_t c, double scale);
 static void money_pair(const char *left, const char *right, double x, double y, double scale, double gap);
+static void draw_efy_gradient_nick(const char *nick, double x, double y, double scale);
 static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale);
 static void draw_nick_msg(const char *nick, const char *rest, double x, double y, uint32_t base, double scale);
 static void button_face(double x, double y, double w, double h, double col);

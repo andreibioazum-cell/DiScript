@@ -22,6 +22,8 @@ static const char *tr_class_need_candies(void);
 static const char *tr_skins(void);
 static const char *tr_skin_normal(void);
 static const char *tr_skin_zombie(void);
+static const char *tr_skin_astra(void);
+static const char *tr_skin_astra_hint(void);
 static const char *tr_skin_elf(void);
 static const char *tr_skin_elf_hint(void);
 static const char *tr_skin_legends_hint(void);

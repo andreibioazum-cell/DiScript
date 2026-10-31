@@ -5,12 +5,30 @@ static void play_button_click(void) {
     }
 }
 
+static const char *lobby_music_for_theme(void) {
+    return halloween_theme_on() == 1 ? HALLOWEEN_MUSIC : LOBBY_MUSIC;
+}
+
+static void select_lobby_music(void) {
+    const char *wanted = lobby_music_for_theme();
+    if (lobby_music_current != NULL && strcmp(lobby_music_current, wanted) == 0) {
+        return;
+    }
+    if (lobby_music_current != NULL && snd_playing(lobby_music_current) == 1) {
+        snd_stop(lobby_music_current);
+    }
+    lobby_music_current = wanted;
+    music_level = 0;
+    music_ok = snd_load(lobby_music_current);
+}
+
 static void start_music(void) {
-    music_ok = snd_load(LOBBY_MUSIC);
+    lobby_music_current = NULL;
+    select_lobby_music();
     if (music_ok == 1) {
         music_level = 1;
-        snd_volume(LOBBY_MUSIC, music_volume / 100);
-        snd_loop(LOBBY_MUSIC);
+        snd_volume(lobby_music_current, music_volume / 100);
+        snd_loop(lobby_music_current);
         ds_log("init: lobby music on");
     } else {
         ds_log("init: no lobby music");
@@ -18,13 +36,13 @@ static void start_music(void) {
     seraphim_ok = snd_load(SERAPHIM_MUSIC);
     if (seraphim_ok == 1) {
         seraphim_level = 0;
-        ds_log("init: seraphim battle music ready");
+        ds_log("init: duel theme ready");
     } else {
-        ds_log("init: no seraphim music");
+        ds_log("init: no duel theme");
     }
 }
 
-/* Azum vs Astra matchup music helpers. */
+/* Azum-vs-Astra matchup: the original 45 s duel theme (not the old song). */
 static int seraphim_is_astra(double cls) {
     return class_is_astra(cls) == 1 || cls == 5;
 }
@@ -72,8 +90,8 @@ static void update_seraphim_music(void) {
             seraphim_ok = snd_load(SERAPHIM_MUSIC);
             if (seraphim_ok == 0) return;
         }
-        if (snd_playing(LOBBY_MUSIC) == 1) {
-            snd_stop(LOBBY_MUSIC);
+        if (lobby_music_current != NULL && snd_playing(lobby_music_current) == 1) {
+            snd_stop(lobby_music_current);
             music_level = 0;
         }
         if (snd_playing(SERAPHIM_MUSIC) == 0) {
@@ -109,8 +127,9 @@ static void logic_init(void) {
     apply_theme();
     apply_winter_theme();
     start_music();
-    update_newyear_jingle();
+    update_christmas_jingle();
     cube_npc_tex_ok = png_load(CUBE_NPC_TEX);
+    helpy_npc_tex_ok = png_load(HELPY_NPC_TEX);
     cube_npc_d0 = "Привет! Я Куб-НПС!";
     cube_npc_d1 = "Добро пожаловать в Cubic Battle 4!";
     cube_npc_d2 = "Попробуй режим Solo или Online!";
@@ -120,23 +139,24 @@ static void logic_init(void) {
 }
 
 static void update_music(void) {
+    select_lobby_music();
     if (music_ok == 0) {
         return;
     }
-    if (game_state == ST_SOLO || game_state == ST_ONLINE || newyear_music_active() == 1) {
+    if (game_state == ST_SOLO || game_state == ST_ONLINE || christmas_music_active() == 1) {
         music_level = clamp(music_level - dt / music_fade_out_time, 0, 1);
-        snd_volume(LOBBY_MUSIC, music_volume / 100 * music_level);
-        if (music_level <= 0 && snd_playing(LOBBY_MUSIC) == 1) {
-            snd_stop(LOBBY_MUSIC);
+        snd_volume(lobby_music_current, music_volume / 100 * music_level);
+        if (music_level <= 0 && snd_playing(lobby_music_current) == 1) {
+            snd_stop(lobby_music_current);
         }
         return;
     }
-    if (snd_playing(LOBBY_MUSIC) == 0) {
+    if (snd_playing(lobby_music_current) == 0) {
         music_level = 0;
-        snd_loop(LOBBY_MUSIC);
+        snd_loop(lobby_music_current);
     }
     music_level = clamp(music_level + dt / music_fade_in_time, 0, 1);
-    snd_volume(LOBBY_MUSIC, music_volume / 100 * music_level);
+    snd_volume(lobby_music_current, music_volume / 100 * music_level);
 }
 
 static void logic_update(void) {
@@ -153,6 +173,7 @@ static void logic_update(void) {
     update_button_press();
     admin_tick();
     if (game_state == ST_LOBBY) {
+        lobby_ball_tick();
         cube_npc_bob_t = cube_npc_bob_t + dt;
         cube_npc_tick();
         if (cube_npc_dialogue_active == 1) {
@@ -175,12 +196,14 @@ static void logic_update(void) {
         update_promo();
     } else if (game_state == ST_ROOMS) {
         update_rooms();
+    } else if (game_state == ST_WHEEL) {
+        update_wheel();
     } else if (game_state == ST_ACHIEVEMENTS) {
         ach_scroll_tick();
     } else if (game_state == ST_CLASSES) {
         classes_scroll_tick();
     }
-    update_newyear();
+    update_christmas();
     update_weather();
 }
 
@@ -211,6 +234,8 @@ static void draw_screen(void) {
         draw_promo();
     } else if (game_state == ST_ROOMS) {
         draw_rooms();
+    } else if (game_state == ST_WHEEL) {
+        draw_wheel();
     } else {
         draw_online();
     }
@@ -225,7 +250,7 @@ static void logic_draw(void) {
         draw_studio();
     }
     /* Draw winter snow above studio splash but below epilepsy warning. */
-    draw_newyear_over_notices();
+    draw_christmas_over_notices();
     /* Draw legal documents modal above notices and screens. */
     if (docs_open == 1) {
         draw_docs();
@@ -305,7 +330,7 @@ static double logic_back(void) {
         start_transition(ST_CLASSES);
         return 1;
     }
-    if (game_state == ST_BPASS) {
+    if (game_state == ST_BPASS || game_state == ST_WHEEL) {
         start_transition(ST_LOBBY);
         return 1;
     }
@@ -397,6 +422,10 @@ static void logic_touch(double x, double y, double action, double id) {
         touch_rooms(x, y, action, id);
         return;
     }
+    if (game_state == ST_LOBBY && action != 0) {
+        touch_lobby(x, y, action, id);
+        return;
+    }
     if (action != 0) {
         return;
     }
@@ -409,7 +438,7 @@ static void logic_touch(double x, double y, double action, double id) {
         play_button_click();
     }
     if (game_state == ST_LOBBY) {
-        touch_lobby(x, y, 0);
+        touch_lobby(x, y, 0, id);
     } else {
         touch_menu(x, y, 0, id);
     }

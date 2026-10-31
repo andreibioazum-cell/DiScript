@@ -224,6 +224,36 @@ def check_guard(js_blocks: list[str]) -> None:
 def check_schema(html: str, js: str, rules: dict) -> None:
     root_keys = [k for k in rules if not k.startswith(".") and k != "$other"]
 
+    # Obsolete fields from older game versions must be listed, findable and
+    # cleanable from the panel, while the schema still mirrors the rules.
+    legacy = re.findall(r'"([^"]+)"\s*:', extract_const(js, "LEGACY_FIELDS") or "")
+    if not legacy:
+        error("в панели нет LEGACY_FIELDS - чистить мусор старых версий нечем")
+    for path in ("users/*/gifts/emerald_hue", "users/*/gifts/rose"):
+        if path not in legacy:
+            error(f"в LEGACY_FIELDS нет устаревшего поля {path}")
+    gift_panel = spec_fields(extract_const(js, "GIFT_FIELDS"))
+    user_panel = spec_fields(extract_const(js, "USER_FIELDS"))
+    for path in legacy:
+        key = path.rsplit("/", 1)[-1]
+        if key not in gift_panel and key not in user_panel:
+            gifts_rule = rules.get("users", {}).get("$nick", {}).get("gifts", {})
+            if key in gifts_rule:
+                error(f"устаревшее поле {key} не описано в схеме панели, хотя правила его допускают")
+    if 'data-k="legacy"' not in html:
+        error("у панели нет фильтра «Устаревшие поля»")
+    if "legacy" not in list_of(extract_const(js, "OLD_CLEAN_KINDS")):
+        error("общая чистка старых данных не захватывает устаревшие поля")
+    if "legacyWhy" not in js or "resetJanitorFilters" not in js:
+        error("панель не помечает и не чистит устаревшие поля")
+
+    # All visible labels start with a capital letter (except buK/ebuC names).
+    for needle in ('id="modePill">боевая', 'placeholder="ник"', '"готово: удалено',
+                   '"чистка завершена:', '"чищу ', '"удаляю ', '"meta - не объект"',
+                   '"больше допустимого ', '"неверный пароль или такого аккаунта'):
+        if needle in html:
+            error(f"надпись начинается с маленькой буквы: {needle}")
+
     for name in ("ROOT_OK", "ROOT_PARTS"):
         panel = list_of(extract_const(js, name))
         if not panel:
@@ -265,7 +295,7 @@ def check_schema(html: str, js: str, rules: dict) -> None:
 
     compare("banner", spec_fields(extract_const(js, "BANNER_FIELDS")), rules["banner"])
 
-        # Event range: the rules allow 0..5, so the panel buttons must match.
+        # Event range: the rules allow 0..6, so the event commands must match.
     event_rule = rules["event"][".validate"]
     upper = re.search(r"<=\s*(\d+)", event_rule)
     panel_max = extract_const(js, "EVENT_MAX")
@@ -360,6 +390,8 @@ def check_fake_server() -> None:
             error("админ не читает корень")
         if request(f"{base}/event.json?auth={admin}", "PUT", 4)[0] != 200:
             error("админ не пишет event=4 (кубик)")
+        if request(f"{base}/event.json?auth={admin}", "PUT", 6)[0] != 200:
+            error("админ не пишет event=6 (слабые удары)")
         if request(f"{base}/freeCupsHack.json?auth={admin}", "DELETE")[0] != 200:
             error("админ не удаляет корневой мусор")
 

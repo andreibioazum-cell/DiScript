@@ -94,13 +94,21 @@ static void check_gifts(void) {
     assert(strcmp(gift_id(2), "bear") == 0);
     assert(strcmp(gift_id(3), "rocket") == 0);
     assert(strcmp(gift_id(4), "emerald") == 0);
-    assert(strcmp(gift_id(5), "") == 0);
+    assert(strcmp(gift_id(NET_GIFT_PUMPKIN_CUBE_ID), "pumpkin_cube") == 0);
     assert(strcmp(gift_id(-1), "") == 0);
     assert(gift_price(0) == 25 && gift_price(1) == 100 && gift_price(2) == 250 && gift_price(3) == 400);
-    assert(gift_price(4) == 500 && gift_price(5) == 0 && gift_price(-1) == 0);
+    assert(gift_price(4) == 500 && gift_price(NET_GIFT_PUMPKIN_CUBE_ID) == 555 && gift_price(-1) == 0);
+    assert(gift_refund_for(NET_GIFT_PUMPKIN_CUBE_ID) == 0);
+    assert(gift_action_allowed(NET_GIFT_PUMPKIN_CUBE_ID, "Dimasi4ek229", 1));
+    assert(!gift_action_allowed(NET_GIFT_PUMPKIN_CUBE_ID, "dimasi4ek229", 2));
+    assert(!gift_action_allowed(NET_GIFT_PUMPKIN_CUBE_ID, "Dimasi4ek229", 3));
+    assert(!gift_action_allowed(NET_GIFT_PUMPKIN_CUBE_ID, "Player2", 1));
+    assert(!gift_action_allowed(NET_GIFT_PUMPKIN_CUBE_ID, "Player2", 2));
+    assert(gift_action_allowed(4, "Player2", 0));
     assert(net_gift_price(0) == 25 && net_gift_price(3) == 400);
-    assert(net_gift_price(4) == 500 && net_gift_price(5) == 0 && net_gift_price(-2) == 0);
-    assert(net_gift_types() == 5);
+    assert(net_gift_price(4) == 500 && net_gift_price(NET_GIFT_PUMPKIN_CUBE_ID) == 555 && net_gift_price(-2) == 0);
+    assert(net_gift_refund(NET_GIFT_PUMPKIN_CUBE_ID) == 0);
+    assert(net_gift_types() == NET_GIFT_TYPE_COUNT);
     /* A local change moves only its own counter: selling a poop must not
      * touch the emerald. */
     s_gift_counts[0] = 2;
@@ -130,6 +138,8 @@ static void check_gifts(void) {
     assert(strstr(body, "\"cups\":387") != NULL);
     assert(strstr(body, "\"gifts/emerald\":3") != NULL);
     assert(strstr(body, "\"gifts/poop\"") == NULL);
+    gift_body(body, sizeof(body), -1, NET_GIFT_PUMPKIN_CUBE_ID, 1);
+    assert(strstr(body, "\"gifts/pumpkin_cube\":1") != NULL);
 }
 static void check_bpx(void) {
     net_set_data_path(".");

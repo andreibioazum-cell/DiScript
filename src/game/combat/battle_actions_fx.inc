@@ -6,8 +6,8 @@ static void start_punch_now(void) {
     punch->active = 1;
     punch->shot = punch->shot + 1;
     punch->hit = 0;
-    punch_left = PUNCH_WINDUP + punch_time;
-    punch_cd = PUNCH_WINDUP + punch_cooldown;
+    punch_left = punch_time;
+    punch_cd = punch_cooldown;
     queued_punch = 0;
     punch_snd();
 }
@@ -24,7 +24,7 @@ static double station_boom_visual_busy(void) {
 }
 
 static double ultimate_visual_busy(void) {
-    if (super_windup > 0 || gift->active == 1 || universe_active == 1 || boom_t > 0) {
+    if (gift->active == 1 || universe_active == 1 || boom_t > 0) {
         return 1;
     }
     if (astra_locked() == 1) {
@@ -61,7 +61,7 @@ static void fire_punch(void) {
     }
     start_punch_now();
     if (player_class == 2) {
-        santa_follow = PUNCH_WINDUP + santa_follow_delay;
+        santa_follow = santa_follow_delay;
     }
 }
 
@@ -79,7 +79,7 @@ static void tick_santa_follow(void) {
     if (player_stun > 0 || player_block == 1 || player_grabbed() == 1 || plates_lock_me == 1) {
         return;
     }
-    if (super_windup > 0 || gift->active == 1 || universe_active == 1 || boom_t > 0) {
+    if (gift->active == 1 || universe_active == 1 || boom_t > 0) {
         return;
     }
     start_punch_now();
@@ -104,6 +104,8 @@ static void start_dash_now(void) {
     punch_left = 0;
     santa_follow = 0;
 }
+
+static void start_super_effect_now(void);
 
 static void fire_super(void) {
     if (player_grabbed() == 1) {
@@ -186,14 +188,9 @@ static void fire_super(void) {
         queued_super = 1;
         return;
     }
-    if (super_windup > 0) {
-        queued_super = 1;
-        return;
-    }
     santa_follow = 0;
     queued_super = 0;
-    super_windup = PUNCH_WINDUP;
-    punch_left = PUNCH_WINDUP;
+    punch_left = 0;
     punch->active = 0;
     punch->hit = 0;
     ability_snd(player_class == CLASS_SANTA ? GIFT_SOUND : STATION_SOUND);
@@ -204,17 +201,10 @@ static void fire_super(void) {
     } else {
         super_cd = super_cd_time;
     }
+    start_super_effect_now();
 }
 
-static void tick_super_windup(void) {
-    if (super_windup <= 0) {
-        return;
-    }
-    super_windup = super_windup - dt;
-    if (super_windup > 0) {
-        return;
-    }
-    super_windup = 0;
+static void start_super_effect_now(void) {
     if (finished != 0) {
         return;
     }
@@ -236,7 +226,7 @@ static void tick_super_windup(void) {
     }
     if (player_class == CLASS_EBUC) {
         place_turret();
-        ds_log("turret placed, alive %g/%g", turret_count_alive(), turret_max);
+        ds_log("Turret placed, alive %g/%g", turret_count_alive(), turret_max);
     }
 }
 
@@ -257,13 +247,15 @@ static double snow_radius_for(double shot) {
 }
 
 static double snow_zigzag_lateral(double t) {
-    double u = fmod(t, 0.20) / 0.20;
+    /* Make Santa's zigzag about 1.5x wider and 1.5x quicker. */
+    double period = 0.20 / 1.5;
+    double u = fmod(t, period) / period;
     double w;
     if (u < 0) {
         u = u + 1;
     }
     w = u < 0.25 ? 4 * u : (u < 0.75 ? 2 - 4 * u : 4 * u - 4);
-    return w * 32.0;
+    return w * 32.0 * 1.5;
 }
 
 static void snow_step_pos(double x0, double y0, double dx, double dy, double t, double shot, double *ox, double *oy) {

@@ -83,6 +83,7 @@ static void pc_apply_held_input(void) {
     pc_ctl_attack(pc_mouse_punch && pc_mouse_combat());
     pc_ctl_block(pc_key_down('E'));
     pc_ctl_super(pc_key_down('Q'));
+    pc_ctl_snowball(pc_key_down('C'));
 }
 
 static void pc_blit(void) {

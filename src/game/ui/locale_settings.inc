@@ -11,29 +11,31 @@ static const char *tr_hitboxes_toggle(void) {
     return "Hitboxes: OFF";
 }
 
-static const char *tr_winter_toggle(void) {
-    if (language == 1) {
-        if (winter_theme == 1) {
-            return "Зимняя тема: ВКЛ";
-        }
-        return "Зимняя тема: ВЫКЛ";
-    }
-    if (winter_theme == 1) {
-        return "Winter theme: ON";
-    }
-    return "Winter theme: OFF";
-}
-
-static const char *tr_newyear_banner(void) {
+static const char *tr_christmas_banner(void) {
     if (language == 1) {
         return "С Новым годом!";
     }
-    return "Happy New Year!";
+    return "Merry Christmas!";
 }
 
+/* Three themes in one button on the Play screen: ordinary, New Year (grey
+ * while unavailable) and Halloween. The label always says which one is active. */
 static const char *tr_theme_label(void) {
+    double mode = active_theme_mode();
     if (language == 1) {
-        return new_theme == 1 ? "Тема: Новая" : "Тема: Старая";
+        if (mode == 1) {
+            return winter_theme_on() == 1 ? "Тема: Новогодняя" : "Тема: Новогодняя (недоступна)";
+        }
+        if (mode == 2) {
+            return "Тема: Хэллоуин";
+        }
+        return "Тема: Обычная";
     }
-    return new_theme == 1 ? "Theme: New" : "Theme: Old";
+    if (mode == 1) {
+        return winter_theme_on() == 1 ? "Theme: New Year" : "Theme: New Year (locked)";
+    }
+    if (mode == 2) {
+        return "Theme: Halloween";
+    }
+    return "Theme: Ordinary";
 }

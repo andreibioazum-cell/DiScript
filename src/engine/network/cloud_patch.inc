@@ -228,6 +228,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     int sl = (int)santa_level, su = (int)santa_levels_unlocked;
     int el = (int)ebuc_level, eul = (int)ebuc_levels_unlocked;
     int bp = (int)bp_level, sk = (int)azum_skin;
+    int wheel_spins, wheel_wins;
 
     int at = 0, atl = 0, atu = 0;
     int cc = 0, ccl = 0, ccu = 0;
@@ -252,6 +253,8 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
 
     progress_read();
     pg_lock();
+    wheel_spins = pg.wheel_spins;
+    wheel_wins = pg.wheel_wins;
     if (pg.loaded) {
         if (pg.azum == 1)
             a = 1;
@@ -347,6 +350,12 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     pg.ebuc_level = el;
     pg.ebuc_levels_unlocked = eul;
     pg.bp_level = bp;
+    if (wheel_spins < 0) wheel_spins = 0;
+    if (wheel_spins > 999) wheel_spins = 999;
+    if (wheel_wins < 0) wheel_wins = 0;
+    if (wheel_wins > 5) wheel_wins = 5;
+    pg.wheel_spins = wheel_spins;
+    pg.wheel_wins = wheel_wins;
     pg.azum_skin = sk;
     pg.astra = at;
     pg.astra_level = atl;
@@ -359,7 +368,7 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
     pending_level = lv;
     pending_skin = SKIN_OF_CLASS(sk, k);
     progress_write(c, cd, k, a, sn, eu, lv, lu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu,
-                   (int)net_load_bp_xp(), ccl, ccu, cc);
+                   (int)net_load_bp_xp(), ccl, ccu, cc, wheel_spins, wheel_wins);
 
     char nick[LOGIN_NICK_MAX + 1] = "";
     lg_lock();
@@ -382,9 +391,9 @@ void net_save_progress_all(double cups, double candies, double cls, double azum,
                  "\"codecracker\":%d,\"level\":%d,\"levels\":%d,\"ordinary_level\":%d,\"ordinary_levels\":%d,"
                  "\"azum_level\":%d,\"azum_levels\":%d,\"santa_level\":%d,\"santa_levels\":%d,\"ebuc_level\":%d,"
                  "\"ebuc_levels\":%d,\"astra_level\":%d,\"astra_levels\":%d,\"codecracker_level\":%d,"
-                 "\"codecracker_levels\":%d,\"bp\":%d,\"bpx\":%d,\"azum_skin\":%d,\"ach_flags\":%u,\"ach_revives\":%u}",
+                 "\"codecracker_levels\":%d,\"bp\":%d,\"bpx\":%d,\"azum_skin\":%d,\"wheel_spins\":%d,\"wheel_wins\":%d,\"ach_flags\":%u,\"ach_revives\":%u}",
                  c, cd, k, a, sn, eu, at, cc, lv, lu, ol, ou, al, au, sl, su, el, eul, atl, atu, ccl, ccu, bp,
-                 (int)net_load_bp_xp(), sk, af, ar);
+                 (int)net_load_bp_xp(), sk, wheel_spins, wheel_wins, af, ar);
 
         cloud_dirty_set(1);
         queue_progress_patch(url, body);

@@ -18,8 +18,9 @@ static void draw_disco(void) {
 }
 
 static void update_event(void) {
-    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns. */
-    event_mode = net_event();
+    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates. */
+    /* Offline: no server-run events, everything is the ordinary battle. */
+    event_mode = net_flags_reachable() == 1 ? net_event() : 0;
     if (plates_round_on() == 1 && candies_on() == 0) {
         event_mode = 0;
     }
@@ -79,7 +80,9 @@ static double banner_color_now(const char *name) {
 }
 
 static void update_banner(void) {
-    if (game_state != ST_ONLINE) {
+    /* A lobby banner is a live server message; hide it while offline. */
+    if (game_state != ST_ONLINE || net_flags_reachable() != 1) {
+        banner_t = 0;
         return;
     }
     double ts = net_banner_ts();
@@ -136,6 +139,10 @@ static void draw_overhead_nick(const char *nick, double cx, double top_y, uint32
     double w = text_ink_width(nick) * 0.5;
     double th = text_ink_height(nick) * 0.5;
     double tt = text_ink_top(nick) * 0.5;
+    if (admin_nick_equal(nick, "Efy") == 1) {
+        draw_efy_gradient_nick(nick, cx - w / 2, top_y - 12 - th - tt, 0.5);
+        return;
+    }
     if (nick_shimmers(nick) == 1) {
         text_shimmer(nick, cx - w / 2, top_y - 12 - th - tt, col, 0.5, gift_shimmer_time());
         return;
@@ -204,6 +211,7 @@ static void draw_online(void) {
     draw_remote_bricks();
     draw_gift();
     draw_boom();
+    draw_christmas_snowballs();
     draw_remote_snow();
     draw_universe();
     draw_remote_universe();
@@ -355,6 +363,12 @@ static void touch_game(double x, double y, double action, double id) {
     /* Exit battle on back button press. */
     if (action == 0 && battle_back_hit(x, y) == 1) {
         start_transition(0);
+        return;
+    }
+    /* Christmas snowball pad: one throw per second for every class. The
+     * offset from the pad centre aims it, so any direction is possible. */
+    if (action == 0 && christmas_pad_hit(x, y) == 1) {
+        christmas_pad_throw(x, y);
         return;
     }
     /* Toggle ebuC's ultimate mode on mode-button press. */

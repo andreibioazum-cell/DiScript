@@ -88,8 +88,35 @@ static void money_pair(const char *left, const char *right, double x, double y, 
     text_scaled(right, x + lw + gap, y, text_color, scale);
 }
 
+static uint32_t efy_gradient_color(double t, double phase, int index) {
+    const double shimmer = 0.045 * sin(phase * 2.1 - index * 1.2);
+    const double gold_r = 1.0, gold_g = 0.78, gold_b = 0.20;
+    const double purple_r = 0.64, purple_g = 0.30, purple_b = 1.0;
+    t = clamp(t + shimmer, 0, 1);
+    uint32_t r = (uint32_t)floor((gold_r + (purple_r - gold_r) * t) * 255 + 0.5);
+    uint32_t g = (uint32_t)floor((gold_g + (purple_g - gold_g) * t) * 255 + 0.5);
+    uint32_t b = (uint32_t)floor((gold_b + (purple_b - gold_b) * t) * 255 + 0.5);
+    return 0xFF000000u | (r << 16) | (g << 8) | b;
+}
+
+static void draw_efy_gradient_nick(const char *nick, double x, double y, double scale) {
+    if (!nick || !admin_nick_equal(nick, "Efy")) return;
+    double phase = gift_shimmer_time();
+    int len = (int)strlen(nick);
+    for (int i = 0; i < len; i++) {
+        char glyph[2] = {nick[i], 0};
+        double t = len > 1 ? (double)i / (double)(len - 1) : 0;
+        text_scaled(glyph, x, y, efy_gradient_color(t, phase, i), scale);
+        x += text_ink_width(glyph) * scale;
+    }
+}
+
 static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale) {
     uint32_t col = admin_color_of(nick, base);
+    if (admin_nick_equal(nick, "Efy") == 1) {
+        draw_efy_gradient_nick(nick, x, y, scale);
+        return;
+    }
     if (nick_shimmers(nick) == 1) {
         text_shimmer(nick, x, y, col, scale, gift_shimmer_time());
         return;
@@ -191,14 +218,30 @@ static void outline_arc(double cx, double cy, double rr, double t, uint32_t c, d
 
 /* Apply active UI color palette (new purple theme vs classic rose theme). */
 static void apply_theme(void) {
-    if (new_theme == 1) {
+    if (active_theme_mode() == 2) {
+        /* Halloween: pumpkin-orange accents on a dark brown background. */
+        ui_purple = 0xFFE87922;
+        bg_screen = 0x241207;
+        bg_gradient_bottom = 0x5A2A0B;
+        card_bg = 0xFF32190A;
+        card_ring = 0xFFFF9A32;
+    } else if (active_theme_mode() == 1 && winter_theme_on() == 1) {
+        /* New Year: frosty blue. */
+        ui_purple = 0xFF3E7FB5;
+        bg_screen = 0x102A40;
+        bg_gradient_bottom = 0x2C5A78;
+        card_bg = 0xFF1E415C;
+        card_ring = 0xFF8FC8E8;
+    } else if (new_theme == 1) {
         ui_purple = 0xFF5F10A0;
         bg_screen = 0x1A1A2E;
+        bg_gradient_bottom = 0x4A2E82;
         card_bg = 0xFF2A2A40;
         card_ring = 0xFF5A5A78;
     } else {
         ui_purple = 0xFFD4508A;
         bg_screen = 0xFF3A1530;
+        bg_gradient_bottom = 0x4A2E82;
         card_bg = 0xFF44203A;
         card_ring = 0xFFE07BAE;
     }
@@ -242,15 +285,16 @@ static void screen_fill(void) {
     } else {
         double top = bg_screen;
         double bottom = bg_gradient_bottom;
-        if (newyear_active() == 1) {
-            top = newyear_bg_top;
-            bottom = newyear_bg_bottom;
+        if (active_theme_mode() == 1 && christmas_active() == 1) {
+            top = christmas_bg_top;
+            bottom = christmas_bg_bottom;
         }
         rect(0, 0, screen_w, screen_h, top);
         draw_bottom_gradient(top, bottom);
     }
-    /* Draw backdrop snow beneath UI controls and modals. */
-    draw_newyear_under_notices();
+    /* Draw New Year snow or Halloween embers beneath UI controls and modals. */
+    draw_christmas_under_notices();
+    draw_halloween_embers();
 }
 
 static void draw_bottom_gradient(double top, double bottom) {

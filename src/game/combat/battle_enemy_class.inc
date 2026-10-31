@@ -2,7 +2,6 @@ static void enemy_reset_class_state(void) {
     enemy_class = CLASS_ORDINARY;
     enemy_level = 0;
     enemy_super_cd = 0;
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
     enemy_revived = 0;
     enemy_revive_prot = 0;
@@ -69,7 +68,6 @@ static void enemy_pick_random_class(void) {
     enemy_revived = 0;
     enemy_revive_prot = 0;
     enemy_super_cd = enemy_first_super_min + (rand() % 100) / 100.0 * (enemy_first_super_max - enemy_first_super_min);
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
     enemy_dash_cd = enemy_first_super_min + (rand() % 100) / 100.0 * 2.0;
     enemy_dash_active = 0;
@@ -100,7 +98,8 @@ static double enemy_apply_damage(double dmg) {
         dmg_from_k = 0;
         return 1;
     }
-    /* Apply admin damage multiplier. */
+    /* Apply event and admin damage multipliers. */
+    dmg = dmg * weak_hit_damage_mult();
     dmg = dmg * admin_cheat_damage_mult();
     if (enemy_revive_prot > 0) {
         dmg_from_k = 0;
@@ -182,7 +181,6 @@ static double enemy_try_revive(void) {
     enemy_dash_active = 0;
     enemy_dash_t = 0;
     enemy_dash_hit = 0;
-    enemy_super_windup = 0;
     enemy_super_kind = 0;
     ds_log("enemy azum revived");
     return 1;

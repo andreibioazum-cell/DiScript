@@ -27,7 +27,7 @@ double net_load_astra_levels_unlocked(void) {
 
 void net_save_astra(double owned, double level, double levels_unlocked) {
     int own = owned ? 1 : 0, lv = (int)level, lu = (int)levels_unlocked;
-    int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, cc, ccl, ccu;
+    int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, cc, ccl, ccu, ws, ww;
     normalize_level_pair(&lv, &lu);
     progress_read();
     pg_lock();
@@ -68,6 +68,8 @@ void net_save_astra(double owned, double level, double levels_unlocked) {
     eul = pg.ebuc_levels_unlocked;
     bp = pg.bp_level;
     sk = pg.azum_skin;
+    ws = pg.wheel_spins;
+    ww = pg.wheel_wins;
     cc = pg.codecracker;
     ccl = pg.codecracker_level;
     ccu = pg.codecracker_levels_unlocked;
@@ -79,7 +81,7 @@ void net_save_astra(double owned, double level, double levels_unlocked) {
         pending_skin = 0;
     }
     progress_write(c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, own, lv, lu,
-                   (int)net_load_bp_xp(), ccl, ccu, cc);
+                   (int)net_load_bp_xp(), ccl, ccu, cc, ws, ww);
 }
 
 /* CodeCracker ownership and level accessors. */
@@ -114,7 +116,7 @@ double net_load_codecracker_levels_unlocked(void) {
 /* Save CodeCracker ownership and level state without rolling back unlocked tiers. */
 void net_save_codecracker(double owned, double level, double levels_unlocked) {
     int own = owned ? 1 : 0, lv = (int)level, lu = (int)levels_unlocked;
-    int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu;
+    int c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu, ws, ww;
     normalize_level_pair(&lv, &lu);
     progress_read();
     pg_lock();
@@ -155,6 +157,8 @@ void net_save_codecracker(double owned, double level, double levels_unlocked) {
     eul = pg.ebuc_levels_unlocked;
     bp = pg.bp_level;
     sk = pg.azum_skin;
+    ws = pg.wheel_spins;
+    ww = pg.wheel_wins;
     at = pg.astra;
     atl = pg.astra_level;
     atu = pg.astra_levels_unlocked;
@@ -166,7 +170,7 @@ void net_save_codecracker(double owned, double level, double levels_unlocked) {
         pending_skin = 0;
     }
     progress_write(c, cd, k, a, sn, eu, plv, plu, ol, ou, al, au, sl, su, el, eul, bp, sk, at, atl, atu,
-                   (int)net_load_bp_xp(), lv, lu, own);
+                   (int)net_load_bp_xp(), lv, lu, own, ws, ww);
 }
 
 /* Merge local CodeCracker ownership and unlocked levels under pg lock. */

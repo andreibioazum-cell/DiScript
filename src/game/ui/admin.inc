@@ -15,7 +15,7 @@ static double admin_tab = 0;
 static double admin_gift_choice = 0;
 static double admin_gift_busy = 0;
 static char admin_gift_target[24];
-static const char *admin_gift_names[5] = {"Poop", "Cake", "Teddy", "Rocket", "Emerald"};
+static const char *admin_gift_names[NET_GIFT_TYPE_COUNT] = {"Poop", "Cake", "Teddy", "Rocket", "Emerald", "Pumpkin Cube"};
 
 static double admin_header_h(void) { return clamp(screen_h * 0.03, 36, 56); }
 
@@ -37,13 +37,13 @@ static double admin_panel_w(void) {
 
 static double admin_row_h(void) { return clamp(screen_h * 0.066, 36, 76); }
 
-#define ADMIN_CHEATS 7
+#define ADMIN_CHEATS 8
 static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
 static double admin_content_h(void) {
     return (admin_tab == 0 || admin_gifts_allowed() == 0) ? admin_grid_h() + admin_row_h() + admin_gap()
-                                                          : 8 * admin_row_h() + 7 * admin_gap();
+                                                          : 9 * admin_row_h() + 8 * admin_gap();
 }
 
 static double admin_cheat_row_h(void) {
@@ -119,7 +119,10 @@ static const char *admin_cheat_label(double idx) {
         if (idx == 5) {
             return "Стан врага";
         }
-        return "Отскоки буКа";
+        if (idx == 6) {
+            return "Отскоки буКа";
+        }
+        return "Авто-блок";
     }
     if (idx == 0) {
         return "God mode";
@@ -139,7 +142,10 @@ static const char *admin_cheat_label(double idx) {
     if (idx == 5) {
         return "Stun enemy";
     }
-    return "ebuC's bounces";
+    if (idx == 6) {
+        return "ebuC's bounces";
+    }
+    return "Auto block";
 }
 
 static double admin_cheat_value(double idx) {
@@ -161,7 +167,10 @@ static double admin_cheat_value(double idx) {
     if (idx == 5) {
         return cheat_estun;
     }
-    return cheat_ball_path;
+    if (idx == 6) {
+        return cheat_ball_path;
+    }
+    return cheat_autoblock;
 }
 
 /* Return 1 while any admin cheat switch is active. */
@@ -170,7 +179,7 @@ static double admin_any_cheat_on(void) {
         return 0;
     }
     if (cheat_god == 1 || cheat_damage == 1 || cheat_speed == 1 || cheat_nocd == 1 || cheat_cc == 1 ||
-        cheat_estun == 1 || cheat_ball_path == 1) {
+        cheat_estun == 1 || cheat_ball_path == 1 || cheat_autoblock == 1) {
         return 1;
     }
     return 0;
@@ -231,6 +240,10 @@ static void admin_press_cheat(double idx) {
             ds_log("admin: ebuC's bounce path on");
         }
     }
+    if (idx == 7) {
+        cheat_autoblock = v;
+        ds_log(v == 1 ? "admin: auto block on" : "admin: auto block off");
+    }
 }
 
 static void admin_press(double idx) {
@@ -263,4 +276,8 @@ static double admin_cheat_nocd(void) {
 
 static double admin_cheat_ball_path(void) {
     return admin_modifiers_allowed() == 1 && cheat_ball_path == 1 ? 1 : 0;
+}
+
+static double admin_cheat_autoblock(void) {
+    return admin_modifiers_allowed() == 1 && cheat_autoblock == 1 ? 1 : 0;
 }

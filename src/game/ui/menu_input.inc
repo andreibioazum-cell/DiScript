@@ -187,20 +187,18 @@ static void open_leaderboard(void) {
     start_transition(ST_LEADERBOARD);
 }
 
-static void touch_lobby(double x, double y, double action) {
+static void touch_lobby(double x, double y, double action, double id) {
+    if (lobby_ball_touch(x, y, action, id) == 1) {
+        press_points_drop(id);
+        return;
+    }
     if (action != 0) {
         return;
     }
-    /* NPC cube tap or dialogue panel tap (the cube lives in the new theme) */
-    if (new_theme == 1 && (hit_npc_cube(x, y) == 1 || hit_npc_panel(x, y) == 1)) {
-        play_button_click();
-        cube_npc_tap();
-        return;
-    }
-    /* Advance or close active NPC dialogue without triggering underlying menu rows. */
+    /* Advance/close Helpy's dialogue first so it shields the menu underneath. */
     if (new_theme == 1 && cube_npc_dialogue_active == 1) {
         play_button_click();
-        cube_npc_tap();
+        cube_npc_tap(1);
         return;
     }
     if (hit_menu_row(x, y, 0) == 1) {
@@ -230,9 +228,22 @@ static void touch_lobby(double x, double y, double action) {
     }
     if (hit_menu_row(x, y, 4) == 1) {
         start_transition(ST_ACHIEVEMENTS);
+        return;
+    }
+    if (admin_playing() == 1 &&
+        hit_button(x, y, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1) {
+        start_transition(ST_WHEEL);
+        return;
     }
     if (bpass_allowed() == 1 && hit_bpass_corner(x, y) == 1) {
         start_transition(ST_BPASS);
+        return;
+    }
+    /* Menu controls take priority over Helpy where their hit areas overlap. */
+    if (new_theme == 1 && hit_npc_helpy(x, y) == 1) {
+        play_button_click();
+        cube_npc_tap(1);
+        return;
     }
 }
 
@@ -242,10 +253,14 @@ static void touch_modes(double x, double y) {
         return;
     }
     if (hit_modes_row(x, y, 4) == 1) {
-        if (seasonal_admin_allowed() == 0) {
-            return;
+        /* One press = next theme. Start from the effective one, so a holiday
+         * admin who never touched the button goes from New Year to Halloween. */
+        theme_mode = active_theme_mode() + 1;
+        if (theme_mode > 2) {
+            theme_mode = 0;
         }
-        winter_theme = 1 - winter_theme;
+        theme_chosen = 1;
+        apply_theme();
         apply_winter_theme();
         save_settings();
         return;
@@ -289,12 +304,6 @@ static void touch_settings(double x, double y) {
         return;
     }
     if (hit_settings_row(x, y, 4) == 1) {
-        new_theme = 1 - new_theme;
-        apply_theme();
-        save_settings();
-        return;
-    }
-    if (hit_settings_row(x, y, 5) == 1) {
         docs_transition(0, 0);
         return;
     }
@@ -383,5 +392,82 @@ static void touch_login(double x, double y, double action) {
         } else {
             start_transition(ST_LOBBY);
         }
+    }
+}
+
+
+static void update_wheel(void) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    wheel_spins = net_load_wheel_spins();
+    wheel_wins = net_load_wheel_wins();
+    if (wheel_anim_t > 0) {
+        wheel_anim_t = wheel_anim_t - dt;
+        if (wheel_anim_t <= 0) {
+            wheel_anim_t = 0;
+            wheel_rotation = fmod(wheel_spin_start + wheel_spin_delta, 360.0);
+            if (wheel_rotation < 0) wheel_rotation = wheel_rotation + 360.0;
+        } else {
+            double progress = clamp(1 - wheel_anim_t / WHEEL_SPIN_DURATION, 0, 1);
+            double eased = progress * progress * (3 - 2 * progress);
+            wheel_rotation = wheel_spin_start + wheel_spin_delta * eased;
+        }
+    }
+}
+
+static void wheel_spin_do(void) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    int spins = net_load_wheel_spins();
+    int wins = net_load_wheel_wins();
+    if (wheel_anim_t > 0) return;
+    if (spins <= 0) {
+        wheel_result_kind = 3;
+        return;
+    }
+    spins--;
+    wheel_result_kind = 0;
+    wheel_result_cups = 0;
+    int selected_slice;
+    if (rand() % 100 < 10 && ordinary_gold_owned == 0) {
+        ordinary_gold_owned = 1;
+        wheel_result_kind = 1;
+        selected_slice = 5;
+        save_progress();
+    } else {
+        int prize = rand() % 100;
+        int amount = prize < 30 ? 1 : prize < 55 ? 3 : prize < 75 ? 5 : prize < 92 ? 10 : 15;
+        cups = cups + amount;
+        wheel_result_cups = amount;
+        wheel_result_kind = 2;
+        selected_slice = amount == 1 ? 0 : amount == 3 ? 1 : amount == 5 ? 2 : amount == 10 ? 3 : 4;
+        save_progress();
+    }
+    wheel_result_slice = selected_slice;
+    wheel_spin_start = fmod(wheel_rotation, 360.0);
+    if (wheel_spin_start < 0) wheel_spin_start = wheel_spin_start + 360.0;
+    double align = fmod(360.0 - (selected_slice * 60.0 + wheel_spin_start), 360.0);
+    if (align < 0) align = align + 360.0;
+    wheel_spin_delta = 5 * 360.0 + align;
+    wheel_anim_t = WHEEL_SPIN_DURATION;
+    net_save_wheel_progress(spins, wins);
+}
+
+static void touch_wheel(double x, double y) {
+    if (admin_playing() == 0) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    if (back_hit(x, y) == 1) {
+        start_transition(ST_LOBBY);
+        return;
+    }
+    if (wheel_anim_t > 0) return;
+    if (hit_button(x, y, center_x(btn_w), wheel_ui_button_y(), btn_w, btn_h) == 1) {
+        wheel_spin_do();
     }
 }

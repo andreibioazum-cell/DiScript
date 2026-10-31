@@ -3,11 +3,13 @@
 #define PC_TOUCH_ATK 901
 #define PC_TOUCH_BLK 902
 #define PC_TOUCH_SUPER 903
+#define PC_TOUCH_XMAS 904
 
 static int pc_ctl_stick_on = 0;
 static int pc_ctl_atk_down = 0;
 static int pc_ctl_blk_down = 0;
 static int pc_ctl_super_down = 0;
+static int pc_ctl_xmas_down = 0;
 
 #ifdef _WIN32
 /* Called when the window loses focus: the game must not keep a key held. */
@@ -32,6 +34,11 @@ static void pc_ctl_release_all(void) {
         game_pc_pads(NULL, NULL, &x, &y, NULL, NULL, NULL);
         pc_touch(x, y, 1, PC_TOUCH_SUPER);
         pc_ctl_super_down = 0;
+    }
+    if (pc_ctl_xmas_down) {
+        game_pc_xmas_pad(&x, &y, NULL);
+        pc_touch(x, y, 1, PC_TOUCH_XMAS);
+        pc_ctl_xmas_down = 0;
     }
 }
 #endif
@@ -79,6 +86,20 @@ static void pc_ctl_pad_touch(int which, int down) {
         game_pc_pads(NULL, NULL, &x, &y, NULL, NULL, &r);
     pc_touch(x, y, down ? 0 : 1, which == 0 ? PC_TOUCH_ATK : which == 1 ? PC_TOUCH_BLK : PC_TOUCH_SUPER);
     *state = down;
+}
+
+/* C throws a Christmas snowball through the same touch path as the pad. */
+static void pc_ctl_snowball(int down) {
+    float x = 0, y = 0;
+    if (keyboard_visible() || !game_pc_in_battle()) {
+        down = 0;
+    }
+    if (down == pc_ctl_xmas_down) {
+        return;
+    }
+    game_pc_xmas_pad(&x, &y, NULL);
+    pc_touch(x, y, down ? 0 : 1, PC_TOUCH_XMAS);
+    pc_ctl_xmas_down = down;
 }
 
 static void pc_ctl_attack(int down) { pc_ctl_pad_touch(0, down); }

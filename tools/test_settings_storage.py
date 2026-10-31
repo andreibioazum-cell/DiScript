@@ -95,6 +95,12 @@ static int run_write(const char *dir) {
     assert(net_load_new_theme() == 1);
     net_save_new_theme(0);
     assert(net_load_new_theme() == 0);
+    assert(net_load_theme_mode() == 0);   /* ordinary theme by default */
+    net_save_theme_mode(2);
+    assert(net_load_theme_mode() == 2);   /* Halloween survives the save */
+    assert(net_load_theme_chosen() == 0);
+    net_save_theme_chosen(1);            /* the theme button was pressed */
+    assert(net_load_theme_chosen() == 1);
     assert(net_load_language() == 1);
     puts("native write: settings.dat created, local wins over cloud");
     return 0;
@@ -106,6 +112,8 @@ static int run_read(const char *dir) {
     assert(net_load_hitboxes() == 0);
     assert(net_load_music_volume() == 35);
     assert(net_load_new_theme() == 0);
+    assert(net_load_theme_mode() == 2);
+    assert(net_load_theme_chosen() == 1);
     puts("native read: a fresh process restores language, hitboxes, music volume and theme");
     return 0;
 }
@@ -133,6 +141,16 @@ static int run_legacy(const char *dir) {
     assert(net_load_language() == 0);
     assert(net_load_hitboxes() == 1);
     puts("native legacy: an old mod list is ignored and dropped on the next save");
+    return 0;
+}
+
+/* A save from the previous version has a style line but no chosen flag:
+ * it already counts as an explicit theme choice. */
+static int run_old_style(const char *dir) {
+    net_set_data_path(dir);
+    assert(net_load_theme_mode() == 2);
+    assert(net_load_theme_chosen() == 1);
+    puts("native old style: a saved theme counts as an explicit choice");
     return 0;
 }
 
@@ -277,6 +295,7 @@ int main(int argc, char **argv) {
     if (strcmp(argv[1], "phone") == 0 && argc >= 5) return run_phone(argv[2], argv[3], atoi(argv[4]));
     if (strcmp(argv[1], "consent") == 0) return run_consent(argv[2]);
     if (strcmp(argv[1], "delete") == 0) return run_delete(argv[2]);
+    if (strcmp(argv[1], "oldstyle") == 0) return run_old_style(argv[2]);
     if (strcmp(argv[1], "password") == 0) return run_password(argv[2]);
     fprintf(stderr, "unknown mode '%s'\n", argv[1]);
     return 2;
@@ -309,6 +328,8 @@ def main():
         assert "lang 1" in saved and "hitboxes 0" in saved, saved
         assert "musicvol 35" in saved, saved
         assert "theme 0" in saved, saved
+        assert "style 2" in saved, saved
+        assert "chosen 1" in saved, saved
         assert "mod" not in saved, saved
         subprocess.run([*run, "read", str(data)], check=True)
 
@@ -329,7 +350,15 @@ def main():
         rewritten = (legacy / "settings.dat").read_text(encoding="utf-8")
         assert "lang 0" in rewritten and "hitboxes 1" in rewritten, rewritten
         assert "musicvol 70" in rewritten, rewritten
+        assert "chosen 0" in rewritten, rewritten
         assert "mod" not in rewritten, rewritten
+
+        old_style = temp / "old-style-device"
+        old_style.mkdir()
+        (old_style / "settings.dat").write_text(
+            "lang 1\nhitboxes 0\nmusicvol 60\ntheme 1\nstyle 2\n",
+            encoding="utf-8")
+        subprocess.run([*run, "oldstyle", str(old_style)], check=True)
 
         legal = temp / "legal-device"
         legal.mkdir()

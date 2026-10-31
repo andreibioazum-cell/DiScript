@@ -89,7 +89,7 @@ static const char *tr_class_level_effect(double cls, double n) {
     if (cls == CLASS_CODECRACKER) {
         /* CodeCracker level descriptions. */
         if (n == 1) {
-            return language == 1 ? "Укус: урон +10%" : "Bite: damage +10%";
+            return language == 1 ? "Разгон: урон касанием +10%" : "Overclock: contact damage +10%";
         }
         if (n == 2) {
             return language == 1 ? "Ульта: перезарядка 3 с" : "Ult: cooldown 3 s";
@@ -266,6 +266,14 @@ static const char *tr_skin_zombie(void) {
         return "Зомби";
     }
     return "Zombie";
+}
+
+static const char *tr_skin_astra(void) {
+    return "Xastra";
+}
+
+static const char *tr_skin_astra_hint(void) {
+    return language == 1 ? "Открывается при покупке Астры" : "Unlocked with Astra";
 }
 
 static const char *tr_skin_elf(void) {

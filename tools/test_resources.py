@@ -118,6 +118,12 @@ def check_assets() -> None:
             names |= set(re.findall(r'"([A-Za-z0-9_./-]+\.png)"', source.read_text(encoding="utf-8")))
     assert names, "В исходниках не найдены ссылки на текстуры"
     assert (ROOT / "assets" / "textures" / "Event columns.png").is_file(), "Не найдена текстура дня рождения колонок"
+    helpy = ROOT / "assets" / "textures" / "npc_helpy.png"
+    assert helpy.is_file(), "Не найдена текстура NPC Хелпи"
+    with helpy.open("rb") as sprite:
+        header = sprite.read(24)
+    assert header[:8] == b"\x89PNG\r\n\x1a\n", "Текстура Хелпи должна быть PNG"
+    assert (int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")) == (512, 512), "Текстура Хелпи должна быть 512x512"
     missing = [
         name for name in sorted(names)
         if not (ROOT / "assets" / "textures" / name.split("/")[-1]).is_file()
@@ -125,9 +131,13 @@ def check_assets() -> None:
     assert not missing, f"Не найдены текстуры: {missing}"
 
     required = (
+        ROOT / "assets" / "textures" / "ordinary_pumpkin_card.png",
+        ROOT / "assets" / "textures" / "ordinary_pumpkin.png",
+        ROOT / "assets" / "textures" / "astra_xastra_card.png",
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",
-        ROOT / "assets" / "audio" / "azum_vs_astra.wav",
+        ROOT / "assets" / "audio" / "halloween_lobby.wav",
+        ROOT / "assets" / "audio" / "duel_theme.wav",
         ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
         ROOT / "assets" / "shaders" / "sprite.vert",
         ROOT / "assets" / "shaders" / "solid.frag",
@@ -138,8 +148,10 @@ def check_assets() -> None:
         assert asset.is_file(), f"Не найден ресурс: {asset.relative_to(ROOT)}"
 
     durations = {
-        "lobbymusic.wav": 35,
-        "winter_jingle.wav": 35,
+        "lobbymusic.wav": 70,
+        "winter_jingle.wav": 70,
+        "halloween_lobby.wav": 70,
+        "duel_theme.wav": 45,
     }
     for name, expected in durations.items():
         path = ROOT / "assets" / "audio" / name
@@ -148,15 +160,25 @@ def check_assets() -> None:
             duration = audio.getnframes() / audio.getframerate()
             assert abs(duration - expected) < 0.001, f"Неверная длительность {name}: {duration}"
 
-    with wave.open(str(ROOT / "assets" / "audio" / "azum_vs_astra.wav"), "rb") as seraphim:
-        assert seraphim.getnchannels() == 2 and seraphim.getsampwidth() == 2, "Неверный формат azum_vs_astra.wav"
-        rate = seraphim.getframerate()
-        assert seraphim.getnframes() / rate >= 30.0, "azum_vs_astra.wav слишком короткий"
-        head = seraphim.readframes(rate * 5)
+    # The old "Azum vs Astra" song and its reference mp3 must stay removed.
+    assert not (ROOT / "assets" / "audio" / "azum_vs_astra.wav").exists(), "Старая песня azum_vs_astra.wav вернулась"
+    assert not (ROOT / "And_The_Seraphim_Wept.mp3").exists(), "Сторонний mp3 снова в репозитории"
+    assert not (ROOT / "tools" / "generate_seraphim.py").exists(), "Генератор старой песни снова в репозитории"
+
+    with wave.open(str(ROOT / "assets" / "audio" / "duel_theme.wav"), "rb") as duel:
+        assert duel.getnchannels() == 2 and duel.getsampwidth() == 2, "Неверный формат duel_theme.wav"
+        rate = duel.getframerate()
+        head = duel.readframes(rate * 5)
         import struct, math
         samples = struct.unpack("<" + "h" * (len(head) // 2), head)
         rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
-        assert rms5 >= 4000.0, f"azum_vs_astra.wav слишком тихий в начале боя (RMS={rms5:.1f})"
+        assert rms5 >= 4000.0, f"duel_theme.wav слишком тихий в начале боя (RMS={rms5:.1f})"
+
+    with wave.open(str(ROOT / "assets" / "audio" / "halloween_lobby.wav"), "rb") as halloween:
+        head = halloween.readframes(halloween.getframerate() * 5)
+        samples = struct.unpack("<" + "h" * (len(head) // 2), head)
+        rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
+        assert rms5 >= 2500.0, f"halloween_lobby.wav слишком тихий (RMS={rms5:.1f})"
 
 
 def check_port_layout() -> None:

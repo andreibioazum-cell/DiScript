@@ -342,13 +342,14 @@ static void update_game(void) {
     tick_candies();
     follow_punch();
     ball_tick();
+    christmas_tick();
+    autoblock_tick();
     ball_fade_tick();
     super_cd = tick_down(super_cd);
     if (admin_cheat_nocd() == 1) {
         super_cd = 0;
     }
     boom_t = tick_down(boom_t);
-    tick_super_windup();
     tick_santa_follow();
     punch_left = tick_down(punch_left);
     if (punch->active == 1 && punch->hit == 0 && punch_left <= punch_time + 1e-9) {

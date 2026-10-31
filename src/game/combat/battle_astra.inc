@@ -84,6 +84,7 @@ static void start_astra_parry_now(void) {
 
 static void astra_on_parry_block(void) {
     astra_parry_blocked = 1;
+    block_success_t = 0.75;
     if (astra_grab_ready_t > 0) {
         astra_grab_ready_t = ASTRA_STRIKE_WINDOW;
     } else if (astra_strike_unlock_t <= 0) {

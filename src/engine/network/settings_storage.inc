@@ -3,7 +3,7 @@
 typedef struct {
     DSMutex lock;
     int loaded, has_file;
-    int language, hitboxes, musicvol, winter, theme;
+    int language, hitboxes, musicvol, winter, theme, mode, chosen;
     int legal;
     int pdc, pdv; /* Personal data consent timestamp and revision. */
 } Settings;
@@ -38,7 +38,9 @@ static void settings_read(void) {
     FILE *f;
         /* -1: no language in the file, use the phone language. */
     int language = -1, hitboxes = 1, musicvol = 70, has_file = 0;
-    int winter = 0, legal = 0, theme = 1, pdc = 0, pdv = 0;
+    int winter = 0, legal = 0, theme = 1, mode = 0, pdc = 0, pdv = 0;
+    /* -1 = no saved choice yet; an old style line counts as a choice. */
+    int chosen = -1;
     st_lock();
     if (st.loaded) {
         st_unlock();
@@ -71,6 +73,17 @@ static void settings_read(void) {
                 theme = value;
                 continue;
             }
+            if (sscanf(line, "style %d", &value) == 1) {
+                mode = value;
+                if (chosen < 0) {
+                    chosen = 1;
+                }
+                continue;
+            }
+            if (sscanf(line, "chosen %d", &value) == 1) {
+                chosen = value;
+                continue;
+            }
             if (sscanf(line, "legal %d", &value) == 1) {
                 legal = value;
                 continue;
@@ -94,6 +107,8 @@ static void settings_read(void) {
     st.musicvol = musicvol < 0 ? 0 : (musicvol > 100 ? 100 : musicvol);
     st.winter = winter ? 1 : 0;
     st.theme = theme ? 1 : 0;
+    st.mode = mode >= 0 && mode <= 2 ? mode : 0;
+    st.chosen = chosen > 0 ? 1 : 0;
     st.legal = legal;
     st.pdc = pdc > 0 ? pdc : 0;
     st.pdv = pdc > 0 && pdv > 0 ? pdv : 0;
@@ -107,8 +122,11 @@ static void settings_write(void) {
     settings_read();
     data_file_path(path, sizeof(path), SETTINGS_FILE);
     st_lock();
-    snprintf(text, sizeof(text), "lang %d\nhitboxes %d\nmusicvol %d\nwinter %d\ntheme %d\nlegal %d\npdc %d\npdv %d\n",
-             st.language, st.hitboxes, st.musicvol, st.winter, st.theme, st.legal, st.pdc, st.pdv);
+    snprintf(text, sizeof(text),
+             "lang %d\nhitboxes %d\nmusicvol %d\nwinter %d\ntheme %d\nstyle %d\nchosen %d\nlegal %d\n"
+             "pdc %d\npdv %d\n",
+             st.language, st.hitboxes, st.musicvol, st.winter, st.theme, st.mode, st.chosen, st.legal, st.pdc,
+             st.pdv);
     st.has_file = 1;
     st_unlock();
     file_write_atomic(path, text);
@@ -214,6 +232,45 @@ void net_save_new_theme(double on) {
     settings_read();
     st_lock();
     st.theme = on ? 1 : 0;
+    st.loaded = 1;
+    st_unlock();
+    settings_write();
+}
+
+/* Three-way menu theme: 0 ordinary, 1 New Year, 2 Halloween. */
+double net_load_theme_mode(void) {
+    double v;
+    settings_read();
+    st_lock();
+    v = (double)st.mode;
+    st_unlock();
+    return v;
+}
+
+void net_save_theme_mode(double mode) {
+    settings_read();
+    st_lock();
+    st.mode = mode >= 0 && mode <= 2 ? (int)mode : 0;
+    st.loaded = 1;
+    st_unlock();
+    settings_write();
+}
+
+/* Whether the player ever pressed the theme button. Old saves with a style
+ * line count as an explicit choice, so their theme is respected at once. */
+double net_load_theme_chosen(void) {
+    double v;
+    settings_read();
+    st_lock();
+    v = (double)st.chosen;
+    st_unlock();
+    return v;
+}
+
+void net_save_theme_chosen(double on) {
+    settings_read();
+    st_lock();
+    st.chosen = on ? 1 : 0;
     st.loaded = 1;
     st_unlock();
     settings_write();
