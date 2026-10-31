@@ -507,6 +507,13 @@ void bye_notice_show(const char *text) {
 }
 static int fx_ring_count;
 static int fx_big_circle_count;
+static int wheel_outline_capture;
+static int wheel_capture_line_n;
+static uint32_t wheel_capture_line_color[16];
+static float wheel_capture_line_width[16];
+static int wheel_capture_ring_n;
+static uint32_t wheel_capture_ring_color[4];
+static float wheel_capture_ring_width[4];
 static int emerald_tint_draws;
 static uint32_t last_emerald_tint;
 void ring(float x, float y, float r, float t, uint32_t color) {
@@ -514,7 +521,11 @@ void ring(float x, float y, float r, float t, uint32_t color) {
     (void)x;
     (void)y;
     (void)r;
-    (void)t;
+    if (wheel_outline_capture && wheel_capture_ring_n < 4) {
+        wheel_capture_ring_color[wheel_capture_ring_n] = color;
+        wheel_capture_ring_width[wheel_capture_ring_n] = t;
+        wheel_capture_ring_n++;
+    }
     adm_record_color(color);
 }
 void tex_tint(float x, float y, const char *name, float angle, float scale, uint32_t color) {
@@ -715,7 +726,11 @@ int text_ink_top(const char *s) {
 void line(float x1, float y1, float x2, float y2, float thickness, uint32_t color) {
     double d1 = hypot(x1 - fx_center_x, y1 - fx_center_y);
     double d2 = hypot(x2 - fx_center_x, y2 - fx_center_y);
-    (void)thickness;
+    if (wheel_outline_capture && wheel_capture_line_n < 16) {
+        wheel_capture_line_color[wheel_capture_line_n] = color;
+        wheel_capture_line_width[wheel_capture_line_n] = thickness;
+        wheel_capture_line_n++;
+    }
     star_line_count++;
     if (y1 > star_max_y) star_max_y = y1;
     if (y2 > star_max_y) star_max_y = y2;
@@ -5429,7 +5444,11 @@ int main(void) {
         language = 1;
         helpy_npc_tex_ok = 1;
         draw_lobby_npc_sprite();
-        assert(helpy_npc_draw_sz == screen_w - 20);
+        double expected_helpy_draw_sz = 96;
+        if (expected_helpy_draw_sz > screen_w - 20) expected_helpy_draw_sz = screen_w - 20;
+        if (expected_helpy_draw_sz > screen_h - dial_panel_h - 28)
+            expected_helpy_draw_sz = screen_h - dial_panel_h - 28;
+        assert(helpy_npc_draw_sz == expected_helpy_draw_sz);
         assert(helpy_npc_x == 20);
         logic_touch(helpy_npc_x + helpy_npc_draw_sz / 2, helpy_npc_y + helpy_npc_draw_sz / 2, 0, 8);
         press_points_drop(8);
@@ -6880,16 +6899,28 @@ int main(void) {
         assert(adm_has_text("Fortune wheel") == 0 && adm_has_text("Колесо") == 0);
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
         adm_reset_log();
+        wheel_capture_line_n = 0;
+        wheel_capture_ring_n = 0;
+        wheel_outline_capture = 1;
         draw_wheel();
+        wheel_outline_capture = 0;
         assert(adm_has_text("Fortune wheel") == 1 && adm_has_text("Wins:") == 1);
         assert(adm_has_text("Cups") == 1 && adm_has_text("???") == 1);
-        int hub_fill = 0, hub_grey_ring = 0, white_outline = 0;
+        int hub_fill = 0, grey_outline = 0, old_outline_color = 0;
         for (int ci = 0; ci < adm_color_n; ci++) {
             if (adm_colors[ci] == 0xFF101010u) hub_fill = 1;
-            if (adm_colors[ci] == 0xFF6A6A6Au) hub_grey_ring = 1;
-            if (adm_colors[ci] == 0xFFE7ECF3u) white_outline = 1;
+            if (adm_colors[ci] == 0xFF828282u) grey_outline = 1;
+            if (adm_colors[ci] == 0xFF6A6A6Au || adm_colors[ci] == 0xFFB0B0B0u ||
+                adm_colors[ci] == 0xFF3C3C3Cu) old_outline_color = 1;
         }
-        assert(hub_fill == 1 && hub_grey_ring == 1 && white_outline == 0);
+        assert(hub_fill == 1 && grey_outline == 1 && old_outline_color == 0);
+        assert(wheel_capture_line_n == 7 && wheel_capture_ring_n == 1);
+        for (int oi = 0; oi < wheel_capture_line_n; oi++) {
+            assert(wheel_capture_line_color[oi] == 0xFF828282u);
+            assert(fabs(wheel_capture_line_width[oi] - 4.0) < 1e-6);
+        }
+        assert(wheel_capture_ring_color[0] == 0xFF828282u);
+        assert(fabs(wheel_capture_ring_width[0] - 4.0) < 1e-6);
         assert(adm_has_text("Chances:") == 0 && adm_has_text("Шансы:") == 0);
         assert(adm_has_text("CUPS") == 0 && adm_has_text("GOLD") == 0);
         assert(btn_w >= 156 && btn_h >= 42);

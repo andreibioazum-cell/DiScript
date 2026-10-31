@@ -87,10 +87,10 @@ static const char *dial_slice(const char *s, double off, double len) {
     return buf;
 }
 
-static double helpy_npc_draw_sz = 512;
+static double helpy_npc_draw_sz = 96;
 static double helpy_npc_x;
 static double helpy_npc_y;
-static double helpy_npc_hit_r = 256;
+static double helpy_npc_hit_r = 48;
 
 /* The dialogue window: big portrait, big text, kept low. */
 static double dial_panel_h = 150;
@@ -194,8 +194,8 @@ static double dial_wrap(const char *vis, double max_w, double sc, double *starts
 }
 
 static void draw_lobby_npc_sprite(void) {
-    /* Replace the old left-side cube NPC with Helpy's full 512px sprite. */
-    helpy_npc_draw_sz = 512;
+    /* Show the full-resolution sprite as a compact lobby NPC. */
+    helpy_npc_draw_sz = 96;
     double fit_w = screen_w - 20;
     double fit_h = screen_h - dial_panel_h - 28;
     if (helpy_npc_draw_sz > fit_w) helpy_npc_draw_sz = fit_w;
