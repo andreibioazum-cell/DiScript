@@ -1,0 +1,879 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MemTool — значения игр (Unity)</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --txt:#e6edf3; --dim:#8b98a5; --acc:#4fc3f7; --red:#ff4444;
+    --grn:#3fb950; --yel:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+  header{padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  h1{font-size:17px;margin:0 14px 0 0}
+  .tag{font-size:12px;color:var(--dim)}
+  main{padding:18px;max-width:1180px;margin:0 auto}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+          padding:14px 16px;margin-bottom:16px}
+  h2{font-size:14px;margin:0 0 10px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
+  h3{font-size:13px;margin:14px 0 8px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+  input,button,select,textarea{font:inherit}
+  input,select,textarea{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+        border-radius:7px;padding:7px 10px}
+  input:focus,textarea:focus{outline:1px solid var(--acc)}
+  input[type=file]{padding:6px}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+         border-radius:7px;padding:8px 14px;cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#1f6feb;border-color:#1f6feb}
+  button.danger{background:#7d1c1c;border-color:#a33}
+  button.ok{background:#1a5c2c;border-color:#2b7a41}
+  button.small{padding:3px 9px;font-size:12px}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .card b{display:block;font-size:15px;word-break:break-all}
+  pre,#log{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;
+       max-height:320px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;
+       white-space:pre-wrap;word-break:break-word}
+  table{border-collapse:collapse;width:100%;font-size:13px}
+  th,td{border-bottom:1px solid var(--line);padding:5px 8px;text-align:left;vertical-align:top}
+  th{color:var(--dim);font-weight:600}
+  td.mono,th.mono,code{font:12px ui-monospace,Consolas,monospace;color:var(--yel)}
+  td.val{font:12px ui-monospace,Consolas,monospace}
+  .list{max-height:460px;overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+  .muted{color:var(--dim)} .err{color:var(--red)} .good{color:var(--grn)} .warn{color:var(--yel)}
+  .hide{display:none}
+  label.chk{display:flex;gap:7px;align-items:center;font-size:13px}
+  .sp{flex:1}
+  .fatal{position:sticky;top:0;z-index:99;margin:0;padding:12px 18px;background:#5c1414;
+         color:#fff;border-bottom:2px solid var(--red);font:13px/1.5 ui-monospace,Consolas,monospace;
+         white-space:pre-wrap}
+  .pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);
+        background:var(--panel2);color:var(--dim)}
+  .pill.live{border-color:#2b7a41;color:var(--grn)}
+  .pill.unity{border-color:#1f6feb;color:var(--acc)}
+  .bar{height:10px;background:var(--panel2);border:1px solid var(--line);border-radius:999px;overflow:hidden}
+  .bar>i{display:block;height:100%;background:#1f6feb;width:0%}
+  .focus-row{background:#21334d}
+  .hdr-row{opacity:.65}
+  .peek-val{cursor:pointer;border-bottom:1px dotted var(--dim)}
+  .peek-val:hover{color:var(--acc)}
+  .hex{color:var(--dim);font:11px ui-monospace,Consolas,monospace}
+</style>
+</head>
+<body>
+<div id="fatal" class="hide"></div>
+<header>
+  <h1>MemTool — поиск и замена значений в играх</h1>
+  <span class="tag" id="who">не подключено</span>
+  <span class="pill" id="targetPill">цель не выбрана</span>
+  <span class="pill" id="enginePill">движок: ?</span>
+  <span class="sp"></span>
+  <button id="btnStatus">Статус</button>
+</header>
+
+<main>
+
+<section id="connBox">
+  <h2>Подключение к демону</h2>
+  <p class="muted">Панель общается с демоном <code>memtool</code> (на телефоне он крутится от root,
+     на ПК — рядом с тестовой игрой). Если открыл панель по ссылке из консоли демона
+     (<code>http://127.0.0.1:7766/?t=…</code>) — всё уже заполнено. Открыл файл
+     <code>panel.html</code> вручную — впиши адрес демона и токен из его консоли.</p>
+  <div class="row">
+    <input id="baseUrl" size="28" placeholder="http://127.0.0.1:7766">
+    <input id="tokenIn" size="22" placeholder="токен">
+    <button id="btnConnect" class="primary">Подключиться</button>
+    <span id="connState" class="muted"></span>
+  </div>
+</section>
+
+<section>
+  <h2>Игры</h2>
+  <div class="row">
+    <input id="gameFilter" size="28" placeholder="фильтр по пакету: com.">
+    <button id="btnGames">Обновить список игр</button>
+    <span class="muted" id="gamesHint">На Android сюда падают установленные игры (демо игры Unity помечены), на ПК — тестовая игра, если демон запущен с --demo-game.</span>
+  </div>
+  <div class="grid" id="gamesGrid" style="margin-top:10px"></div>
+
+  <h3>Все процессы</h3>
+  <div class="row">
+    <input id="procFilter" size="28" placeholder="фильтр по имени процесса">
+    <button id="btnProcs">Обновить процессы</button>
+    <button id="btnDetach" class="danger hide">Отцепиться</button>
+  </div>
+  <div class="list" style="margin-top:10px"><table><thead><tr><th>PID</th><th>Процесс</th><th></th></tr></thead>
+  <tbody id="procTable"></tbody></table></div>
+</section>
+
+<section id="scanBox">
+  <h2>Сканер памяти</h2>
+  <div class="row">
+    <label>Тип
+      <select id="scanType">
+        <option value="i32">i32 (монеты, патроны)</option>
+        <option value="f32">f32 float (здоровье, позиции)</option>
+        <option value="i64">i64</option>
+        <option value="f64">f64 double (Mono/статика)</option>
+        <option value="i16">i16</option>
+        <option value="i8">i8</option>
+        <option value="utf16">строка UTF-16</option>
+      </select></label>
+    <label>Регионы
+      <select id="scanRegions">
+        <option value="unity-il2cpp">Unity IL2CPP: кучи + libil2cpp</option>
+        <option value="anon">Только anon-кучи</option>
+        <option value="il2cpp">Только libil2cpp.so (статика)</option>
+        <option value="unity">Только libunity.so</option>
+        <option value="mono">Unity Mono: кучи + libmono</option>
+        <option value="all">Вся rw-память (долго)</option>
+        <option value="stack">Стеки</option>
+      </select></label>
+    <label>Шаг
+      <select id="scanAlign">
+        <option value="0">авто</option>
+        <option value="1">1 (без выравнивания, медленно)</option>
+        <option value="2">2</option>
+        <option value="4">4</option>
+        <option value="8">8</option>
+      </select></label>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <input id="scanValue" size="18" placeholder="значение, напр. 1337">
+    <input id="scanValue2" size="18" placeholder="второе (для «между»)">
+    <button id="btnFirstExact" class="primary">Первый поиск: точно</button>
+    <button id="btnFirstBetween">между</button>
+    <button id="btnFirstUnknown">неизвестно (снимок)</button>
+    <button id="btnScanReset">Сброс</button>
+  </div>
+  <div class="row" style="margin-top:8px">
+    <span class="muted">Отсев:</span>
+    <button data-next="exact">= точно</button>
+    <button data-next="inc">▲ увеличилось</button>
+    <button data-next="DEC">▼ уменьшилось</button>
+    <button data-next="changed">≠ изменилось</button>
+    <button data-next="unchanged">≡ не изменилось</button>
+    <button data-next="inc_by">+N на значение</button>
+    <button data-next="dec_by">−N на значение</button>
+    <button data-next="gt">&gt; больше</button>
+    <button data-next="lt">&lt; меньше</button>
+    <button data-next="between">между</button>
+  </div>
+  <div class="bar" style="margin-top:12px"><i id="scanBar"></i></div>
+  <p style="margin:8px 0 0"><span id="scanInfo" class="muted">Поиска ещё не было.</span></p>
+
+  <h3>Редактор значения</h3>
+  <div class="row">
+    <input id="editAddr" size="20" placeholder="адрес 0x…" class="val">
+    <select id="editType">
+      <option>i32</option><option>f32</option><option>i64</option><option>f64</option>
+      <option>i16</option><option>i8</option><option>utf16</option>
+    </select>
+    <input id="editValue" size="18" placeholder="новое значение">
+    <button id="btnWrite" class="ok">Записать в игру</button>
+    <button id="btnPeekEdit">👁 окрестность</button>
+    <span class="muted">Клик по строке результата подставит адрес сюда.</span>
+  </div>
+
+  <h3>Результаты <span id="resCount" class="muted"></span></h3>
+  <div class="list"><table><thead><tr>
+    <th>Адрес</th><th>Модуль+смещение</th><th>Было</th><th>Сейчас</th><th></th>
+  </tr></thead><tbody id="resTable"></tbody></table></div>
+  <div class="row" style="margin-top:8px">
+    <button id="btnMore">Показать ещё</button>
+  </div>
+</section>
+
+<section id="savedBox">
+  <h2>Сохранённые адреса</h2>
+  <p class="muted">Адреса вида <code>libil2cpp.so+0x…</code> при следующем подключении к той же игре
+     пересчитаются от новой базы модуля (ASLR не страшен). Адреса в куче живут только до перезапуска игры.
+     ❄ — заморозка: демон переписывает значение каждые 50 мс, панель можно закрывать.</p>
+  <div class="list"><table><thead><tr>
+    <th>Имя</th><th>Адрес</th><th>Тип</th><th>Сейчас</th><th>Записать</th><th>❄</th><th></th>
+  </tr></thead><tbody id="savedTable"></tbody></table></div>
+</section>
+
+<section id="peekBox">
+  <h2>Окрестность адреса / объект Unity</h2>
+  <p class="muted">Поля одного объекта лежат рядом: нашёл монеты — рядом, скорее всего, здоровье, патроны и
+     уровень. У IL2CPP-объекта первые 16 байт (на 64 бит) — служебные: указатель на класс и монитор,
+     поля идут следом. Клик по значению — изменить. Кнопка «указатели сюда» ищет, кто ссылается на объект.</p>
+  <div class="row">
+    <input id="peekAddr" size="20" placeholder="адрес 0x…" class="val">
+    <button id="btnPeek">Показать ±256</button>
+    <button id="btnPeekObj">Объект с этого адреса</button>
+    <button id="btnPointers">Найти указатели сюда</button>
+    <button id="btnVec3">+Vector3 в сохранённые</button>
+    <span class="muted" id="peekInfo"></span>
+  </div>
+  <div class="list" style="margin-top:10px"><table><thead><tr>
+    <th>Адрес</th><th>+Смещ.</th><th>Байты</th><th>i32 ×2</th><th>f32 ×2</th><th>ptr / i64</th><th></th>
+  </tr></thead><tbody id="peekTable"></tbody></table></div>
+</section>
+
+<section id="unityBox">
+  <h2>Unity</h2>
+  <div id="unityInfo" class="muted">Прицепись к игре — покажу движок, версию Unity и базы модулей.</div>
+
+  <h3>global-metadata.dat — имена классов и полей</h3>
+  <p class="muted">Подсказка, что вообще искать: в IL2CPP-игре имена полей (<code>coins</code>,
+     <code>health</code>, <code>_gold</code>…) лежат в <code>global-metadata.dat</code> внутри APK
+     (<code>assets/bin/Data/Managed/Metadata/</code>). Демон попробует достать его сам;
+     не вышло — вытащи из APK любым архиватором и загрузи файл сюда.</p>
+  <div class="row">
+    <button id="btnMetaFetch" class="primary">Стянуть из игры/APK</button>
+    <input type="file" id="metaFile" accept=".dat">
+    <span id="metaState" class="muted"></span>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <input id="metaFilter" size="30" placeholder="поиск по классам и полям: coin">
+    <span class="muted" id="metaCount"></span>
+  </div>
+  <div class="list" style="margin-top:8px" id="metaList"></div>
+</section>
+
+<section>
+  <h2>Как это работает и где подводные камни</h2>
+  <p class="muted">
+    Классика: смотришь в игре монеты (1337) → «Первый поиск: точно» → тратишь/зарабатываешь монеты
+    (стало 1330) → отсев «▼ уменьшилось» или «= точно 1330» → осталось 1–3 адреса → записываешь 999999.
+    В Unity на IL2CPP деньги обычно <code>i32</code>, здоровье — <code>f32</code>, в Mono-играх частенько
+    <code>f64</code>. Если значение не находится: игра могла его зашифровать/ксорить или держать в
+    <code>double</code>; попробуй «неизвестно (снимок)» + отсев «изменилось». Онлайн-значения живут на
+    сервере — памятью их не накрутить, а за попытки в сетевых играх банят. Инструмент для своего
+    телефона, оффлайна и отладки своих игр.</p>
+</section>
+
+<section>
+  <h2>Журнал</h2>
+  <div id="log"></div>
+</section>
+
+</main>
+
+<script>
+"use strict";
+// ---------------- state & plumbing ----------------
+const $ = id => document.getElementById(id);
+const S = {
+  base: "", token: "", status: null, unity: null,
+  resultsOffset: 0, wasScanning: false,
+  saved: [], savedKey: "", peekFocus: null, peekBytes: null, peekBase: 0n,
+  meta: null,
+};
+window.addEventListener("error", e => {
+  const f = $("fatal");
+  f.classList.remove("hide");
+  f.textContent = "Ошибка страницы: " + (e.message || e.type);
+});
+function log(msg, cls) {
+  const el = $("log");
+  const line = document.createElement("div");
+  if (cls) line.className = cls;
+  line.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  el.appendChild(line);
+  el.scrollTop = el.scrollHeight;
+}
+function Esc(s) { return String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c])); }
+async function api(path, body, raw) {
+  const opt = { method: body !== undefined ? "POST" : "GET", headers: { "X-Token": S.token } };
+  if (body !== undefined) { opt.headers["Content-Type"] = "application/json"; opt.body = JSON.stringify(body); }
+  let r;
+  try { r = await fetch(S.base + path, opt); }
+  catch (e) { throw new Error("нет связи с демоном (" + (S.base || location.origin) + "): " + e.message); }
+  if (raw) {
+    if (!r.ok) { const t = await r.json().catch(() => ({})); throw new Error(t.error || ("HTTP " + r.status)); }
+    return r;
+  }
+  const j = await r.json().catch(() => ({}));
+  if (!r.ok || j.ok === false) throw new Error(j.error || ("HTTP " + r.status));
+  return j;
+}
+function saveConn() {
+  localStorage.setItem("memtool_base", S.base);
+  localStorage.setItem("memtool_token", S.token);
+}
+function initConn() {
+  const q = new URLSearchParams(location.search);
+  const tokUrl = q.get("t");
+  if (location.protocol === "http:" || location.protocol === "https:") {
+    S.base = ""; // same origin: daemon serves us
+  } else {
+    S.base = localStorage.getItem("memtool_base") || "http://127.0.0.1:7766";
+  }
+  S.token = tokUrl || localStorage.getItem("memtool_token") || "";
+  if (tokUrl) saveConn();
+  $("baseUrl").value = S.base || (location.origin || "");
+  $("tokenIn").value = S.token;
+}
+async function connect(fromButton) {
+  if (fromButton) {
+    let b = $("baseUrl").value.trim().replace(/\/+$/, "");
+    S.base = (b && (location.protocol === "file:" || !b.startsWith(location.origin))) ? b : "";
+    if (location.protocol !== "file:" && b === location.origin) S.base = "";
+    S.token = $("tokenIn").value.trim();
+    saveConn();
+  }
+  try {
+    const st = await api("/api/status");
+    applyStatus(st);
+    $("connState").textContent = "подключено, демон v" + st.version + (st.root ? ", root" : ", БЕЗ root (чужие игры не дадут)");
+    $("connState").className = st.root ? "good" : "warn";
+    log("Подключился к демону v" + st.version + " (" + (st.android ? "Android" : "ПК/хост") + (st.root ? ", root" : ", без root") + ")", "good");
+    await loadGames();
+    await loadProcesses();
+    if (st.pid > 0) { await onAttached(st); }
+  } catch (e) {
+    $("connState").textContent = "ошибка: " + e.message;
+    $("connState").className = "err";
+    log("Подключение не вышло: " + e.message, "err");
+  }
+}
+function applyStatus(st) {
+  S.status = st;
+  $("who").textContent = st.pid > 0 ? ("пид " + st.pid) : "демон на связи";
+  $("targetPill").textContent = st.pid > 0 ? (st.name + " · pid " + st.pid) : "цель не выбрана";
+  $("targetPill").className = "pill" + (st.pid > 0 ? " live" : "");
+  $("enginePill").textContent = "движок: " + engineText(st) ;
+  $("enginePill").className = "pill" + (st.engine === "il2cpp" || st.engine === "mono" ? " unity" : "");
+  $("btnDetach").classList.toggle("hide", !(st.pid > 0));
+  // scan progress
+  const pct = st.total > 0 ? Math.min(100, Math.round(st.scanned * 100 / st.total)) : (st.scanning ? 0 : 0);
+  $("scanBar").style.width = pct + "%";
+  if (st.scanning) {
+    $("scanInfo").textContent = "Сканирую… " + fmtBytes(st.scanned) + " / " + fmtBytes(st.total) + " (" + pct + "%)";
+  } else if (S.wasScanning) {
+    $("scanInfo").textContent = "Готово. Результатов: " + st.results.toLocaleString("ru") +
+      (st.truncated ? " (ОБРЕЗАНО по лимиту — сувь регионы)" : "") +
+      (st.scan_error ? " · ошибка: " + st.scan_error : "");
+    log("Сканирование завершено: " + st.results + " адресов" + (st.scan_error ? " (ошибка: " + st.scan_error + ")" : ""));
+    S.resultsOffset = 0;
+    loadResults(true).catch(e => log("Результаты: " + e.message, "err"));
+  } else if (st.results > 0) {
+    $("scanInfo").textContent = "Результатов: " + st.results.toLocaleString("ru") + " (тип " + st.scan_type + ")";
+  }
+  S.wasScanning = !!st.scanning;
+}
+function engineText(st) {
+  let e = { il2cpp: "Unity IL2CPP", mono: "Unity Mono", unity: "Unity (?)", unknown: "не Unity / ?" }[st.engine] || st.engine;
+  if (st.unity_version) e += " " + st.unity_version;
+  return e;
+}
+function fmtBytes(n) {
+  if (n >= 1 << 30) return (n / (1 << 30)).toFixed(2) + " ГБ";
+  if (n >= 1 << 20) return (n / (1 << 20)).toFixed(1) + " МБ";
+  if (n >= 1 << 10) return (n / (1 << 10)).toFixed(0) + " КБ";
+  return n + "";
+}
+
+// ---------------- games & processes ----------------
+async function loadGames() {
+  const grid = $("gamesGrid");
+  grid.innerHTML = "<p class='muted'>Загружаю… (первый раз может быть небыстро: смотрю внутрь APK)</p>";
+  try {
+    const j = await api("/api/games");
+    renderGames(j.games || []);
+  } catch (e) { grid.innerHTML = ""; log("Игры: " + e.message, "err"); }
+}
+function renderGames(games) {
+  const f = $("gameFilter").value.trim().toLowerCase();
+  const grid = $("gamesGrid");
+  grid.innerHTML = "";
+  const shown = games.filter(g => !f || g.pkg.toLowerCase().includes(f));
+  if (!games.length) {
+    grid.innerHTML = "<p class='muted'>Список игр пуст. На ПК это нормально — ниже есть процессы; на Android демон под root увидит pm.</p>";
+    return;
+  }
+  if (!shown.length) { grid.innerHTML = "<p class='muted'>Ничего по фильтру.</p>"; return; }
+  for (const g of shown) {
+    const card = document.createElement("div");
+    card.className = "card";
+    const pill = g.engine === "il2cpp" ? "Unity IL2CPP" : g.engine === "mono" ? "Unity Mono" :
+                 g.engine === "unity" ? "Unity" : "не Unity";
+    card.innerHTML =
+      "<b>" + Esc(g.pkg) + "</b>" +
+      "<span class='pill" + (g.engine !== "other" ? " unity" : "") + "'>" + pill + "</span> " +
+      (g.pid > 0 ? "<span class='pill live'>запущена, pid " + g.pid + "</span>" : "<span class='pill'>не запущена</span>") +
+      "<div class='row' style='margin-top:8px'>" +
+      "<button class='small primary' data-act='launch'>▶ Запустить</button>" +
+      "<button class='small' data-act='attach' " + (g.pid > 0 ? "" : "disabled") + ">🎯 Прицепиться</button></div>";
+    card.querySelector("[data-act=launch]").onclick = () => launchGame(g).catch(e => log(e.message, "err"));
+    const ab = card.querySelector("[data-act=attach]");
+    if (ab) ab.onclick = () => attach({ pid: g.pid, pkg: g.pkg }).catch(e => log(e.message, "err"));
+    grid.appendChild(card);
+  }
+}
+async function launchGame(g) {
+  log("Запускаю " + g.pkg + "…");
+  const j = await api("/api/launch", g.cmd ? { cmd: g.cmd, pkg: g.pkg } : { pkg: g.pkg });
+  log("Запустилась, pid " + j.pid + ". Дай игре загрузиться и жми «Прицепиться».", "good");
+  await loadGames();
+  if (j.pid) await attach({ pid: j.pid, pkg: g.pkg });
+}
+async function loadProcesses() {
+  const q = $("procFilter").value.trim();
+  try {
+    const j = await api("/api/processes" + (q ? "?q=" + encodeURIComponent(q) : ""));
+    const t = $("procTable");
+    t.innerHTML = "";
+    for (const p of (j.processes || []).slice(0, 400)) {
+      const tr = document.createElement("tr");
+      tr.innerHTML = "<td class='mono'>" + p.pid + "</td><td>" + Esc(p.name) + "</td>" +
+        "<td><button class='small'>🎯 Прицепиться</button></td>";
+      tr.querySelector("button").onclick = () => attach({ pid: p.pid }).catch(e => log(e.message, "err"));
+      t.appendChild(tr);
+    }
+    if (!j.processes || !j.processes.length) t.innerHTML = "<tr><td colspan='3' class='muted'>пусто</td></tr>";
+  } catch (e) { log("Процессы: " + e.message, "err"); }
+}
+async function attach(what) {
+  const st = await api("/api/attach", what);
+  await onAttached(st);
+  log("Прицепился к pid " + st.pid + " (" + st.name + "), движок: " + engineText(st), "good");
+}
+async function onAttached(st) {
+  applyStatus(st);
+  await loadUnity();
+  loadSavedForTarget(st);
+  $("resTable").innerHTML = "";
+  $("resCount").textContent = "";
+}
+$("btnDetach").onclick = async () => {
+  try { await api("/api/detach", {}); log("Отцепился."); connect(false); }
+  catch (e) { log(e.message, "err"); }
+};
+
+// ---------------- scanner ----------------
+function scanPayload(mode, first) {
+  return {
+    type: $("scanType").value, mode,
+    value: $("scanValue").value.trim(), value2: $("scanValue2").value.trim(),
+    regions: $("scanRegions").value, align: parseInt($("scanAlign").value, 10) || 0,
+  };
+}
+async function startFirst(mode) {
+  if (!S.status || !S.status.pid) { log("Сначала прицепись к игре.", "err"); return; }
+  if (mode === "unknown" && $("scanRegions").value === "all")
+    log("Снимок всей rw-памяти может быть гигантским. Ну ладно, ты просил.", "warn");
+  try {
+    await api("/api/scan/first", scanPayload(mode, true));
+    log("Первый поиск (" + mode + ", тип " + $("scanType").value + ") пошёл…");
+    applyStatus(await api("/api/status"));
+  } catch (e) { log(e.message, "err"); }
+}
+async function startNext(mode) {
+  if (!S.status || !S.status.pid) { log("Сначала прицепись к игре.", "err"); return; }
+  try {
+    await api("/api/scan/next", scanPayload(mode, false));
+    log("Отсев (" + mode + ") пошёл…");
+    applyStatus(await api("/api/status"));
+  } catch (e) { log(e.message, "err"); }
+}
+$("btnFirstExact").onclick = () => startFirst("exact");
+$("btnFirstBetween").onclick = () => startFirst("between");
+$("btnFirstUnknown").onclick = () => startFirst("unknown");
+document.querySelectorAll("[data-next]").forEach(b => b.onclick = () => startNext(b.dataset.next));
+$("btnScanReset").onclick = async () => {
+  try { await api("/api/scan/reset", {}); $("resTable").innerHTML = ""; $("resCount").textContent = ""; $("scanInfo").textContent = "Сброшено."; log("Результаты сброшены."); }
+  catch (e) { log(e.message, "err"); }
+};
+async function loadResults(reset) {
+  const off = reset ? 0 : S.resultsOffset;
+  const j = await api("/api/results?offset=" + off + "&limit=100");
+  if (reset) { $("resTable").innerHTML = ""; S.resultsOffset = 0; }
+  $("resCount").textContent = "· всего " + j.count.toLocaleString("ru") + ", тип " + j.type;
+  const t = $("resTable");
+  for (const it of j.items) {
+    const tr = document.createElement("tr");
+    tr.innerHTML = "<td class='mono'>" + Esc(it.addr) + "</td><td class='mono'>" + Esc(it.module || "") + "</td>" +
+      "<td class='val muted'>" + Esc(it.prev ?? "") + "</td><td class='val'>" + Esc(it.value ?? "—") + "</td>" +
+      "<td><button class='small' data-a='e' title='в редактор'>✏</button> " +
+      "<button class='small' data-a='s' title='в сохранённые'>⭐</button> " +
+      "<button class='small' data-a='p' title='окрестность'>👁</button></td>";
+    tr.querySelector("[data-a=e]").onclick = () => {
+      $("editAddr").value = it.addr; $("editType").value = j.type;
+      $("editValue").value = it.value ?? ""; $("editValue").focus(); $("editValue").select();
+    };
+    tr.querySelector("[data-a=s]").onclick = () => addSaved(it.addr, j.type, it.module);
+    tr.querySelector("[data-a=p]").onclick = () => peeks(it.addr).catch(e => log(e.message, "err"));
+    t.appendChild(tr);
+    S.resultsOffset++;
+  }
+}
+$("btnMore").onclick = () => loadResults(false).catch(e => log(e.message, "err"));
+$("btnWrite").onclick = async () => {
+  const addr = $("editAddr").value.trim(), type = $("editType").value, value = $("editValue").value;
+  if (!addr) { log("Нет адреса в редакторе.", "err"); return; }
+  try {
+    await api("/api/write", { addr, type, value });
+    log("Записал " + value + " (" + type + ") по " + addr + ". Смотри в игру!", "good");
+  } catch (e) { log(e.message, "err"); }
+};
+$("editValue").addEventListener("keyup", e => { if (e.key === "Enter") $("btnWrite").click(); });
+$("btnPeekEdit").onclick = () => {
+  const a = $("editAddr").value.trim();
+  if (a) peeks(a).catch(e => log(e.message, "err"));
+};
+
+// ---------------- saved list ----------------
+function savedKeyFor(st) { return st.pkg || st.name || ("pid" + st.pid); }
+function loadSavedForTarget(st) {
+  S.savedKey = savedKeyFor(st);
+  try { S.saved = JSON.parse(localStorage.getItem("memtool_saved_" + S.savedKey) || "[]"); }
+  catch { S.saved = []; }
+  // rebase module addresses to this run's bases
+  if (S.unity) {
+    const bases = {};
+    if (S.unity.bases) for (const k of Object.keys(S.unity.bases)) bases[k] = BigInt(S.unity.bases[k]);
+    for (const m of (S.unity.modules || [])) bases[m.name] = BigInt(m.base);
+    for (const e of S.saved) {
+      if (e.modName && bases[e.modName] !== undefined && e.modOff) {
+        const na = "0x" + (bases[e.modName] + BigInt(e.modOff)).toString(16);
+        if (na !== e.addr) { e.addr = na; }
+      }
+    }
+  }
+  renderSaved();
+  log("Сохранённых адресов для «" + S.savedKey + "»: " + S.saved.length);
+}
+function persistSaved() { localStorage.setItem("memtool_saved_" + S.savedKey, JSON.stringify(S.saved)); }
+function addSaved(addr, type, moduleLabel) {
+  let modName = null, modOff = null;
+  const m = /^([^+\[]+)\+(0x[0-9a-fA-F]+)$/.exec(moduleLabel || "");
+  if (m && /\.(so|dat)$/.test(m[1])) { modName = m[1]; modOff = m[2]; }
+  S.saved.push({ name: "значение " + (S.saved.length + 1), addr, type, module: moduleLabel || "", modName, modOff, freeze: false, fval: "" });
+  persistSaved(); renderSaved();
+  log("В сохранённые: " + addr + (modName ? " (" + modName + "+" + modOff + ", переживёт перезапуск)" : " (куча, до перезапуска)"));
+}
+function renderSaved() {
+  const t = $("savedTable");
+  t.innerHTML = "";
+  S.saved.forEach((e, i) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML =
+      "<td><input size='12' value='" + Esc(e.name) + "'></td>" +
+      "<td class='mono'>" + Esc(e.addr) + (e.module ? "<br><span class='hex'>" + Esc(e.module) + "</span>" : "") + "</td>" +
+      "<td><select>" + ["i32","f32","i64","f64","i16","i8","utf16"].map(x => "<option" + (x === e.type ? " selected" : "") + ">" + x + "</option>").join("") + "</select></td>" +
+      "<td class='val' data-r='cur'>…</td>" +
+      "<td><input size='10' value='" + Esc(e.fval || "") + "'> <button class='small ok'>➤</button></td>" +
+      "<td><input type='checkbox'" + (e.freeze ? " checked" : "") + "></td>" +
+      "<td><button class='small' data-r='peek'>👁</button> <button class='small danger' data-r='del'>✖</button></td>";
+    const [nameIn, typeSel, valIn, frzChk] = [
+      tr.querySelector("td input"), tr.querySelector("select"),
+      tr.children[4].querySelector("input"), tr.children[5].querySelector("input")];
+    e._curEl = tr.querySelector("[data-r=cur]");
+    nameIn.onchange = () => { e.name = nameIn.value; persistSaved(); };
+    typeSel.onchange = () => { e.type = typeSel.value; persistSaved(); };
+    valIn.onchange = () => { e.fval = valIn.value; persistSaved(); };
+    tr.children[4].querySelector("button").onclick = async () => {
+      try {
+        await api("/api/write", { addr: e.addr, type: e.type, value: valIn.value });
+        log(e.name + ": записал " + valIn.value + " по " + e.addr, "good");
+      } catch (err) { log(err.message, "err"); }
+    };
+    frzChk.onchange = async () => {
+      e.freeze = frzChk.checked; persistSaved();
+      try {
+        await api("/api/freeze", { addr: e.addr, type: e.type, value: valIn.value || e._last || "0", on: e.freeze });
+        log(e.name + ": заморозка " + (e.freeze ? "ВКЛ (" + (valIn.value || e._last) + ")" : "выкл"));
+      } catch (err) { log(err.message, "err"); frzChk.checked = e.freeze = false; persistSaved(); }
+    };
+    tr.querySelector("[data-r=peek]").onclick = () => peeks(e.addr).catch(err => log(err.message, "err"));
+    tr.querySelector("[data-r=del]").onclick = async () => {
+      if (e.freeze) { try { await api("/api/freeze", { addr: e.addr, type: e.type, value: "0", on: false }); } catch {} }
+      S.saved.splice(i, 1); persistSaved(); renderSaved();
+    };
+    t.appendChild(tr);
+  });
+  if (!S.saved.length) t.innerHTML = "<tr><td colspan='7' class='muted'>пусто — жми ⭐ в результатах</td></tr>";
+}
+async function refreshSavedValues() {
+  if (!S.status || !S.status.pid || !S.saved.length || S.status.scanning) return;
+  try {
+    const items = S.saved.map(e => ({ addr: e.addr, type: e.type }));
+    const j = await api("/api/readmany", { items });
+    j.values.forEach((v, i) => {
+      const e = S.saved[i];
+      if (!e || !e._curEl) return;
+      e._last = v.value;
+      e._curEl.textContent = v.value ?? "—";
+    });
+  } catch { /* тихо: опрос в фоне */ }
+}
+
+// ---------------- peeks (object neighbourhood) ----------------
+async function peeks(addrStr, fromStart) {
+  let a = BigInt(addrStr);
+  const focus = addrStr;
+  const reqAddr = fromStart ? "0x" + (a + 256n).toString(16) : addrStr;
+  const j = await api("/api/peeks", { addr: reqAddr, radius: 256 });
+  const bin = atob(j.data);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  S.peekBytes = bytes; S.peekBase = BigInt(j.base); S.peekFocus = BigInt(focus);
+  $("peekAddr").value = focus;
+  $("peekInfo").textContent = "база окна " + j.base + (j.module ? " · " + j.module : "");
+  renderPeek();
+}
+function renderPeek() {
+  const t = $("peekTable");
+  t.innerHTML = "";
+  const b = S.peekBytes, base = S.peekBase, focus = S.peekFocus;
+  if (!b) return;
+  const dv = new DataView(b.buffer, b.byteOffset, b.byteLength);
+  const focusOff = Number(focus - base);
+  for (let off = 0; off + 8 <= b.length; off += 8) {
+    const addr = base + BigInt(off);
+    const hex = [...b.slice(off, off + 8)].map(x => x.toString(16).padStart(2, "0")).join(" ");
+    const i0 = dv.getInt32(off, true), i1 = dv.getInt32(off + 4, true);
+    const f0 = dv.getFloat32(off, true), f1 = dv.getFloat32(off + 4, true);
+    const p = dv.getBigUint64(off, true);
+    const tr = document.createElement("tr");
+    const isFocus = off <= focusOff && focusOff < off + 8;
+    const isHeader = S.peekIsObjStart && off < 16;
+    if (isFocus) tr.className = "focus-row";
+    else if (isHeader) tr.className = "hdr-row";
+    const offLabel = (off - focusOff >= 0 ? "+" : "") + (off - focusOff);
+    tr.innerHTML = "<td class='mono'>0x" + addr.toString(16) + "</td>" +
+      "<td class='hex'>" + offLabel + (isHeader ? " hdr" : "") + "</td>" +
+      "<td class='hex'>" + hex + "</td>" +
+      "<td class='val'>" +
+        "<span class='peek-val' data-t='i32' data-o='" + off + "' data-v='" + i0 + "'>" + i0 + "</span>, " +
+        "<span class='peek-val' data-t='i32' data-o='" + (off + 4) + "' data-v='" + i1 + "'>" + i1 + "</span></td>" +
+      "<td class='val'>" +
+        "<span class='peek-val' data-t='f32' data-o='" + off + "' data-v='" + f0 + "'>" + trimF(f0) + "</span>, " +
+        "<span class='peek-val' data-t='f32' data-o='" + (off + 4) + "' data-v='" + f1 + "'>" + trimF(f1) + "</span></td>" +
+      "<td class='val hex'>0x" + p.toString(16) + "</td>" +
+      "<td><button class='small' title='i32 сюда в сохранённые'>⭐</button></td>";
+    tr.querySelectorAll(".peek-val").forEach(sp => sp.onclick = async () => {
+      const at = "0x" + (base + BigInt(parseInt(sp.dataset.o, 10))).toString(16);
+      const nv = prompt("Новое значение (" + sp.dataset.t + ") по " + at, sp.dataset.v);
+      if (nv === null) return;
+      try {
+        await api("/api/write", { addr: at, type: sp.dataset.t, value: nv });
+        log("Записал " + nv + " по " + at, "good");
+        peeks("0x" + S.peekFocus.toString(16), S.peekIsObjStart).catch(() => {});
+      } catch (e) { log(e.message, "err"); }
+    });
+    tr.querySelector("button").onclick = () => {
+      const at = "0x" + addr.toString(16);
+      addSaved(at, "i32", "");
+    };
+    t.appendChild(tr);
+  }
+}
+function trimF(f) {
+  if (!isFinite(f)) return "—";
+  if (Math.abs(f) > 1e9 || (f !== 0 && Math.abs(f) < 1e-6)) return "—";
+  return String(Math.round(f * 1000) / 1000);
+}
+$("btnPeek").onclick = () => { S.peekIsObjStart = false; const a = $("peekAddr").value.trim(); if (a) peeks(a).catch(e => log(e.message, "err")); };
+$("btnPeekObj").onclick = () => { S.peekIsObjStart = true; const a = $("peekAddr").value.trim(); if (a) peeks(a, true).catch(e => log(e.message, "err")); };
+$("btnPointers").onclick = async () => {
+  const a = $("peekAddr").value.trim();
+  if (!a) { log("Нет адреса.", "err"); return; }
+  const dec = BigInt(a).toString(10);
+  $("scanType").value = (S.status && S.status.ptr_size === 4) ? "i32" : "i64";
+  $("scanValue").value = dec;
+  $("scanRegions").value = "all";
+  $("scanAlign").value = S.status && S.status.ptr_size === 4 ? "4" : "8";
+  log("Ищу указатели на " + a + " (это обычный поиск значения-адреса по всей rw)…");
+  startFirst("exact");
+  $("scanBox").scrollIntoView({ behavior: "smooth" });
+};
+$("btnVec3").onclick = () => {
+  const a = $("peekAddr").value.trim();
+  if (!a) { log("Нет адреса.", "err"); return; }
+  const base = BigInt(a);
+  ["X", "Y", "Z"].forEach((axis, i) => {
+    S.saved.push({ name: "Vector3." + axis, addr: "0x" + (base + BigInt(i * 4)).toString(16),
+                   type: "f32", module: "", modName: null, modOff: null, freeze: false, fval: "" });
+  });
+  persistSaved(); renderSaved();
+  log("Добавил Vector3 (3×f32) с " + a + " в сохранённые.");
+};
+
+// ---------------- Unity info & metadata ----------------
+async function loadUnity() {
+  try {
+    const u = await api("/api/unity/info");
+    S.unity = u;
+    let html = "<p>Движок: <b>" + Esc(engineText(u)) + "</b> · rw " + fmtBytes(u.rw_bytes) +
+      " (anon-кучи " + fmtBytes(u.rw_anon_bytes) + ", libil2cpp rw " + fmtBytes(u.rw_il2cpp_bytes) + ")</p>";
+    if (u.modules.length) {
+      html += "<table><thead><tr><th>Модуль</th><th>База</th><th>Конец</th><th>Путь</th></tr></thead><tbody>";
+      for (const m of u.modules)
+        html += "<tr><td class='mono'>" + Esc(m.name) + "</td><td class='mono'>" + Esc(m.base) + "</td><td class='mono'>" +
+          Esc(m.end) + "</td><td class='hex'>" + Esc(m.path) + "</td></tr>";
+      html += "</tbody></table>";
+    } else html += "<p class='warn'>Unity-модулей в картах памяти не вижу — это не Unity-игра (или она ещё грузится).</p>";
+    if (u.metadata_in_maps) html += "<p class='muted'>metadata в картах: <code>" + Esc(u.metadata_in_maps) + "</code></p>";
+    $("unityInfo").innerHTML = html;
+  } catch (e) { $("unityInfo").textContent = e.message; }
+}
+//__METADATA_PARSER_BEGIN__
+function parseIl2CppMetadata(buf) {
+  const dv = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+  const dec = new TextDecoder("utf-8", { fatal: false });
+  const i32 = off => dv.getInt32(off, true);
+  if (buf.byteLength < 0x100 || (i32(0) >>> 0) !== 0xFAB11BAF)
+    throw new Error("это не global-metadata.dat (нет сигнатуры 0xFAB11BAF)");
+  const version = i32(4);
+  const pair = idx => ({ off: i32(8 + idx * 8), size: i32(12 + idx * 8) });
+  const strSec = pair(2), fieldsSec = pair(11), typesSec = pair(16);
+  if (strSec.off <= 0 || strSec.size <= 0 || strSec.off + strSec.size > buf.byteLength)
+    throw new Error("секция строк за пределами файла — версия metadata " + version + " не поддержана");
+  function heapStr(idx) {
+    if (idx < 0 || idx >= strSec.size) return null;
+    let end = strSec.off + idx;
+    const limit = strSec.off + strSec.size;
+    while (end < limit && u8[end] !== 0) end++;
+    if (end === strSec.off + idx) return "";
+    return dec.decode(u8.subarray(strSec.off + idx, end));
+  }
+  const fieldCount = Math.floor(fieldsSec.size / 12);
+  const fieldNames = new Array(fieldCount);
+  for (let i = 0; i < fieldCount; i++)
+    fieldNames[i] = heapStr(i32(fieldsSec.off + i * 12)) || ("field_" + i);
+  // TypeDefinition layouts: name@0, namespace@4 in all known versions;
+  // fieldStart/field_count offsets differ (declaringTypeIndex vanished in v27).
+  const layouts = [
+    { tag: "v27+", stride: 84, fieldStart: 28, fieldCount: 64 },
+    { tag: "v24", stride: 88, fieldStart: 32, fieldCount: 68 },
+  ];
+  let types = null, layout = null;
+  for (const L of layouts) {
+    if (typesSec.size <= 0 || typesSec.size % L.stride !== 0) continue;
+    const n = typesSec.size / L.stride;
+    if (n < 1 || n > 2000000) continue;
+    let ok = true, sum = 0, prevStart = -1;
+    for (let i = 0; i < n && ok; i++) {
+      const t = typesSec.off + i * L.stride;
+      const nameIdx = i32(t), nsIdx = i32(t + 4);
+      if (nameIdx < 0 || nameIdx >= strSec.size || nsIdx < 0 || nsIdx >= strSec.size) { ok = false; break; }
+      const fs = i32(t + L.fieldStart), fc = dv.getUint16(t + L.fieldCount, true);
+      if (fs < -1 || fs > fieldCount || (fs >= 0 && fs < prevStart)) { ok = false; break; }
+      if (fc > 0 && fs < 0) { ok = false; break; }
+      if (fs >= 0) prevStart = fs;
+      sum += fc;
+      if (sum > fieldCount) { ok = false; break; }
+    }
+    if (!ok || sum !== fieldCount) continue;
+    layout = L.tag;
+    types = new Array(n);
+    for (let i = 0; i < n; i++) {
+      const t = typesSec.off + i * L.stride;
+      const fs = i32(t + L.fieldStart), fc = dv.getUint16(t + L.fieldCount, true);
+      types[i] = {
+        name: heapStr(i32(t)) || ("Type_" + i),
+        ns: heapStr(i32(t + 4)) || "",
+        fields: fs >= 0 ? fieldNames.slice(fs, fs + fc) : [],
+      };
+    }
+    break;
+  }
+  let typeNames = null;
+  if (!types) {
+    for (const stride of [84, 88, 80, 92, 96, 104]) {
+      if (typesSec.size <= 0 || typesSec.size % stride !== 0) continue;
+      const n = typesSec.size / stride;
+      if (n < 1 || n > 2000000) continue;
+      let ok = true;
+      const names = new Array(n);
+      for (let i = 0; i < n; i++) {
+        const nm = heapStr(i32(typesSec.off + i * stride));
+        if (nm === null) { ok = false; break; }
+        names[i] = nm;
+      }
+      if (ok) { typeNames = names; layout = "names/" + stride; break; }
+    }
+  }
+  return { version, layout, types, typeNames, fieldNames };
+}
+//__METADATA_PARSER_END__
+function applyMetadata(buf, src) {
+  try {
+    S.meta = parseIl2CppMetadata(buf);
+    $("metaState").textContent = src + ": metadata v" + S.meta.version +
+      (S.meta.types ? ", классов " + S.meta.types.length : S.meta.typeNames ? ", типов (только имена) " + S.meta.typeNames.length : "") +
+      ", полей " + S.meta.fieldNames.length;
+    log($("metaState").textContent, "good");
+    renderMeta();
+  } catch (e) {
+    $("metaState").textContent = "ошибка: " + e.message;
+    log("Metadata: " + e.message, "err");
+  }
+}
+function renderMeta() {
+  const list = $("metaList");
+  const f = $("metaFilter").value.trim().toLowerCase();
+  if (!S.meta) { list.innerHTML = ""; $("metaCount").textContent = ""; return; }
+  let html = "", shown = 0, total = 0;
+  if (S.meta.types) {
+    for (const t of S.meta.types) {
+      const fq = (t.ns ? t.ns + "." : "") + t.name;
+      const matchFields = f ? t.fields.filter(x => x.toLowerCase().includes(f)) : t.fields;
+      if (f && !fq.toLowerCase().includes(f) && !matchFields.length) continue;
+      total++;
+      if (shown >= 300) continue;
+      shown++;
+      html += "<div style='padding:7px 10px;border-bottom:1px solid var(--line)'><code>" + Esc(fq) + "</code> " +
+        matchFields.map(x => "<span class='pill'>" + Esc(x) + "</span>").join(" ") + "</div>";
+    }
+  } else {
+    const names = (S.meta.typeNames || []).concat([]).filter(n => !f || n.toLowerCase().includes(f));
+    total = names.length;
+    html = names.slice(0, 300).map(n => "<div style='padding:7px 10px;border-bottom:1px solid var(--line)'><code>" + Esc(n) + "</code></div>").join("");
+  }
+  if (f) {
+    const fn = S.meta.fieldNames.filter(x => x.toLowerCase().includes(f));
+    html += "<div style='padding:7px 10px' class='muted'>Поля по фильтру (" + fn.length + "): " +
+      fn.slice(0, 200).map(x => "<span class='pill'>" + Esc(x) + "</span>").join(" ") + "</div>";
+  }
+  list.innerHTML = html || "<p class='muted' style='padding:10px'>ничего по фильтру</p>";
+  $("metaCount").textContent = "совпадений: " + total.toLocaleString("ru") + (shown === 300 ? " (показаны первые 300)" : "");
+}
+$("metaFilter").addEventListener("input", () => renderMeta());
+$("btnMetaFetch").onclick = async () => {
+  try {
+    $("metaState").textContent = "тяну…";
+    const r = await api("/api/unity/metadata", undefined, true);
+    const buf = await r.arrayBuffer();
+    applyMetadata(buf, "из игры/APK (" + fmtBytes(buf.byteLength) + ")");
+  } catch (e) { $("metaState").textContent = "ошибка: " + e.message; log(e.message, "err"); }
+};
+$("metaFile").addEventListener("change", async e => {
+  const file = e.target.files[0];
+  if (!file) return;
+  const buf = await file.arrayBuffer();
+  applyMetadata(buf, "файл " + file.name);
+});
+
+// ---------------- wiring & polling ----------------
+$("btnConnect").onclick = () => connect(true);
+$("btnStatus").onclick = () => connect(false);
+$("btnGames").onclick = () => loadGames();
+$("btnProcs").onclick = () => loadProcesses();
+let procTimer = null;
+$("procFilter").addEventListener("input", () => { clearTimeout(procTimer); procTimer = setTimeout(loadProcesses, 350); });
+$("gameFilter").addEventListener("input", () => renderGames(S.gamesCache || []));
+setInterval(async () => {
+  if (!S.token && !S.status) return;
+  try { applyStatus(await api("/api/status")); } catch { /* демон мог уснуть */ }
+}, 2000);
+setInterval(refreshSavedValues, 1200);
+initConn();
+connect(false);
+</script>
+</body>
+</html>

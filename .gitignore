@@ -23,6 +23,9 @@ node_modules/
 package-lock.json
 !test/package-lock.json
 
+## MemTool: рабочая папка демона (результаты сканов) и локальные фейковые .so
+memtool_work/
+
 ## ПК-версия: собранные бинарники и скриншоты харнесса
 *.exe
 cb4_shot.bmp

@@ -225,3 +225,99 @@ jobs:
             --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." >/dev/null 2>&1 || true
           echo "### Android APK Ready" >> "$GITHUB_STEP_SUMMARY"
           echo "- [CubicBattle4.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.apk)" >> "$GITHUB_STEP_SUMMARY"
+
+  build-memtool:
+    name: Build MemTool (host test + Android binaries)
+    runs-on: ubuntu-24.04
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-python@v7
+        with:
+          python-version: '3.11'
+
+      - name: Host build and end-to-end test
+        run: |
+          set -euo pipefail
+          python3 tools/build_memtool.py
+          MEMTOOL_NO_BUILD=1 python3 tools/test_memtool.py
+
+      - name: Setup Java for Android build tools
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Prepare Android NDK
+        id: android-tools
+        run: |
+          set -euo pipefail
+          SDKM="$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager"
+          if [ ! -x "$SDKM" ]; then
+            TMP="$(mktemp -d)"
+            curl -fsSL -o "$TMP/tools.zip" \
+              https://dl.google.com/android/repository/commandlinetools-linux-12266719_latest.zip
+            unzip -q "$TMP/tools.zip" -d "$TMP"
+            mkdir -p "$ANDROID_HOME/cmdline-tools"
+            rm -rf "$ANDROID_HOME/cmdline-tools/latest"
+            mv "$TMP/cmdline-tools" "$ANDROID_HOME/cmdline-tools/latest"
+            rm -rf "$TMP"
+          fi
+          NDK_PATH=""
+          if [ -d "$ANDROID_HOME/ndk" ]; then
+            for cand in $(ls -1d "$ANDROID_HOME"/ndk/* 2>/dev/null | sort -V -r); do
+              if [ -x "$cand/toolchains/llvm/prebuilt/linux-x86_64/bin/aarch64-linux-android26-clang" ]; then
+                NDK_PATH="$cand"
+                break
+              fi
+            done
+          fi
+          if [ -z "$NDK_PATH" ]; then
+            yes | "$SDKM" --licenses > /dev/null || true
+            "$SDKM" "ndk;25.2.9519653"
+            NDK_PATH="$ANDROID_HOME/ndk/25.2.9519653"
+          fi
+          echo "Using NDK: $NDK_PATH"
+          echo "ndk-path=$NDK_PATH" >> "$GITHUB_OUTPUT"
+
+      - name: Build Android memtool binaries
+        env:
+          ANDROID_NDK_ROOT: ${{ steps.android-tools.outputs.ndk-path }}
+        run: |
+          set -euo pipefail
+          python3 tools/build_memtool.py --android
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            test -s "build/memtool/android/$abi/memtool"
+            file "build/memtool/android/$abi/memtool"
+          done
+          mkdir -p build/memtool/dist
+          for abi in arm64-v8a armeabi-v7a x86_64; do
+            mkdir -p "build/memtool/dist/$abi"
+            cp "build/memtool/android/$abi/memtool" "build/memtool/dist/$abi/"
+          done
+          cp memtool/panel.html build/memtool/dist/
+          cp docs/memtool.md build/memtool/dist/README.md
+          (cd build/memtool/dist && zip -qr "$GITHUB_WORKSPACE/memtool-android.zip" .)
+
+      - name: Publish memtool to Release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="latest-build"
+          if ! gh release view "$TAG" >/dev/null 2>&1; then
+            gh release create "$TAG" \
+              --target "${{ github.sha }}" \
+              --title "Latest Build (APK + EXE)" \
+              --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
+              --prerelease || true
+          fi
+          for attempt in 1 2 3; do
+            if gh release upload "$TAG" memtool-android.zip --clobber; then
+              break
+            fi
+            [ "$attempt" -lt 3 ] && sleep 2
+          done
+          echo "### MemTool Ready" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [memtool-android.zip (daemon for 3 ABIs + panel)](https://github.com/${{ github.repository }}/releases/download/$TAG/memtool-android.zip)" >> "$GITHUB_STEP_SUMMARY"

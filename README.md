@@ -118,6 +118,20 @@ from older game versions (`gifts/emerald_hue`, `gifts/rose`) with the dedicated
 legacy-field filter and button; `emerald_hue` is no longer accepted by Firebase
 rules. Details in [docs/admin-panel.md](docs/admin-panel.md).
 
+## MemTool: live game values on the phone (Unity)
+
+The same idea as the admin panel, pointed at a running game's RAM instead of
+Firebase: [memtool/](memtool) is a small C daemon plus a single-file web
+panel. Pick a game on the phone, launch it, scan its memory for values
+(coins, health, ammo) and replace them while playing, GameGuardian-style,
+with a Unity bent: IL2CPP/Mono and Unity-version detection, IL2CPP heap
+region presets, `libil2cpp.so+offset` saved addresses, a
+`global-metadata.dat` class/field name browser, value freezing. Needs root
+(Magisk or a rooted emulator); the three-ABI binaries ship as
+`memtool-android.zip` in the `latest-build` release, and a fake Unity game
+lets you practise on a PC without a phone. Details:
+[docs/memtool.md](docs/memtool.md), tests: `python3 tools/test_memtool.py`.
+
 ## Legal
 
 Age rating 12+. The Terms of Use, the personal data policy and the consent
