@@ -261,6 +261,10 @@ static void draw_santa_letter(void) {
         if (size <= 0) {
             return;
         }
+    } else if (game_state == ST_LOBBY) {
+        sx = screen_w - 200;
+        sy = screen_h - 120;
+        size = 30;
     } else {
         return;
     }

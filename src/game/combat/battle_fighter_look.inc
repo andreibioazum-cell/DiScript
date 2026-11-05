@@ -144,7 +144,7 @@ static void draw_fighter_body(double x, double y, double ang, double look, doubl
         return;
     }
     if (blend > 0 && prev != LOOK_NONE && look_ready(prev) == 1) {
-        tex_tint(x - half_px, y - half_px, look_tex(prev, punching), sprite_a(ang), sprite_scale,
+        tex_tint(x - half_px, y - half_px, look_tex(prev, 0), sprite_a(ang), sprite_scale,
                  (uint32_t)(int)(blend * 255.0));
     }
     tex(x - half_px, y - half_px, look_tex(look, punching), sprite_a(ang), sprite_scale);
@@ -205,7 +205,7 @@ static void tick_fighter_blends(void) {
     int i;
     for (i = 0; i < 4; i++) {
         if (blend_t[i] > 0) {
-            blend_t[i] = blend_t[i] - 0.15;
+            blend_t[i] = blend_t[i] - 0.10;
             if (blend_t[i] < 0) {
                 blend_t[i] = 0;
             }
