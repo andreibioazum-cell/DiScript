@@ -2,6 +2,7 @@ static double player_walk_speed(void);
 static void player_vel_reset(void);
 static void player_walk_move(double spd);
 static void move_player(void);
+static void separate_fighters(double both);
 static double enemy_in_punch(void);
 static void update_aim(void);
 static void follow_punch(void);

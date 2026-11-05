@@ -129,7 +129,7 @@ static double admin_color_of(const char *nick, double base) {
         return qwerty_color;
     }
     if (admin_nick_equal(nick, "Efy") == 1) {
-        return 0xFFFFD54Au;
+        return RGB(255,213,74);
     }
     return base;
 }
@@ -145,7 +145,7 @@ static double admin_head_color_of(const char *nick, double base) {
         return qwerty_head_color;
     }
     if (admin_nick_equal(nick, "Efy") == 1) {
-        return 0xFFB388FFu;
+        return RGB(179,136,255);
     }
     return base;
 }

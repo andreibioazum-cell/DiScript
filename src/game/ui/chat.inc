@@ -46,6 +46,9 @@ static const char *admin_actor_nick(void) {
 }
 
 static void chat_send(void) {
+    if (parent_chat_off() == 1) {
+        return;
+    }
     chat_sync_input();
     if (str_len(chat_input) == 0) {
         return;
@@ -83,7 +86,8 @@ static void chat_send(void) {
 }
 
 static void chat_set_open(double v) {
-    chat_open = v;
+    /* Parental control with 1-10 years keeps the chat closed. */
+    chat_open = parent_chat_off() == 1 ? 0 : v;
     keyboard_hide();
 }
 
@@ -129,12 +133,95 @@ static double chat_btn_h(void) {
     return btn_h;
 }
 
+/* Selected message for a complaint: the snapshot keeps it valid even when
+ * new lines push the buffer around. */
+static double chat_sel;
+static char chat_sel_nick[24];
+static char chat_sel_text[128];
+static double chat_row_y[16];
+static double chat_row_idx[16];
+static double chat_row_n;
+
+static double chat_line_h(void) { return 28; }
+
+static void chat_select_clear(void) {
+    chat_sel = 0;
+    chat_sel_nick[0] = 0;
+    chat_sel_text[0] = 0;
+}
+
+static void chat_select(double idx) {
+    const char *nick = net_chat_uid(idx);
+    const char *text = net_chat_text(idx);
+    if (!nick || !*nick || !text || !*text || chat_is_sticker_msg(text) == 1)
+        return;
+    if (str_eq(nick, net_login_nick()) == 1) {
+        return; /* you cannot report yourself */
+    }
+    snprintf(chat_sel_nick, sizeof(chat_sel_nick), "%s", nick);
+    snprintf(chat_sel_text, sizeof(chat_sel_text), "%s", chat_clean(text));
+    chat_sel = 1;
+}
+
+static void chat_report(void) {
+    if (chat_sel != 1 || !chat_sel_nick[0] || !chat_sel_text[0]) {
+        chat_select_clear();
+        return;
+    }
+    net_report_send(chat_sel_nick, chat_sel_text, net_current_room());
+    chat_select_clear();
+}
+
+static double chat_report_x(void) { return screen_w - 46; }
+static double chat_row_h(void) { return 22; }
+
+static double chat_sel_bar_y(void) { return chat_input_y() - 46; }
+static double chat_sel_btn_w(void) { return 86; }
+static double chat_sel_send_x(void) { return 16 + (screen_w - 32) - 2 * chat_sel_btn_w() - 6; }
+static double chat_sel_cancel_x(void) { return chat_sel_send_x() + chat_sel_btn_w() + 6; }
+
+/* Shorten a message so "nick: text" stays left of the "!" report button. */
+static const char *chat_clip_msg(const char *nick, const char *rest, double w, double scale) {
+    static char out[192];
+    size_t len = strlen(rest);
+    double avail = w - text_ink_width(nick) * scale;
+    char probe[196];
+    if (len >= sizeof(out)) {
+        len = sizeof(out) - 1;
+    }
+    memcpy(out, rest, len);
+    out[len] = 0;
+    if (avail <= 0) {
+        out[0] = 0;
+        return out;
+    }
+    if (text_ink_width(out) * scale <= avail) {
+        return out;
+    }
+    while (len > 0) {
+        len--;
+        while (len > 0 && ((unsigned char)out[len] & 0xC0) == 0x80) {
+            len--;
+        }
+        out[len] = 0;
+        snprintf(probe, sizeof(probe), "%s...", out);
+        if (text_ink_width(probe) * scale <= avail) {
+            snprintf(out, sizeof(out), "%s", probe);
+            return out;
+        }
+    }
+    snprintf(out, sizeof(out), "%s", "...");
+    return out;
+}
+
 static void draw_chat(void) {
     if (game_state != 5) {
         return;
     }
     if (chat_open == 0) {
-        button(tr_chat(), chat_btn_x(), chat_btn_y(), chat_btn_w(), chat_btn_h());
+        /* Parental control for 1-10 years: the chat entry point is gone. */
+        if (parent_chat_off() == 0)
+            button(tr_chat(), chat_btn_x(), chat_btn_y(), chat_btn_w(), chat_btn_h());
         return;
     }
     screen_fill();
@@ -170,17 +257,42 @@ static void draw_chat(void) {
     } else {
         double idx = start;
         double yy = ly;
+        double bottom = iy - (chat_sel == 1 ? 52 : 8);
+        chat_row_n = 0;
         while (idx < total) {
-            if (yy + line_h > iy - 8) {
+            if (yy + line_h > bottom) {
                 idx = total;
             } else {
                 if (chat_is_sticker_msg(net_chat_text(idx)) == 0) {
-                    draw_nick_msg(net_chat_uid(idx), ds_concat(": ", chat_clean(net_chat_text(idx))), lx, yy, text_color, 0.5);
+                    if (chat_row_n < 16) {
+                        chat_row_y[(int)chat_row_n] = yy;
+                        chat_row_idx[(int)chat_row_n] = idx;
+                        chat_row_n = chat_row_n + 1;
+                    }
+                    if (chat_sel == 1 && str_eq(chat_sel_nick, net_chat_uid(idx)) == 1)
+                        roundrect(lx - 6, yy - 4, lw + 12, line_h, 8, RGB(58,53,96));
+                    const char *who = parent_nick(net_chat_uid(idx));
+                    const char *rest = ds_concat(": ", chat_clean(net_chat_text(idx)));
+                    /* Keep the line clear of the "!" button on the right edge. */
+                    const char *shown_msg = chat_clip_msg(who, rest, chat_report_x() - lx - 10, 0.5);
+                    draw_nick_msg(who, shown_msg, lx, yy, text_color, 0.5);
+                    if (str_eq(net_chat_uid(idx), net_login_nick()) == 0)
+                        button_scaled_face("!", chat_report_x(), yy - 3, 28, 26, 0.5, RGB(192,48,74));
                     yy = yy + line_h;
                 }
                 idx = idx + 1;
             }
         }
+    }
+    if (chat_sel == 1) {
+        const char *label = ds_concat(language == 1 ? "Жалоба на " : "Report ", chat_sel_nick);
+        roundrect(lx, chat_sel_bar_y(), lw, 38, 10, RGB(46,42,70));
+        text_scaled(label, lx + 12, chat_sel_bar_y() + 10, text_color,
+                    fit_text_scale(label, lw - 2 * chat_sel_btn_w() - 40, 0.5));
+        button_scaled(language == 1 ? "Жалоба" : "Report", chat_sel_send_x(), chat_sel_bar_y() + 2,
+                      chat_sel_btn_w(), 34, 0.45);
+        button_scaled(language == 1 ? "Отмена" : "Cancel", chat_sel_cancel_x(), chat_sel_bar_y() + 2,
+                      chat_sel_btn_w(), 34, 0.45);
     }
     roundrect(lx, iy, lw - 122, ih, 10, card_bg);
     chat_sync_input();
@@ -200,7 +312,7 @@ static void draw_chat(void) {
 }
 
 static double touch_chat(double x, double y, double action) {
-    if (action != 0) {
+    if (action != 0 || parent_chat_off() == 1) {
         return 0;
     }
     if (chat_open == 0) {
@@ -229,6 +341,41 @@ static double touch_chat(double x, double y, double action) {
         keyboard_hide();
         return 1;
     }
+    if (chat_sel == 1) {
+        if (hit_button(x, y, chat_sel_send_x(), chat_sel_bar_y() + 2, chat_sel_btn_w(), 34) == 1) {
+            chat_report();
+            return 1;
+        }
+        if (hit_button(x, y, chat_sel_cancel_x(), chat_sel_bar_y() + 2, chat_sel_btn_w(), 34) == 1) {
+            chat_select_clear();
+            return 1;
+        }
+    }
+    /* The "!" button next to a message files the complaint in one tap. */
+    {
+        double i = 0;
+        while (i < chat_row_n) {
+            double ry = chat_row_y[(int)i];
+            if (x >= chat_report_x() && hit_rect(x, y, chat_report_x(), ry - 3, 28, 26) == 1) {
+                chat_select(chat_row_idx[(int)i]);
+                chat_report();
+                return 1;
+            }
+            i = i + 1;
+        }
+    }
+    /* Tapping a message picks it for a complaint. */
+    {
+        double i = 0;
+        while (i < chat_row_n) {
+            double ry = chat_row_y[(int)i];
+            if (y >= ry - 4 && y < ry + chat_line_h() && x > 8 && x < chat_report_x() - 4) {
+                chat_select(chat_row_idx[(int)i]);
+                return 1;
+            }
+            i = i + 1;
+        }
+    }
     keyboard_hide();
     return 1;
 }
@@ -240,7 +387,7 @@ static double chat_button_hit(double x, double y) {
     double iy = chat_input_y();
     double ih = 52;
     if (chat_open == 0) {
-        return hit_button(x, y, chat_btn_x(), chat_btn_y(), chat_btn_w(), chat_btn_h());
+        return parent_chat_off() == 0 && hit_button(x, y, chat_btn_x(), chat_btn_y(), chat_btn_w(), chat_btn_h());
     }
     if (hit_button(x, y, chat_close_x(), chat_top_y(), btn_w, btn_h) == 1 ||
         hit_button(x, y, lx + lw - 112, iy, 112, ih) == 1) {

@@ -346,7 +346,7 @@ static void draw_event_plates(void) {
         draw_plate(plate_bx(), plate_by(), 1, plate_b_lit);
         const char *hint = language == 1 ? "Встаньте на плиту: урон будет втрое меньше" : "Stand on a plate: hits deal one third damage";
         double tw = text_ink_width(hint) * 0.46;
-        text_scaled(hint, (screen_w - tw) / 2, screen_h * 0.14, 0xFFFFFFFF, 0.46);
+        text_scaled(hint, (screen_w - tw) / 2, screen_h * 0.14, RGB(255,255,255), 0.46);
         return;
     }
     if (event_mode != 2 || plates_phase >= 3 || plates_finished == 1) {

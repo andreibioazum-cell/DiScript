@@ -47,11 +47,18 @@ static int pc_url_parse(const char *url, PcUrl *u) {
 #include "platform/pc/net_posix.inc"
 #endif
 
+/* Retry once on a transport error for methods that are safe to repeat. */
+static int pc_retry_safe(const char *method) {
+    const char *m = method ? method : "GET";
+    return strcmp(m, "GET") == 0 || strcmp(m, "PUT") == 0 || strcmp(m, "PATCH") == 0 || strcmp(m, "DELETE") == 0;
+}
+
 static int http_ex(const char *method, const char *url, const char *body, char *out, size_t cap, const char *header,
                    const char *value, char *etag, size_t etag_cap) {
     PcUrl u;
     const char *m = method ? method : "GET";
     const char *override_method = NULL;
+    int code;
     if (!pc_url_parse(url, &u)) {
         ds_log_err("http: bad url '%s'", url ? url : "(null)");
         return 0;
@@ -60,7 +67,10 @@ static int http_ex(const char *method, const char *url, const char *body, char *
         m = "POST";
         override_method = "PATCH";
     }
-    return pc_http_request(m, &u, body, out, cap, header, value, override_method, etag, etag_cap);
+    code = pc_http_request(m, &u, body, out, cap, header, value, override_method, etag, etag_cap);
+    if (code == 0 && !net_fast && pc_retry_safe(method ? method : "GET"))
+        code = pc_http_request(m, &u, body, out, cap, header, value, override_method, etag, etag_cap);
+    return code;
 }
 
 static int http_stream(const char *url, const char *accept, DSStreamChunkFn cb, void *ctx) {

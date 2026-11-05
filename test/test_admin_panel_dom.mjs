@@ -268,7 +268,7 @@ try {
 
   /* emerald_hue and rose are obsolete fields: rules reject new hue writes,
    * while rose remains for old profiles; the web panel finds and removes both
-   * with the dedicated "Устаревшие поля" filter (checked in section 3 above). */
+   * with the dedicated "legacy fields" filter (checked in section 3 above). */
 
   console.log("\n== 6. Комната: чат и слоты ==");
   setVal("#room", "main");

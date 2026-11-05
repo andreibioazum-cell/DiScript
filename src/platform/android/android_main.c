@@ -13,9 +13,129 @@
 #include <android/input.h>
 #include <android/keycodes.h>
 #include <android/native_activity.h>
+#include <pthread.h>
 #include <unistd.h>
 static int init_done = 0;
 static int game_active = 0;
+static struct android_app *ui_app = NULL;
+
+static JavaVM *fs_vm_ptr;
+static int fs_attached_now;
+
+static JNIEnv *fs_java_env(void) {
+    JavaVM *vm;
+    JNIEnv *env = NULL;
+    fs_attached_now = 0;
+    if (!ui_app || !ui_app->activity || !ui_app->activity->vm)
+        return NULL;
+    vm = ui_app->activity->vm;
+    fs_vm_ptr = vm;
+    if ((*vm)->GetEnv(vm, (void **)&env, JNI_VERSION_1_6) != JNI_OK) {
+        if ((*vm)->AttachCurrentThread(vm, &env, NULL) != JNI_OK)
+            return NULL;
+        fs_attached_now = 1;
+    }
+    return env;
+}
+
+static void fs_env_release(void) {
+    if (fs_attached_now && fs_vm_ptr)
+        (*fs_vm_ptr)->DetachCurrentThread(fs_vm_ptr);
+    fs_attached_now = 0;
+}
+
+static volatile int fs_fd_kind = 0;
+static volatile int fs_fd_value = -1;
+static pthread_mutex_t fs_fd_lock = PTHREAD_MUTEX_INITIALIZER;
+
+static void fs_hand_fd(int kind, int fd) {
+    int stale;
+    pthread_mutex_lock(&fs_fd_lock);
+    stale = fs_fd_value;
+    fs_fd_value = fd;
+    fs_fd_kind = kind;
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (stale >= 0 && stale != fd)
+        close(stale);
+}
+
+int net_fs_take_fd(int *kind) {
+    int fd;
+    pthread_mutex_lock(&fs_fd_lock);
+    fd = fs_fd_value;
+    if (kind)
+        *kind = fs_fd_kind;
+    fs_fd_value = -1;
+    fs_fd_kind = 0;
+    pthread_mutex_unlock(&fs_fd_lock);
+    return fd;
+}
+
+/* Called from the Java side once the document picker returns a descriptor. */
+JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativePickedFd(JNIEnv *env, jobject thiz, jint fd) {
+    (void)env;
+    (void)thiz;
+    fs_hand_fd(1, (int)fd);
+}
+
+JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeSavedFd(JNIEnv *env, jobject thiz, jint fd) {
+    (void)env;
+    (void)thiz;
+    fs_hand_fd(2, (int)fd);
+}
+
+static int fs_call_void(const char *name, const char *sig, const char *arg) {
+    JNIEnv *env = fs_java_env();
+    jobject self;
+    jclass cls;
+    jmethodID id;
+    jstring text = NULL;
+    int ok = 0;
+    if (!env || !ui_app->activity->clazz) {
+        fs_env_release();
+        ds_log("file picker: no JNI env");
+        return 0;
+    }
+    self = ui_app->activity->clazz;
+    if ((*env)->PushLocalFrame(env, 8) != 0) {
+        fs_env_release();
+        return 0;
+    }
+    cls = (*env)->GetObjectClass(env, self);
+    id = cls ? (*env)->GetMethodID(env, cls, name, sig) : NULL;
+    if ((*env)->ExceptionCheck(env)) {
+        (*env)->ExceptionDescribe(env);
+        (*env)->ExceptionClear(env);
+        id = NULL;
+    }
+    if (id) {
+        if (arg) {
+            text = (*env)->NewStringUTF(env, arg);
+            (*env)->CallVoidMethod(env, self, id, text);
+        } else {
+            (*env)->CallVoidMethod(env, self, id);
+        }
+        if ((*env)->ExceptionCheck(env)) {
+            (*env)->ExceptionDescribe(env);
+            (*env)->ExceptionClear(env);
+            ds_log("file picker: java exception in %s", name);
+        } else {
+            ok = 1;
+            ds_log("file picker: %s called", name);
+        }
+    } else {
+        ds_log("file picker: no method %s", name);
+    }
+    (*env)->PopLocalFrame(env, NULL);
+    fs_env_release();
+    return ok;
+}
+
+int net_fs_pick_import(void) { return fs_call_void("pickModZip", "()V", NULL); }
+
+int net_fs_pick_export(const char *suggested) {
+    return fs_call_void("saveModZip", "(Ljava/lang/String;)V", suggested ? suggested : "mod.zip");
+}
 
 static int game_started_once = 0;
 static AAssetManager *game_assets = NULL;
@@ -346,7 +466,10 @@ void android_main(struct android_app *app) {
     app->onInputEvent = handle_input;
     net_set_java_vm(app->activity->vm);
     ds_sound_set_java_vm((void *)app->activity->vm);
+    ui_app = app;
     net_set_data_path(app->activity->internalDataPath);
+    net_fs_set_dirs(app->activity->internalDataPath, app->activity->externalDataPath);
+    ds_log_quiet = 1;
     {
         char lang[3] = {0};
         if (app->config)

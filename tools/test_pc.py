@@ -71,7 +71,8 @@ def stage_assets() -> Path:
 def harness(assets: Path, data: Path, args: list[str]) -> subprocess.CompletedProcess:
     shutil.rmtree(data, ignore_errors=True)
     data.mkdir(parents=True, exist_ok=True)
-    return run([str(BINARY), "--headless", "--size", "540x960", "--assets", str(assets), "--data", str(data), *args])
+    return run([str(BINARY), "--headless", "--verbose", "--size", "540x960", "--assets", str(assets),
+                "--data", str(data), *args])
 
 
 def parse_reports(stdout: str) -> dict[int, dict[str, str]]:
@@ -273,7 +274,7 @@ def harness_async(assets: Path, data: Path, args: list[str], progress: str = "")
     if progress:
         (data / "progress.dat").write_text(progress, encoding="utf-8")
     return subprocess.Popen(
-        [str(BINARY), "--headless", "--pace-ms", "16", "--size", "540x960",
+        [str(BINARY), "--headless", "--verbose", "--pace-ms", "16", "--size", "540x960",
          "--assets", str(assets), "--data", str(data), *args],
         cwd=ROOT,
         stdout=subprocess.PIPE,
@@ -645,10 +646,10 @@ def wait_port(port: int, timeout: float = 5.0) -> bool:
 
 
 def test_login(assets: Path) -> None:
-    """Полный сетевой путь: экран входа -> форма -> Firebase Auth -> профиль.
+    """Full network path: login screen -> form -> Firebase Auth -> profile.
 
-    Подставная база поднимается на том же порту, что зашит в харнесс при
-    сборке (FAKE_PORT), поэтому адрес совпадает с боевым кодом вызова.
+    The fake database listens on the port baked into the harness at build
+    time (FAKE_PORT), so the address matches the real call site.
     """
     print("\n== 4. Вход в аккаунт через настоящий HTTP ==")
     if not wait_port(FAKE_PORT, timeout=0.3):

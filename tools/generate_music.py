@@ -5,7 +5,6 @@ All tracks are 22.05 kHz stereo 16-bit PCM WAV:
 
   * ``lobbymusic.wav``    - 70 s ordinary lobby theme (4 developed sections)
   * ``winter_jingle.wav`` - 70 s New Year lobby theme (4 developed sections)
-  * ``halloween_lobby.wav`` - 70 s original Halloween lobby theme
   * ``duel_theme.wav``    - 45 s Azum-vs-Astra duel theme (24 bars @ 128 BPM)
 
 The old ``azum_vs_astra.wav`` imitation of "And The Seraphim Wept" and its
@@ -318,6 +317,7 @@ def winter_track() -> tuple[array, array]:
     return left, right
 
 
+<<<<<<< HEAD
 # ---------------------------------------------------------------------------
 # Halloween lobby theme: playful minor-key organ, low plucks and orange-glow
 # bells. Four changing sections build into a warm loop rather than a jump scare.
@@ -335,69 +335,8 @@ HALLOWEEN_MELODY = (
 )
 
 
-def halloween_track() -> tuple[array, array]:
-    left, right = stereo(70.0)
-    beat = 0.625
-    bar = beat * 4
-    roots = HALLOWEEN_ROOTS * 4
-    chords = HALLOWEEN_CHORDS * 4
-    melody = HALLOWEEN_MELODY * 4
-    for index, tones in enumerate(chords):
-        section = index // 7
-        start = index * bar
-        for voice, note in enumerate(tones):
-            add_tone(left, right, start, bar + 0.08, note - 12, 0.09 + 0.008 * section,
-                     (voice - 1) * 0.55, "choir", 0.22, 0.5)
-            if section >= 2:
-                add_tone(left, right, start, bar + 0.08, note + 12, 0.025,
-                         (voice - 1) * 0.35, "brass", 0.32, 0.55)
-        for pulse in range(8):
-            t = start + pulse * beat / 2
-            add_pluck(left, right, t, beat * 0.45, roots[index] + (12 if pulse in (3, 7) else 0),
-                      0.18, -0.15 if pulse % 2 else 0.15)
-            if pulse % 2 == 0:
-                add_bell(left, right, t, 0.9, melody[index][pulse], 0.09 + section * 0.012,
-                         0.3 if pulse % 4 == 0 else -0.3)
-            if section >= 1 and pulse in (3, 7):
-                add_noise(left, right, t, 0.12, 0.045, 0.2, 18.0)
-        for pulse, note in enumerate(melody[index]):
-            if pulse % 2 == 1 or section > 0:
-                add_tone(left, right, start + pulse * beat / 2, beat * 0.7, note, 0.07,
-                         0.1 if pulse % 2 else -0.1, "brass", 0.015, 0.18)
-        for pulse in range(4):
-            add_kick(left, right, start + pulse * beat, 0.18 + section * 0.025)
-            if pulse % 2 == 1:
-                add_noise(left, right, start + pulse * beat, 0.08, 0.045, -0.2, 25.0)
-    return left, right
-
-
-# ---------------------------------------------------------------------------
-# Duel theme - a brand-new original 45-second battle loop (24 bars at 128 BPM).
-# A minor with a C-major lift: warm pads, an eighth-note arpeggio, a singing
-# lead, bright bells and light drums. No gloomy imitation, no outside sample.
-# ---------------------------------------------------------------------------
-DUEL_BPM = 128.0
-DUEL_BEAT = 60.0 / DUEL_BPM          # 0.46875 s
-DUEL_BAR = DUEL_BEAT * 4            # 1.875 s
-DUEL_SLOT = DUEL_BAR * 2            # 3.75 s, 12 slots = 45 s
-
-# (bass root, triad, 8-note lead phrase)
-DUEL_SLOTS = (
-    (45, (57, 60, 64), (69, 72, 76, 72, 69, 67, 64, 67)),          # Am
-    (41, (53, 57, 60), (69, 72, 77, 72, 69, 65, 64, 65)),          # F
-    (48, (60, 64, 67), (72, 76, 79, 76, 72, 71, 67, 72)),          # C
-    (43, (55, 59, 62), (71, 74, 79, 74, 71, 67, 62, 67)),          # G
-    (45, (57, 60, 64), (76, 79, 81, 79, 76, 72, 69, 72)),          # Am, lift
-    (41, (53, 57, 60), (77, 81, 84, 81, 77, 76, 72, 69)),          # F, lift
-    (38, (50, 53, 57), (74, 77, 81, 77, 74, 72, 69, 65)),          # Dm, bridge
-    (40, (52, 56, 59), (76, 80, 83, 80, 76, 71, 68, 71)),          # E, tension
-    (45, (57, 60, 64), (69, 72, 76, 81, 79, 76, 72, 69)),          # Am, return
-    (41, (53, 57, 60), (72, 77, 81, 84, 81, 77, 72, 69)),          # F
-    (48, (60, 64, 67), (79, 84, 88, 84, 79, 76, 72, 76)),          # C, climax
-    (43, (55, 59, 62), (81, 79, 76, 74, 71, 74, 76, 69)),          # G, resolves to Am
-)
-
-
+=======
+>>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
 def duel_track() -> tuple[array, array]:
     left, right = stereo(45.0)
     beat = DUEL_BEAT
@@ -458,7 +397,6 @@ def main(argv: list[str] | None = None) -> int:
     tracks = (
         ("lobbymusic.wav", lobby_track, 0.025, 0.025),
         ("winter_jingle.wav", winter_track, 0.025, 0.025),
-        ("halloween_lobby.wav", halloween_track, 0.025, 0.025),
         ("duel_theme.wav", duel_track, 0.02, 0.06),
     )
     wanted = set(argv or [])

@@ -190,7 +190,7 @@ static const char *skin_name_for(double cls, double skin) {
         return tr_skin_astra();
     }
     if (cls == CLASS_ORDINARY) {
-        return "Pumpkin";
+        return language == 1 ? "Золотой" : "Gold";
     }
     if (cls == CLASS_EBUC) {
         return tr_skin_elf();

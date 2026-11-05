@@ -233,6 +233,9 @@ static void draw_player_body_layer(void) {
         draw_motion_ghosts(px, py, mb_dx, mb_dy, 25 * cube_scale * player_scale,
                            cube_scale * player_scale, look_tex(look, punching), sprite_a(player->angle));
     }
+    if (dash_active > 0 && look != LOOK_NONE) {
+        draw_dash_cube_trail(px, py, player->angle, look, punching, player_scale);
+    }
     draw_fighter_body(px, py, player->angle, look, punching);
     double self_tint = codecracker_tint_local();
     draw_fighter_tint(px, py, player->angle, look, punching, player_scale, self_tint);
@@ -287,6 +290,9 @@ static void draw_enemy_body(void) {
     if (look != LOOK_NONE) {
         draw_motion_ghosts(ex, ey, mb_edx, mb_edy, ehw, es, look_tex(look, punching),
                            sprite_a(enemy->angle));
+    }
+    if (enemy_dash_active > 0 && look != LOOK_NONE) {
+        draw_dash_cube_trail(ex, ey, enemy->angle, look, punching, enemy_scale);
     }
     if (look == LOOK_NONE) {
         rect(ex - ehw, ey - ehw, 2 * ehw, 2 * ehw, fighter_fallback_rgb);
@@ -408,6 +414,7 @@ static void draw_game(void) {
     draw_turret_shadows();
     draw_candies();
     draw_christmas_snowballs();
+    draw_ice();
     draw_player_hitbox_layer();
     draw_enemy_hitbox();
     draw_ability_hitboxes();
@@ -421,6 +428,7 @@ static void draw_game(void) {
     draw_ball();
     draw_enemy_ball();
     draw_codecracker_fx_local();
+    tick_fighter_blends();
     draw_player_body_layer();
     draw_status_aura(player->x, player->y, player->size, freeze_rgb, freeze_rim, pfreeze_a);
     draw_status_aura(player->x, player->y, player->size, poison_rgb, poison_rim, ppoison_a);
@@ -430,6 +438,7 @@ static void draw_game(void) {
     draw_status_aura(enemy->x, enemy->y, enemy->size, poison_rgb, poison_rim, poison_a);
     draw_status_aura(enemy->x, enemy->y, enemy->size, stun_rgb, stun_rim, stun_a);
     draw_snow();
+    draw_santa_letter();
         /* Draw arena vignette before HUD elements. */
         draw_screen_fx();
     double w = screen_w / 4;

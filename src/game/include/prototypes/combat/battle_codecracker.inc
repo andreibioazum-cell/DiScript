@@ -11,3 +11,5 @@ static double codecracker_tint_local(void);
 static double codecracker_tint_slot(double slot);
 static void draw_codecracker_fx_local(void);
 static void draw_codecracker_fx_slot(double slot, double x, double y, double angle);
+static double codecracker_match_look(void);
+static void codecracker_look_reset(void);

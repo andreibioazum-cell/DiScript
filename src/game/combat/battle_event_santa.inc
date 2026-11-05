@@ -113,9 +113,9 @@ static void draw_plates_hud(void) {
     }
     double secs = floor(plates_time_left() + 0.999);
     const char *s = ds_concat(ds_concat(tr_candy_timer(), ": "), ds_num_to_string((double)(secs)));
-    uint32_t c = 0xFFFFFFFF;
+    uint32_t c = RGB(255,255,255);
     if (secs <= 10) {
-        c = 0xFFFF6E63;
+        c = RGB(255,110,99);
     }
     ctext_scaled(s, back_y + btn_h + 6, c, 0.5);
 }

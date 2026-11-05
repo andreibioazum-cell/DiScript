@@ -82,9 +82,9 @@ static void draw_imbalance_stars(void) {
     while (i < 5) {
         double cx = sx + i * (r * 2 + gap);
         if (i < rating) {
-            draw_star(cx, cy, r * 1.1, 0xFFF7C948);
+            draw_star(cx, cy, r * 1.1, RGB(247,201,72));
         } else {
-            draw_star(cx, cy, r, 0xFF0B0B12);
+            draw_star(cx, cy, r, RGB(11,11,18));
         }
         i = i + 1;
     }

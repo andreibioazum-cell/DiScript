@@ -143,5 +143,5 @@ static void draw_fps_meter(void) {
     double y = screen_h - FPS_MARGIN - th - tt;
         /* Draw 1 px shadow behind FPS readout. */
     text_scaled(label, x + 1, y + 1, 0xB0000000, FPS_SCALE);
-    text_scaled(label, x, y, 0xFFFFFFFF, FPS_SCALE);
+    text_scaled(label, x, y, RGB(255,255,255), FPS_SCALE);
 }

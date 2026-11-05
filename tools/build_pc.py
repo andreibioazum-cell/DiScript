@@ -135,6 +135,7 @@ def compile_windows(extra: list[str]) -> tuple[Path, list[str]]:
         "-lwinmm",
         "-luser32",
         "-lgdi32",
+        "-lcomdlg32",
         # GUI subsystem: windowed game, no console window. Logs still go to
         # cb4.log next to the exe.
         "-Wl,--subsystem,windows",

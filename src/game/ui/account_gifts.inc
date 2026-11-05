@@ -196,9 +196,6 @@ static double hit_acct_gift_any(double x, double y) {
 }
 /* Return width of action-row buttons (Look, Buy/Gift, Sell). */
 static double acct_gift_inspect_w(void) {
-    if (acct_gift_is_owned == 1 && acct_gift_sel_id() == NET_GIFT_PUMPKIN_CUBE_ID) {
-        return acct_w();
-    }
     return (acct_w() - 2 * ACCT_GIFT_COL_GAP) / 3;
 }
 static double acct_gift_action_x(double col) {
@@ -206,17 +203,14 @@ static double acct_gift_action_x(double col) {
 }
 static double hit_acct_gift_buy(double x, double y) {
     return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 0 &&
-           acct_gift_sel_id() != NET_GIFT_PUMPKIN_CUBE_ID &&
            hit_button(x, y, acct_x(), acct_below_fields(), acct_w(), btn_h) == 1;
 }
 static double hit_acct_gift_send(double x, double y) {
     return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 1 &&
-           acct_gift_sel_id() != NET_GIFT_PUMPKIN_CUBE_ID &&
            hit_button(x, y, acct_gift_action_x(1), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
 }
 static double hit_acct_gift_sell(double x, double y) {
     return acct_open == ACCT_GIFTS && acct_gift_picked() == 1 && acct_gift_is_owned == 1 &&
-           acct_gift_sel_id() != NET_GIFT_PUMPKIN_CUBE_ID &&
            hit_button(x, y, acct_gift_action_x(2), acct_below_fields(), acct_gift_inspect_w(), btn_h) == 1;
 }
 static double hit_acct_gift_inspect(double x, double y) {
@@ -382,7 +376,7 @@ static void acct_gift_card(double id, double owned, double card_y, double clip_t
         if (owned == 0) text_in_box(value, x, py, w, 18, ink, fit_text_scale(value, w - 12, 0.48));
     }
     if (selected == 1) {
-        roundrect_outline(x, card_y, w, full, btn_radius, 3, 0xFFFFD34D);
+        roundrect_outline(x, card_y, w, full, btn_radius, 3, RGB(255,211,77));
     }
 }
 
@@ -464,11 +458,6 @@ static void draw_acct_gifts(void) {
     } else if (acct_gift_picked() == 0) {
         const char *hint = language == 1 ? "Нажмите на стикер" : "Tap a sticker";
         ctext_scaled(hint, acct_below_fields() + (btn_h - 16) / 2, text_color, 0.55);
-    } else if (acct_gift_is_owned == 0 && acct_gift_sel_id() == NET_GIFT_PUMPKIN_CUBE_ID) {
-        const char *exclusive = language == 1 ? "Эксклюзив · выдаёт администратор · 555 кубков"
-                                              : "Exclusive · granted by admin · 555 cups";
-        ctext_scaled(exclusive, acct_below_fields() + (btn_h - 16) / 2, text_color,
-                     fit_text_scale(exclusive, acct_w() - 12, 0.5));
     } else if (acct_gift_is_owned == 0) {
         /* The shop has only a purchase action; full-resolution inspection is
          * reserved for stickers already in My Gifts. */
@@ -488,9 +477,6 @@ static void draw_acct_gifts(void) {
         const char *sell = ds_concat(language == 1 ? "Продать · +" : "Sell · +",
                                      acct_gift_cups_line(acct_gift_refund(acct_gift_sel_id())));
         button_scaled(look, acct_x(), acct_below_fields(), bw, btn_h, fit_text_scale(look, bw - 12, 0.56));
-        if (acct_gift_sel_id() == NET_GIFT_PUMPKIN_CUBE_ID) {
-            return;
-        }
         button_scaled(send, acct_gift_action_x(1), acct_below_fields(), bw, btn_h, fit_text_scale(send, bw - 12, 0.56));
         button_scaled(sell, acct_gift_action_x(2), acct_below_fields(), bw, btn_h, fit_text_scale(sell, bw - 12, 0.52));
     }

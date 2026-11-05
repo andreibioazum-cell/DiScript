@@ -364,7 +364,10 @@ static void update_game(void) {
             }
             heal_after_attack();
         } else if (enemy_in_punch() == 1) {
-            punch->hit = 1;
+            /* Block punch if it overlaps with an ice block. */
+            if (ice_near_fighter(punch->x, punch->y, 30.0 + punch_reach) == 0) {
+                punch->hit = 1;
+            }
             if (enemy_revive_prot <= 0) {
                 if (player_class == 2 && santa_follow > 0) {
                     if (player_level >= 3) {
@@ -399,4 +402,7 @@ static void update_game(void) {
         return;
     }
     update_enemy();
+    separate_fighters(1);
+    ice_push_point(&enemy->x, &enemy->y, enemy_half());
+    ice_tick();
 }

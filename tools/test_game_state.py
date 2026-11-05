@@ -22,6 +22,7 @@ def main() -> int:
                 "-Wall",
                 "-Wextra",
                 "-Werror",
+                "-Wno-unused-function",
                 "-pedantic",
                 "-ffunction-sections",
                 "-fdata-sections",

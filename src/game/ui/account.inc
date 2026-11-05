@@ -2,6 +2,7 @@
 #define ACCT_PASS 2
 #define ACCT_DELETE 3
 #define ACCT_GIFTS 4
+#define ACCT_PIN 5
 #define ACCT_BUF 64
 static double acct_gift_choice = -1;
 static double acct_gift_is_owned = 0;
@@ -55,6 +56,9 @@ static const char *tr_acct_need_pass(void) { return acct_tr("Введите па
 static const char *tr_acct_need_new(void) { return acct_tr("Введите новый пароль", "Enter a new password"); }
 static const char *tr_acct_mismatch(void) { return acct_tr("Новые пароли не совпадают", "The new passwords do not match"); }
 static const char *tr_acct_same(void) { return acct_tr("Новый пароль совпадает со старым", "The new password is the same"); }
+static const char *tr_acct_too_many(void) {
+    return acct_tr("Слишком много попыток, попробуйте позже", "Too many attempts, try again later");
+}
 static const char *tr_acct_admin(void) {
     return acct_tr("Пароль админа задан в коде игры", "The admin password is set in the game code");
 }
@@ -70,6 +74,22 @@ static const char *tr_acct_warn2(void) {
     return acct_tr("навсегда, восстановить их будет нельзя.", "deleted forever and cannot be restored.");
 }
 static const char *tr_acct_swipe(void) { return acct_tr("Проведите вправо, чтобы удалить", "Swipe right to delete"); }
+static const char *tr_pin2_title(void) { return acct_tr("Доп. пароль", "Extra password"); }
+static const char *tr_pin2_new(void) { return acct_tr("Новый доп. пароль", "New extra password"); }
+static const char *tr_pin2_repeat(void) { return acct_tr("Повторите пароль", "Repeat the password"); }
+static const char *tr_pin2_save(void) { return acct_tr("Сохранить", "Save"); }
+static const char *tr_pin2_del(void) { return acct_tr("Удалить", "Delete"); }
+static const char *tr_pin2_saved(void) { return acct_tr("Доп. пароль сохранён", "Extra password saved"); }
+static const char *tr_pin2_removed(void) { return acct_tr("Доп. пароль удалён", "Extra password deleted"); }
+static const char *tr_pin2_short(void) { return acct_tr("Пароль от 4 символов", "At least 4 characters"); }
+static const char *tr_pin2_mismatch(void) { return acct_tr("Пароли не совпадают", "Passwords do not match"); }
+static const char *tr_pin2_hint(void) {
+    return acct_tr("Хранится только на этом устройстве", "Stored on this device only");
+}
+static const char *tr_pin2_menu(void) {
+    return net_load_pin2() > 0 ? acct_tr("Доп. пароль: вкл", "Extra password: on")
+                               : acct_tr("Доп. пароль: выкл", "Extra password: off");
+}
 static void acct_clear_fields(void) {
     memset(acct_buf, 0, sizeof(acct_buf));
     acct_field = 0;
@@ -118,8 +138,22 @@ static double acct_top(void) { return back_y + btn_h + 24; }
 static double acct_w(void) { return fit_w(620); }
 static double acct_x(void) { return center_x(acct_w()); }
 static double acct_menu_y(double i) { return acct_top() + 56 + i * (btn_h + 16); }
-static double acct_fields(void) { return acct_open == ACCT_PASS ? 3 : (acct_open == ACCT_DELETE || acct_open == ACCT_GIFTS ? 1 : 0); }
-static double acct_fields_top(void) { return acct_open == ACCT_DELETE ? acct_top() + 116 : (acct_open == ACCT_GIFTS ? acct_gift_footer_top() + login_lab + 2 : acct_top() + 44); }
+static double acct_fields(void) {
+    if (acct_open == ACCT_PASS)
+        return 3;
+    if (acct_open == ACCT_PIN)
+        return 2;
+    return acct_open == ACCT_DELETE || acct_open == ACCT_GIFTS ? 1 : 0;
+}
+static double acct_fields_top(void) {
+    if (acct_open == ACCT_DELETE)
+        return acct_top() + 116;
+    if (acct_open == ACCT_GIFTS)
+        return acct_gift_footer_top() + login_lab + 2;
+    if (acct_open == ACCT_PIN)
+        return acct_top() + 60;
+    return acct_top() + 44;
+}
 static double acct_field_y(double i) { return acct_fields_top() + login_lab + i * (login_fh + login_lab + 12); }
 static double acct_below_fields(void) { return acct_field_y(acct_fields() - 1) + login_fh + 22; }
 static double acct_slider_y(void) { return acct_below_fields(); }
@@ -128,7 +162,7 @@ static double acct_knob_w(void) { return acct_slider_h() * 1.5; }
 static double acct_knob_x(void) { return acct_x() + 4 + acct_knob * (acct_w() - acct_knob_w() - 8); }
 static double acct_msg_y(void) {
     if (acct_open == ACCT_MENU) {
-        return acct_menu_y(4) + 4;
+        return acct_menu_y(5) + 4;
     }
     return acct_below_fields() + (acct_open == ACCT_DELETE ? acct_slider_h() : btn_h) + 18;
 }
@@ -145,9 +179,21 @@ static double hit_acct_knob(double x, double y) {
     return acct_open == ACCT_DELETE && acct_done == 0 && acct_busy == 0 &&
            hit_rect(x, y, acct_knob_x() - 12, acct_slider_y() - 12, acct_knob_w() + 24, acct_slider_h() + 24) == 1;
 }
+static double hit_acct_pin_save(double x, double y) {
+    if (acct_open != ACCT_PIN)
+        return 0;
+    if (net_load_pin2() > 0)
+        return hit_button(x, y, acct_x(), acct_below_fields(), acct_w() * 0.48, btn_h) == 1;
+    return hit_button(x, y, acct_x(), acct_below_fields(), acct_w(), btn_h) == 1;
+}
+static double hit_acct_pin_del(double x, double y) {
+    return acct_open == ACCT_PIN && net_load_pin2() > 0 &&
+           hit_button(x, y, acct_x() + acct_w() * 0.52, acct_below_fields(), acct_w() * 0.48, btn_h) == 1;
+}
 static double acct_button_hit(double x, double y) {
     return back_hit(x, y) == 1 || hit_acct_menu(x, y, 0) == 1 || hit_acct_menu(x, y, 1) == 1 ||
            hit_acct_menu(x, y, 2) == 1 || hit_acct_menu(x, y, 3) == 1 || hit_acct_menu(x, y, 4) == 1 ||
+           hit_acct_menu(x, y, 5) == 1 || hit_acct_pin_del(x, y) == 1 || hit_acct_pin_save(x, y) == 1 ||
            hit_acct_submit(x, y) == 1 || hit_acct_gift_buy(x, y) == 1 || hit_acct_gift_send(x, y) == 1 ||
            hit_acct_gift_sell(x, y) == 1 || hit_acct_gift_inspect(x, y) == 1 || hit_acct_gift_any(x, y) == 1;
 }
@@ -223,6 +269,29 @@ static void acct_delete_try(void) {
     net_delete_account(acct_buf[0]);
     acct_clear_fields();
 }
+/* Extra password: hash only, device-only, like the parental pin. */
+static void acct_pin_save(void) {
+    acct_sync();
+    keyboard_hide();
+    if (str_len(acct_buf[0]) < 4) {
+        acct_msg_set(tr_pin2_short());
+        return;
+    }
+    if (strcmp(acct_buf[0], acct_buf[1]) != 0) {
+        acct_msg_set(tr_pin2_mismatch());
+        return;
+    }
+    net_save_pin2((int)parent_hash(acct_buf[0]));
+    acct_clear_fields();
+    acct_msg_set(tr_pin2_saved());
+}
+static void acct_pin_remove(void) {
+    net_save_pin2(0);
+    acct_clear_fields();
+    keyboard_hide();
+    acct_msg_set(tr_pin2_removed());
+}
+static void acct_pin_page(void) { acct_go(ACCT_PIN); }
 static void acct_password_page(void) { acct_go(ACCT_PASS); }
 static void acct_delete_page(void) { acct_go(ACCT_DELETE); }
 static void acct_delete_window(void) { acct_show(ACCT_DELETE); }
@@ -243,6 +312,8 @@ static void touch_acct_menu(double x, double y) {
         start_action_transition(acct_delete_page);
     } else if (hit_acct_menu(x, y, 4) == 1) {
         start_action_transition(acct_gifts_page);
+    } else if (hit_acct_menu(x, y, 5) == 1) {
+        start_action_transition(acct_pin_page);
     }
 }
 static void touch_account(double x, double y, double action, double id) {
@@ -300,6 +371,8 @@ static void touch_account(double x, double y, double action, double id) {
     if (hit_acct_gift_sell(x, y) == 1) { acct_gift_sell(); return; }
     if (hit_acct_gift_inspect(x, y) == 1) { acct_gift_view_open = 1; return; }
     if (hit_acct_submit(x, y) == 1) { acct_pass_try(); return; }
+    if (hit_acct_pin_save(x, y) == 1) { acct_pin_save(); return; }
+    if (hit_acct_pin_del(x, y) == 1) { acct_pin_remove(); return; }
     if (hit_acct_knob(x, y) == 1) {
         acct_sync();
         keyboard_hide();
@@ -336,6 +409,10 @@ static void acct_poll_password(void) {
         acct_msg_set(tr_bad_pass());
     } else if (st == 6) {
         acct_msg_set(tr_acct_signed_out());
+    } else if (st == 7) {
+        acct_msg_set(tr_no_connection());
+    } else if (st == 8) {
+        acct_msg_set(tr_acct_too_many());
     } else {
         acct_msg_set(tr_acct_failed());
     }
@@ -359,6 +436,8 @@ static void acct_tick(void) {
             acct_focus(acct_field + 1);
         } else if (acct_open == ACCT_PASS && acct_busy == 0) {
             acct_pass_try();
+        } else if (acct_open == ACCT_PIN) {
+            acct_pin_save();
         } else {
             keyboard_hide();
         }
@@ -375,7 +454,7 @@ static void draw_acct_slider(void) {
     double kx = acct_knob_x();
     double kw = acct_knob_w();
     roundrect(x, y, w, h, h / 2, card_bg);
-    roundrect(x, y, kx - x + kw + 4, h, h / 2, 0xFF8C1C2C);
+    roundrect(x, y, kx - x + kw + 4, h, h / 2, RGB(140,28,44));
     double fade = 1 - clamp(acct_knob * 1.6, 0, 1);
     if (fade > 0 && acct_busy == 0 && acct_done == 0) {
         double tx = kx + kw + 12;
@@ -384,7 +463,7 @@ static void draw_acct_slider(void) {
         double sc = fit_text_scale(label, tw, 0.55);
         text_in_box(label, tx, y, tw, h, (1 + floor(fade * 254)) * 0x1000000 + text_color, sc);
     }
-    roundrect(kx, y + 4, kw, h - 8, (h - 8) / 2, 0xFFD23A4A);
+    roundrect(kx, y + 4, kw, h - 8, (h - 8) / 2, RGB(210,58,74));
     text_in_box(">>", kx, y + 4, kw, h - 8, text_color, 0.7);
 }
 static void draw_acct_msg(void) {
@@ -397,6 +476,7 @@ static void draw_account(void) {
     press_overlay = 3;
     draw_back();
     const char *title = acct_open == ACCT_PASS ? tr_acct_change()
+                        : acct_open == ACCT_PIN ? tr_pin2_title()
                         : acct_open == ACCT_DELETE ? tr_delete_account()
                         : acct_open == ACCT_GIFTS ? (language == 1 ? "Подарки" : "Gifts")
                                                   : ds_concat(tr_acct_title(), net_login_nick());
@@ -413,15 +493,29 @@ static void draw_account(void) {
         ctext_scaled(title, acct_top(), text_color, tscale);
     }
     if (acct_open == ACCT_MENU) {
-        const char *rows[5] = {tr_acct_change(), tr_acct_switch(), tr_acct_logout(), tr_delete_account(), language == 1 ? "Подарки" : "Gifts"};
+        const char *rows[6] = {tr_acct_change(), tr_acct_switch(), tr_acct_logout(), tr_delete_account(),
+                               language == 1 ? "Подарки" : "Gifts", tr_pin2_menu()};
         double i = 0;
-        while (i < 5) {
+        while (i < 6) {
             const char *r = rows[(int)i];
             button_scaled(r, acct_x(), acct_menu_y(i), acct_w(), btn_h, fit_text_scale(r, acct_w() - 24, 0.65));
             i = i + 1;
         }
     } else if (acct_open == ACCT_GIFTS) {
         draw_acct_gifts();
+    } else if (acct_open == ACCT_PIN) {
+        draw_acct_field(tr_pin2_new(), 0);
+        draw_acct_field(tr_pin2_repeat(), 1);
+        ctext_scaled(tr_pin2_hint(), acct_field_y(0) - login_lab - 26, text_color,
+                     fit_text_scale(tr_pin2_hint(), acct_w(), 0.45));
+        if (net_load_pin2() > 0) {
+            const char *save = tr_pin2_save();
+            const char *del = tr_pin2_del();
+            button_scaled(save, acct_x(), acct_below_fields(), acct_w() * 0.48, btn_h, 0.6);
+            button_scaled(del, acct_x() + acct_w() * 0.52, acct_below_fields(), acct_w() * 0.48, btn_h, 0.6);
+        } else {
+            button_scaled(tr_pin2_save(), acct_x(), acct_below_fields(), acct_w(), btn_h, 0.65);
+        }
     } else if (acct_open == ACCT_PASS) {
         draw_acct_field(tr_acct_old(), 0);
         draw_acct_field(tr_acct_new(), 1);

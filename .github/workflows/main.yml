@@ -59,14 +59,29 @@ jobs:
               --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
               --prerelease || true
           fi
-          for attempt in 1 2 3; do
-            if gh release upload "$TAG" CubicBattle4-Windows.zip build/pc/CubicBattle4.exe --clobber; then
-              break
+          sha256sum CubicBattle4-Windows.zip build/pc/CubicBattle4.exe > windows.sha256
+          cat windows.sha256
+          REPO="${{ github.repository }}"
+          ZIP_SIZE="$(stat -c%s CubicBattle4-Windows.zip)"
+          EXE_SIZE="$(stat -c%s build/pc/CubicBattle4.exe)"
+          for attempt in 1 2 3 4 5; do
+            if gh release upload "$TAG" CubicBattle4-Windows.zip build/pc/CubicBattle4.exe windows.sha256 --clobber; then
+              ZIP_REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4-Windows.zip") | .size' 2>/dev/null || echo 0)"
+              EXE_REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4.exe") | .size' 2>/dev/null || echo 0)"
+              if [ "$ZIP_REMOTE" = "$ZIP_SIZE" ] && [ "$EXE_REMOTE" = "$EXE_SIZE" ]; then
+                echo "windows assets match: $ZIP_REMOTE and $EXE_REMOTE bytes"
+                break
+              fi
+              echo "windows assets mismatch ($ZIP_REMOTE/$EXE_REMOTE), re-uploading"
+              for NAME in CubicBattle4-Windows.zip CubicBattle4.exe; do
+                ASSET_ID="$(gh api "repos/$REPO/releases/tags/$TAG" --jq ".assets[] | select(.name==\"$NAME\") | .id" 2>/dev/null || true)"
+                if [ -n "$ASSET_ID" ]; then
+                  gh api -X DELETE "repos/$REPO/releases/assets/$ASSET_ID" || true
+                fi
+              done
             fi
-            [ "$attempt" -lt 3 ] && sleep 2
+            sleep 2
           done
-          gh release edit "$TAG" \
-            --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." >/dev/null 2>&1 || true
           echo "### Windows Build Ready" >> "$GITHUB_STEP_SUMMARY"
           echo "- [CubicBattle4-Windows.zip (EXE + assets)](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4-Windows.zip)" >> "$GITHUB_STEP_SUMMARY"
           echo "- [CubicBattle4.exe](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.exe)" >> "$GITHUB_STEP_SUMMARY"
@@ -135,7 +150,8 @@ jobs:
           GLUE="$NDK_ROOT/sources/android/native_app_glue"
           C_SOURCES=(src/game/game.c src/engine/runtime.c src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")
           CPP_SOURCE=src/game/cpp/ui_fx.cpp
-          C_OPTS=(-std=c99 -O3 -s -fPIC -shared -Isrc -I. -I"$GLUE" -landroid -llog -ldl -lm -lvulkan)
+          C_OPTS=(-std=c99 -O3 -s -fPIC -shared -Isrc -I. -I"$GLUE" -landroid -llog -ldl -lm -lvulkan
+                  -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384)
           CPP_OPTS=(-std=c++17 -fno-exceptions -fno-rtti -O3 -s -fPIC -Isrc)
           mkdir -p staging/lib/arm64-v8a staging/lib/armeabi-v7a staging/lib/x86_64
           pids=()
@@ -178,7 +194,7 @@ jobs:
           APK_FILES="$(unzip -Z1 unsigned.apk)"
           for required in \
             assets/grass.png \
-            assets/ordinary_pumpkin_card.png \
+            assets/ordinary_gold.png \
             assets/astra_xastra_card.png \
             assets/sounds/lobbymusic.wav \
             assets/fonts/ComicRelief-Regular.ttf \
@@ -194,9 +210,11 @@ jobs:
           "$BT/apksigner" sign \
             --ks platform/android/debug.keystore --ks-type PKCS12 \
             --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android \
+            --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true \
             --out Game.apk aligned.apk
           "$BT/zipalign" -c -v 4 Game.apk
-          "$BT/apksigner" verify --verbose --print-certs Game.apk
+          "$BT/apksigner" verify --verbose --print-certs --min-sdk-version 26 Game.apk
+          unzip -Z1 Game.apk | grep -Eq "META-INF/.*\.(RSA|DSA|EC)$"
           "$BT/aapt" dump badging Game.apk > Game.badging
           grep -Fq "package: name='com.cb4'" Game.badging
           unzip -t Game.apk >/dev/null
@@ -215,13 +233,32 @@ jobs:
               --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
               --prerelease || true
           fi
-          for attempt in 1 2 3; do
-            if gh release upload "$TAG" CubicBattle4.apk --clobber; then
-              break
+          SIZE="$(stat -c%s CubicBattle4.apk)"
+          SHA="$(sha256sum CubicBattle4.apk | cut -d' ' -f1)"
+          printf '%s  CubicBattle4.apk\n' "$SHA" > CubicBattle4.apk.sha256
+          echo "local apk: $SIZE bytes, sha256 $SHA"
+          REPO="${{ github.repository }}"
+          REMOTE=""
+          for attempt in 1 2 3 4 5; do
+            if gh release upload "$TAG" CubicBattle4.apk CubicBattle4.apk.sha256 --clobber; then
+              REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4.apk") | .size' 2>/dev/null || echo 0)"
+              if [ "$REMOTE" = "$SIZE" ]; then
+                echo "release apk matches: $REMOTE bytes"
+                break
+              fi
+              echo "release apk size $REMOTE != $SIZE, dropping the asset and retrying"
+              ASSET_ID="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4.apk") | .id' 2>/dev/null || true)"
+              if [ -n "$ASSET_ID" ]; then
+                gh api -X DELETE "repos/$REPO/releases/assets/$ASSET_ID" || true
+              fi
             fi
-            [ "$attempt" -lt 3 ] && sleep 2
+            sleep 2
           done
+          if [ "$REMOTE" != "$SIZE" ]; then
+            echo "::error::published APK is $REMOTE bytes, expected $SIZE"
+            exit 1
+          fi
           gh release edit "$TAG" \
-            --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." >/dev/null 2>&1 || true
+            --notes "$(printf 'Automated Android APK and Windows EXE build (%s).\n\nAPK: %s bytes\nsha256: %s\nThe same hash is in CubicBattle4.apk.sha256 next to the APK.' "${{ github.sha }}" "$SIZE" "$SHA")" >/dev/null 2>&1 || true
           echo "### Android APK Ready" >> "$GITHUB_STEP_SUMMARY"
-          echo "- [CubicBattle4.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.apk)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [CubicBattle4.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.apk) ($SIZE bytes, sha256 $SHA)" >> "$GITHUB_STEP_SUMMARY"

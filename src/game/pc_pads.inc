@@ -9,6 +9,8 @@ int game_pc_battle_mouse_ui(float x, float y) {
         return 0;
     if (chat_open == 1)
         return 1; /* the open chat covers the fight: every click is chat's */
+    if (parent_chat_off() == 1)
+        return 0; /* kid mode: no chat button at all */
     return hit_button((double)x, (double)y, chat_btn_x(), chat_btn_y(), chat_btn_w(), chat_btn_h()) == 1;
 }
 

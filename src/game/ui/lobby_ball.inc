@@ -129,9 +129,9 @@ static void lobby_ball_draw(void) {
     double y = lobby_ball_y;
     double r = lobby_ball_r;
     /* Boundaries are physical but invisible: keep the lobby free of rails. */
-    circle(x, y, r, 0xFF4A3EAA);
-    circle(x, y - 2, r - 4, 0xFF897BDF);
-    lobby_ball_draw_face(x, y, r / 32.0, 0xFF252044);
+    circle(x, y, r, RGB(74,62,170));
+    circle(x, y - 2, r - 4, RGB(137,123,223));
+    lobby_ball_draw_face(x, y, r / 32.0, RGB(37,32,68));
     if (lobby_ball_speech_t > 0) {
         const char *phrase = lobby_ball_phrase_text();
         double w = fmax(76, text_ink_width(phrase) * 0.82 + 24);
@@ -139,12 +139,12 @@ static void lobby_ball_draw(void) {
         double bx = clamp(x - w * 0.5, 8, screen_w - w - 8);
         double by = lobby_ball_bubble_y();
         if (by >= 0) {
-            roundrect(bx, by, w, 31, 10, 0xFF252525);
-            roundrect_outline(bx, by, w, 31, 10, 1.5, 0xFF777777);
-            line(x - 5, by + 29, x, by + 38, 1.8, 0xFF777777);
-            line(x, by + 38, x + 5, by + 29, 1.8, 0xFF777777);
+            roundrect(bx, by, w, 31, 10, RGB(0,0,0));
+            roundrect_outline(bx, by, w, 31, 10, 1.5, RGB(0,0,0));
+            line(x - 5, by + 29, x, by + 38, 1.8, RGB(0,0,0));
+            line(x, by + 38, x + 5, by + 29, 1.8, RGB(0,0,0));
             text_scaled(phrase, bx + (w - text_ink_width(phrase) * 0.78) * 0.5,
-                        by + 8, 0xFFDDDDDD, 0.78);
+                        by + 8, RGB(255,255,255), 0.78);
         }
     }
 }

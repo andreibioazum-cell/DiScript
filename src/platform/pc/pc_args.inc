@@ -12,6 +12,7 @@ typedef struct {
     int pace_ms;
     int width, height;
     int headless;
+    int verbose;
     char assets[PC_PATH_LEN];
     char data[PC_PATH_LEN];
     int eventc;
@@ -72,6 +73,10 @@ static void pc_args_parse(const char *cmdline, PcArgs *a) {
         const char *v = i + 1 < n ? tok[i + 1] : "";
         if (strcmp(k, "--headless") == 0) {
             a->headless = 1;
+            continue;
+        }
+        if (strcmp(k, "--verbose") == 0) {
+            a->verbose = 1;
             continue;
         }
         if (!*v)

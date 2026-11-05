@@ -220,7 +220,7 @@ static void draw_online(void) {
     draw_codecracker_fx_local();
     draw_player_body_layer();
     double hw = 25 * cube_scale * player_scale;
-    const char *myn = net_player_nick(net_slot());
+    const char *myn = parent_nick(net_player_nick(net_slot()));
     if (str_len(myn) > 0) {
         uint32_t ncol = admin_head_color_of(myn, 0xFFFFFF);
         draw_overhead_nick(myn, player->x, player->y - hw, ncol);
@@ -254,7 +254,7 @@ static void draw_online(void) {
             const char *rn = net_player_nick(i);
             if (str_len(rn) > 0) {
                 uint32_t rncol = admin_head_color_of(rn, 0xFFFFFF);
-                draw_overhead_nick(rn, rx, ry - hw, rncol);
+                draw_overhead_nick(parent_nick(rn), rx, ry - hw, rncol);
             }
         }
         i = i + 1;

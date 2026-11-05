@@ -47,9 +47,9 @@ static void draw_ult_mode(void) {
     if (player_class != CLASS_EBUC || (game_state != ST_SOLO && game_state != ST_ONLINE)) {
         return;
     }
-    fill = ball_mode == 1 ? 0xFFFFB300u : 0xFF2F6FEDu;
+    fill = ball_mode == 1 ? RGB(255,179,0) : RGB(47,111,237);
     circle(x, y, r, fill);
-    ring(x, y, r, 3, 0xFF000000u);
+    ring(x, y, r, 3, RGB(0,0,0));
 }
 
 static void ult_ball_clear(UltBall *b) {
@@ -214,6 +214,9 @@ static void ult_ball_step(UltBall *b, int is_enemy) {
         left = left - piece;
         b->x = b->x + b->vx * dt * piece;
         b->y = b->y + b->vy * dt * piece;
+        if (ice_bounce_ball(&b->x, &b->y, BALL_RADIUS, &b->vx, &b->vy) == 1) {
+            b->bounces = b->bounces + 1;
+        }
         if (b->x < BALL_RADIUS) {
             b->x = BALL_RADIUS;
             b->vx = (0 - b->vx) * BALL_BOUNCE_ACCEL;
@@ -277,7 +280,7 @@ static void ult_ball_draw_body(UltBall *b) {
         i = i + 1;
     }
     if (b->active == 1) {
-        circle(b->x, b->y, BALL_RADIUS, 0xFF3A8BFFu);
+        circle(b->x, b->y, BALL_RADIUS, RGB(58,139,255));
         if (show_hitboxes == 1) {
             draw_hit_circle(b->x, b->y, BALL_RADIUS, 1);
         }

@@ -45,6 +45,13 @@ static void draw_login(void) {
     const char *err = login_error_text();
     if (str_len(err) > 0) {
         ctext(err, login_msg_y(), text_color);
+    } else {
+        /* 152-FZ: the nick must stay a pseudonym, so no personal data is collected. */
+        const char *hint1 = language == 1 ? "Ник - это псевдоним." : "A nick is a pseudonym.";
+        const char *hint2 = language == 1 ? "Не пишите настоящее имя, фамилию, телефон или почту."
+                                          : "Never use your real name, phone or email.";
+        ctext_scaled(hint1, login_msg_y() - 6, text_color, fit_text_scale(hint1, fit_w(screen_w) - 24, 0.46));
+        ctext_scaled(hint2, login_msg_y() + 16, text_color, fit_text_scale(hint2, fit_w(screen_w) - 24, 0.46));
     }
     draw_login_consent();
     draw_back();
@@ -230,8 +237,7 @@ static void touch_lobby(double x, double y, double action, double id) {
         start_transition(ST_ACHIEVEMENTS);
         return;
     }
-    if (admin_playing() == 1 &&
-        hit_button(x, y, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1) {
+    if (hit_button(x, y, lobby_wheel_button_x(), lobby_wheel_button_y(), btn_w, btn_h) == 1) {
         start_transition(ST_WHEEL);
         return;
     }
@@ -253,10 +259,9 @@ static void touch_modes(double x, double y) {
         return;
     }
     if (hit_modes_row(x, y, 4) == 1) {
-        /* One press = next theme. Start from the effective one, so a holiday
-         * admin who never touched the button goes from New Year to Halloween. */
+        /* One press = next theme. Start from the effective one. */
         theme_mode = active_theme_mode() + 1;
-        if (theme_mode > 2) {
+        if (theme_mode > 1) {
             theme_mode = 0;
         }
         theme_chosen = 1;
@@ -305,6 +310,15 @@ static void touch_settings(double x, double y) {
     }
     if (hit_settings_row(x, y, 4) == 1) {
         docs_transition(0, 0);
+        return;
+    }
+    if (hit_settings_row(x, y, 5) == 1) {
+        play_button_click();
+        parental_open();
+        return;
+    }
+    if (is_admin() == 1 && hit_settings_row(x, y, 6) == 1) {
+        reports_open();
         return;
     }
 }
@@ -397,10 +411,6 @@ static void touch_login(double x, double y, double action) {
 
 
 static void update_wheel(void) {
-    if (admin_playing() == 0) {
-        start_transition(ST_LOBBY);
-        return;
-    }
     wheel_spins = net_load_wheel_spins();
     wheel_wins = net_load_wheel_wins();
     if (wheel_anim_t > 0) {
@@ -418,10 +428,6 @@ static void update_wheel(void) {
 }
 
 static void wheel_spin_do(void) {
-    if (admin_playing() == 0) {
-        start_transition(ST_LOBBY);
-        return;
-    }
     int spins = net_load_wheel_spins();
     int wins = net_load_wheel_wins();
     if (wheel_anim_t > 0) return;
@@ -458,10 +464,6 @@ static void wheel_spin_do(void) {
 }
 
 static void touch_wheel(double x, double y) {
-    if (admin_playing() == 0) {
-        start_transition(ST_LOBBY);
-        return;
-    }
     if (back_hit(x, y) == 1) {
         start_transition(ST_LOBBY);
         return;

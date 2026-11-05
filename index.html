@@ -199,7 +199,7 @@
 <section id="tools" class="hide">
   <h2>3. Точечные инструменты</h2>
 
-  <h3>Ивент боя (0..6 — как в игре)</h3>
+  <h3>Ивент боя (0..6 - как в игре)</h3>
   <div class="row">
     <button data-ev="0">0 · Выкл</button>
     <button data-ev="1">1 · Диско</button>
@@ -358,10 +358,10 @@ const str  = (min, max) => ({t:"str", min, max});
 const secret = ()    => ({t:"str", min:1, max:64, note:"Секрет записи «w»"});
 
 /* Allowed root database keys and per-node fallback targets. */
-/* Поля из старых версий игры: firebase.rules.json всё ещё разрешает их для
- * совместимости со старыми профилями, но новая версия игры их не пишет и не
- * читает. Такие значения - мусор, который можно смело удалить из базы.
- * "*" в шаблоне пути означает один сегмент (ник игрока). */
+/* Fields from older game versions: firebase.rules.json still allows them for
+ * compatibility with old profiles, but the new game build neither writes nor
+ * reads them. Such values are junk that can be removed from the database.
+ * "*" in a path template means one segment (the player nick). */
 const LEGACY_FIELDS = {
   "users/*/gifts/emerald_hue": "Устаревшее поле emerald_hue: игра больше не читает оттенок изумруда",
   "users/*/gifts/rose": "Устаревшее поле rose: старый подарок заменён на poop"

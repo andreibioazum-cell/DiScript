@@ -189,12 +189,12 @@ static void update_dice_event(void) {
 
 static void dice_draw_cube(double cx, double cy, double size, double cube, double ang) {
     double half = size / 2;
-    roundrect(cx - half - 3, cy - half - 3, size + 6, size + 6, 14, 0xFF292944);
-    roundrect(cx - half, cy - half, size, size, 12, 0xFFFFFFFF);
+    roundrect(cx - half - 3, cy - half - 3, size + 6, size + 6, 14, RGB(41,41,68));
+    roundrect(cx - half, cy - half, size, size, 12, RGB(255,255,255));
     if (tex_ready(dice_cube_tex(cube)) == 1) {
         tex(cx - half + 6, cy - half + 6, dice_cube_tex(cube), ang, (size - 12) / CARD_RENDER_PX);
     } else {
-        circle(cx, cy, half - 10, 0xFFB0BEC5);
+        circle(cx, cy, half - 10, RGB(176,190,197));
     }
 }
 
@@ -227,10 +227,10 @@ static void draw_dice_cubes(void) {
                 if (k >= 1) {
                     const char *prize = ds_concat("+", ds_num_to_string(dice_prize_of(cube)));
                     double pw = text_ink_width(prize) * 0.5;
-                    text_scaled(prize, xx - pw / 2, yy + bob + 36, 0xFFFFD54A, 0.5);
+                    text_scaled(prize, xx - pw / 2, yy + bob + 36, RGB(255,213,74), 0.5);
                     const char *nm = dice_cube_name(cube);
                     double nw = text_ink_width(nm) * 0.38;
-                    text_scaled(nm, xx - nw / 2, yy + bob - 58, 0xFFFFFFFF, 0.38);
+                    text_scaled(nm, xx - nw / 2, yy + bob - 58, RGB(255,255,255), 0.38);
                 }
             }
         }

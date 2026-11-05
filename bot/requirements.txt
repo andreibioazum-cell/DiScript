@@ -1,0 +1,2 @@
+# Telegram-бот (bot/cb4_bot.py)
+requests>=2.31

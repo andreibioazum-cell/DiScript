@@ -96,7 +96,7 @@ static uint32_t efy_gradient_color(double t, double phase, int index) {
     uint32_t r = (uint32_t)floor((gold_r + (purple_r - gold_r) * t) * 255 + 0.5);
     uint32_t g = (uint32_t)floor((gold_g + (purple_g - gold_g) * t) * 255 + 0.5);
     uint32_t b = (uint32_t)floor((gold_b + (purple_b - gold_b) * t) * 255 + 0.5);
-    return 0xFF000000u | (r << 16) | (g << 8) | b;
+    return RGB(0,0,0) | (r << 16) | (g << 8) | b;
 }
 
 static void draw_efy_gradient_nick(const char *nick, double x, double y, double scale) {
@@ -132,11 +132,7 @@ static void draw_nick_msg(const char *nick, const char *rest, double x, double y
 
 /* Draw button fill: gradient in new theme, flat rounded rect in classic theme. */
 static void button_face(double x, double y, double w, double h, double col) {
-    if (new_theme == 1) {
-        cb_button_gradient(x, y, w, h, btn_radius, col);
-        return;
-    }
-    roundrect(x, y, w, h, btn_radius, col);
+    cb_button_gradient(x, y, w, h, btn_radius, col);
 }
 
 static void button(const char *label, double x, double y, double w, double h) {
@@ -158,8 +154,8 @@ static void button_fixed(const char *label, double x, double y, double w, double
 
 /* Draw disabled button without press animation. */
 static void button_disabled_scaled(const char *label, double x, double y, double w, double h, double scale) {
-    button_face(x, y, w, h, 0xFF6E6E76);
-    text_in_box(label, x, y, w, h, 0xFFB4B4BC, scale);
+    button_face(x, y, w, h, RGB(110,110,118));
+    text_in_box(label, x, y, w, h, RGB(180,180,188), scale);
 }
 
 static void button_scaled(const char *label, double x, double y, double w, double h, double scale) {
@@ -218,32 +214,25 @@ static void outline_arc(double cx, double cy, double rr, double t, uint32_t c, d
 
 /* Apply active UI color palette (new purple theme vs classic rose theme). */
 static void apply_theme(void) {
-    if (active_theme_mode() == 2) {
-        /* Halloween: pumpkin-orange accents on a dark brown background. */
-        ui_purple = 0xFFE87922;
-        bg_screen = 0x241207;
-        bg_gradient_bottom = 0x5A2A0B;
-        card_bg = 0xFF32190A;
-        card_ring = 0xFFFF9A32;
-    } else if (active_theme_mode() == 1 && winter_theme_on() == 1) {
+    if (active_theme_mode() == 1 && winter_theme_on() == 1) {
         /* New Year: frosty blue. */
-        ui_purple = 0xFF3E7FB5;
+        ui_purple = RGB(62,127,181);
         bg_screen = 0x102A40;
         bg_gradient_bottom = 0x2C5A78;
-        card_bg = 0xFF1E415C;
-        card_ring = 0xFF8FC8E8;
+        card_bg = RGB(30,65,92);
+        card_ring = RGB(143,200,232);
     } else if (new_theme == 1) {
-        ui_purple = 0xFF5F10A0;
+        ui_purple = RGB(95,16,160);
         bg_screen = 0x1A1A2E;
         bg_gradient_bottom = 0x4A2E82;
-        card_bg = 0xFF2A2A40;
-        card_ring = 0xFF5A5A78;
+        card_bg = RGB(42,42,64);
+        card_ring = RGB(90,90,120);
     } else {
-        ui_purple = 0xFFD4508A;
-        bg_screen = 0xFF3A1530;
+        ui_purple = RGB(212,80,138);
+        bg_screen = RGB(58,21,48);
         bg_gradient_bottom = 0x4A2E82;
-        card_bg = 0xFF44203A;
-        card_ring = 0xFFE07BAE;
+        card_bg = RGB(68,32,58);
+        card_ring = RGB(224,123,174);
     }
     transition_duration = 0.10;
 }
@@ -258,8 +247,8 @@ static double battle_back_x(void) { return (screen_w - btn_w) / 2; }
 
 static double battle_back_y(void) { return back_y; }
 
-#define RESULT_PURPLE 0xFF5F10A0
-#define RESULT_ROSE 0xFFD4508A
+#define RESULT_PURPLE RGB(95,16,160)
+#define RESULT_ROSE RGB(212,80,138)
 
 /* Return result window face color for active theme. */
 static double result_face_color(void) {
@@ -292,9 +281,8 @@ static void screen_fill(void) {
         rect(0, 0, screen_w, screen_h, top);
         draw_bottom_gradient(top, bottom);
     }
-    /* Draw New Year snow or Halloween embers beneath UI controls and modals. */
+    /* Draw New Year snow beneath UI controls and modals. */
     draw_christmas_under_notices();
-    draw_halloween_embers();
 }
 
 static void draw_bottom_gradient(double top, double bottom) {

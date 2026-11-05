@@ -165,6 +165,38 @@ static void move_player(void) {
         return;
     }
     player_walk_move(player_walk_speed());
+    ice_push_point(&player->x, &player->y, player_half());
+}
+
+/* Bodies are solid: the two cubes may not stand inside each other.
+ * `both` pushes both fighters apart, otherwise only the local player moves
+ * (online, where the rival's position comes from the network). */
+static void separate_fighters(double both) {
+    double dx = player->x - enemy->x;
+    double dy = player->y - enemy->y;
+    double d = sqrt(dx * dx + dy * dy);
+    double need = player_half() + enemy_half();
+    double ux, uy, push;
+    if (need <= 0 || d >= need) {
+        return;
+    }
+    if (d < 0.0001) {
+        dx = 1;
+        dy = 0;
+        d = 1;
+    }
+    ux = dx / d;
+    uy = dy / d;
+    push = need - d;
+    if (both > 0.5) {
+        player->x = clamp(player->x + ux * push * 0.5, player->size, screen_w - player->size);
+        player->y = clamp(player->y + uy * push * 0.5, player->size, screen_h - player->size);
+        enemy->x = clamp(enemy->x - ux * push * 0.5, enemy->size, screen_w - enemy->size);
+        enemy->y = clamp(enemy->y - uy * push * 0.5, enemy->size, screen_h - enemy->size);
+    } else {
+        player->x = clamp(player->x + ux * push, player->size, screen_w - player->size);
+        player->y = clamp(player->y + uy * push, player->size, screen_h - player->size);
+    }
 }
 
 static double enemy_in_punch(void) {
@@ -218,6 +250,7 @@ static void freeze_enemy(double t, double slow) {
 
 static void enemy_move(double vx, double vy) {
     double f = enemy_freeze_factor() * enemy->speed_var;
+    ice_avoid_vector(enemy->x, enemy->y, &vx, &vy);
     if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
         f = f * ASTRA_PARRY_SPEED_K;
     } else if (enemy_block_left > 0) {
@@ -242,6 +275,7 @@ static void enemy_move(double vx, double vy) {
     if (enemy->y > screen_h - enemy->size) {
         enemy->y = screen_h - enemy->size;
     }
+    ice_push_point(&enemy->x, &enemy->y, enemy_half());
     tick_enemy_dust(enemy->mvx, enemy->mvy);
 }
 

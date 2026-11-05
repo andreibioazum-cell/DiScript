@@ -1,5 +1,6 @@
 #ifndef NET_H
 #define NET_H
+#include <stddef.h>
 #if defined(__ANDROID__) || defined(CB_PC)
 #include <jni.h>
 #endif
@@ -46,6 +47,30 @@ void net_set_java_vm(JavaVM *vm);
 void net_connect(const char *url, const char *room);
 void net_disconnect(void);
 void net_set_data_path(const char *path);
+/* Texture pack folder (<data>/packs) and its clamped file helpers. */
+int net_packs_root(char *dst, size_t cap);
+int net_packs_mkdir(const char *rel);
+int net_packs_exists(const char *rel);
+int net_packs_write(const char *rel, const void *data, int len);
+int net_packs_read(const char *rel, void *buf, int cap);
+int net_packs_size(const char *rel);
+int net_packs_list(const char *rel, char *out, int cap);
+int net_packs_remove(const char *rel);
+/* Absolute-path helpers for the in-game file picker (import any .zip). */
+int net_fs_list(const char *dir, char *out, int cap);
+int net_fs_read(const char *path, void *buf, int cap);
+int net_fs_write(const char *path, const void *data, int len);
+int net_fs_home(char *dst, size_t cap);
+int net_fs_dir_readable(const char *dir);
+/* App data folders reported by the platform layer (internal, external). */
+void net_fs_set_dirs(const char *internal, const char *external);
+/* System document pickers (Android SAF). Other platforms return 0. */
+int net_fs_pick_import(void);
+int net_fs_pick_export(const char *suggested);
+int net_fs_take_fd(int *kind);
+int net_fs_read_fd(int fd, void *buf, int cap);
+int net_fs_write_fd(int fd, const void *data, int len);
+void net_fs_close_fd(int fd);
 /* Set device ISO 639-1 language code for initial install defaults. */
 void net_set_system_language(const char *code);
 
@@ -222,6 +247,25 @@ const char *net_leaderboard_nick(double idx);
 double net_leaderboard_cups(double idx);
 
 double net_load_language(void);
+/* Player reports: anyone files, only the owner reads them. */
+double net_report_send(const char *target, const char *text, const char *room);
+void net_reports_fetch(void);
+double net_reports_status(void);
+double net_reports_count(void);
+const char *net_report_from(double idx);
+const char *net_report_target(double idx);
+const char *net_report_text(double idx);
+const char *net_report_room(double idx);
+const char *net_report_key(double idx);
+void net_report_delete(double idx);
+
+/* Parental control, device-only storage. */
+double net_load_parent_pin(void);
+double net_load_pin2(void);
+void net_save_pin2(int hash);
+void net_save_parent_pin(int hash);
+double net_load_parent_age(void);
+void net_save_parent_age(int age);
 double net_load_hitboxes(void);
 void net_save_settings(double language, double hitboxes);
 double net_load_music_volume(void);
@@ -260,11 +304,10 @@ void net_gift_count_add(double gift, double delta);
 void net_gift_refresh(void);
 double net_gift_action(double gift, const char *recipient, double grant);
 double net_gift_action_status(void);
-#define NET_GIFT_PUMPKIN_CUBE_ID 5
-#define NET_GIFT_TYPE_COUNT 6
+#define NET_GIFT_TYPE_COUNT 5
 #define NET_GIFT_SHOP_TYPE_COUNT 5
 
-/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald, 5 pumpkin cube). */
+/* Sticker catalogue metadata (0 poop, 1 cake, 2 bear, 3 rocket, 4 emerald). */
 double net_gift_types(void);
 double net_gift_price(double gift);
 double net_gift_refund(double gift);

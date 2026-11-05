@@ -128,7 +128,7 @@ static void bp_draw_row(double t) {
     double sc = fit_text_scale(label, w - 24, 0.58);
     double ready = t == bp_claimed + 1 && bp_xp >= bp_xp_req(t);
     if (t <= bp_claimed) {
-        button_scaled_face(label, x, y, w, h, sc, 0xFF2F9E44);
+        button_scaled_face(label, x, y, w, h, sc, RGB(47,158,68));
     } else if (ready == 1) {
         button_scaled(label, x, y, w, h, sc);
     } else {
@@ -143,7 +143,7 @@ static void draw_bpass(void) {
         return;
     }
     screen_fill();
-    ctext_scaled(language == 1 ? "Новогодний баттл-пасс" : "Christmas Battle Pass", content_top() + 6, christmas_gold + 0xFF000000,
+    ctext_scaled(language == 1 ? "Новогодний баттл-пасс" : "Christmas Battle Pass", content_top() + 6, christmas_gold + RGB(0,0,0),
                  fit_text_scale(language == 1 ? "Новогодний баттл-пасс" : "Christmas Battle Pass", screen_w - 32, 0.85));
     double next = bp_claimed + 1;
     const char *xp_line;

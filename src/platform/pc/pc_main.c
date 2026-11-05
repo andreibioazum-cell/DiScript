@@ -18,6 +18,44 @@
 #define WIN32_LEAN_AND_MEAN
 #endif
 #include <windows.h>
+#include <commdlg.h>
+
+static int pc_dialog_open(char *dst, int cap) {
+    OPENFILENAMEA ofn;
+    char file[MAX_PATH];
+    file[0] = 0;
+    memset(&ofn, 0, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = GetActiveWindow();
+    ofn.lpstrFilter = "Cubic Battle 4 mod (*.zip)\0*.zip\0All files (*.*)\0*.*\0";
+    ofn.lpstrFile = file;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrTitle = "Cubic Battle 4: open mod";
+    ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+    if (!GetOpenFileNameA(&ofn))
+        return 0;
+    snprintf(dst, (size_t)cap, "%s", file);
+    return 1;
+}
+
+static int pc_dialog_save(const char *name, char *dst, int cap) {
+    OPENFILENAMEA ofn;
+    char file[MAX_PATH];
+    snprintf(file, sizeof(file), "%s", name && name[0] ? name : "mod.zip");
+    memset(&ofn, 0, sizeof(ofn));
+    ofn.lStructSize = sizeof(ofn);
+    ofn.hwndOwner = GetActiveWindow();
+    ofn.lpstrFilter = "Cubic Battle 4 mod (*.zip)\0*.zip\0";
+    ofn.lpstrFile = file;
+    ofn.nMaxFile = MAX_PATH;
+    ofn.lpstrDefExt = "zip";
+    ofn.lpstrTitle = "Cubic Battle 4: save mod";
+    ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
+    if (!GetSaveFileNameA(&ofn))
+        return 0;
+    snprintf(dst, (size_t)cap, "%s", file);
+    return 1;
+}
 #else
 #include <sys/stat.h>
 #include <unistd.h>
@@ -335,6 +373,14 @@ static void pc_seed_random(int fixed) {
 static void pc_boot(const PcArgs *args) {
     char data_dir[512];
     char assets_dir[1200];
+    if (args->verbose == 0 && getenv("CB4_LOGS") == NULL)
+        ds_log_quiet = 1;
+#ifdef _WIN32
+    if (args->headless == 0) {
+        ds_pick_open_hook = pc_dialog_open;
+        ds_pick_save_hook = pc_dialog_save;
+    }
+#endif
     pc_seed_random(args->headless);
     pc_resolve_assets(args->assets, assets_dir, sizeof(assets_dir));
     pc_assets_set_root(assets_dir);

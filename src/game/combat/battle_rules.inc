@@ -21,10 +21,6 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_GOLD) {
         pair.idle = ORDINARY_GOLD_TEX;
         pair.punch = ORDINARY_GOLD_PUNCH_TEX;
-    } else if (look == LOOK_PUMPKIN) {
-        /* The cube is a static fighter sprite; it stays readable while striking too. */
-        pair.idle = ORDINARY_PUMPKIN_TEX;
-        pair.punch = ORDINARY_PUMPKIN_TEX;
     } else if (look == LOOK_ORDINARY) {
         pair.idle = ORDINARY_TEX;
         pair.punch = PUNCH_TEX;
@@ -65,7 +61,7 @@ static double class_look(double cls, double skin) {
         return LOOK_ASTRA;
     }
     if (cls == CLASS_ORDINARY && skin == SKIN_SPECIAL) {
-        return LOOK_PUMPKIN;
+        return LOOK_GOLD;
     }
     if (cls == CLASS_AZUM) {
         return LOOK_AZUM;
@@ -90,7 +86,7 @@ static double card_look(double cls, double skin) {
 /* High-resolution shop/lobby render. Astra uses its ordinary Astra card art. */
 static const char *class_card_tex(double cls, double skin) {
     if (cls == CLASS_ORDINARY) {
-        return skin == SKIN_SPECIAL ? ORDINARY_PUMPKIN_CARD_TEX : ORDINARY_CARD_TEX;
+        return ORDINARY_CARD_TEX;
     }
     if (cls == CLASS_AZUM) {
         if (skin_is_active(cls, skin) == 1) {

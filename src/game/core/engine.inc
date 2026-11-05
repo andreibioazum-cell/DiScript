@@ -6,7 +6,7 @@ static void play_button_click(void) {
 }
 
 static const char *lobby_music_for_theme(void) {
-    return halloween_theme_on() == 1 ? HALLOWEEN_MUSIC : LOBBY_MUSIC;
+    return LOBBY_MUSIC;
 }
 
 static void select_lobby_music(void) {
@@ -112,6 +112,10 @@ static void update_seraphim_music(void) {
 }
 
 static void logic_init(void) {
+    /* Texture pack first: every later asset load picks pack files over built-in ones. */
+    packs_init();
+    /* Device-only parental mode has to be known before the first frame. */
+    parent_load();
     ds_log("init: loading textures");
     load_textures();
     button_click_ok = snd_load(BUTTON_CLICK_SOUND);
@@ -133,7 +137,7 @@ static void logic_init(void) {
     cube_npc_d0 = "Привет! Я Куб-НПС!";
     cube_npc_d1 = "Добро пожаловать в Cubic Battle 4!";
     cube_npc_d2 = "Попробуй режим Solo или Online!";
-    cube_npc_d3 = "В магазине можно купить персонажей!";
+    cube_npc_d3 = "Кстати, Азум ушёл к Астре и теперь дерётся за неё!";
     cube_npc_d4 = "Удачи в битве!";
     ds_log("init: ready");
 }
@@ -243,6 +247,12 @@ static void draw_screen(void) {
 
 static void logic_draw(void) {
     draw_screen();
+    if (packs_open == 1) {
+        if (packs_fs_open == 1)
+            draw_fs_picker();
+        else
+            draw_packs();
+    }
     if (warn_open == 1) {
         draw_warning();
     }
@@ -255,6 +265,12 @@ static void logic_draw(void) {
     if (docs_open == 1) {
         draw_docs();
     }
+    if (reports_open_flag == 1) {
+        draw_reports();
+    }
+    if (parent_open == 1) {
+        draw_parental();
+    }
     if (acct_open != 0) {
         draw_account();
     }
@@ -263,6 +279,7 @@ static void logic_draw(void) {
         double a = t_fade * t_fade * (3 - 2 * t_fade);
         rect(0, 0, screen_w, screen_h, (1 + floor(a * 254)) * 0x1000000);
     }
+
     /* Draw admin orb and panel above all screens and transition curtains. */
     admin_draw();
     /* Clear unclaimed touch-press points at end of frame. */
@@ -369,6 +386,14 @@ static void logic_touch(double x, double y, double action, double id) {
         press_points_drop(id);
         return;
     }
+    /* Texture pack button sits above the lobby screens and takes its touches first. */
+    if (game_state == ST_LOBBY && acct_open == 0 && docs_open == 0 && warn_open == 0 && studio_open == 0 &&
+        hit_packs_lobby_button(x, y) == 1) {
+        play_button_click();
+        packs_open_screen();
+        press_points_drop(id);
+        return;
+    }
     if (t_dir != 0) {
         press_points_drop(id);
         classes_swipe_reset();
@@ -385,6 +410,21 @@ static void logic_touch(double x, double y, double action, double id) {
     }
     if (game_state != ST_ROOMS || acct_open != 0 || docs_open == 1 || warn_open == 1 || studio_open == 1) {
         rooms_scroll_reset();
+    }
+    if (reports_open_flag == 1) {
+        touch_reports(x, y, action, id);
+        return;
+    }
+    if (parent_open == 1) {
+        touch_parental(x, y, action, id);
+        return;
+    }
+    if (packs_open == 1) {
+        if (packs_fs_open == 1)
+            touch_fs_picker(x, y, action, id);
+        else
+            touch_packs(x, y, action, id);
+        return;
     }
     if (acct_open != 0) {
         touch_account(x, y, action, id);
