@@ -32,14 +32,15 @@ official host was not directly downloadable in the build environment).
 ## Game conversion
 
 `python3 tools/import_disco_music.py` verifies the source checksum and uses
-FFmpeg only to decode/resample to **22,050 Hz stereo 16-bit PCM WAV**, because
-the game's mixer does not decode MP3. It does not synthesize notes or generate
-music. The complete recording is retained; the mixer loops it during event 1.
+FFmpeg only to re-encode the complete recording as **22,050 Hz stereo MP3,
+32 kbps**, keeping the bundled asset below 1 MB. It does not synthesize notes
+or generate music. The game decodes MP3 with minimp3 (CC0) at load time and
+the mixer loops the complete recording during event 1.
 
-Output: `assets/audio/disco_medusae_kevin_macleod.wav`
+Output: `assets/audio/disco_medusae_kevin_macleod.mp3`
 
-- Size: **19,517,262 bytes**
-- SHA-256: `70f4cf819003b19faa8d1d87745c7b2ca5a29d11792626be98f40e0a00e69b68`
+- Size: **885,568 bytes**
+- SHA-256: `1552423b8d64f01b94a895acb3dec3ab23b9cbd7b7a6bf0677f606cb283c1a9f`
 
 Attribution travels with the game in `assets/audio/Disco-Medusae-NOTICE.txt`,
 the full CC license in `assets/audio/licenses/`, the battle HUD, and page 9 of

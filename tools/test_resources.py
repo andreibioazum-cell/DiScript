@@ -113,21 +113,19 @@ def check_write_secret() -> None:
 
 
 def check_disco_music() -> None:
-    """The disco asset must remain the verified recording, not synthesized notes."""
+    """The disco asset must remain the verified recording, compressed to <= 1 MB."""
     source = ROOT / "third_party/music/Disco Medusae - Kevin MacLeod.mp3"
-    output = ROOT / "assets/audio/disco_medusae_kevin_macleod.wav"
+    output = ROOT / "assets/audio/disco_medusae_kevin_macleod.mp3"
     assert hashlib.sha256(source.read_bytes()).hexdigest() == (
         "0957c02613a361cd89b3f95ab8d0e708ded2849cc28787202e7a46931ff4bace"
     ), "Disco source recording changed"
+    assert output.stat().st_size <= 1_000_000, "Disco asset must stay at or below 1 MB"
     assert hashlib.sha256(output.read_bytes()).hexdigest() == (
-        "70f4cf819003b19faa8d1d87745c7b2ca5a29d11792626be98f40e0a00e69b68"
-    ), "Disco WAV differs from the verified format conversion"
-    with wave.open(str(output), "rb") as audio:
-        assert (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) == (2, 2, 22050)
-        assert abs(audio.getnframes() / audio.getframerate() - 221.283265) < 0.001
+        "1552423b8d64f01b94a895acb3dec3ab23b9cbd7b7a6bf0677f606cb283c1a9f"
+    ), "Disco MP3 differs from the verified compression"
     notice = (ROOT / "assets/audio/Disco-Medusae-NOTICE.txt").read_text(encoding="utf-8")
     for text in ("Kevin MacLeod", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/",
-                 "USUAN1500041", "22050", "not AI-generated"):
+                 "USUAN1500041", "22050", "MP3", "not AI-generated"):
         assert text in notice, f"Missing disco attribution: {text}"
     license_text = (ROOT / "assets/audio/licenses/Disco-Medusae-CC-BY-4.0.txt").read_text(encoding="utf-8")
     assert "Attribution 4.0 International" in license_text
@@ -159,7 +157,7 @@ def check_assets() -> None:
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",
         ROOT / "assets" / "audio" / "duel_theme.wav",
-        ROOT / "assets" / "audio" / "disco_medusae_kevin_macleod.wav",
+        ROOT / "assets" / "audio" / "disco_medusae_kevin_macleod.mp3",
         ROOT / "assets" / "audio" / "Disco-Medusae-NOTICE.txt",
         ROOT / "assets" / "audio" / "licenses" / "Disco-Medusae-CC-BY-4.0.txt",
         ROOT / "third_party" / "music" / "Disco Medusae - Kevin MacLeod.mp3",

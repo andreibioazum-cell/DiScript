@@ -18,7 +18,7 @@ REQUIRED = [
     "resources.arsc",
     "assets/grass.png",
     "assets/fonts/ComicRelief-Regular.ttf",
-    "assets/sounds/disco_medusae_kevin_macleod.wav",
+    "assets/sounds/disco_medusae_kevin_macleod.mp3",
     "assets/sounds/Disco-Medusae-NOTICE.txt",
     "assets/sounds/licenses/Disco-Medusae-CC-BY-4.0.txt",
 ]

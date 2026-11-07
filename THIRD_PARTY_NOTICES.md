@@ -27,26 +27,35 @@ for that component.
 - Оригинальные темы: `assets/audio/lobbymusic.wav`, `winter_jingle.wav`,
   `duel_theme.wav` и короткие звуки эффектов — созданы генераторами проекта;
   лицензия проекта (`LICENSE`).
-- **Диско:** `assets/audio/disco_medusae_kevin_macleod.wav` и исходник
+- **Диско:** `assets/audio/disco_medusae_kevin_macleod.mp3` и исходник
   `third_party/music/Disco Medusae - Kevin MacLeod.mp3` —
   **«Disco Medusae», Kevin MacLeod (incompetech.com)**, ISRC USUAN1500041.
   Лицензия **CC BY 4.0**: https://creativecommons.org/licenses/by/4.0/
   Официальный источник:
   https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500041
-  Изменения: полная запись преобразована из MP3 в stereo PCM WAV 22050 Гц;
-  предыдущая обработка зеркала и контрольные суммы описаны в
+  Изменения: полная запись перекодирована в stereo MP3 32 kbps, 22050 Гц
+  (885 568 байт); предыдущая обработка зеркала и контрольные суммы описаны в
   `third_party/music/README.md`. Это опубликованная запись, не генерация ИИ.
   Атрибуция: `assets/audio/Disco-Medusae-NOTICE.txt`; полный текст лицензии:
   `assets/audio/licenses/Disco-Medusae-CC-BY-4.0.txt`. Автор не подразумевает
   endorsement проекта. Ограничения проприетарной лицензии проекта не заменяют
   и не отменяют разрешения CC BY 4.0 для этой записи.
 
-## 4. Платформенные библиотеки
+## 4. minimp3
+
+- Файлы: `third_party/minimp3.h`, `third_party/minimp3-LICENSE.txt`
+- Автор: lieff и участники проекта minimp3
+- Лицензия: CC0 1.0 / public domain (текст рядом с заголовочным файлом)
+- Назначение: декодирование сжатого MP3-трека диско в PCM при загрузке
+- Источник: https://github.com/lieff/minimp3, commit
+  `ea99364f61c14656440e8d77e9c233ccf3124633`
+
+## 5. Платформенные библиотеки
 
 - Android NDK (libandroid, liblog, libEGL, libvulkan): условия Android NDK
 - Java/Kotlin-код платформы: стандартная библиотека Android
 
-## 5. Сервисы
+## 6. Сервисы
 
 - Google Firebase Realtime Database и Firebase Authentication используются как
   облачное хранилище и сервис входа; обработка данных описана в

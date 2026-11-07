@@ -3,7 +3,7 @@
  * https://creativecommons.org/licenses/by/4.0/
  * Source ISRC USUAN1500041. Format conversion only; see docs/music.md. */
 
-#define DISCO_MUSIC "disco_medusae_kevin_macleod.wav"
+#define DISCO_MUSIC "disco_medusae_kevin_macleod.mp3"
 #define DISCO_CREDIT "Disco Medusae - Kevin MacLeod"
 #define DISCO_LICENSE_LINE "CC BY 4.0 | incompetech.com"
 #define DISCO_FADE_IN 0.35

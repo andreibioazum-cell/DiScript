@@ -57,7 +57,7 @@ static const char *const legal_ru[LEGAL_PAGES][LEGAL_LINES + 1] = {
     {"Музыка диско: автор и лицензия", "Disco Medusae - Kevin MacLeod", "Автор: Kevin MacLeod (incompetech.com)",
      "Лицензия: Creative Commons Attribution 4.0", "https://creativecommons.org/licenses/by/4.0/",
      "Источник: incompetech.com/music/royalty-free/", "index.html?isrc=USUAN1500041",
-     "Изменения: MP3 преобразован в PCM WAV,", "стерео, 22050 Гц; темп и высота не менялись.",
+     "Изменения: перекодировано в MP3 32 kbps,", "стерео, 22050 Гц; темп и высота не менялись.",
      "Это опубликованная запись, не генерация.", "Полный текст: assets/audio/licenses/."},
 };
 
@@ -103,7 +103,7 @@ static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
     {"Disco music: author and license", "Disco Medusae - Kevin MacLeod", "Author: Kevin MacLeod (incompetech.com)",
      "License: Creative Commons Attribution 4.0", "https://creativecommons.org/licenses/by/4.0/",
      "Source: incompetech.com/music/royalty-free/", "index.html?isrc=USUAN1500041",
-     "Changes: MP3 converted to PCM WAV,", "stereo, 22050 Hz; no tempo or pitch changes.",
+     "Changes: re-encoded as MP3 32 kbps,", "stereo, 22050 Hz; no tempo or pitch changes.",
      "A published recording, not generated music.", "Full license: assets/audio/licenses/."},
 };
 

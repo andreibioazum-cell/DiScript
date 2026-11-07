@@ -50,7 +50,7 @@ jobs:
           test -f build/pc/dist/assets/sounds/lobbymusic.wav
           test -f build/pc/dist/assets/sounds/winter_jingle.wav
           test -f build/pc/dist/assets/sounds/duel_theme.wav
-          test -f build/pc/dist/assets/sounds/disco_medusae_kevin_macleod.wav
+          test -f build/pc/dist/assets/sounds/disco_medusae_kevin_macleod.mp3
           test -f build/pc/dist/assets/sounds/Disco-Medusae-NOTICE.txt
           test -f build/pc/dist/assets/sounds/licenses/Disco-Medusae-CC-BY-4.0.txt
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
@@ -206,7 +206,7 @@ jobs:
             assets/ordinary_gold.png \
             assets/astra_xastra_card.png \
             assets/sounds/lobbymusic.wav \
-            assets/sounds/disco_medusae_kevin_macleod.wav \
+            assets/sounds/disco_medusae_kevin_macleod.mp3 \
             assets/sounds/Disco-Medusae-NOTICE.txt \
             assets/sounds/licenses/Disco-Medusae-CC-BY-4.0.txt \
             assets/fonts/ComicRelief-Regular.ttf \

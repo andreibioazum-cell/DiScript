@@ -1,9 +1,10 @@
 #!/usr/bin/env python3
-"""Convert the verified Kevin MacLeod recording to the game's PCM WAV format.
+"""Compress the verified Kevin MacLeod recording for the game (<= 1 MB).
 
-This is a format conversion of a real published recording, not music synthesis.
-The source MP3 and its CC BY 4.0 notice are kept in the repository. FFmpeg is
-needed only when rebuilding the WAV; normal game builds use the bundled WAV.
+This is a format/bitrate conversion of a real published recording, not music
+synthesis. The source MP3 and its CC BY 4.0 notice are kept in the repository.
+FFmpeg is needed only when rebuilding the asset; normal game builds use the
+bundled MP3 and decode it with minimp3 at load time.
 """
 from __future__ import annotations
 
@@ -17,9 +18,11 @@ import wave
 
 ROOT = Path(__file__).resolve().parents[1]
 SOURCE = ROOT / "third_party/music/Disco Medusae - Kevin MacLeod.mp3"
-OUTPUT = ROOT / "assets/audio/disco_medusae_kevin_macleod.wav"
+OUTPUT = ROOT / "assets/audio/disco_medusae_kevin_macleod.mp3"
 SOURCE_SHA256 = "0957c02613a361cd89b3f95ab8d0e708ded2849cc28787202e7a46931ff4bace"
 RATE = 22050
+BITRATE = "32k"
+MAX_BYTES = 1_000_000
 
 
 def verify_source() -> None:
@@ -42,21 +45,31 @@ def ffmpeg_executable() -> str:
 def convert() -> Path:
     verify_source()
     OUTPUT.parent.mkdir(parents=True, exist_ok=True)
+    ffmpeg = ffmpeg_executable()
     with tempfile.TemporaryDirectory(prefix="cb4-disco-") as directory:
-        temporary = Path(directory) / "disco.wav"
+        temporary = Path(directory) / "disco.mp3"
         subprocess.run([
-            ffmpeg_executable(), "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
             "-i", str(SOURCE), "-map", "0:a:0", "-vn", "-map_metadata", "-1",
-            "-ac", "2", "-ar", str(RATE), "-c:a", "pcm_s16le", str(temporary),
+            "-ac", "2", "-ar", str(RATE), "-c:a", "libmp3lame", "-b:a", BITRATE,
+            str(temporary),
         ], check=True)
-        with wave.open(str(temporary), "rb") as audio:
+        size = temporary.stat().st_size
+        if size > MAX_BYTES:
+            raise ValueError(f"Compressed recording is too large: {size} bytes > {MAX_BYTES}")
+        probe = Path(directory) / "probe.wav"
+        subprocess.run([
+            ffmpeg, "-hide_banner", "-loglevel", "error", "-nostdin", "-y",
+            "-i", str(temporary), "-ac", "2", "-ar", str(RATE), "-c:a", "pcm_s16le", str(probe),
+        ], check=True)
+        with wave.open(str(probe), "rb") as audio:
             if (audio.getnchannels(), audio.getsampwidth(), audio.getframerate()) != (2, 2, RATE):
-                raise ValueError("Unexpected PCM output format")
+                raise ValueError("Unexpected decoded format")
             duration = audio.getnframes() / audio.getframerate()
-            if abs(duration - 221.283265) > 0.01:
+            if abs(duration - 221.283265) > 0.05:
                 raise ValueError(f"Recording was truncated: {duration:.6f} s")
         os.replace(temporary, OUTPUT)
-    print(f"{OUTPUT.relative_to(ROOT)}: {duration:.6f} s, stereo PCM16, {RATE} Hz")
+    print(f"{OUTPUT.relative_to(ROOT)}: {size} bytes, {duration:.6f} s, stereo MP3 {BITRATE}, {RATE} Hz")
     print(f"SHA-256: {hashlib.sha256(OUTPUT.read_bytes()).hexdigest()}")
     return OUTPUT
 

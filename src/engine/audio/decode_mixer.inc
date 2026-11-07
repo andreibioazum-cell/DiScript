@@ -8,6 +8,7 @@
 #define SND_MAX_SOUNDS 16
 #define SND_VOICES 8
 #define SND_MAX_BYTES (64u << 20)
+#include "engine/audio/decode_mp3.inc"
 
 typedef struct {
     char *name;
@@ -289,7 +290,10 @@ int snd_load(const char *name) {
     int16_t *samples = NULL;
     size_t frames = 0;
     int rate = 0;
-    int ok = wav_decode(data, size, &samples, &frames, &rate);
+    size_t base_len = strlen(base);
+    int is_mp3 = base_len > 4 && strcmp(base + base_len - 4, ".mp3") == 0;
+    int ok = is_mp3 ? mp3_decode(data, size, &samples, &frames, &rate)
+                    : wav_decode(data, size, &samples, &frames, &rate);
     free(data);
     snd_lock_take();
     if (!ok) {
