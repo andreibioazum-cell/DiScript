@@ -2,7 +2,7 @@
  * into the round. Everything he starts is a broken local dummy: his payload
  * file (.so on PC, .bin on phones) loads per device, his /event commands turn
  * into tiny dead stubs plus one harmless cloud, his menu buttons rain down as
- * solid cover, then Azum's ban wipes the terminals and the players get a New
+ * solid cover, then the ban wipes the terminals and the players get a New
  * Year candy-cane compensation. The timeline below is scene order only; no
  * timer is ever shown on screen. */
 
@@ -84,38 +84,40 @@ typedef struct {
 
 /* The whole argument, three terminal windows, typed live by both sides. */
 static const HackLine hack_script[] = {
-    {0.8, 0, HACK_WHO_WARN, "[WArNiNg]: External connection detected...", "[WArNiNg]: External connection detected..."},
+    {0.8, 0, HACK_WHO_WARN, "[Warning]: External connection detected...", "[Warning]: External connection detected..."},
     {2.6, 0, HACK_WHO_HACK,
-     "Ну привет, кубики. Я тут просканировал вашу систему, подгрузил нужный .bin/.so скрипт и сейчас включу вообще все ваши режимы разом!",
+     "Hi there, cubes. I just scanned your system, loaded the right .bin/.so script and now I will switch on every single mode at once!",
      "Hi there, cubes. I just scanned your system, loaded the right .bin/.so script and now I will switch on every single mode at once!"},
     {9.0, 0, HACK_WHO_HACK, "/event 1", "/event 1"},
     {10.5, 0, HACK_WHO_HACK, "/event 2", "/event 2"},
     {12.0, 0, HACK_WHO_HACK, "/event 10", "/event 10"},
     {13.5, 0, HACK_WHO_HACK, "/event 11", "/event 11"},
-    {20.0, 0, HACK_WHO_AZUM, "ХАХАХАХАХАХА! Серьёзно?!", "HAHAHAHAHAHAHA! Seriously?!"},
+    {20.0, 0, HACK_WHO_AZUM,
+     "HAHAHAHAHAHAHA! Seriously?!",
+     "HAHAHAHAHAHAHA! Seriously?!"},
     {22.0, 0, HACK_WHO_AZUM,
-     "Ты подгрузил свой .bin/.so файл, прописал /event 10, а вылезло одно жалкое облачко в углу экрана? Твои команды вообще не работают! Я сейчас от смеха упаду!",
+     "You loaded your .bin/.so file, typed /event 10, and one pathetic little cloud popped up in the corner of the screen? Your commands do nothing at all! I am falling over laughing!",
      "You loaded your .bin/.so file, typed /event 10, and one pathetic little cloud popped up in the corner of the screen? Your commands do nothing at all! I am falling over laughing!"},
     {28.0, 0, HACK_WHO_HACK,
-     "Что ты смеёшься?! Что ты смеёшься вообще, Азумина?! Подумаешься, облачко!",
-     "What are you laughing at?! What are you laughing at, Azumina?! Big deal, one cloud!"},
+     "What are you laughing at?! What are you laughing at, anyway?! Big deal, one cloud!",
+     "What are you laughing at?! What are you laughing at, anyway?! Big deal, one cloud!"},
     {32.0, 0, HACK_WHO_HACK,
-     "Я сломаю всю твою игру! Всю до единой строчки кода, Эй-Зум ходячий! Ты у меня поплачешь!",
-     "I will break your whole game! Every single line of code, walking A-Yu-m! You will cry for me!"},
+     "I will break your whole game! Every single line of code, walking cube! You will cry for me!",
+     "I will break your whole game! Every single line of code, walking cube! You will cry for me!"},
     {40.0, 1, HACK_WHO_HACK,
-     "Ну что, доигрался со своим смехом, Азумчик-недокрученный?! Смотри сколько кнопок на экране! Нажмите на кнопку \"УДАЛИТЬ ИГРУ\"!! Быстро!!! Вы почему не выходите?!",
-     "So, done laughing, Azumchik-the-undertightened?! Look how many buttons are on screen! Press the \"DELETE THE GAME\" button!! Now!!! Why are you not quitting?!"},
+     "So, done laughing, undertightened?! Look how many buttons are on screen! Press the \"DELETE THE GAME\" button!! Now!!! Why are you not quitting?!",
+     "So, done laughing, undertightened?! Look how many buttons are on screen! Press the \"DELETE THE GAME\" button!! Now!!! Why are you not quitting?!"},
     {48.0, 1, HACK_WHO_AZUM,
-     "Да потому что это просто пустышки, гений кода. Мои игроки на них как на батутах прыгают.",
+     "Because they are empty shells, code genius. My players bounce on them like on trampolines.",
      "Because they are empty shells, code genius. My players bounce on them like on trampolines."},
     {53.0, 1, HACK_WHO_HACK,
-     "ААААА, Я СЛОМАЮ ВАШ ПРЕМИУМ! СЛЫШИШЬ МЕНЯ, КУБИК АЗУМНЫЙ?! Я УНИЧТОЖУ СЕРВЕР!",
-     "AAAAH, I WILL BREAK YOUR PREMIUM! HEAR ME, AZUM-CUBE?! I WILL DESTROY THE SERVER!"},
+     "AAAAH, I WILL BREAK YOUR PREMIUM! HEAR ME, CUBE?! I WILL DESTROY THE SERVER!",
+     "AAAAH, I WILL BREAK YOUR PREMIUM! HEAR ME, CUBE?! I WILL DESTROY THE SERVER!"},
     {57.0, 1, HACK_WHO_AZUM,
-     "Ой, ладно, Азу-терминатор тебе этого сделать не даст. Мне надоело это читать. Счастливо оставаться.",
-     "Oh please, Azu-terminator will not let you. I am tired of reading this. Stay well."},
-    {72.0, 2, HACK_WHO_HACK, "Ах так?! Я сделаю ещё раз всё это!", "Oh really?! I will do all of this again!"},
-    {73.2, 2, HACK_WHO_HACK, "Азума-разум... 3... 2... 1...", "Azuma-razum... 3... 2... 1..."},
+     "Oh please, terminator will not let you. I am tired of reading this. Stay well.",
+     "Oh please, terminator will not let you. I am tired of reading this. Stay well."},
+    {72.0, 2, HACK_WHO_HACK, "Oh really?! I will do all of this again!", "Oh really?! I will do all of this again!"},
+    {73.2, 2, HACK_WHO_HACK, "1... 2... 3...", "1... 2... 3..."},
     {74.6, 2, HACK_WHO_HACK, "1", "1"},
 };
 #define HACK_LINES ((double)(sizeof(hack_script) / sizeof(hack_script[0])))
@@ -135,16 +137,11 @@ static double hack_cane_candy;
 static double hack_boomed;
 
 static double hack_enabled(void) {
-    if (game_state != ST_SOLO) {
-        return 0;
-    }
-    if (net_flags_reachable() != 1) {
-        return 0;
-    }
-    if (event_mode == HACK_EVENT) {
+    /* Event only in offline (solo) mode, regardless of internet */
+    if (game_state == ST_SOLO) {
         return 1;
     }
-    return admin_cheat_hack();
+    return 0;
 }
 
 /* The game ships for exactly two devices, so the raid looks at which one it
@@ -220,6 +217,10 @@ static double hack_load_payload(void) {
 /* His commands switch nothing on: the timers tick in silence, the cloud just
  * hangs there. No stub visuals, no sounds, no "broken" notes anywhere. */
 static void hack_fire_cmd(double id, double kind, double life) {
+    /* Event only in offline (solo) mode */
+    if (game_state != ST_SOLO) {
+        return;
+    }
     if (kind == HACK_KIND_EVENT) {
         if (id == 1) {
             hack_stub_disco_t = life;
@@ -227,13 +228,12 @@ static void hack_fire_cmd(double id, double kind, double life) {
             hack_stub_plates_t = life;
         }
         
-        /* Trigger solo event mode globally */
-        if (game_state == ST_SOLO) {
-            event_mode = (int)id;
-        }
+        /* Trigger solo event mode */
+        event_mode = (int)id;
         return;
     }
     if (kind == HACK_KIND_CLOUD && life > 0 && hack_cloud_on == 0) {
+        /* Cloud removed entirely in draw, but keep logic for compatibility */
         hack_cloud_on = 1;
         hack_cloud_x = screen_w - 62;
         hack_cloud_y = 64;

@@ -72,47 +72,31 @@ static double dice_roll_cube(void) {
 }
 
 static const char *dice_cube_tex(double cube) {
-    if (cube == DICE_CUBE_LEGENDARY) {
-        return AZUM_ZOMBIE_CARD_TEX;
-    }
-    if (cube == DICE_CUBE_SANTA) {
-        return SANTA_CARD_TEX;
-    }
-    if (cube == DICE_CUBE_EBUC) {
-        return EBUC_CARD_TEX;
-    }
-    if (cube == DICE_CUBE_ASTRA) {
-        return ASTRA_CARD_TEX;
-    }
-    if (cube == DICE_CUBE_AZUM) {
-        return AZUM_CARD_TEX;
-    }
-    if (cube == DICE_CUBE_CODECRACKER) {
-        return CODECRACKER_CARD_TEX;
-    }
-    return ORDINARY_CARD_TEX; /* Ordinary */
+    /* Removed Azum bindings: use ordinary texture for all */
+    return ORDINARY_CARD_TEX;
 }
 
 static const char *dice_cube_name(double cube) {
+    /* Removed Azum/Legendary/etc names: use generic labels */
     if (cube == DICE_CUBE_LEGENDARY) {
-        return language == 1 ? "Легендарный Азум" : "Legendary Azum";
+        return language == 1 ? "Legendary" : "Legendary";
     }
     if (cube == DICE_CUBE_CODECRACKER) {
-        return class_name_of(CLASS_CODECRACKER);
+        return "Codecracker";
     }
     if (cube == DICE_CUBE_SANTA) {
-        return class_name_of(CLASS_SANTA);
+        return "Santa";
     }
     if (cube == DICE_CUBE_EBUC) {
-        return class_name_of(CLASS_EBUC);
+        return "Ebuc";
     }
     if (cube == DICE_CUBE_ASTRA) {
-        return class_name_of(CLASS_ASTRA);
+        return "Astra";
     }
     if (cube == DICE_CUBE_AZUM) {
-        return class_name_of(CLASS_AZUM);
+        return "Azum";
     }
-    return class_name_of(CLASS_ORDINARY);
+    return "Ordinary";
 }
 
 static void dice_throw_cube(void) {

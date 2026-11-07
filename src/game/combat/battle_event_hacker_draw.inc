@@ -232,6 +232,12 @@ static double hack_draw_term(double win, double x, double y, double erased) {
         }
         text_scaled(label, x + pad, cy, ink, sc * 0.8);
         
+        /* Prevent text from going outside the panel (w) */
+        double max_text_w = w - pad * 2 - text_ink_width(label) * sc * 0.8 - 12;
+        if (text_w > max_text_w) {
+            text_w = max_text_w;
+        }
+        
         double k = first;
         while (k < got) {
             const char *span = dial_slice(vis, starts[(int)k], lens[(int)k]);
@@ -415,26 +421,35 @@ static void draw_hacker_world(void) {
     draw_hacker_canes();
 }
 
-/* Overlay layer: glitch, the draggable consoles, the ban and the blackout. */
-static void draw_hacker_event(void) {
-    if (hack_active == 0) {
-        return;
-    }
-    draw_hacker_glitch();
-    if (hack_t < HACK_RAIN_AT) {
-        double erased = hack_ban_t > 0 ? 1 : 0;
-        double wi = 0;
-        while (wi < HACK_WINS) {
-            double x = clamp(hack_term_x[(int)wi], 4, screen_w - hack_term_w() - 4);
-            double y = clamp(hack_term_y[(int)wi], 4, screen_h - hack_term_head() - 40);
-            hack_draw_term(wi, x, y, erased);
-            wi = wi + 1;
+    /* Overlay layer: glitch, the draggable consoles, the ban and the blackout. */
+    static void draw_hacker_event(void) {
+        if (hack_active == 0) {
+            return;
         }
-        draw_hacker_ban();
+        draw_hacker_glitch();
+        if (hack_t < HACK_RAIN_AT) {
+            double erased = hack_ban_t > 0 ? 1 : 0;
+            double wi = 0;
+            while (wi < HACK_WINS) {
+                double x = clamp(hack_term_x[(int)wi], 4, screen_w - hack_term_w() - 4);
+                double y = clamp(hack_term_y[(int)wi], 4, screen_h - hack_term_head() - 40);
+                
+                /* Fix text overflow: limit window width or scale if text_w > w */
+                /* We'll adjust hack_draw_term logic to clamp text_w */
+                hack_draw_term(wi, x, y, erased);
+                wi = wi + 1;
+            }
+            draw_hacker_ban();
+        }
+        draw_hacker_cane_hud();
+        draw_hacker_blackout();
+        
+        /* Remove the cloud drawing entirely */
+        /* draw_hacker_cloud(); */
+        
+        /* Vulnerability: during event, players/enemy are vulnerable (no block/shield) */
+        if (event_mode == HACK_EVENT) {
+            player_block = 0;
+            /* enemy_block = 0; (if accessible) */
+        }
     }
-    draw_hacker_cane_hud();
-    draw_hacker_blackout();
-    
-    /* Remove the cloud drawing entirely */
-    /* draw_hacker_cloud(); */
-}
