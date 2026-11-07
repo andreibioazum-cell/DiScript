@@ -48,6 +48,7 @@ static void xmas_step_local(XmasBall *b) {
         b->y = b->y + b->vy * dt * piece;
         b->bounces = b->bounces + xmas_bounce(&b->x, &b->y, &b->vx, &b->vy);
         b->bounces = b->bounces + ice_bounce_ball(&b->x, &b->y, XMAS_RADIUS, &b->vx, &b->vy);
+        b->bounces = b->bounces + hack_bounce_ball(&b->x, &b->y, XMAS_RADIUS, &b->vx, &b->vy);
         if (b->bounces > XMAS_MAX_BOUNCES || b->t > XMAS_MAX_TIME) {
             xmas_burst(b);
             return;
@@ -86,6 +87,7 @@ static void xmas_step_remote(int s) {
         r->y = r->y + r->vy * dt * piece;
         r->bounces = r->bounces + xmas_bounce(&r->x, &r->y, &r->vx, &r->vy);
         r->bounces = r->bounces + ice_bounce_ball(&r->x, &r->y, XMAS_RADIUS, &r->vx, &r->vy);
+        r->bounces = r->bounces + hack_bounce_ball(&r->x, &r->y, XMAS_RADIUS, &r->vx, &r->vy);
         if (r->bounces > XMAS_MAX_BOUNCES || r->t > XMAS_MAX_TIME) {
             xmas_remote_burst(s);
             return;

@@ -217,6 +217,9 @@ static void ult_ball_step(UltBall *b, int is_enemy) {
         if (ice_bounce_ball(&b->x, &b->y, BALL_RADIUS, &b->vx, &b->vy) == 1) {
             b->bounces = b->bounces + 1;
         }
+        if (hack_bounce_ball(&b->x, &b->y, BALL_RADIUS, &b->vx, &b->vy) == 1) {
+            b->bounces = b->bounces + 1;
+        }
         if (b->x < BALL_RADIUS) {
             b->x = BALL_RADIUS;
             b->vx = (0 - b->vx) * BALL_BOUNCE_ACCEL;

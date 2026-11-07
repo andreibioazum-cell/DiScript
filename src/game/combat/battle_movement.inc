@@ -158,14 +158,16 @@ static void move_player(void) {
         if (dash_travel < 0) {
             dash_travel = 0;
         }
-        if (dash_travel > azum_dash_speed * azum_dash_time) {
-            dash_travel = azum_dash_speed * azum_dash_time;
-        }
-        tick_dust(dash_dx, dash_dy, 1);
-        return;
+    if (dash_travel > azum_dash_speed * azum_dash_time) {
+        dash_travel = azum_dash_speed * azum_dash_time;
+    }
+    hack_button_push(&player->x, &player->y, player_half());
+    tick_dust(dash_dx, dash_dy, 1);
+    return;
     }
     player_walk_move(player_walk_speed());
     ice_push_point(&player->x, &player->y, player_half());
+    hack_button_push(&player->x, &player->y, player_half());
 }
 
 /* Bodies are solid: the two cubes may not stand inside each other.
@@ -251,6 +253,7 @@ static void freeze_enemy(double t, double slow) {
 static void enemy_move(double vx, double vy) {
     double f = enemy_freeze_factor() * enemy->speed_var;
     ice_avoid_vector(enemy->x, enemy->y, &vx, &vy);
+    hack_avoid_vector(enemy->x, enemy->y, &vx, &vy);
     if (class_is_astra(enemy_class) == 1 && egrab_parry_t > 0) {
         f = f * ASTRA_PARRY_SPEED_K;
     } else if (enemy_block_left > 0) {

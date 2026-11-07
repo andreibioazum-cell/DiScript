@@ -130,7 +130,6 @@ static void draw_fighter_shadow(double x, double y, double ang, double look, dou
 }
 
 static void draw_fighter_body(double x, double y, double ang, double look, double punching) {
-    int slot_idx = 0;
     double blend = blend_t[0];
     double prev = prev_look[0];
     double half_px = 25 * cube_scale * player_scale;

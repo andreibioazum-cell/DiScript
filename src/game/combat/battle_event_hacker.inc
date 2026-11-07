@@ -1,0 +1,223 @@
+/* Event 7 (H4c4k0r raid): a scripted scene where an unskilled hacker breaks
+ * into the round. Everything he starts is a broken local dummy: his payload
+ * file (.so on PC, .bin on phones) loads per device, his /event commands turn
+ * into tiny dead stubs plus one harmless cloud, his menu buttons rain down as
+ * solid cover, then Azum's ban wipes the terminals and the players get a New
+ * Year candy-cane compensation. The timeline below is scene order only; no
+ * timer is ever shown on screen. */
+
+#define HACK_EVENT 7
+
+/* Scene beats in seconds since the raid started. */
+#define HACK_GLITCH_TIME 1.2
+#define HACK_BTN_START 40.0
+#define HACK_BTN_INTERVAL 1.7
+#define HACK_BAN_AT 75.0
+#define HACK_RAIN_AT 80.0
+#define HACK_TYPE_CPS 34.0
+#define HACK_CMD_CPS 46.0
+#define HACK_CANE_SPEED 250.0
+#define HACK_CANE_INTERVAL 0.35
+#define HACK_CANE_LIFE 22.0
+#define HACK_FINISH_GRACE 1.6
+#define HACK_BTN_GRAVITY 1500.0
+
+/* Payload container ids (assets/hack/, see tools/gen_hack_payload.py). */
+#define HACK_PLAT_PHONE 1
+#define HACK_PLAT_PC 2
+#define HACK_KIND_EVENT 1
+#define HACK_KIND_CLOUD 2
+
+/* Terminal speakers. */
+#define HACK_WHO_WARN 0
+#define HACK_WHO_HACK 1
+#define HACK_WHO_AZUM 2
+
+/* Junk button slots. */
+#define HB_ON 0
+#define HB_LABEL 1
+#define HB_X 2
+#define HB_Y 3
+#define HB_W 4
+#define HB_H 5
+#define HB_VY 6
+#define HB_REST 7
+#define HB_LAND 8
+#define HB_PRESS 9
+#define HB_FIELDS 10
+#define HACK_BTN_MAX 16
+
+/* Compensation cane slots. */
+#define HC_ON 0
+#define HC_X 1
+#define HC_Y 2
+#define HC_DX 3
+#define HC_LAND 4
+#define HC_POP 5
+#define HC_FIELDS 6
+#define HACK_CANE_MAX 10
+
+typedef struct {
+    double at;
+    double win;
+    double who;
+    const char *ru;
+    const char *en;
+} HackLine;
+
+/* The whole argument, three terminal windows, typed live by both sides. */
+static const HackLine hack_script[] = {
+    {0.8, 0, HACK_WHO_WARN, "[WArNiNg]: External connection detected...", "[WArNiNg]: External connection detected..."},
+    {2.6, 0, HACK_WHO_HACK,
+     "Ну привет, кубики. Я тут просканировал вашу систему, подгрузил нужный .bin/.so скрипт и сейчас включу вообще все ваши режимы разом!",
+     "Hi there, cubes. I just scanned your system, loaded the right .bin/.so script and now I will switch on every single mode at once!"},
+    {9.0, 0, HACK_WHO_HACK, "/event 1", "/event 1"},
+    {10.5, 0, HACK_WHO_HACK, "/event 2", "/event 2"},
+    {12.0, 0, HACK_WHO_HACK, "/event 10", "/event 10"},
+    {13.5, 0, HACK_WHO_HACK, "/event 11", "/event 11"},
+    {20.0, 0, HACK_WHO_AZUM, "ХАХАХАХАХАХА! Серьёзно?!", "HAHAHAHAHAHAHA! Seriously?!"},
+    {22.0, 0, HACK_WHO_AZUM,
+     "Ты подгрузил свой .bin/.so файл, прописал /event 10, а вылезло одно жалкое облачко в углу экрана? Твои команды вообще не работают! Я сейчас от смеха упаду!",
+     "You loaded your .bin/.so file, typed /event 10, and one pathetic little cloud popped up in the corner of the screen? Your commands do nothing at all! I am falling over laughing!"},
+    {28.0, 0, HACK_WHO_HACK,
+     "Что ты смеёшься?! Что ты смеёшься вообще, Азумина?! Подумаешься, облачко!",
+     "What are you laughing at?! What are you laughing at, Azumina?! Big deal, one cloud!"},
+    {32.0, 0, HACK_WHO_HACK,
+     "Я сломаю всю твою игру! Всю до единой строчки кода, Эй-Зум ходячий! Ты у меня поплачешь!",
+     "I will break your whole game! Every single line of code, walking A-Yu-m! You will cry for me!"},
+    {40.0, 1, HACK_WHO_HACK,
+     "Ну что, доигрался со своим смехом, Азумчик-недокрученный?! Смотри сколько кнопок на экране! Нажмите на кнопку \"УДАЛИТЬ ИГРУ\"!! Быстро!!! Вы почему не выходите?!",
+     "So, done laughing, Azumchik-the-undertightened?! Look how many buttons are on screen! Press the \"DELETE THE GAME\" button!! Now!!! Why are you not quitting?!"},
+    {48.0, 1, HACK_WHO_AZUM,
+     "Да потому что это просто пустышки, гений кода. Мои игроки на них как на батутах прыгают.",
+     "Because they are empty shells, code genius. My players bounce on them like on trampolines."},
+    {53.0, 1, HACK_WHO_HACK,
+     "ААААА, Я СЛОМАЮ ВАШ ПРЕМИУМ! СЛЫШИШЬ МЕНЯ, КУБИК АЗУМНЫЙ?! Я УНИЧТОЖУ СЕРВЕР!",
+     "AAAAH, I WILL BREAK YOUR PREMIUM! HEAR ME, AZUM-CUBE?! I WILL DESTROY THE SERVER!"},
+    {57.0, 1, HACK_WHO_AZUM,
+     "Ой, ладно, Азу-терминатор тебе этого сделать не даст. Мне надоело это читать. Счастливо оставаться.",
+     "Oh please, Azu-terminator will not let you. I am tired of reading this. Stay well."},
+    {72.0, 2, HACK_WHO_HACK, "Ах так?! Я сделаю ещё раз всё это!", "Oh really?! I will do all of this again!"},
+    {73.2, 2, HACK_WHO_HACK, "Азума-разум... 3... 2... 1...", "Azuma-razum... 3... 2... 1..."},
+    {74.6, 2, HACK_WHO_HACK, "1", "1"},
+};
+#define HACK_LINES ((double)(sizeof(hack_script) / sizeof(hack_script[0])))
+#define HACK_WINS 3
+
+/* Payload command schedule: the hacker fires his table in this order. */
+static const double hack_cmd_at[4] = {9.0, 10.5, 12.0, 13.5};
+
+/* Parsed payload table (filled by hack_load_payload). */
+static double hack_cmd_id[4];
+static double hack_cmd_kind[4];
+static double hack_cmd_life[4];
+static double hack_cmd_n;
+static double hack_btn_total;
+static double hack_cane_total;
+static double hack_cane_candy;
+static double hack_boomed;
+
+static double hack_enabled(void) {
+    if (game_state != ST_SOLO && game_state != ST_ONLINE) {
+        return 0;
+    }
+    if (game_state == ST_ONLINE && event_mode == HACK_EVENT) {
+        return 1;
+    }
+    return admin_cheat_hack();
+}
+
+/* Read this device's payload container and parse the hacker's command table. */
+static double hack_load_payload(void) {
+    static unsigned char buf[64];
+    const char *name;
+    double plat;
+    int n;
+    int i;
+    unsigned sum = 0;
+#ifdef CB_PC
+    plat = HACK_PLAT_PC;
+    name = "hack/h4c4k0r.so";
+#else
+    plat = HACK_PLAT_PHONE;
+    name = "hack/h4c4k0r.bin";
+#endif
+    hack_platform = plat;
+    n = ds_asset_read(name, buf, (int)sizeof(buf));
+    hack_payload_bytes = n > 0 ? (double)n : 0;
+    if (n < 16) {
+        ds_log("h4c4k0r: payload %s unreadable (%d bytes), raid runs on defaults", name, n);
+        return 0;
+    }
+    if (plat == HACK_PLAT_PC) {
+        if (memcmp(buf, "H4CKSO1", 7) != 0 || buf[7] != 0 || buf[8] != HACK_PLAT_PC) {
+            ds_log("h4c4k0r: %s is not a PC container", name);
+            return 0;
+        }
+    } else if (memcmp(buf, "H4CKBIN1", 8) != 0 || buf[8] != HACK_PLAT_PHONE) {
+        ds_log("h4c4k0r: %s is not a phone container", name);
+        return 0;
+    }
+    for (i = 0; i < n - 1; i++) {
+        sum = sum + (unsigned)buf[i];
+    }
+    if ((sum & 0xFFu) != (unsigned)buf[n - 1]) {
+        ds_log("h4c4k0r: %s checksum mismatch, his script is broken as usual", name);
+        return 0;
+    }
+    hack_cmd_n = 0;
+    double cnt = buf[10];
+    if (cnt > 4) {
+        cnt = 4;
+    }
+    i = 0;
+    while (i < (int)cnt && 11 + i * 3 + 2 < n) {
+        hack_cmd_id[i] = buf[11 + i * 3];
+        hack_cmd_kind[i] = buf[11 + i * 3 + 1];
+        hack_cmd_life[i] = buf[11 + i * 3 + 2];
+        hack_cmd_n = hack_cmd_n + 1;
+        i = i + 1;
+    }
+    int tail = 11 + (int)cnt * 3;
+    if (tail + 2 < n) {
+        hack_btn_total = buf[tail];
+        hack_cane_total = buf[tail + 1];
+        hack_cane_candy = buf[tail + 2];
+    }
+    if (hack_btn_total > HACK_BTN_MAX) {
+        hack_btn_total = HACK_BTN_MAX;
+    }
+    if (hack_cane_total > HACK_CANE_MAX) {
+        hack_cane_total = HACK_CANE_MAX;
+    }
+    ds_log("h4c4k0r: payload %s ok (%d bytes, %g cmds, %g buttons, %g canes)", name, n, hack_cmd_n,
+           hack_btn_total, hack_cane_total);
+    return 1;
+}
+
+/* One typed command: real events come up as dead stubs, clouds as one dummy. */
+static void hack_fire_cmd(double id, double kind, double life) {
+    if (kind == HACK_KIND_EVENT) {
+        if (id == 1) {
+            hack_stub_disco_t = life;
+            ds_log("h4c4k0r: /event 1 started as a broken local stub (%gs)", life);
+        } else if (id == 2) {
+            hack_stub_plates_t = life;
+            ds_log("h4c4k0r: /event 2 started as a broken local stub (%gs)", life);
+        } else {
+            ds_log("h4c4k0r: /event %g unknown to the game, nothing happens", id);
+        }
+        return;
+    }
+    if (kind == HACK_KIND_CLOUD) {
+        if (life > 0 && hack_cloud_on == 0) {
+            hack_cloud_on = 1;
+            hack_cloud_x = screen_w - 62;
+            hack_cloud_y = 64;
+            hack_cloud_t = 0;
+            ds_log("h4c4k0r: /event %g custom storm produced ONE cloud in the corner", id);
+        } else {
+            ds_log("h4c4k0r: /event %g cloud died at spawn, the storm is dead", id);
+        }
+    }
+}

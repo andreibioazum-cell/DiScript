@@ -15,6 +15,7 @@ ASSET_GROUPS = (
     ("textures", Path()),
     ("fonts", Path("fonts")),
     ("audio", Path("sounds")),
+    ("hack", Path("hack")),
 )
 
 

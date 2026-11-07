@@ -415,6 +415,7 @@ static void draw_game(void) {
     draw_candies();
     draw_christmas_snowballs();
     draw_ice();
+    draw_hacker_world();
     draw_player_hitbox_layer();
     draw_enemy_hitbox();
     draw_ability_hitboxes();
@@ -448,6 +449,7 @@ static void draw_game(void) {
         /* Red tint on damage - over everything, but very weak. */
     draw_hurt_flash();
     draw_fps_meter();
+    draw_hacker_event();
     if (finished == 1) {
         draw_result(tr_victory());
     } else if (finished == 2) {

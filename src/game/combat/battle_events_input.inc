@@ -18,7 +18,7 @@ static void draw_disco(void) {
 }
 
 static void update_event(void) {
-    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates. */
+    /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid. */
     /* Offline: no server-run events, everything is the ordinary battle. */
     event_mode = net_flags_reachable() == 1 ? net_event() : 0;
     if (plates_round_on() == 1 && candies_on() == 0) {
@@ -36,6 +36,7 @@ static void update_event(void) {
     tick_plates_event();
     update_dice_event();
     update_columns_event();
+    update_hacker_event();
     /* Unlock ebuC's gift achievement when playing Santa online during event 3. */
     if (game_state == ST_ONLINE && event_mode == 3 && player_class == CLASS_SANTA && online_ready == 1) {
         if (has_achievement(ACH_BUK_GIFT) == 0) {
@@ -163,6 +164,7 @@ static void draw_online(void) {
     draw_event_plates();
     draw_event_candies();
     draw_dice_cubes();
+    draw_hacker_world();
     draw_dust();
     draw_player_shadow_layer();
     double i = 0;
@@ -276,6 +278,7 @@ static void draw_online(void) {
     draw_chat();
     draw_plates_hud();
     draw_columns_hud();
+    draw_hacker_event();
     draw_alone_wait();
     if (finished == 1) {
         draw_result(tr_victory());
@@ -341,6 +344,10 @@ static void touch_game(double x, double y, double action, double id) {
         if (action == 0 && finish_t >= alert_hold) {
             start_transition(0);
         }
+        return;
+    }
+    /* The hacker's junk buttons swallow touches: they click and do nothing. */
+    if (hack_touch(x, y, action) == 1) {
         return;
     }
     if (action == 3) {

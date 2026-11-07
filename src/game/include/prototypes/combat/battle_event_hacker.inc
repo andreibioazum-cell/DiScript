@@ -1,0 +1,11 @@
+static double hack_enabled(void);
+static void hack_reset(void);
+static double hack_load_payload(void);
+static void hack_fire_cmd(double id, double kind, double life);
+static void update_hacker_event(void);
+static void hack_button_push(double *px, double *py, double half);
+static void hack_avoid_vector(double x, double y, double *vx, double *vy);
+static double hack_bounce_ball(double *x, double *y, double rad, double *vx, double *vy);
+static double hack_touch(double x, double y, double action);
+static void draw_hacker_world(void);
+static void draw_hacker_event(void);

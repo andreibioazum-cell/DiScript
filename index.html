@@ -199,7 +199,7 @@
 <section id="tools" class="hide">
   <h2>3. Точечные инструменты</h2>
 
-  <h3>Ивент боя (0..6 - как в игре)</h3>
+  <h3>Ивент боя (0..7 - как в игре)</h3>
   <div class="row">
     <button data-ev="0">0 · Выкл</button>
     <button data-ev="1">1 · Диско</button>
@@ -208,6 +208,7 @@
     <button data-ev="4">4 · Кубик</button>
     <button data-ev="5">5 · Колонки</button>
     <button data-ev="6">6 · Слабые удары (плиты)</button>
+    <button data-ev="7">7 · Взлом H4c4k0r</button>
     <span class="muted" id="evNow"></span>
   </div>
 
@@ -448,8 +449,8 @@ const CHAT_REQ   = ["uid","nick","text"];
 const CHAT_FIELDS = {uid: str(8,24), nick: str(1,16), text: str(1,96), w: secret()};
 
 const BANNER_FIELDS = {ts: num(0,9000000000000), text: str(1,96), color: str(1,16)};
-const EVENT_MAX = 6;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates */
-const EVENT_NAMES = ["Выкл","Диско","Плиты","Дед Мороз","Кубик","Колонки","Слабые удары (плиты)"];
+const EVENT_MAX = 7;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid */
+const EVENT_NAMES = ["Выкл","Диско","Плиты","Дед Мороз","Кубик","Колонки","Слабые удары (плиты)","Взлом H4c4k0r"];
 const NICK_RE   = /^[A-Za-z0-9_]{1,16}$/;
 const PROD_DB_RE = /firebaseio\.com|googleapis\.com/i;
 
@@ -1406,7 +1407,7 @@ function boot(){
                         FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=!f.sel; }); render(); }, "Инвертировать");
   on("#wipe", wipe, "Удалить выбранное");
 
-  /* Live events 0..6 */
+  /* Live events 0..7 */
   onAll("[data-ev]", (ev, b) => {
     const v = +b.dataset.ev;
     if(v < 0 || v > EVENT_MAX) throw new Error("Ивент должен быть 0.." + EVENT_MAX);

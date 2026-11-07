@@ -37,7 +37,7 @@ static double admin_panel_w(void) {
 
 static double admin_row_h(void) { return clamp(screen_h * 0.066, 36, 76); }
 
-#define ADMIN_CHEATS 8
+#define ADMIN_CHEATS 9
 static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
@@ -122,7 +122,10 @@ static const char *admin_cheat_label(double idx) {
         if (idx == 6) {
             return "Отскоки буКа";
         }
-        return "Авто-блок";
+        if (idx == 7) {
+            return "Авто-блок";
+        }
+        return "Взлом H4c4k0r";
     }
     if (idx == 0) {
         return "God mode";
@@ -145,7 +148,10 @@ static const char *admin_cheat_label(double idx) {
     if (idx == 6) {
         return "ebuC's bounces";
     }
-    return "Auto block";
+    if (idx == 7) {
+        return "Auto block";
+    }
+    return "H4c4k0r raid";
 }
 
 static double admin_cheat_value(double idx) {
@@ -170,7 +176,10 @@ static double admin_cheat_value(double idx) {
     if (idx == 6) {
         return cheat_ball_path;
     }
-    return cheat_autoblock;
+    if (idx == 7) {
+        return cheat_autoblock;
+    }
+    return cheat_hack;
 }
 
 /* Return 1 while any admin cheat switch is active. */
@@ -179,7 +188,7 @@ static double admin_any_cheat_on(void) {
         return 0;
     }
     if (cheat_god == 1 || cheat_damage == 1 || cheat_speed == 1 || cheat_nocd == 1 || cheat_cc == 1 ||
-        cheat_estun == 1 || cheat_ball_path == 1 || cheat_autoblock == 1) {
+        cheat_estun == 1 || cheat_ball_path == 1 || cheat_autoblock == 1 || cheat_hack == 1) {
         return 1;
     }
     return 0;
@@ -244,6 +253,10 @@ static void admin_press_cheat(double idx) {
         cheat_autoblock = v;
         ds_log(v == 1 ? "admin: auto block on" : "admin: auto block off");
     }
+    if (idx == 8) {
+        cheat_hack = v;
+        ds_log(v == 1 ? "admin: H4c4k0r raid replay on" : "admin: H4c4k0r raid replay off");
+    }
 }
 
 static void admin_press(double idx) {
@@ -280,4 +293,9 @@ static double admin_cheat_ball_path(void) {
 
 static double admin_cheat_autoblock(void) {
     return admin_modifiers_allowed() == 1 && cheat_autoblock == 1 ? 1 : 0;
+}
+
+/* Local replay switch for the H4c4k0r raid scene (event 7). */
+static double admin_cheat_hack(void) {
+    return admin_modifiers_allowed() == 1 && cheat_hack == 1 ? 1 : 0;
 }

@@ -21,5 +21,7 @@ double cheat_estun;
 double cheat_ball_path;
 /* Auto guard against active attacks, then counter-punch. */
 double cheat_autoblock;
+/* Local replay of the H4c4k0r raid (event 7) without a server event. */
+double cheat_hack;
 /* Suppresses orange stun ring for stuns applied via the admin panel. */
 double cheat_estun_mark;
