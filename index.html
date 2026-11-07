@@ -549,7 +549,10 @@ function suffixWarn(){
 }
 
 /* Firebase Auth helpers and legacy password suffix fallbacks. */
-const ADMINS = ["dimasi4ek229@cb4.game"];
+/* Root admins. qwertyuiopaj1234 may do everything except hand out gifts:
+ * the DB rules block his writes into other players' gift counters and the
+ * game hides the CCP gift tab from him. */
+const ADMINS = ["dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game"];
 const KNOWN_SUFFIXES = ["|cb4v1", "#cb4", ""];
 
 const AUTH_ERR = {
@@ -693,7 +696,7 @@ async function doLogin(){
     log("База: " + dbUrl() + (isTest() ? " · тестовый режим" : ""), isTest() ? "warn" : "");
     log("Токен: провайдер " + ((p.firebase || {}).sign_in_provider || "?") +
         ", годен до " + new Date((p.exp || 0) * 1000).toLocaleTimeString(), "");
-    if(isAdmin) log("Права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат", "good");
+    if(isAdmin) log("Права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат" + (email.toLowerCase() === "qwertyuiopaj1234@cb4.game" ? " (кроме выдачи подарков - её правила оставляют Dimasi4ek229)" : ""), "good");
     else{
       log("Это не админский аккаунт: читаются игровые узлы, чат и слоты чистить можно, а event/banner/bans/флаги, чужие users и мусор в корне/комнатах - нет", "warn");
       alert("Вход прошёл, но " + email + " нет в списке админов firebase.rules.json.\n\n" +
@@ -1378,7 +1381,7 @@ function boot(){
     log("Тестовый режим: база = " + location.origin + " (нужен запущенный test/fake_firebase.py, который и раздаёт эту страницу)", "warn");
     alert("Тестовый режим включён.\n\nБаза: " + location.origin +
           "\nВход: любой ник и любой пароль (аккаунт создастся сам).\n" +
-          "Админские права в тестовой базе - у ника Dimasi4ek229.\n\nНичего боевого не трогается.");
+          "Админские права в тестовой базе - у ников Dimasi4ek229 и qwertyuiopaj1234\n(второй - всё, кроме выдачи подарков).\n\nНичего боевого не трогается.");
   }, "Тестовый режим");
   on("#prodMode", () => {
     $("#dbUrl").value = "https://cubicbattleserver-19ae2-default-rtdb.firebaseio.com";

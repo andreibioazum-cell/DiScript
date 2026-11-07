@@ -33,6 +33,23 @@ def main() -> int:
     if "<= 7" not in event:
         print(f"event rule rejects event 7: {event}", file=sys.stderr)
         return 1
+
+    # The second root admin: qwertyuiopaj1234 may do everything except hand
+    # out gifts - every admin clause lists him, every gift counter blocks him.
+    dmail = "dimasi4ek229@cb4.game"
+    qmail = "qwertyuiopaj1234@cb4.game"
+    for node in ("event", "banner", "AzumBuff", "FlashSale", "Christmas"):
+        write = rules[node][".write"]
+        if dmail not in write or qmail not in write:
+            print(f"{node} must be writable by both root admins", file=sys.stderr)
+            return 1
+    ban_write = rules["bans"]["$nick"][".write"]
+    if qmail not in ban_write or "'qwertyuiopaj1234'" not in ban_write:
+        print("the giftless admin must ban others and stay unbannable himself", file=sys.stderr)
+        return 1
+    if qmail not in rules["users"]["$nick"][".write"]:
+        print("the giftless admin must reach the player profiles", file=sys.stderr)
+        return 1
     gifts = rules["users"]["$nick"]["gifts"]
     for key in ("poop", "cake", "bear", "rocket", "emerald"):
         if key not in gifts:
@@ -42,6 +59,13 @@ def main() -> int:
             if rule not in gifts[key]:
                 print(f"gift {key} has no {rule} rule", file=sys.stderr)
                 return 1
+        if qmail not in gifts[key][".validate"]:
+            print(f"gift {key} must block the giftless admin from handing it out", file=sys.stderr)
+            return 1
+    rose_validate = gifts["rose"][".validate"]
+    if qmail in rose_validate or dmail not in rose_validate:
+        print("legacy rose stays own-profile or gift-admin only", file=sys.stderr)
+        return 1
     if "pumpkin_cube" in gifts:
         print("the pumpkin cube gift must be removed from the rules", file=sys.stderr)
         return 1
@@ -96,6 +120,24 @@ def main() -> int:
     if fake.can_write(["users", player, "gifts", "poop"], "other@cb4.game"):
         print("fake Firebase allowed a foreign player to write someone else's gift", file=sys.stderr)
         return 1
+    if not fake.can_write(["event"], qmail) or not fake.can_write(["bans", "Spammer"], qmail):
+        print("fake Firebase must let the giftless admin run events and bans", file=sys.stderr)
+        return 1
+    if not fake.can_write(["users", player, "cups"], qmail):
+        print("fake Firebase blocked the giftless admin from the profiles", file=sys.stderr)
+        return 1
+    if fake.can_write(["users", player, "gifts", "poop"], qmail):
+        print("fake Firebase let the giftless admin hand out a gift", file=sys.stderr)
+        return 1
+    if not fake.can_write(["users", "qwertyuiopaj1234", "gifts", "poop"], qmail):
+        print("fake Firebase blocked the giftless admin's own gift purchase", file=sys.stderr)
+        return 1
+    if not fake.can_write(["users", player, "gifts", "poop"], dmail):
+        print("fake Firebase blocked the gift admin from handing out a gift", file=sys.stderr)
+        return 1
+    if fake.can_write(["bans", "qwertyuiopaj1234"], dmail) or fake.can_write(["bans", "dimasi4ek229"], qmail):
+        print("root admins must stay unbannable", file=sys.stderr)
+        return 1
     if existing is None:
         del fake.DB["users"][player]
     else:
@@ -103,7 +145,8 @@ def main() -> int:
     print("db rules: event 0..7, Christmas flag + snowball slot fields, "
           "gift keys poop/cake/bear/rocket/emerald, "
           "rainbow-rendered emerald without emerald_hue, "
-          "wheel progress and packed skins OK")
+          "wheel progress and packed skins OK, "
+          "second root admin qwertyuiopaj1234 without gift handing OK")
     return 0
 
 

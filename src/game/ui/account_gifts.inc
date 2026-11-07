@@ -463,7 +463,7 @@ static void draw_acct_gifts(void) {
          * reserved for stickers already in My Gifts. */
         const char *buy = ds_concat(language == 1 ? "Купить · " : "Buy · ",
                                     acct_gift_cups_line(acct_gift_price(acct_gift_sel_id())));
-        if (admin_playing() == 0 && cups < acct_gift_price(acct_gift_sel_id())) {
+        if (admin_gifts_allowed() == 0 && cups < acct_gift_price(acct_gift_sel_id())) {
             button_disabled_scaled(buy, acct_x(), acct_below_fields(), acct_w(), btn_h,
                                    fit_text_scale(buy, acct_w() - 24, 0.6));
         } else {

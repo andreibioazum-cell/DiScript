@@ -318,6 +318,44 @@ try {
   check("корень закрыт - снимок по узлам", /читаю игровые узлы по отдельности/i.test(logText()));
   check("панель не умерла без прав админа", jsErrors().length === 0, jsErrors().join(" | "));
 
+  console.log("\n== 9b. Второй админ qwertyuiopaj1234: всё, кроме выдачи подарков ==");
+  window.eval("TOKEN = null; REFRESH = null; SNAP = null; FOUND = [];");
+  await sleep(100);
+  setVal("#nick", "qwertyuiopaj1234");
+  setVal("#pass", "admin");
+  $("#authBox").classList.remove("hide");
+  $("#app").classList.add("hide");   // the previous player session left it open
+  click("#login");
+  await waitFor(() => (/вход выполнен: qwertyuiopaj1234@cb4\.game/i.test(logText()) &&
+                       visible("#app") ? true : null),
+                "вход второго админа и снимок корня");
+  const qtoken = window.eval("TOKEN");
+  check("второй админ вошёл с правами админа",
+        /права админа есть/i.test(logText()) && typeof qtoken === "string" && qtoken.length > 10);
+  check("журнал честно предупреждает про подарки", /кроме выдачи подарков/i.test(logText()),
+        logText().slice(-260));
+  const qput = async (path, value) => {
+    const r = await fetch(`${BASE}/${path}.json?auth=${encodeURIComponent(qtoken)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+    return r.status;
+  };
+  check("ивент 7 записывается вторым админом",
+        (await qput("event", 7)) === 200 && (await db("event", qtoken)) === 7);
+  check("бан спамера проходит", (await qput("bans/Spammer", true)) === 200);
+  check("забанить самого себя он не может", (await qput("bans/qwertyuiopaj1234", true)) !== 200);
+  check("чужой профиль правится (кубки)",
+        (await qput("users/Player2/cups", 55)) === 200 && (await db("users/Player2/cups", qtoken)) === 55);
+  check("выдача подарка другому игроку отклонена", (await qput("users/Player2/gifts/poop", 5)) !== 200);
+  check("свой подарок купить можно", (await qput("users/qwertyuiopaj1234/gifts/poop", 1)) === 200);
+  const dput = async (path, value) => {
+    const r = await fetch(`${BASE}/${path}.json?auth=${encodeURIComponent(token)}`, {
+      method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(value) });
+    return r.status;
+  };
+  check("первый админ подарки по-прежнему выдаёт", (await dput("users/Player2/gifts/poop", 2)) === 200);
+  check("второго админа нельзя забанить даже первому",
+        (await dput("bans/qwertyuiopaj1234", true)) !== 200);
+
   console.log("\n== 10. Итог по ошибкам ==");
   check("за весь прогон не было ни одной ошибки", jsErrors().length === 0, jsErrors().join(" | "));
 } catch (e) {

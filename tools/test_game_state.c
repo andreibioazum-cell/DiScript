@@ -1622,6 +1622,31 @@ static void test_gifts_page(void) {
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
     }
 
+        /* The second root admin does everything except gifts: the sticker shop
+         * charges him like any player and refuses him at zero cups. */
+    {
+        char saved_nick_q[24];
+        snprintf(saved_nick_q, sizeof(saved_nick_q), "%s", stub_login_nick);
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
+        assert(admin_playing() == 1 && admin_gifts_allowed() == 0);
+        cups = 0;
+        acct_gift_choice = 2; /* teddy, 250 cups */
+        acct_gift_is_owned = 0;
+        acct_msg = "";
+        acct_gift_buy();
+        assert(acct_gift_busy == 0 && strcmp(acct_msg, "Не хватает кубков") == 0);
+        cups = 300;
+        acct_gift_buy();
+        assert(acct_gift_busy == 1 && acct_gift_busy_mode == 2);
+        stub_gift_cups = 50; /* 300 - 250: he pays the full price */
+        stub_gift_status = 2;
+        acct_poll_gifts();
+        assert(acct_gift_busy == 0 && cups == 50);
+        acct_msg = "";
+        net_gift_count_add(2, -1); /* revert cached teddy count */
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick_q);
+    }
+
         /* Selling removes only the sticker that was sold: the second poop and the
          * emerald stay. The list used to be wiped whole, so it looked like the
          * emerald went with the poop. */
@@ -4523,8 +4548,8 @@ int main(void) {
     assert(astra_ability_of(CLASS_ASTRA, SKIN_SPECIAL) == 1);
     assert(astra_ability_of(CLASS_AZUM, SKIN_SPECIAL) == 0);
     assert(admin_slot("DIMASI4EK229") == 1);
-    assert(admin_slot("QWERTYUIOPAJ1234") == 0);
-    assert(admin_slot("qwertyuiopaj1234") == 0);
+    assert(admin_slot("QWERTYUIOPAJ1234") == 2);
+    assert(admin_slot("qwertyuiopaj1234") == 2);
     assert(admin_slot("regular_player") == 0);
     assert(admin_slot("Efy") == 0 && admin_slot("efy") == 0);
     /* Special nicks carry plain RGB colours; alpha 0 is the engine's opaque. */
@@ -4570,8 +4595,8 @@ int main(void) {
     assert(acct_is_admin_nick() == 0);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
     astra_ability_refresh();
-    assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0 && is_admin() == 0);
-    assert(acct_is_admin_nick() == 0);
+    assert(astra_ability_allowed() == 1 && astra_ability_is_dev() == 1 && is_admin() == 1);
+    assert(acct_is_admin_nick() == 1);
     stub_login_status = 0;
     astra_ability_refresh();
     assert(astra_ability_allowed() == 0 && astra_ability_is_dev() == 0);
@@ -5941,12 +5966,13 @@ int main(void) {
     test_admin_keyboard();
 
     /* Christmas theme and Battle Pass are available to all CCP moderators;
-     * only the primary admin has the wider CCP/Gifts panel. */
+     * only the primary admin has the Gifts half of the CCP panel. */
     {
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0 && admin_modifiers_allowed() == 1);
+        assert(is_admin() == 1 && admin_modifiers_allowed() == 1);
+        assert(admin_playing() == 1 && admin_gifts_allowed() == 0);
         assert(seasonal_content_allowed() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         bp_xp = 0;
         bp_claimed = 0;
@@ -6239,7 +6265,7 @@ int main(void) {
     {
         assert(admin_slot("Dimasi4ek229") == 1 && admin_slot("dimasi4ek229") == 1);
         assert(admin_slot("Sanch") == 0 && admin_slot("sanch") == 0 && admin_slot("SANCH") == 0);
-        assert(admin_slot("qwertyuiopaj1234") == 0 && admin_slot("QWERTYUIOPAJ1234") == 0);
+        assert(admin_slot("qwertyuiopaj1234") == 2 && admin_slot("QWERTYUIOPAJ1234") == 2);
         assert(strcmp(admin_nick_of(1), "Dimasi4ek229") == 0);
         assert(((uint32_t)admin_color_of("Sanch", 0xFFFFFFFF) & 0xFFFFFFu) == 0xFFD54Au);
         assert(((uint32_t)admin_head_color_of("Sanch", 0xFFFFFFFF) & 0xFFFFFFu) == 0xFFDD33u);
@@ -6250,14 +6276,15 @@ int main(void) {
         assert(nick_shimmers("Dimasi4ek229") == 1 && nick_shimmers("Sanch") == 1 &&
                nick_shimmers("qwertyuiopaj1234") == 1 && nick_shimmers("Player2") == 0);
 
-        /* qwertyuiopaj1234: sky-blue shimmering nick and modifier-only CCP (no gift management). */
+        /* qwertyuiopaj1234: sky-blue shimmering nick and the full CCP admin
+         * rights - everything except gift management. */
         stub_login_status = 2;
         snprintf(stub_login_nick, sizeof(stub_login_nick), "qwertyuiopaj1234");
         astra_ability_refresh();
-        assert(is_admin() == 0 && admin_playing() == 0);
+        assert(is_admin() == 1 && admin_playing() == 1);
         winter_theme = 1;
         candy_enabled = 1;
-        assert(dev_access() == 0 && seasonal_content_allowed() == 1);
+        assert(dev_access() == 1 && seasonal_content_allowed() == 1);
         assert(winter_theme_on() == 1 && bpass_allowed() == 1 && bpass_rewards_allowed() == 1);
         assert(candies_on() == 1 && admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
         shimmer_text_n = 0;
