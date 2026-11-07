@@ -241,6 +241,11 @@ static void hack_fire_cmd(double id, double kind, double life) {
     }
 }
 
+/* Force single window (win=0) for all script lines */
+static double hack_line_win(double i) {
+    return 0; /* All chat merged into one window (top-left) */
+}
+
 /* Terminals drag by their green title bar; the grab swallows the pointer so
  * the fight underneath is not disturbed while a window moves. */
 static double hack_drag_touch(double x, double y, double action, double id) {
@@ -264,8 +269,9 @@ static double hack_drag_touch(double x, double y, double action, double id) {
         return 0;
     }
     if (action == 0 || action == 2) {
-        hack_term_x[(int)hack_drag_win] = clamp(x - hack_drag_dx, 4, screen_w - w - 4);
-        hack_term_y[(int)hack_drag_win] = clamp(y - hack_drag_dy, 4, screen_h - head - 40);
+        /* Force single window position (top-left) */
+        hack_term_x[(int)hack_drag_win] = 4;
+        hack_term_y[(int)hack_drag_win] = 4;
     }
     if (action == 1 || action == 3) {
         hack_drag_win = -1;

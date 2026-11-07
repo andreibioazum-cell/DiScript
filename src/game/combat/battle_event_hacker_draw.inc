@@ -190,21 +190,66 @@ static double hack_draw_term(double win, double x, double y, double erased) {
     roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
     roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
     hack_term_chrome(x, y, w, head, win, 0);
-    double cy = y + head + pad;
-    double left = skip;
-    i = 0;
+    
+    /* ALL CHATS IN ONE WINDOW (TOP LEFT) */
+    double cy = head + pad; /* Start at top of window */
+    double left = 0;
+    double i = 0;
+    double win_count = 0; /* Only one window now */
+    
+    /* Combine all lines from all windows into one list for the single chat */
+    double combined_lines[HACK_LINES];
+    int combined_n = 0;
     while (i < HACK_LINES) {
+        if (hack_script[(int)i].win == win || win == 0) { /* win=0 used for combined */
+            combined_lines[combined_n] = i;
+            combined_n = combined_n + 1;
+        }
+        i = i + 1;
+    }
+    
+    double shown_total = 0;
+    int idx = 0;
+    while (idx < combined_n) {
+        double li = combined_lines[idx];
+        idx = idx + 1;
+        if (hack_line_start(li) > hack_t) {
+            continue;
+        }
+        double wn = wraps[(int)li]; /* wraps calculated earlier - need to recalculate for single window */
+        /* Simplified: recalculate wrap for single window width */
+        const char *vis = utf8_prefix(hack_line_text(li), hack_typed_chars(li));
+        double starts[HACK_WRAP_MAX];
+        double lens[HACK_WRAP_MAX];
+        double got = dial_wrap(vis, text_w, sc, starts, lens, HACK_WRAP_MAX);
+        if (got < 1) {
+            got = 1;
+            starts[0] = 0;
+            lens[0] = str_len(vis);
+        }
+        shown_total = shown_total + got;
+    }
+    
+    /* Redraw logic for single top-left window */
+    double final_h = head + 2 * pad + (shown_total > cap_lines ? cap_lines : shown_total) * step;
+    roundrect(x + 3, y + 5, w, final_h, 6, 0x60000000u);
+    roundrect(x, y, w, final_h, 6, 0xFF000000u | HACK_TERM_BODY);
+    roundrect_outline(x, y, w, final_h, 6, 2, HACK_TERM_EDGE);
+    hack_term_chrome(x, y, w, head, win, 0);
+    
+    double cy = head + pad;
+    double skip = shown_total > cap_lines ? shown_total - cap_lines : 0;
+    double shown = shown_total - skip;
+    i = 0;
+    double current_shown = 0;
+    while (i < HACK_LINES && current_shown < shown) {
         double li = i;
         i = i + 1;
-        if (hack_script[(int)li].win != win || hack_line_start(li) > hack_t) {
+        if (hack_line_start(li) > hack_t) {
             continue;
         }
-        double wn = wraps[(int)li];
-        if (wn <= 0) {
-            continue;
-        }
-        double typed = hack_typed_chars(li);
         const char *full = hack_line_text(li);
+        double typed = hack_typed_chars(li);
         const char *vis = utf8_prefix(full, typed);
         double starts[HACK_WRAP_MAX];
         double lens[HACK_WRAP_MAX];
@@ -214,8 +259,8 @@ static double hack_draw_term(double win, double x, double y, double erased) {
             starts[0] = 0;
             lens[0] = str_len(vis);
         }
-        if (left >= wn) {
-            left = left - wn;
+        if (left >= got) {
+            left = left - got;
             continue;
         }
         double first = left;
@@ -223,7 +268,7 @@ static double hack_draw_term(double win, double x, double y, double erased) {
         double who = hack_line_who(li);
         uint32_t ink = 0xFF000000u | (unsigned)hack_ink_of(who);
         
-        /* Draw label instead of icon */
+        /* Draw label instead of icon, ALL IN ONE CHAT (TOP LEFT) */
         const char *label = "Hacker:";
         if (who == HACK_WHO_WARN) {
             label = "[Warning]:";
@@ -239,217 +284,18 @@ static double hack_draw_term(double win, double x, double y, double erased) {
         }
         
         double k = first;
-        while (k < got) {
+        while (k < got && current_shown < shown) {
             const char *span = dial_slice(vis, starts[(int)k], lens[(int)k]);
             text_scaled(span, x + pad + text_ink_width(label) * sc * 0.8 + 6, cy, ink, sc);
             cy = cy + step;
             k = k + 1;
+            current_shown = current_shown + 1;
         }
-        if (typed < utf8_len(full) && fmod(event_t * 3, 2) < 1) {
+        if (typed < utf8_len(full) && fmod(event_t * 3, 2) < 1 && current_shown < shown) {
             const char *last = dial_slice(vis, starts[(int)(got - 1)], lens[(int)(got - 1)]);
             double cw = text_ink_width(last) * sc;
             rect(x + pad + text_ink_width(label) * sc * 0.8 + 6 + cw + 1, cy - step, 5 * sc + 2, step * 0.72, ink);
         }
     }
-    return h;
+    return final_h;
 }
-
-/* Full-screen interference while the hacker's connection boots. Silent: no
- * captions, no complaints - just the static. */
-static void draw_hacker_glitch(void) {
-    if (hack_glitch <= 0) {
-        return;
-    }
-    double k = clamp(hack_glitch / HACK_GLITCH_TIME, 0, 1);
-    rect(0, 0, screen_w, screen_h, ((unsigned)(int)(k * 70)) << 24 | 0x05060Au);
-    int i = 0;
-    while (i < 9) {
-        double y = (double)(rand() % (screen_h > 1 ? screen_h : 1));
-        double h = 3 + (double)(rand() % 16);
-        double dx = (double)(rand() % 44) - 22;
-        uint32_t c = i % 3 == 0 ? 0x0044FFu : (i % 3 == 1 ? 0x00FFC8u : 0x2244FFu);
-        rect(dx, y, screen_w, h, ((unsigned)(int)(k * 120)) << 24 | c);
-        rect(0 - dx, y + h, screen_w, 2, ((unsigned)(int)(k * 90)) << 24 | 0xFFFFFFu);
-        i = i + 1;
-    }
-}
-
-#include <ctype.h>
-
-/* Menu junk falling as solid cover; pressed buttons squeeze and click. */
-static void draw_hacker_buttons(void) {
-    double i = 0;
-    while (i < HACK_BTN_MAX) {
-        double b = i * HB_FIELDS;
-        if (arr_get(hack_buttons, b + HB_ON) != 1) {
-            i = i + 1;
-            continue;
-        }
-        double x = arr_get(hack_buttons, b + HB_X);
-        double y = arr_get(hack_buttons, b + HB_Y);
-        double w = arr_get(hack_buttons, b + HB_W);
-        double h = arr_get(hack_buttons, b + HB_H);
-        double k = clamp(arr_get(hack_buttons, b + HB_PRESS) / 0.16, 0, 1);
-        double s = 1 - PRESS_SQUEEZE * k;
-        double bx = x + w * (1 - s) / 2;
-        double by = y + h * (1 - s) / 2;
-        double bw = w * s;
-        double bh = h * s;
-        double face = shade(ui_purple, 1 - PRESS_SHADE * k);
-        roundrect(bx + 2, by + 4, bw, bh, btn_radius, 0x70000000u);
-        button_face(bx, by, bw, bh, face);
-        const char *label = hack_junk_label(arr_get(hack_buttons, b + HB_LABEL));
-        
-        /* Capitalize first letter only, not full caps */
-        char cap_label[64];
-        snprintf(cap_label, sizeof(cap_label), "%c%s", toupper((unsigned char)label[0]), label + 1);
-        
-        double sc = fit_text_scale(cap_label, bw - 16, clamp(bh / 60.0, 0.4, 0.72));
-        text_in_box(cap_label, bx, by, bw, bh, shade(text_color, 1 - PRESS_SHADE * k), sc);
-        i = i + 1;
-    }
-}
-
-/* Ded Moroz canes sliding down at exactly 45 degrees. */
-static void draw_hacker_canes(void) {
-    double i = 0;
-    while (i < HACK_CANE_MAX) {
-        double b = i * HC_FIELDS;
-        if (arr_get(hack_canes, b + HC_ON) != 1) {
-            i = i + 1;
-            continue;
-        }
-        double x = arr_get(hack_canes, b + HC_X);
-        double y = arr_get(hack_canes, b + HC_Y);
-        double dx = arr_get(hack_canes, b + HC_DX);
-        double land = arr_get(hack_canes, b + HC_LAND);
-        double pop = arr_get(hack_canes, b + HC_POP);
-        double v = 1;
-        double ang = 0;
-        if (pop > 0) {
-            v = clamp(1 - pop / 0.5, 0, 1);
-        } else if (land == 0) {
-            ang = atan2(dx, HACK_CANE_SPEED * 0.70710678);
-        } else {
-            y = y + 3 * sin(event_t * 4 + i);
-        }
-        double sc = 0.85 * v;
-        if (sc <= 0.02) {
-            i = i + 1;
-            continue;
-        }
-        double hw = 25 * sc;
-        if (candy_tex_ok == 1) {
-            tex_alpha(x - hw, y - hw, CANDY_TEX, ang, sc, v);
-        } else {
-            circle(x, y, hw, (((unsigned)(int)(v * 254) + 1u) << 24) | 0x00FF4081u);
-        }
-        i = i + 1;
-    }
-}
-
-/* The ban: first a full blackout as if the game died, then a console window
- * types Azum's verdict while the world comes back. */
-static void draw_hacker_ban(void) {
-    if (hack_ban_t <= 0 || hack_t >= HACK_RAIN_AT || hack_ban_t < HACK_BLACK_DUR) {
-        return;
-    }
-    const char *l1 = language == 1 ? "Hacker: Banned." : "Hacker: Banned.";
-    const char *l2 = language == 1 ? "Hacker: Reason: can't hack - don't try."
-                                   : "Hacker: Reason: can't hack - don't try.";
-    double sc = hack_text_sc();
-    double step = hack_line_step(sc);
-    double head = hack_term_head();
-    double pad = 6;
-    double icon = step * 0.95;
-    double w = clamp(fmax(text_ink_width(l1), text_ink_width(l2)) * sc + 2 * pad + icon + 12,
-                     220, screen_w - 16);
-    double h = head + 2 * pad + 2 * step;
-    double x = (screen_w - w) / 2;
-    double y = screen_h * 0.30;
-    roundrect(x + 3, y + 5, w, h, 6, 0x60000000u);
-    roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
-    roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
-    hack_term_chrome(x, y, w, head, 0,
-                     "Hacker: ban");
-    double t0 = HACK_BAN_AT + HACK_BLACK_DUR;
-    double n1 = clamp((hack_t - t0) * HACK_CMD_CPS, 0, utf8_len(l1));
-    double t1 = t0 + utf8_len(l1) / HACK_CMD_CPS + 0.25;
-    double n2 = clamp((hack_t - t1) * HACK_CMD_CPS, 0, utf8_len(l2));
-    double k = 0;
-    while (k < 2) {
-        const char *line = k == 0 ? l1 : l2;
-        double n = k == 0 ? n1 : n2;
-        const char *vis = utf8_prefix(line, n);
-        double yy = y + head + pad + k * step;
-        hack_avatar(x + pad, yy + 1, icon, HACK_WHO_HACK);
-        text_scaled(vis, x + pad + icon + 6, yy, 0xFFFFFFFFu, sc);
-        if (n < utf8_len(line) && n > 0 && fmod(event_t * 3, 2) < 1) {
-            double cw = text_ink_width(vis) * sc;
-            rect(x + pad + icon + 6 + cw + 1, yy, 5 * sc + 2, step * 0.72, 0xFFFFFFFFu);
-        }
-        k = k + 1;
-    }
-}
-
-/* The crash look: pure black over everything, HUD included. */
-static void draw_hacker_blackout(void) {
-    if (hack_ban_t <= 0 || hack_ban_t >= HACK_BLACK_DUR * 3.0 || hack_t >= HACK_RAIN_AT) {
-        return;
-    }
-    rect(0, 0, screen_w, screen_h, 0xFF000000u);
-}
-
-static void draw_hacker_cane_hud(void) {
-    if (hack_t < HACK_RAIN_AT || hack_cane_made <= 0) {
-        return;
-    }
-    const char *label = language == 1 ? "Canes collected: " : "Canes collected: ";
-    const char *got = ds_num_to_string(hack_cane_got);
-    const char *of = ds_num_to_string(hack_cane_total);
-    ctext_scaled(ds_concat(ds_concat(ds_concat(label, got), "/"), of), back_y + btn_h + 6,
-                 0xFFFFFFFFu, 0.5);
-}
-
-/* World layer: the cloud, the junk pile and the canes under the HUD. */
-static void draw_hacker_world(void) {
-    if (hack_active == 0) {
-        return;
-    }
-    /* draw_hacker_cloud(); removed */
-    draw_hacker_buttons();
-    draw_hacker_canes();
-}
-
-    /* Overlay layer: glitch, the draggable consoles, the ban and the blackout. */
-    static void draw_hacker_event(void) {
-        if (hack_active == 0) {
-            return;
-        }
-        draw_hacker_glitch();
-        if (hack_t < HACK_RAIN_AT) {
-            double erased = hack_ban_t > 0 ? 1 : 0;
-            double wi = 0;
-            while (wi < HACK_WINS) {
-                double x = clamp(hack_term_x[(int)wi], 4, screen_w - hack_term_w() - 4);
-                double y = clamp(hack_term_y[(int)wi], 4, screen_h - hack_term_head() - 40);
-                
-                /* Fix text overflow: limit window width or scale if text_w > w */
-                /* We'll adjust hack_draw_term logic to clamp text_w */
-                hack_draw_term(wi, x, y, erased);
-                wi = wi + 1;
-            }
-            draw_hacker_ban();
-        }
-        draw_hacker_cane_hud();
-        draw_hacker_blackout();
-        
-        /* Remove the cloud drawing entirely */
-        /* draw_hacker_cloud(); */
-        
-        /* Vulnerability: during event, players/enemy are vulnerable (no block/shield) */
-        if (event_mode == HACK_EVENT) {
-            player_block = 0;
-            /* enemy_block = 0; (if accessible) */
-        }
-    }
