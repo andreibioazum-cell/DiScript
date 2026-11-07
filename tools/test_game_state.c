@@ -2534,9 +2534,9 @@ static void test_hacker_event(void) {
     update_hacker_event();
     assert(hack_active == 1 && hack_glitch > 0);
 #ifdef CB_PC
-    assert(hack_platform == HACK_PLAT_PC);
+    assert(hack_platform == HACK_PLAT_PC && hack_detect_platform() == HACK_PLAT_PC);
 #else
-    assert(hack_platform == HACK_PLAT_PHONE);
+    assert(hack_platform == HACK_PLAT_PHONE && hack_detect_platform() == HACK_PLAT_PHONE);
 #endif
     assert(hack_payload_ok == 1 && hack_payload_bytes == 27);
     assert(hack_cmd_n == 4 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);

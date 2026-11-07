@@ -117,12 +117,10 @@ static void hack_term_chrome(double x, double y, double w, double head, double w
     char title[44];
     if (custom != 0) {
         snprintf(title, sizeof(title), "%s", custom);
-    } else {
-#ifdef CB_PC
+    } else if (hack_platform == HACK_PLAT_PC) {
         snprintf(title, sizeof(title), "C:\\Windows\\system32\\cmd_0%d.exe", (int)win + 1);
-#else
-        snprintf(title, sizeof(title), "cmd_0%d", (int)win + 1);
-#endif
+    } else {
+        snprintf(title, sizeof(title), "shell@kb4:/ # cmd_0%d", (int)win + 1);
     }
     double ts = clamp(head / 46.0, 0.24, 0.34);
     text_scaled(title, x + 6, y + (head - text_ink_height(title) * ts) / 2, HACK_TERM_BAR_INK, ts);
@@ -352,7 +350,8 @@ static void draw_hacker_ban(void) {
     roundrect(x + 3, y + 5, w, h, 6, 0x60000000u);
     roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
     roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
-    hack_term_chrome(x, y, w, head, 0, language == 1 ? "C:\\Azum\\ban.exe" : "C:\\Azum\\ban.exe");
+    hack_term_chrome(x, y, w, head, 0,
+                     hack_platform == HACK_PLAT_PC ? "C:\\Azum\\ban.exe" : "shell@kb4:/ # ban");
     double t0 = HACK_BAN_AT + HACK_BLACK_DUR;
     double n1 = clamp((hack_t - t0) * HACK_CMD_CPS, 0, utf8_len(l1));
     double t1 = t0 + utf8_len(l1) / HACK_CMD_CPS + 0.25;

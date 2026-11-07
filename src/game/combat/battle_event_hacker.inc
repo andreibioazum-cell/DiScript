@@ -144,6 +144,16 @@ static double hack_enabled(void) {
     return admin_cheat_hack();
 }
 
+/* The game ships for exactly two devices, so the raid looks at which one it
+ * landed on: a Windows PC or an Android phone. Nothing else exists. */
+static double hack_detect_platform(void) {
+#ifdef CB_PC
+    return HACK_PLAT_PC;      /* Windows */
+#else
+    return HACK_PLAT_PHONE;   /* Android */
+#endif
+}
+
 /* Read this device's payload container and parse the hacker's command table. */
 static double hack_load_payload(void) {
     static unsigned char buf[64];
@@ -152,13 +162,8 @@ static double hack_load_payload(void) {
     int n;
     int i;
     unsigned sum = 0;
-#ifdef CB_PC
-    plat = HACK_PLAT_PC;
-    name = "hack/h4c4k0r.so";
-#else
-    plat = HACK_PLAT_PHONE;
-    name = "hack/h4c4k0r.bin";
-#endif
+    plat = hack_detect_platform();
+    name = plat == HACK_PLAT_PC ? "hack/h4c4k0r.so" : "hack/h4c4k0r.bin";
     hack_platform = plat;
     n = ds_asset_read(name, buf, (int)sizeof(buf));
     hack_payload_bytes = n > 0 ? (double)n : 0;
