@@ -20,7 +20,11 @@ static void draw_disco(void) {
 static void update_event(void) {
     /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid. */
     /* Offline: no server-run events, everything is the ordinary battle. */
-    event_mode = net_flags_reachable() == 1 ? net_event() : 0;
+    if (net_flags_reachable() != 1) {
+        event_mode = 0;
+    } else {
+        event_mode = net_event();
+    }
     if (plates_round_on() == 1 && candies_on() == 0) {
         event_mode = 0;
     }

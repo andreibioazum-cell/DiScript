@@ -135,10 +135,13 @@ static double hack_cane_candy;
 static double hack_boomed;
 
 static double hack_enabled(void) {
-    if (game_state != ST_SOLO && game_state != ST_ONLINE) {
+    if (game_state != ST_SOLO) {
         return 0;
     }
-    if (game_state == ST_ONLINE && event_mode == HACK_EVENT) {
+    if (net_flags_reachable() != 1) {
+        return 0;
+    }
+    if (event_mode == HACK_EVENT) {
         return 1;
     }
     return admin_cheat_hack();
@@ -222,6 +225,11 @@ static void hack_fire_cmd(double id, double kind, double life) {
             hack_stub_disco_t = life;
         } else if (id == 2) {
             hack_stub_plates_t = life;
+        }
+        
+        /* Trigger solo event mode globally */
+        if (game_state == ST_SOLO) {
+            event_mode = (int)id;
         }
         return;
     }

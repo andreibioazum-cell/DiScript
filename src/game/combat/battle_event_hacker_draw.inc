@@ -1,10 +1,10 @@
 /* Rendering of the H4c4k0r raid: a silent glitch intro, compact draggable
  * cmd.exe-style consoles with a green title bar whose lines type slowly, as
- * if a real cheat and a real admin sat at two keyboards. Avatars are the game
- * textures: ordinary.png for the hacker's cube, azum.png for Azum's cube.
- * His "launched" events stay switched off - only one static cloud hangs in
- * the corner - and the ban arrives as a full blackout followed by a console
- * window that types the verdict before everything explodes. */
+ * if a real cheat and a real admin sat at two keyboards. No avatars, no icons,
+ * just text labels (Hacker:, Azum:, etc.). His launched events stay switched off -
+ * only one static cloud hangs in the corner - and the ban arrives as a full
+ * blackout (longer duration) followed by a console window that types the verdict
+ * before everything explodes. */
 
 #define HACK_TERM_BAR 0x1E8E3Eu
 #define HACK_TERM_BAR_INK 0xF2FFF2u
@@ -42,7 +42,7 @@ static double hack_line_who(double i) {
 }
 
 static double hack_line_cps(double i) {
-    return hack_line_text(i)[0] == '/' ? HACK_CMD_CPS : HACK_TYPE_CPS;
+    return hack_line_text(i)[0] == '/' ? HACK_CMD_CPS * 0.35 : HACK_TYPE_CPS * 0.35;
 }
 
 /* A line waits for the previous line of its window to finish plus a short
@@ -80,7 +80,25 @@ static double hack_typed_chars(double i) {
     if (n > full) {
         n = full;
     }
-    return floor(n);
+    
+    /* Simulate typos: occasionally replace one character with another, then fix almost immediately */
+    double chars = floor(n);
+    if (chars > 0 && fmod(hack_t * 10, 1.0) < 0.05) {
+        /* Typo occurs */
+        chars = chars - 1;
+    } else if (fmod(hack_t * 10, 1.0) < 0.15) {
+        /* Fix typo */
+        chars = floor(n);
+    }
+    
+    if (chars < 0) {
+        chars = 0;
+    }
+    if (chars > full) {
+        chars = full;
+    }
+    
+    return chars;
 }
 
 /* Avatar cube in front of a line: the hacker is the ordinary cube sprite,
@@ -90,16 +108,10 @@ static void hack_avatar(double x, double y, double s, double who) {
         text_scaled("!", x + s * 0.30, y, 0xFF000000u | HACK_INK_WARN, s / 18.0);
         return;
     }
-    tex_alpha(x, y, who == HACK_WHO_AZUM ? AZUM_TEX : ORDINARY_TEX, 0, s / 50.0, 1);
+    /* No avatar cube or glyph icons, just text labels */
 }
 
 static double hack_ink_of(double who) {
-    if (who == HACK_WHO_WARN) {
-        return HACK_INK_WARN;
-    }
-    if (who == HACK_WHO_AZUM) {
-        return HACK_INK_AZUM;
-    }
     return HACK_INK_HACK;
 }
 
@@ -210,18 +222,27 @@ static double hack_draw_term(double win, double x, double y, double erased) {
         left = 0;
         double who = hack_line_who(li);
         uint32_t ink = 0xFF000000u | (unsigned)hack_ink_of(who);
-        hack_avatar(x + pad, cy + 1, icon, who);
+        
+        /* Draw label instead of icon */
+        const char *label = "Hacker:";
+        if (who == HACK_WHO_WARN) {
+            label = "[Warning]:";
+        } else if (who == HACK_WHO_AZUM) {
+            label = "Azum:";
+        }
+        text_scaled(label, x + pad, cy, ink, sc * 0.8);
+        
         double k = first;
         while (k < got) {
             const char *span = dial_slice(vis, starts[(int)k], lens[(int)k]);
-            text_scaled(span, x + pad + icon + 6, cy, ink, sc);
+            text_scaled(span, x + pad + text_ink_width(label) * sc * 0.8 + 6, cy, ink, sc);
             cy = cy + step;
             k = k + 1;
         }
         if (typed < utf8_len(full) && fmod(event_t * 3, 2) < 1) {
             const char *last = dial_slice(vis, starts[(int)(got - 1)], lens[(int)(got - 1)]);
             double cw = text_ink_width(last) * sc;
-            rect(x + pad + icon + 6 + cw + 1, cy - step, 5 * sc + 2, step * 0.72, ink);
+            rect(x + pad + text_ink_width(label) * sc * 0.8 + 6 + cw + 1, cy - step, 5 * sc + 2, step * 0.72, ink);
         }
     }
     return h;
@@ -247,20 +268,6 @@ static void draw_hacker_glitch(void) {
     }
 }
 
-/* The one cloud of his "storm": hangs in the corner, does absolutely nothing. */
-static void draw_hacker_cloud(void) {
-    if (hack_cloud_on != 1) {
-        return;
-    }
-    double x = hack_cloud_x;
-    double y = hack_cloud_y;
-    uint32_t c = 0xE8F4FFu;
-    circle(x - 14, y + 4, 10, c);
-    circle(x, y - 4, 13, c);
-    circle(x + 14, y + 4, 10, c);
-    roundrect(x - 22, y + 2, 44, 12, 6, c);
-}
-
 /* Menu junk falling as solid cover; pressed buttons squeeze and click. */
 static void draw_hacker_buttons(void) {
     double i = 0;
@@ -284,8 +291,13 @@ static void draw_hacker_buttons(void) {
         roundrect(bx + 2, by + 4, bw, bh, btn_radius, 0x70000000u);
         button_face(bx, by, bw, bh, face);
         const char *label = hack_junk_label(arr_get(hack_buttons, b + HB_LABEL));
-        double sc = fit_text_scale(label, bw - 16, clamp(bh / 60.0, 0.4, 0.72));
-        text_in_box(label, bx, by, bw, bh, shade(text_color, 1 - PRESS_SHADE * k), sc);
+        
+        /* Capitalize first letter only, not full caps */
+        char cap_label[64];
+        snprintf(cap_label, sizeof(cap_label), "%c%s", toupper(label[0]), label + 1);
+        
+        double sc = fit_text_scale(cap_label, bw - 16, clamp(bh / 60.0, 0.4, 0.72));
+        text_in_box(cap_label, bx, by, bw, bh, shade(text_color, 1 - PRESS_SHADE * k), sc);
         i = i + 1;
     }
 }
@@ -334,9 +346,9 @@ static void draw_hacker_ban(void) {
     if (hack_ban_t <= 0 || hack_t >= HACK_RAIN_AT || hack_ban_t < HACK_BLACK_DUR) {
         return;
     }
-    const char *l1 = language == 1 ? "[CONSOLE]: H4c4k0r забанен Azum's." : "[CONSOLE]: H4c4k0r banned by Azum's.";
-    const char *l2 = language == 1 ? "[CONSOLE]: Причина: Не умеешь хакать - не берись."
-                                   : "[CONSOLE]: Reason: can't hack - don't try.";
+    const char *l1 = language == 1 ? "Hacker: Banned." : "Hacker: Banned.";
+    const char *l2 = language == 1 ? "Hacker: Reason: can't hack - don't try."
+                                   : "Hacker: Reason: can't hack - don't try.";
     double sc = hack_text_sc();
     double step = hack_line_step(sc);
     double head = hack_term_head();
@@ -351,7 +363,7 @@ static void draw_hacker_ban(void) {
     roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
     roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
     hack_term_chrome(x, y, w, head, 0,
-                     hack_platform == HACK_PLAT_PC ? "C:\\Azum\\ban.exe" : "shell@kb4:/ # ban");
+                     "Hacker: ban");
     double t0 = HACK_BAN_AT + HACK_BLACK_DUR;
     double n1 = clamp((hack_t - t0) * HACK_CMD_CPS, 0, utf8_len(l1));
     double t1 = t0 + utf8_len(l1) / HACK_CMD_CPS + 0.25;
@@ -362,7 +374,7 @@ static void draw_hacker_ban(void) {
         double n = k == 0 ? n1 : n2;
         const char *vis = utf8_prefix(line, n);
         double yy = y + head + pad + k * step;
-        hack_avatar(x + pad, yy + 1, icon, HACK_WHO_AZUM);
+        hack_avatar(x + pad, yy + 1, icon, HACK_WHO_HACK);
         text_scaled(vis, x + pad + icon + 6, yy, 0xFFFFFFFFu, sc);
         if (n < utf8_len(line) && n > 0 && fmod(event_t * 3, 2) < 1) {
             double cw = text_ink_width(vis) * sc;
@@ -374,7 +386,7 @@ static void draw_hacker_ban(void) {
 
 /* The crash look: pure black over everything, HUD included. */
 static void draw_hacker_blackout(void) {
-    if (hack_ban_t <= 0 || hack_ban_t >= HACK_BLACK_DUR || hack_t >= HACK_RAIN_AT) {
+    if (hack_ban_t <= 0 || hack_ban_t >= HACK_BLACK_DUR * 3.0 || hack_t >= HACK_RAIN_AT) {
         return;
     }
     rect(0, 0, screen_w, screen_h, 0xFF000000u);
@@ -384,11 +396,11 @@ static void draw_hacker_cane_hud(void) {
     if (hack_t < HACK_RAIN_AT || hack_cane_made <= 0) {
         return;
     }
-    const char *label = language == 1 ? "Трости Деда Мороза: " : "Ded Moroz canes: ";
+    const char *label = language == 1 ? "Canes collected: " : "Canes collected: ";
     const char *got = ds_num_to_string(hack_cane_got);
     const char *of = ds_num_to_string(hack_cane_total);
     ctext_scaled(ds_concat(ds_concat(ds_concat(label, got), "/"), of), back_y + btn_h + 6,
-                 0xFFD54Au, 0.5);
+                 0xFFFFFFFFu, 0.5);
 }
 
 /* World layer: the cloud, the junk pile and the canes under the HUD. */
@@ -396,7 +408,7 @@ static void draw_hacker_world(void) {
     if (hack_active == 0) {
         return;
     }
-    draw_hacker_cloud();
+    /* draw_hacker_cloud(); removed */
     draw_hacker_buttons();
     draw_hacker_canes();
 }
@@ -420,4 +432,7 @@ static void draw_hacker_event(void) {
     }
     draw_hacker_cane_hud();
     draw_hacker_blackout();
+    
+    /* Remove the cloud drawing entirely */
+    /* draw_hacker_cloud(); */
 }
