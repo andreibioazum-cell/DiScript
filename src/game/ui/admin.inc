@@ -94,12 +94,11 @@ static double admin_on(void) { return 0x333333; }
 
 static double admin_off(void) { return 0x000000; }
 
-/* Draw opaque monochrome admin button. */
-static double admin_btn_r(void) { return 9; }
+/* Flat opaque controls: no bright perimeter around every button. */
+static double admin_btn_r(void) { return 12; }
 
 static void admin_btn(const char *label, double x, double y, double w, double h, double on, double scale) {
     roundrect(x, y, w, h, admin_btn_r(), on == 1 ? admin_on() : admin_off());
-    roundrect_outline(x, y, w, h, admin_btn_r(), 2, admin_frame());
     text_in_box(label, x, y, w, h, admin_frame(), scale);
 }
 

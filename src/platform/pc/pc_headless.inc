@@ -133,6 +133,10 @@ static void pc_event_parse(PcArgs *a) {
         } else if (strcmp(name, "logininfo") == 0) {
             e->kind = 12;
             e->frame = atoi(rest);
+        } else if (strcmp(name, "wheel") == 0) {
+            if (sscanf(rest, "%d:%f", &e->frame, &e->x) != 2)
+                continue;
+            e->kind = 16;
         } else if (strcmp(name, "stick") == 0) {
             if (sscanf(rest, "%d:%f:%f", &e->frame, &e->x, &e->y) != 3)
                 continue;
@@ -155,12 +159,12 @@ static void pc_report_state(int frame) {
     double px = 0, py = 0;
     game_pc_player_xy(&px, &py);
     printf("frame %d: state=%.0f battle=%d hp=%.2f foe=%.2f finished=%.0f x=%.1f y=%.1f login=%.0f nick=%s chaos=%.0f "
-           "ball=%.0f bounces=%.0f rbricks=%.0f charge=%.0f cls=%.0f block=%.0f mode=%.0f error=%d\n",
+           "ball=%.0f bounces=%.0f rbricks=%.0f charge=%.0f cls=%.0f block=%.0f mode=%.0f event=%.0f disco=%d error=%d\n",
            frame,
            game_pc_state(), game_pc_in_battle(), game_pc_player_hp(), game_pc_enemy_hp(), game_pc_finished(), px, py,
            game_pc_login_status(), game_pc_login_nick()[0] ? game_pc_login_nick() : "-", game_pc_chaos(),
            game_pc_ball(), game_pc_bounces(), game_pc_remote_bricks(), game_pc_charge(), game_pc_class(), game_pc_block(), game_pc_ult_mode(),
-           ds_game_has_error() ? 1 : 0);
+           game_pc_event(), game_pc_disco_music(), ds_game_has_error() ? 1 : 0);
     fflush(stdout);
 }
 
@@ -235,6 +239,9 @@ static void pc_apply_event(PcEvent *e, int frame) {
         break;
     case 15:
         pc_ctl_snowball(e->action);
+        break;
+    case 16:
+        game_pc_wheel(e->x);
         break;
     case 11: {
         float nx = 0, ny = 0, px = 0, py = 0, bx = 0, by = 0, bw = 0, bh = 0;

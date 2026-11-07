@@ -33,6 +33,8 @@ double game_pc_login_status(void);
 const char *game_pc_login_nick(void);
 double game_pc_enemy_hp(void);
 double game_pc_finished(void);
+double game_pc_event(void);
+int game_pc_disco_music(void);
 double game_pc_chaos(void);
 double game_pc_ult_mode(void);
 double game_pc_ball(void);

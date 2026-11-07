@@ -645,6 +645,56 @@ def wait_port(port: int, timeout: float = 5.0) -> bool:
     return False
 
 
+def test_admin_commands_and_disco(assets: Path) -> None:
+    """The CCP mockup, reachable strip end, and bundled looping disco music."""
+    print("\n== 3m. CCP Admin commands + disco music ==")
+    with fake_server():
+        result = harness(
+            assets, SCRATCH / "admin_disco",
+            [
+                "--frames", "1650", *login_taps(),
+                "--touch", "800:500:53:0", "--touch", "803:500:53:1",
+                "--touch", "850:391:349:0", "--touch", "853:391:349:1",
+                "--dump", f"900:{SCRATCH / 'ccp_admin_end.bmp'}",
+                "--wheel", "940:100",
+                "--dump", f"960:{SCRATCH / 'ccp_admin_start.bmp'}",
+                "--touch", "980:236:644:0", "--touch", "983:236:644:1",  # event 1 at start
+                "--wheel", "985:-100",
+                "--touch", "1040:439:287:0", "--touch", "1043:439:287:1", # close CCP
+                "--touch", "1090:270:336:0", "--touch", "1093:270:336:1", # Play
+                "--touch", "1150:270:404:0", "--touch", "1153:270:404:1", # Solo
+                "--report", "1290",
+                "--dump", f"1320:{SCRATCH / 'disco_battle.bmp'}",
+                "--touch", "1390:500:53:0", "--touch", "1393:500:53:1",
+                "--wheel", "1420:100",
+                "--touch", "1440:130:644:0", "--touch", "1443:130:644:1", # event 0
+                "--touch", "1490:439:287:0", "--touch", "1493:439:287:1",
+                "--report", "1600",
+            ],
+        )
+    check("CCP/disco harness ran", result.returncode == 0, result.stderr[-1500:])
+    reports = parse_reports(result.stdout)
+    playing, stopped = reports.get(1290, {}), reports.get(1600, {})
+    check("event 1 starts the bundled disco recording", playing.get("event") == "1" and playing.get("disco") == "1", str(playing))
+    check("event 0 stops disco after its fade", stopped.get("event") == "0" and stopped.get("disco") == "0", str(stopped))
+    end = SCRATCH / "ccp_admin_end.bmp"
+    start = SCRATCH / "ccp_admin_start.bmp"
+    disco = SCRATCH / "disco_battle.bmp"
+    check("admin/disco screenshots rendered", end.is_file() and start.is_file() and disco.is_file())
+    if end.is_file():
+        width, height, pixels = read_bmp(end)
+        stride = (width * 3 + 3) // 4 * 4
+        strip = b"".join(pixels[y * stride:(y + 1) * stride] for y in range(height - 681, height - 608))
+        colors = bmp_colors(strip, width, 73, step=1)
+        check("flat gray event buttons match the mockup palette", colors.get(b"\x33\x33\x33", 0) > 3000, str(colors.get(b"\x33\x33\x33", 0)))
+    if disco.is_file():
+        width, height, pixels = read_bmp(disco)
+        stride = (width * 3 + 3) // 4 * 4
+        footer = b"".join(pixels[y * stride:(y + 1) * stride] for y in range(height - 80, height - 32))
+        colors = bmp_colors(footer, width, 48, step=1)
+        check("disco author/licence footer is visible", colors.get(b"\xff\xff\xff", 0) > 30, str(colors.get(b"\xff\xff\xff", 0)))
+
+
 def test_login(assets: Path) -> None:
     """Full network path: login screen -> form -> Firebase Auth -> profile.
 
@@ -727,6 +777,7 @@ def main() -> int:
         test_longer_fights,
         test_brick_online,
         test_codecracker_online,
+        test_admin_commands_and_disco,
         test_login,
     ]
     for test in tests:

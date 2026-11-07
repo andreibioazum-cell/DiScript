@@ -24,10 +24,12 @@
 
 ## Музыка
 
-Три оригинальных трека: обычная и новогодняя темы лобби - по **70 секунд**,
-новая тема боя Азума против Астры - **45 секунд**. Старая песня
-`azum_vs_astra.wav` и исходный mp3 удалены; вся музыка собирается из нот
-скриптом `python3 tools/generate_music.py`. Подробности: [docs/music.md](docs/music.md).
+Три оригинальные темы (лобби, новогодняя и дуэль Азума против Астры) собираются
+из нот скриптом `python3 tools/generate_music.py`. Для диско используется
+настоящая опубликованная запись **«Disco Medusae» — Kevin MacLeod**, CC BY 4.0;
+она лежит в игре, зацикливается во время события и не требует интернета.
+Автор и лицензия видны в бою и правовом разделе. Подробности и происхождение
+файла: [docs/music.md](docs/music.md).
 
 ## Установка APK
 
@@ -146,10 +148,11 @@ game materials (see [LICENSE](LICENSE)).
 
 ## Music
 
-Three original tracks: the ordinary and New Year lobby themes are **70 seconds**
-each, and the new Azum-vs-Astra duel theme is **45 seconds**. The old
-`azum_vs_astra.wav` song and its source mp3 are gone; every track is rebuilt
-from notes with `python3 tools/generate_music.py`. Details: [docs/music.md](docs/music.md).
+Three original project themes are rebuilt from notes with
+`python3 tools/generate_music.py`. Disco uses a real published recording,
+**“Disco Medusae” by Kevin MacLeod**, under CC BY 4.0. It is bundled for offline
+play, loops during the event, and shows author/license credits in battle and
+in the legal viewer. Provenance and conversion details: [docs/music.md](docs/music.md).
 
 ## Web admin panel
 

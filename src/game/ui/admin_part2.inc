@@ -325,8 +325,7 @@ static void admin_draw_gifts(void) {
         admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
     }
     double target_y = y + NET_GIFT_TYPE_COUNT * (rh + admin_gap());
-    roundrect(px, target_y, w, rh, 8, admin_off());
-    roundrect_outline(px, target_y, w, rh, 8, 2, admin_frame());
+    roundrect(px, target_y, w, rh, 12, 0x333333);
     const char *target_label = admin_gift_target[0] ? admin_gift_target : (language == 1 ? "Ник получателя" : "Recipient nickname");
     text_in_box(target_label, px + 8, target_y, w - 16, rh, admin_frame(), 0.55);
     const char *grant = admin_gift_busy == 1 ? (language == 1 ? "Выдаём..." : "Granting...") : admin_gift_busy == 2 ? (language == 1 ? "Подарок выдан!" : "Gift granted!") : admin_gift_busy == 3 ? (language == 1 ? "Ошибка, нажмите для повтора" : "Failed - tap to retry") : (language == 1 ? "Выдать подарок" : "Grant gift");
@@ -343,10 +342,9 @@ static void admin_draw_panel(void) {
     /* Draw translucent backdrop scrim; panel controls remain opaque. */
     rect(0, 0, screen_w, screen_h, admin_a(0x000000, 0.55));
     roundrect(px, py, pw, ph, 14, admin_body());
-    roundrect_outline(px, py, pw, ph, 14, 3, admin_frame());
     roundrect(px, py, pw, hh, 14, admin_header());
     rect(px, py + hh / 2, pw, hh / 2, admin_header());
-    line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_frame());
+    line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_on());
     text_in_field(title, px + 16, py, hh, admin_frame(), fit_text_scale(title, title_w, hh / 58.0));
     double cxx = px + pw - hh * 0.55;
     double cr = hh * 0.3;

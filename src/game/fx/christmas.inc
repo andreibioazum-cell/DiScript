@@ -119,6 +119,10 @@ static void update_christmas_jingle(void) {
     if (christmas_jingle_ok == 0) {
         return;
     }
+    if (disco_music_blocks() == 1) {
+        if (snd_playing(WINTER_JINGLE) == 1) snd_stop(WINTER_JINGLE);
+        return;
+    }
     if (christmas_music_active() == 1) {
         /* Stop either lobby loop when switching to the winter track. */
         if (snd_playing(LOBBY_MUSIC) == 1) {

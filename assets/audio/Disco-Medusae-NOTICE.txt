@@ -1,0 +1,24 @@
+Disco Medusae — Kevin MacLeod (incompetech.com)
+
+Recording and composition: Kevin MacLeod
+License: Creative Commons Attribution 4.0 International (CC BY 4.0)
+License deed: https://creativecommons.org/licenses/by/4.0/
+Full legal code: https://creativecommons.org/licenses/by/4.0/legalcode.en
+A copy of the legal code is bundled at licenses/Disco-Medusae-CC-BY-4.0.txt.
+
+Official track page:
+https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500041
+ISRC: USUAN1500041
+
+This is a published instrumental recording, not AI-generated or procedurally
+synthesized music. The bundled game file disco_medusae_kevin_macleod.wav is
+converted from the complete source recording to stereo 16-bit PCM WAV at
+22050 Hz. No tempo, pitch, section-order or duration edits were made by this
+project. The source mirror had already applied constant gain and short end
+fades; its provenance and checksum are recorded in third_party/music/README.md.
+The game loops the complete file during event 1 and applies playback volume.
+
+You may share and adapt this recording, including commercially, under CC BY
+4.0: retain attribution, link the license, indicate changes, and do not imply
+endorsement or add restrictions that prevent the license's permissions.
+This music license is separate from the project's proprietary code license.

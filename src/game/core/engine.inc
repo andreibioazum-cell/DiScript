@@ -84,6 +84,7 @@ static int seraphim_should_play(void) {
 }
 
 static void update_seraphim_music(void) {
+    if (disco_music_blocks() == 1) return;
     double target_vol = clamp(music_volume / 100 * 1.65, 0, 1);
     if (seraphim_should_play() == 1) {
         if (seraphim_ok == 0) {
@@ -143,6 +144,7 @@ static void logic_init(void) {
 }
 
 static void update_music(void) {
+    if (disco_music_blocks() == 1) return;
     select_lobby_music();
     if (music_ok == 0) {
         return;
@@ -169,6 +171,7 @@ static void logic_update(void) {
     acct_tick();
     update_studio();
     update_transition();
+    update_disco_music();
     update_music();
     update_seraphim_music();
     reload_textures();

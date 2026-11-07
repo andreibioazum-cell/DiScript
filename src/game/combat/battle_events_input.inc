@@ -281,6 +281,7 @@ static void draw_online(void) {
     double w = screen_w / 3;
     hud_bar(20, 20, w, 28, player->hp, player->max_hp, 0x7ED321, 0);
     draw_controls();
+    draw_disco_credit();
     draw_hurt_flash();
     draw_fps_meter();
     draw_chat();
@@ -374,6 +375,12 @@ static void touch_game(double x, double y, double action, double id) {
         if (chat_open == 1) {
             return;
         }
+    }
+    /* The music credit opens its full author/source/licence notice. */
+    if (action == 0 && disco_credit_hit(x, y) == 1) {
+        drop_joy();
+        docs_transition(LEGAL_PAGES - 1, 0);
+        return;
     }
     /* Exit battle on back button press. */
     if (action == 0 && battle_back_hit(x, y) == 1) {

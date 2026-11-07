@@ -8,6 +8,8 @@ double seraphim_ok;
 double seraphim_level;
 double seraphim_fade_in;
 double seraphim_fade_out;
+double disco_ok;
+double disco_level;
 double winter_jingle_volume;
 double event_mode;
 double disco_t;

@@ -84,6 +84,8 @@ void game_pc_player_xy(double *x, double *y) {
 double game_pc_enemy_hp(void) { return enemy ? enemy->hp : 0.0; }
 
 double game_pc_finished(void) { return finished; }
+double game_pc_event(void) { return event_mode; }
+int game_pc_disco_music(void) { return disco_ok == 1 && snd_playing(DISCO_MUSIC) == 1; }
 double game_pc_ult_mode(void) { return ball_mode; }
 
 double game_pc_chaos(void) { return 0; }
@@ -98,6 +100,7 @@ void game_pc_pick_class(double cls) { pick_class(cls); }
 double game_pc_charge(void) { return 0; }
 void game_pc_wheel(float steps) {
     if (docs_open == 1 || warn_open == 1 || studio_open == 1) return;
+    if (admin_cmd_wheel((double)steps) == 1) return;
     if (acct_open == ACCT_GIFTS && acct_gift_view_open == 0) {
         double delta = -(double)steps * 64.0;
         acct_gift_shop_scroll_by(delta);
