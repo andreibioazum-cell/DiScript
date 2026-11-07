@@ -323,6 +323,10 @@ static void update_game(void) {
     tick_status_fades();
     tick_hurt_fades();
     update_aim();
+    /* Solo battles run events too: the server event when online, or the one
+     * launched locally from the CCP admin commands tab while offline. The
+     * raid's cane rain keeps ticking after the round ends, like online. */
+    update_event();
     if (finished != 0) {
         return;
     }

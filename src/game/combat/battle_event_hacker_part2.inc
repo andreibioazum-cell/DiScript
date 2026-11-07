@@ -60,13 +60,14 @@ static void hack_reset(void) {
     hack_cane_candy = 3;
     arr_clear(hack_buttons);
     arr_clear(hack_canes);
-    /* Compact defaults: two corners and a lower slot, never over the arena. */
+    /* One merged console starts in the top-left corner, never over the arena;
+     * slots 1-2 are legacy and never drawn. */
     hack_term_x[0] = 8;
     hack_term_y[0] = hack_term_head() + 6;
-    hack_term_x[1] = screen_w - hack_term_w() - 8;
-    hack_term_y[1] = screen_h * 0.30;
+    hack_term_x[1] = 8;
+    hack_term_y[1] = hack_term_head() + 6;
     hack_term_x[2] = 8;
-    hack_term_y[2] = screen_h * 0.60;
+    hack_term_y[2] = hack_term_head() + 6;
     hack_drag_win = -1;
     hack_drag_id = -1;
 }

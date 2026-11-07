@@ -19,16 +19,15 @@ static void draw_disco(void) {
 
 static void update_event(void) {
     /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid. */
-    /* Event ONLY in offline (solo) mode, internet check removed */
-    if (game_state != ST_SOLO) {
-        event_mode = 0;
+    if (net_flags_reachable() == 1) {
+        /* Online: the server-run global event, solo battles included. */
+        event_mode = net_event();
+    } else if (game_state == ST_SOLO) {
+        /* Offline solo: events launched from the CCP admin commands tab run
+         * locally; without one this is just 0 and the battle is ordinary. */
+        event_mode = net_event();
     } else {
-        /* Force event mode 7 (Hacker) if hack_enabled is true, otherwise net_event() */
-        if (hack_enabled() == 1) {
-            event_mode = HACK_EVENT;
-        } else {
-            event_mode = net_event();
-        }
+        event_mode = 0;
     }
     if (plates_round_on() == 1 && candies_on() == 0) {
         event_mode = 0;
@@ -46,13 +45,6 @@ static void update_event(void) {
     update_dice_event();
     update_columns_event();
     update_hacker_event();
-    
-    /* Make all players and enemy vulnerable during event (no block/shield) */
-    if (event_mode > 0) {
-        player_block = 0;
-        /* enemy_block = 0; (if accessible) */
-    }
-    
     /* Unlock ebuC's gift achievement when playing Santa online during event 3. */
     if (game_state == ST_ONLINE && event_mode == 3 && player_class == CLASS_SANTA && online_ready == 1) {
         if (has_achievement(ACH_BUK_GIFT) == 0) {

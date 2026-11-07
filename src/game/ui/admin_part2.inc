@@ -114,10 +114,15 @@ static double admin_handle(const char *msg) {
     return 0;
 }
 
-/* Hide soft keyboard when closing admin panel. */
+/* Hide soft keyboard when closing the panel or leaving a tab; the typed
+ * text goes back to the field it belongs to so nothing is lost. */
 static void admin_keyboard_drop(void) {
     if (keyboard_visible() == 1) {
-        keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
+        if (admin_tab == 2) {
+            keyboard_get_text_to(admin_cmd_text, sizeof(admin_cmd_text));
+        } else {
+            keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
+        }
         keyboard_hide();
     }
 }
@@ -144,17 +149,30 @@ static void admin_panel_press(double x, double y) {
         admin_panel_close();
         return;
     }
-    if (admin_gifts_allowed() == 0) {
-        if (admin_tab == 1) admin_keyboard_drop();
+    if ((admin_tab == 1 && admin_gifts_allowed() == 0) ||
+        (admin_tab == 2 && admin_commands_allowed() == 0)) {
+        admin_keyboard_drop();
         admin_tab = 0;
     }
     double tab_y = admin_content_top();
     if (y >= tab_y && y <= tab_y + admin_row_h()) {
-        if (admin_gifts_allowed() == 1) {
-            if (admin_tab == 1) admin_keyboard_drop();
-            admin_tab = x < px + pw / 2 ? 0 : 1;
+        double n = admin_tab_slots();
+        if (n > 1) {
+            double full = pw - 2 * admin_pad();
+            double tw = (full - (n - 1) * admin_gap()) / n;
+            double slot = floor((x - px - admin_pad()) / (tw + admin_gap()));
+            slot = clamp(slot, 0, n - 1);
+            double target = admin_tab_at_slot(slot);
+            if (target != admin_tab) {
+                admin_keyboard_drop();
+            }
+            admin_tab = target;
             play_button_click();
         }
+        return;
+    }
+    if (admin_tab == 2 && admin_commands_allowed() == 1) {
+        admin_cmd_press(x, y);
         return;
     }
     if (admin_tab == 1 && admin_gifts_allowed() == 1) {
@@ -208,8 +226,12 @@ static double admin_touch(double x, double y, double action, double id) {
     if (admin_modifiers_allowed() == 0) {
         return 0;
     }
-    /* Consume all touches while admin panel is open. */
+    /* Consume all touches while admin panel is open. The commands tab owns
+     * drag gestures over its event strip; everything else is a plain tap. */
     if (admin_panel_open == 1) {
+        if (admin_cmd_touch(x, y, action, id) == 1) {
+            return 1;
+        }
         if (action == 0) {
             admin_panel_press(x, y);
         }
@@ -290,19 +312,6 @@ static void admin_draw_cheats(void) {
     }
 }
 
-static void admin_draw_tabs(void) {
-    double px = admin_panel_x() + admin_pad();
-    double y = admin_content_top();
-    double h = admin_row_h();
-    if (admin_gifts_allowed() == 0) {
-        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, admin_panel_w() - 2 * admin_pad(), h, 1, 0.55);
-        return;
-    }
-    double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
-    admin_btn(language == 1 ? "Читы" : "Cheats", px, y, w, h, admin_tab == 0, 0.55);
-    admin_btn(language == 1 ? "Подарки" : "Gifts", px + w + admin_gap(), y, w, h, admin_tab == 1, 0.55);
-}
-
 static void admin_draw_gifts(void) {
     double px = admin_panel_x() + admin_pad();
     double y = admin_content_top() + admin_row_h() + admin_gap();
@@ -345,7 +354,13 @@ static void admin_draw_panel(void) {
     ring(cxx, py + hh / 2, cr, clamp(cr * 0.14, 2, 3), admin_frame());
     text_in_box("X", cxx - cr, py + hh / 2 - cr, cr * 2, cr * 2, admin_frame(), cr / 30.0);
     admin_draw_tabs();
-    if (admin_tab == 0 || admin_gifts_allowed() == 0) admin_draw_cheats(); else admin_draw_gifts();
+    if (admin_tab == 2 && admin_commands_allowed() == 1) {
+        admin_cmd_draw();
+    } else if (admin_tab == 1 && admin_gifts_allowed() == 1) {
+        admin_draw_gifts();
+    } else {
+        admin_draw_cheats();
+    }
 }
 
 static void admin_draw(void) {
@@ -362,9 +377,10 @@ static void admin_draw(void) {
     admin_draw_ball();
 }
 
-/* Tick active continuous cheats and admin gift actions. */
+/* Tick active continuous cheats, admin gift actions and the commands tab. */
 static void admin_tick(void) {
     admin_ball_t = admin_ball_t + dt;
+    admin_cmd_tick();
     if (admin_gifts_allowed() == 1 && admin_panel_open == 1 && admin_tab == 1) {
         if (keyboard_visible() == 1) keyboard_get_text_to(admin_gift_target, sizeof(admin_gift_target));
         if (admin_gift_busy == 1) {

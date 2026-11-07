@@ -1097,21 +1097,40 @@ const char *net_chat_passwd_new(const char *msg) {
     stub_passwd_new[i] = 0;
     return stub_passwd_new;
 }
+/* Quoted banner command, mirroring room_control.inc: text "words" [color]. */
 double net_chat_is_text_cmd(const char *msg) {
-    (void)msg;
-    return 0;
+    if (!msg || strlen(msg) < 5 || strncmp(msg, "text ", 5) != 0)
+        return 0;
+    const char *t = msg + 5;
+    while (*t == ' ' || *t == '\t') t++;
+    if (*t != '"')
+        return 0;
+    const char *close = strchr(t + 1, '"');
+    return close && close > t + 1;
 }
+static char stub_text_cmd_buf[256];
 const char *net_chat_text_cmd_text(const char *msg) {
-    (void)msg;
-    return "";
+    stub_text_cmd_buf[0] = 0;
+    if (net_chat_is_text_cmd(msg) != 1)
+        return stub_text_cmd_buf;
+    const char *t = msg + 5;
+    while (*t == ' ' || *t == '\t') t++;
+    const char *close = strchr(t + 1, '"');
+    size_t n = (size_t)(close - (t + 1));
+    if (n >= sizeof(stub_text_cmd_buf))
+        n = sizeof(stub_text_cmd_buf) - 1;
+    memcpy(stub_text_cmd_buf, t + 1, n);
+    stub_text_cmd_buf[n] = 0;
+    return stub_text_cmd_buf;
 }
 const char *net_chat_text_cmd_color(const char *msg) {
     (void)msg;
-    return "";
+    return "white";
 }
+static char stub_banner_sent[256], stub_banner_color_sent[32];
 void net_banner_send(const char *text, const char *color) {
-    (void)text;
-    (void)color;
+    snprintf(stub_banner_sent, sizeof(stub_banner_sent), "%s", text ? text : "");
+    snprintf(stub_banner_color_sent, sizeof(stub_banner_color_sent), "%s", color ? color : "");
 }
 void net_chat_trim(double keep) { (void)keep; }
 int png_load(const char *name) {
@@ -2019,6 +2038,147 @@ static void test_admin_keyboard(void) {
     t_dir = saved_dir;
     keyboard_hide();
     puts("admin panel: every way of closing it also hides the keyboard");
+}
+
+/* CCP "Admin commands" tab: the banner text command on top, event buttons
+ * with a horizontal scroll below, root admins only. */
+static void test_admin_commands(void) {
+    double saved_w = screen_w, saved_h = screen_h, saved_stat = game_state;
+    double saved_tab = admin_tab, saved_open = admin_panel_open, saved_dir = t_dir;
+    screen_w = 720;
+    screen_h = 1280; /* portrait: the event strip does not fit and must scroll */
+    game_state = ST_LOBBY;
+    t_dir = 0;
+    stub_login_status = 2;
+
+    /* Root admins get the tab, moderators never do. */
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    assert(admin_commands_allowed() == 1 && admin_tab_slots() == 3);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
+    assert(admin_commands_allowed() == 1 && admin_tab_slots() == 2);
+    assert(admin_tab_at_slot(1) == 2); /* no gifts: second slot is commands */
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "Sanch");
+    assert(admin_commands_allowed() == 0 && admin_tab_slots() == 1);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+
+    /* The third tab opens by tapping its slot in the tab row. */
+    admin_panel_open = 1;
+    admin_tab = 0;
+    double full = admin_panel_w() - 2 * admin_pad();
+    double tw = (full - 2 * admin_gap()) / 3;
+    admin_panel_press(admin_panel_x() + admin_pad() + 2 * (tw + admin_gap()) + tw / 2,
+                      admin_content_top() + 4);
+    assert(admin_tab == 2);
+
+    /* Monochrome layout: question, placeholder, send, label, digit buttons. */
+    adm_reset_log();
+    admin_draw();
+    assert(adm_all_greyscale() == 1 && adm_all_flat() == 1);
+    assert(adm_has_text(language == 1 ? "Что вы хотите написать?" : "What do you want to write?") == 1);
+    assert(adm_has_text(language == 1 ? "введите текст..." : "enter text...") == 1);
+    assert(adm_has_text(language == 1 ? "Отправить" : "Send") == 1);
+    assert(adm_has_text(language == 1 ? "запустить event." : "run event.") == 1);
+    assert(adm_has_text("0") == 1); /* digit 7 is off-screen until scrolled */
+    assert(admin_cmd_content_h() > 0);
+    assert(admin_cmd_strip_y() + admin_cmd_strip_h() <= admin_panel_y() + admin_panel_h() - admin_pad() + 0.01);
+    admin_cmd_scroll = admin_cmd_scroll_max();
+    adm_reset_log();
+    admin_draw();
+    assert(adm_has_text("7") == 1);
+    admin_cmd_scroll = 0;
+
+    /* Event buttons run the chat commands; 0 switches a running event off. */
+    stub_event_mode = 0;
+    admin_cmd_event_press(4);
+    assert(stub_event_mode == 4);
+    admin_cmd_event_press(7);
+    assert(stub_event_mode == 7);
+    admin_cmd_event_press(0);
+    assert(stub_event_mode == 0);
+    admin_cmd_event_press(0); /* already off: stays off, no disco toggle */
+    assert(stub_event_mode == 0);
+
+    /* The field sends a white banner signed by the acting admin. */
+    keyboard_show();
+    stub_kb_set("hello cubes");
+    admin_cmd_tick();
+    assert(strcmp(admin_cmd_text, "hello cubes") == 0);
+    stub_banner_sent[0] = 0;
+    admin_cmd_send();
+    assert(strstr(stub_banner_sent, "hello cubes") != NULL);
+    assert(strstr(stub_banner_sent, ADMIN_NICK) != NULL);
+    assert(strcmp(stub_banner_color_sent, "white") == 0);
+    assert(admin_cmd_text[0] == 0 && keyboard_visible() == 1);
+
+    /* A full command typed into the field runs as-is. */
+    stub_kb_set("event 5");
+    admin_cmd_tick();
+    admin_cmd_send();
+    assert(stub_event_mode == 5);
+    keyboard_hide();
+    stub_kb_set("");
+
+    /* Tapping the input opens the keyboard with the stored draft. */
+    snprintf(admin_cmd_text, sizeof(admin_cmd_text), "%s", "draft");
+    admin_cmd_press(admin_cmd_x() + 20, admin_cmd_input_y() + 4);
+    assert(keyboard_visible() == 1);
+    char kb_check[64];
+    keyboard_get_text_to(kb_check, sizeof(kb_check));
+    assert(strcmp(kb_check, "draft") == 0);
+
+    /* Leaving the tab keeps the draft and hides the keyboard. */
+    stub_kb_set("draft two");
+    admin_panel_press(admin_panel_x() + admin_pad() + 4, admin_content_top() + 4);
+    assert(admin_tab == 0 && keyboard_visible() == 0);
+    assert(strcmp(admin_cmd_text, "draft two") == 0);
+    admin_tab = 2;
+    stub_kb_set("");
+
+    /* Horizontal drag scrolls the strip, a short tap presses a button. */
+    assert(admin_cmd_scroll_max() > 0);
+    admin_cmd_scroll = 0;
+    admin_cmd_vel = 0;
+    double sx = admin_cmd_x() + 140;
+    double sy = admin_cmd_strip_y() + admin_cmd_strip_h() / 2;
+    assert(admin_cmd_touch(sx, sy, 0, 3) == 1);
+    assert(admin_cmd_touch(sx - 100, sy, 2, 3) == 1);
+    assert(fabs(admin_cmd_scroll - 100) < 1e-6);
+    assert(admin_cmd_touch(sx - 100, sy, 1, 3) == 1);
+    assert(admin_cmd_scroll >= 100 && admin_cmd_scroll <= admin_cmd_scroll_max());
+    admin_cmd_scroll = 0;
+    admin_cmd_vel = 0;
+    stub_event_mode = 3;
+    double bx = admin_cmd_x() + admin_cmd_btn_w() / 2;
+    assert(admin_cmd_touch(bx, sy, 0, 4) == 1);
+    assert(admin_cmd_touch(bx, sy, 1, 4) == 1);
+    assert(stub_event_mode == 0); /* tapped digit 0 while event 3 was running */
+    double bx2 = admin_cmd_x() + 2 * admin_cmd_step() + admin_cmd_btn_w() / 2;
+    assert(admin_cmd_touch(bx2, sy, 0, 4) == 1);
+    assert(admin_cmd_touch(bx2, sy, 1, 4) == 1);
+    assert(stub_event_mode == 2);
+
+    /* Moderators cannot send banners or launch events from the tab. */
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "Sanch");
+    snprintf(admin_cmd_text, sizeof(admin_cmd_text), "%s", "not allowed");
+    stub_banner_sent[0] = 0;
+    stub_event_mode = 0;
+    admin_cmd_send();
+    admin_cmd_event_press(4);
+    assert(stub_banner_sent[0] == 0 && stub_event_mode == 0);
+
+    admin_cmd_text[0] = 0;
+    admin_cmd_scroll = 0;
+    admin_cmd_vel = 0;
+    admin_cmd_status_t = 0;
+    admin_tab = saved_tab;
+    admin_panel_open = saved_open;
+    game_state = saved_stat;
+    t_dir = saved_dir;
+    screen_w = saved_w;
+    screen_h = saved_h;
+    keyboard_hide();
+    stub_kb_set("");
+    puts("admin commands tab: text banner, event buttons, scroll and permissions OK");
 }
 
 /* Promo 2027: the success text is a private copy, not a pointer into the
@@ -5296,8 +5456,8 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and all cheat labels. */
-    assert(adm_text_n == 5 + ADMIN_CHEATS);
+    /* The title, close button, orb, every visible tab and all cheat labels. */
+    assert(adm_text_n == 3 + (int)admin_tab_slots() + ADMIN_CHEATS);
     {
         double saved_lang_ab = language;
         language = 1;
@@ -5978,6 +6138,7 @@ int main(void) {
     test_overlay_transitions();
     test_gifts_page();
     test_admin_keyboard();
+    test_admin_commands();
 
     /* Christmas theme and Battle Pass are available to all CCP moderators;
      * only the primary admin has the Gifts half of the CCP panel. */
@@ -6308,13 +6469,18 @@ int main(void) {
         language = 1;
         game_state = ST_LOBBY;
         admin_panel_open = 1;
+        /* The giftless root admin keeps chat-command powers: the right tab is
+         * now Admin commands, while Gifts stays exclusive to the primary. */
+        assert(admin_commands_allowed() == 1 && admin_tab_slots() == 2);
         admin_tab = 1;
         admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
-        assert(admin_tab == 0);
+        assert(admin_tab == 2);
         adm_reset_log();
         admin_draw();
-        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Админ команды") == 1);
         assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
+        assert(admin_tab == 0);
         admin_panel_open = 0;
 
         /* Without the global flag, Sanch has ordinary visuals and no event,
@@ -6418,6 +6584,7 @@ int main(void) {
         admin_panel_open = 1;
         admin_draw();
         assert(adm_has_text("CCP") == 1 && adm_has_text("Читы") == 1 && adm_has_text("Подарки") == 1);
+        assert(adm_has_text("Админ команды") == 1 && admin_tab_slots() == 3);
         admin_panel_open = 0;
         winter_theme = 0;
 
