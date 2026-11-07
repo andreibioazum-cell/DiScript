@@ -33,3 +33,11 @@ double hack_cane_pop_t;
 DSArray *hack_canes;
 /* Grace timer before the clean victory ends the round. */
 double hack_finish_t;
+/* Terminal window positions: compact cmd boxes the player can drag around. */
+double hack_term_x[3];
+double hack_term_y[3];
+/* Drag state: which terminal title bar a pointer holds (-1 for none). */
+double hack_drag_win;
+double hack_drag_id;
+double hack_drag_dx;
+double hack_drag_dy;

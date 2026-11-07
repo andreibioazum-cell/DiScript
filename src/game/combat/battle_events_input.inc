@@ -347,7 +347,7 @@ static void touch_game(double x, double y, double action, double id) {
         return;
     }
     /* The hacker's junk buttons swallow touches: they click and do nothing. */
-    if (hack_touch(x, y, action) == 1) {
+    if (hack_touch(x, y, action, id) == 1) {
         return;
     }
     if (action == 3) {

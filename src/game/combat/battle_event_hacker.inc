@@ -13,9 +13,12 @@
 #define HACK_BTN_START 40.0
 #define HACK_BTN_INTERVAL 1.7
 #define HACK_BAN_AT 75.0
+/* The ban opens with a full blackout: the game looks crashed for this long. */
+#define HACK_BLACK_DUR 1.2
+#define HACK_WINS 3
 #define HACK_RAIN_AT 80.0
-#define HACK_TYPE_CPS 34.0
-#define HACK_CMD_CPS 46.0
+#define HACK_TYPE_CPS 22.0
+#define HACK_CMD_CPS 30.0
 #define HACK_CANE_SPEED 250.0
 #define HACK_CANE_INTERVAL 0.35
 #define HACK_CANE_LIFE 22.0
@@ -27,6 +30,20 @@
 #define HACK_PLAT_PC 2
 #define HACK_KIND_EVENT 1
 #define HACK_KIND_CLOUD 2
+
+/* Compact cmd-style title bar height, shared by logic (drag) and draw. */
+static double hack_term_head(void) {
+    return clamp(screen_h * 0.032, 18, 28);
+}
+
+/* Cmd window width: compact on both form factors, never over the arena. */
+static double hack_term_w(void) {
+#ifdef CB_PC
+    return clamp(screen_w * 0.34, 280, 480);
+#else
+    return clamp(screen_w * 0.70, 200, 380);
+#endif
+}
 
 /* Terminal speakers. */
 #define HACK_WHO_WARN 0
@@ -146,23 +163,19 @@ static double hack_load_payload(void) {
     n = ds_asset_read(name, buf, (int)sizeof(buf));
     hack_payload_bytes = n > 0 ? (double)n : 0;
     if (n < 16) {
-        ds_log("h4c4k0r: payload %s unreadable (%d bytes), raid runs on defaults", name, n);
         return 0;
     }
     if (plat == HACK_PLAT_PC) {
         if (memcmp(buf, "H4CKSO1", 7) != 0 || buf[7] != 0 || buf[8] != HACK_PLAT_PC) {
-            ds_log("h4c4k0r: %s is not a PC container", name);
             return 0;
         }
     } else if (memcmp(buf, "H4CKBIN1", 8) != 0 || buf[8] != HACK_PLAT_PHONE) {
-        ds_log("h4c4k0r: %s is not a phone container", name);
         return 0;
     }
     for (i = 0; i < n - 1; i++) {
         sum = sum + (unsigned)buf[i];
     }
     if ((sum & 0xFFu) != (unsigned)buf[n - 1]) {
-        ds_log("h4c4k0r: %s checksum mismatch, his script is broken as usual", name);
         return 0;
     }
     hack_cmd_n = 0;
@@ -196,28 +209,54 @@ static double hack_load_payload(void) {
 }
 
 /* One typed command: real events come up as dead stubs, clouds as one dummy. */
+/* His commands switch nothing on: the timers tick in silence, the cloud just
+ * hangs there. No stub visuals, no sounds, no "broken" notes anywhere. */
 static void hack_fire_cmd(double id, double kind, double life) {
     if (kind == HACK_KIND_EVENT) {
         if (id == 1) {
             hack_stub_disco_t = life;
-            ds_log("h4c4k0r: /event 1 started as a broken local stub (%gs)", life);
         } else if (id == 2) {
             hack_stub_plates_t = life;
-            ds_log("h4c4k0r: /event 2 started as a broken local stub (%gs)", life);
-        } else {
-            ds_log("h4c4k0r: /event %g unknown to the game, nothing happens", id);
         }
         return;
     }
-    if (kind == HACK_KIND_CLOUD) {
-        if (life > 0 && hack_cloud_on == 0) {
-            hack_cloud_on = 1;
-            hack_cloud_x = screen_w - 62;
-            hack_cloud_y = 64;
-            hack_cloud_t = 0;
-            ds_log("h4c4k0r: /event %g custom storm produced ONE cloud in the corner", id);
-        } else {
-            ds_log("h4c4k0r: /event %g cloud died at spawn, the storm is dead", id);
-        }
+    if (kind == HACK_KIND_CLOUD && life > 0 && hack_cloud_on == 0) {
+        hack_cloud_on = 1;
+        hack_cloud_x = screen_w - 62;
+        hack_cloud_y = 64;
+        hack_cloud_t = 0;
     }
+}
+
+/* Terminals drag by their green title bar; the grab swallows the pointer so
+ * the fight underneath is not disturbed while a window moves. */
+static double hack_drag_touch(double x, double y, double action, double id) {
+    double w = hack_term_w();
+    double head = hack_term_head();
+    if (hack_drag_win < 0 && action == 0 && hack_active == 1 && hack_t < HACK_RAIN_AT) {
+        double wi = 0;
+        while (wi < HACK_WINS) {
+            if (hit_rect(x, y, hack_term_x[(int)wi], hack_term_y[(int)wi], w, head) == 1) {
+                hack_drag_win = wi;
+                hack_drag_id = id;
+                hack_drag_dx = x - hack_term_x[(int)wi];
+                hack_drag_dy = y - hack_term_y[(int)wi];
+                return 1;
+            }
+            wi = wi + 1;
+        }
+        return 0;
+    }
+    if (hack_drag_win < 0 || id != hack_drag_id) {
+        return 0;
+    }
+    if (action == 0 || action == 2) {
+        hack_term_x[(int)hack_drag_win] = clamp(x - hack_drag_dx, 4, screen_w - w - 4);
+        hack_term_y[(int)hack_drag_win] = clamp(y - hack_drag_dy, 4, screen_h - head - 40);
+    }
+    if (action == 1 || action == 3) {
+        hack_drag_win = -1;
+        hack_drag_id = -1;
+    }
+    return 1;
 }

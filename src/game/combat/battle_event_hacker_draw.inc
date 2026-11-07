@@ -1,31 +1,21 @@
-/* Rendering of the H4c4k0r raid: glitch intro, command-line terminals whose
- * lines are typed live behind little cube avatars, the hacker's broken event
- * stubs, the menu-button pile and the New Year cane rain. Both avatar colours
- * are painted right here in C: flat red for the hacker, and the dominant
- * colour of assets/textures/azum.png for Azum's cube. */
+/* Rendering of the H4c4k0r raid: a silent glitch intro, compact draggable
+ * cmd.exe-style consoles with a green title bar whose lines type slowly, as
+ * if a real cheat and a real admin sat at two keyboards. Avatars are the game
+ * textures: ordinary.png for the hacker's cube, azum.png for Azum's cube.
+ * His "launched" events stay switched off - only one static cloud hangs in
+ * the corner - and the ban arrives as a full blackout followed by a console
+ * window that types the verdict before everything explodes. */
 
-#define HACK_CUBE_HACK 0xE2232Du
-/* Dominant opaque colour of the Azum sprite, sampled from azum.png. */
-#define HACK_CUBE_AZUM 0x1E374Bu
-#define HACK_CUBE_AZUM_LIT 0x3C5569u
-#define HACK_CUBE_AZUM_EYES 0xE169D2u
-#define HACK_TERM_HEAD 0x24242Eu
-#define HACK_TERM_BODY 0x0B0B10u
-#define HACK_TERM_EDGE 0x6E6E82u
-#define HACK_INK_WARN 0xFF5252u
+#define HACK_TERM_BAR 0x1E8E3Eu
+#define HACK_TERM_BAR_INK 0xF2FFF2u
+#define HACK_TERM_BODY 0x000000u
+#define HACK_TERM_EDGE 0x6F6F6Fu
+#define HACK_GLYPH 0x0B3A12u
+#define HACK_INK_WARN 0xFF6B6Bu
 #define HACK_INK_HACK 0x7CFC7Cu
-#define HACK_INK_AZUM 0xE8F4FFu
-#define HACK_BAN_RED 0xD8141Eu
+#define HACK_INK_AZUM 0xE8E8E8u
 
 #define HACK_WRAP_MAX 8
-
-static double hack_term_w(void) {
-#ifdef CB_PC
-    return clamp(screen_w * 0.40, 340, 660);
-#else
-    return screen_w - 20;
-#endif
-}
 
 static double hack_text_sc(void) {
     return clamp(screen_w / 2400.0, 0.34, 0.5);
@@ -52,15 +42,37 @@ static double hack_line_who(double i) {
 }
 
 static double hack_line_cps(double i) {
-    const char *t = hack_line_text(i);
-    return t[0] == '/' ? HACK_CMD_CPS : HACK_TYPE_CPS;
+    return hack_line_text(i)[0] == '/' ? HACK_CMD_CPS : HACK_TYPE_CPS;
+}
+
+/* A line waits for the previous line of its window to finish plus a short
+ * breath, so the conversation reads like two people typing in turn. */
+static double hack_line_start(double i) {
+    int k = (int)i;
+    int j = 0;
+    double win = hack_script[k].win;
+    double start = hack_script[k].at;
+    double prev_end = -1;
+    while (j < k) {
+        if (hack_script[j].win == win) {
+            double s = hack_script[j].at;
+            if (prev_end > s) {
+                s = prev_end;
+            }
+            prev_end = s + utf8_len(language == 1 ? hack_script[j].ru : hack_script[j].en) /
+                           hack_line_cps((double)j) + 0.35;
+        }
+        j = j + 1;
+    }
+    if (prev_end > start) {
+        start = prev_end;
+    }
+    return start;
 }
 
 /* Codepoints of this line already on screen. */
 static double hack_typed_chars(double i) {
-    int k = (int)i;
-    double at = hack_script[k].at;
-    double n = (hack_t - at) * hack_line_cps(i);
+    double n = (hack_t - hack_line_start(i)) * hack_line_cps(i);
     double full = utf8_len(hack_line_text(i));
     if (n < 0) {
         n = 0;
@@ -71,22 +83,14 @@ static double hack_typed_chars(double i) {
     return floor(n);
 }
 
-/* Small square avatar in front of a terminal line, painted by hand. */
-static void hack_cube_icon(double x, double y, double s, double who) {
-    if (who == HACK_WHO_AZUM) {
-        rect(x, y, s, s, HACK_CUBE_AZUM);
-        rect(x + 1, y + 1, s - 2, 2, HACK_CUBE_AZUM_LIT);
-        rect(x + s * 0.22, y + s * 0.42, 2, 2, HACK_CUBE_AZUM_EYES);
-        rect(x + s * 0.60, y + s * 0.42, 2, 2, HACK_CUBE_AZUM_EYES);
+/* Avatar cube in front of a line: the hacker is the ordinary cube sprite,
+ * Azum's is his own sprite; the warning line gets a red exclamation. */
+static void hack_avatar(double x, double y, double s, double who) {
+    if (who == HACK_WHO_WARN) {
+        text_scaled("!", x + s * 0.30, y, 0xFF000000u | HACK_INK_WARN, s / 18.0);
         return;
     }
-    rect(x, y, s, s, HACK_CUBE_HACK);
-    rect(x, y + s - 2, s, 2, 0x7A0E14u);
-    rect(x + 2, y + 2, 2, 2, 0xFF8A8Au);
-    if (who == HACK_WHO_WARN) {
-        rect(x + s / 2 - 1, y + 3, 2, s - 8, 0xFFFFFFu);
-        rect(x + s / 2 - 1, y + s - 5, 2, 2, 0xFFFFFFu);
-    }
+    tex_alpha(x, y, who == HACK_WHO_AZUM ? AZUM_TEX : ORDINARY_TEX, 0, s / 50.0, 1);
 }
 
 static double hack_ink_of(double who) {
@@ -106,80 +110,75 @@ static double hack_wrap_n(const char *vis, double maxw, double sc) {
     return dial_wrap(vis, maxw, sc, starts, lens, HACK_WRAP_MAX);
 }
 
-static void hack_term_chrome(double x, double y, double w, double head, double win, double ban) {
-    if (ban == 1) {
-        roundrect(x, y, w, head, 6, 0x6E0A10u);
-        return;
-    }
-    roundrect(x, y, w, head, 6, HACK_TERM_HEAD);
+/* cmd.exe chrome: green title bar, path title and the three window glyphs. */
+static void hack_term_chrome(double x, double y, double w, double head, double win,
+                             const char *custom) {
+    roundrect(x, y, w, head, 4, HACK_TERM_BAR);
+    char title[44];
+    if (custom != 0) {
+        snprintf(title, sizeof(title), "%s", custom);
+    } else {
 #ifdef CB_PC
-    /* Desktop console chrome: title plus the three window glyphs. */
-    char title[40];
-    snprintf(title, sizeof(title), "C:\\H4CK\\term_0%d.exe", (int)win + 1);
-    text_scaled(title, x + 8, y + (head - text_ink_height(title) * 0.34) / 2, 0xB9B9C6u, 0.34);
-    double gx = x + w - 46;
-    double i = 0;
-    while (i < 3) {
-        rect(gx + i * 15, y + head / 2 - 1, 9, 2, 0x9A9AA8u);
-        i = i + 1;
-    }
-    rect(x + w - 31, y + head / 2 - 4, 2, 8, 0x9A9AA8u);
-    rect(x + w - 31 + 7, y + head / 2 - 4, 2, 8, 0x9A9AA8u);
+        snprintf(title, sizeof(title), "C:\\Windows\\system32\\cmd_0%d.exe", (int)win + 1);
 #else
-    char title[24];
-    snprintf(title, sizeof(title), "term_0%d", (int)win + 1);
-    text_scaled(title, x + 8, y + (head - text_ink_height(title) * 0.34) / 2, 0xB9B9C6u, 0.34);
-    rect(x + w - 20, y + head / 2 - 1, 12, 2, 0x9A9AA8u);
+        snprintf(title, sizeof(title), "cmd_0%d", (int)win + 1);
 #endif
+    }
+    double ts = clamp(head / 46.0, 0.24, 0.34);
+    text_scaled(title, x + 6, y + (head - text_ink_height(title) * ts) / 2, HACK_TERM_BAR_INK, ts);
+    double gx = x + w - 34;
+    double my = y + head / 2;
+    rect(gx, my + 2, 8, 2, HACK_GLYPH);
+    roundrect_outline(gx + 12, my - 4, 8, 8, 1, 2, HACK_GLYPH);
+    line(gx + 25, my - 4, gx + 32, my + 4, 2, HACK_GLYPH);
+    line(gx + 32, my - 4, gx + 25, my + 4, 2, HACK_GLYPH);
 }
 
-/* One terminal window with its typed lines; returns the drawn height. */
-static double hack_draw_term(double win, double x, double y, double ban) {
+/* One compact terminal; returns the drawn height. Erased = wiped by the ban. */
+static double hack_draw_term(double win, double x, double y, double erased) {
     double sc = hack_text_sc();
     double w = hack_term_w();
-    double head = clamp(screen_h * 0.035, 20, 30);
-    double pad = 8;
-    double icon = 12;
+    double head = hack_term_head();
+    double pad = 6;
     double step = hack_line_step(sc);
+    double icon = step * 0.95;
     double text_w = w - 2 * pad - icon - 6;
-    double max_h = screen_h * 0.44;
+    double max_h = screen_h * 0.30;
     double cap_lines = floor((max_h - head - 2 * pad) / step);
     double wraps[24];
     double total = 0;
     double i = 0;
     while (i < HACK_LINES) {
         wraps[(int)i] = 0;
-        if (hack_script[(int)i].win == win && hack_script[(int)i].at <= hack_t) {
+        if (hack_script[(int)i].win == win && hack_line_start(i) <= hack_t) {
             const char *vis = utf8_prefix(hack_line_text(i), hack_typed_chars(i));
             double wn = hack_wrap_n(vis, text_w, sc);
-            if (wn < 1) {
-                wn = 1;
-            }
-            wraps[(int)i] = wn;
-            total = total + wn;
+            wraps[(int)i] = wn < 1 ? 1 : wn;
+            total = total + wraps[(int)i];
         }
         i = i + 1;
+    }
+    if (erased == 1) {
+        /* Wiped console: empty black body with a lone blinking cursor. */
+        double h = head + 2 * pad + step;
+        roundrect(x + 3, y + 5, w, h, 6, 0x60000000u);
+        roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
+        roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
+        hack_term_chrome(x, y, w, head, win, 0);
+        if (fmod(event_t * 3, 2) < 1) {
+            rect(x + pad + 1, y + head + pad, 5 * sc + 2, step * 0.72, 0xFF000000u | HACK_INK_HACK);
+        }
+        return h;
     }
     if (total <= 0) {
         return 0;
     }
-    /* Scroll: when the log outgrows the window, the oldest lines roll out. */
-    double skip = 0;
-    if (total > cap_lines) {
-        skip = total - cap_lines;
-    }
+    double skip = total > cap_lines ? total - cap_lines : 0;
     double shown = total - skip;
     double h = head + 2 * pad + shown * step;
-    if (ban == 1) {
-        /* Wiped terminal: solid alarm red, no text at all. */
-        roundrect(x, y, w, h, 8, HACK_BAN_RED);
-        roundrect_outline(x, y, w, h, 8, 2, 0xFF6E63u);
-        hack_term_chrome(x, y, w, head, win, 1);
-        return h;
-    }
-    roundrect(x + 3, y + 5, w, h, 8, 0x60000000u);
-    roundrect(x, y, w, h, 8, 0xF2000000u | HACK_TERM_BODY);
-    roundrect_outline(x, y, w, h, 8, 2, HACK_TERM_EDGE);
+    roundrect(x + 3, y + 5, w, h, 6, 0x60000000u);
+    roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
+    roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
     hack_term_chrome(x, y, w, head, win, 0);
     double cy = y + head + pad;
     double left = skip;
@@ -187,7 +186,7 @@ static double hack_draw_term(double win, double x, double y, double ban) {
     while (i < HACK_LINES) {
         double li = i;
         i = i + 1;
-        if (hack_script[(int)li].win != win || hack_script[(int)li].at > hack_t) {
+        if (hack_script[(int)li].win != win || hack_line_start(li) > hack_t) {
             continue;
         }
         double wn = wraps[(int)li];
@@ -205,25 +204,22 @@ static double hack_draw_term(double win, double x, double y, double ban) {
             starts[0] = 0;
             lens[0] = str_len(vis);
         }
-        double used = wn;
-        double k = 0;
-        if (left >= used) {
-            left = left - used;
+        if (left >= wn) {
+            left = left - wn;
             continue;
         }
         double first = left;
         left = 0;
         double who = hack_line_who(li);
-        double ink = 0xFF000000u | (unsigned)hack_ink_of(who);
-        hack_cube_icon(x + pad, cy + 1, icon, who);
-        k = first;
+        uint32_t ink = 0xFF000000u | (unsigned)hack_ink_of(who);
+        hack_avatar(x + pad, cy + 1, icon, who);
+        double k = first;
         while (k < got) {
             const char *span = dial_slice(vis, starts[(int)k], lens[(int)k]);
             text_scaled(span, x + pad + icon + 6, cy, ink, sc);
             cy = cy + step;
             k = k + 1;
         }
-        /* Blinking block cursor while this line is still being typed. */
         if (typed < utf8_len(full) && fmod(event_t * 3, 2) < 1) {
             const char *last = dial_slice(vis, starts[(int)(got - 1)], lens[(int)(got - 1)]);
             double cw = text_ink_width(last) * sc;
@@ -233,7 +229,8 @@ static double hack_draw_term(double win, double x, double y, double ban) {
     return h;
 }
 
-/* Full-screen interference while the hacker's connection boots. */
+/* Full-screen interference while the hacker's connection boots. Silent: no
+ * captions, no complaints - just the static. */
 static void draw_hacker_glitch(void) {
     if (hack_glitch <= 0) {
         return;
@@ -245,48 +242,25 @@ static void draw_hacker_glitch(void) {
         double y = (double)(rand() % (screen_h > 1 ? screen_h : 1));
         double h = 3 + (double)(rand() % 16);
         double dx = (double)(rand() % 44) - 22;
-        uint32_t c = i % 3 == 0 ? 0xFF0044u : (i % 3 == 1 ? 0x00FFC8u : 0x2244FFu);
+        uint32_t c = i % 3 == 0 ? 0x0044FFu : (i % 3 == 1 ? 0x00FFC8u : 0x2244FFu);
         rect(dx, y, screen_w, h, ((unsigned)(int)(k * 120)) << 24 | c);
         rect(0 - dx, y + h, screen_w, 2, ((unsigned)(int)(k * 90)) << 24 | 0xFFFFFFu);
         i = i + 1;
     }
-    const char *msg = language == 1 ? "ПОМЕХИ..." : "INTERFERENCE...";
-    ctext_scaled(msg, screen_h * 0.46, ((unsigned)(int)(k * 230)) << 24 | 0xFF5252u, 0.8);
 }
 
-/* His "global" events: tiny dead stubs and the single surviving cloud. */
-static void draw_hacker_stubs(void) {
-    if (hack_stub_disco_t > 0) {
-        unsigned a = (unsigned)(int)(clamp(hack_stub_disco_t, 0, 1) * 200) << 24;
-        double x = 10;
-        double y = screen_h - 118;
-        rect(x, y, 92, 66, a | (unsigned)disco_color(hack_t * 9));
-        roundrect_outline(x, y, 92, 66, 6, 2, a | 0xFFFFFFu);
-        const char *tag = language == 1 ? "диско: СЛОМАНО" : "disco: BROKEN";
-        text_scaled(tag, x, y + 70, a | 0xFF8A8Au, 0.34);
+/* The one cloud of his "storm": hangs in the corner, does absolutely nothing. */
+static void draw_hacker_cloud(void) {
+    if (hack_cloud_on != 1) {
+        return;
     }
-    if (hack_stub_plates_t > 0) {
-        unsigned a = (unsigned)(int)(clamp(hack_stub_plates_t, 0, 1) * 200) << 24;
-        double x = screen_w - 108;
-        double y = screen_h - 112;
-        roundrect(x, y, 40, 40, 8, a | 0x7F1414u);
-        roundrect(x + 52, y, 40, 40, 8, a | 0x7F1414u);
-        const char *tag = language == 1 ? "плиты: СЛОМАНО" : "plates: BROKEN";
-        text_scaled(tag, x - 6, y + 46, a | 0xFF8A8Au, 0.34);
-    }
-    if (hack_cloud_on == 1) {
-        double bob = 3 * sin(hack_cloud_t * 2);
-        double x = hack_cloud_x;
-        double y = hack_cloud_y + bob;
-        uint32_t c = 0xE8F4FFu;
-        circle(x - 14, y + 4, 10, c);
-        circle(x, y - 4, 13, c);
-        circle(x + 14, y + 4, 10, c);
-        roundrect(x - 22, y + 2, 44, 12, 6, c);
-        const char *tag = language == 1 ? "облачко (пустышка)" : "cloud (dummy)";
-        double tw = text_ink_width(tag) * 0.32;
-        text_scaled(tag, x - tw / 2, y + 20, 0xB9D9FFu, 0.32);
-    }
+    double x = hack_cloud_x;
+    double y = hack_cloud_y;
+    uint32_t c = 0xE8F4FFu;
+    circle(x - 14, y + 4, 10, c);
+    circle(x, y - 4, 13, c);
+    circle(x + 14, y + 4, 10, c);
+    roundrect(x - 22, y + 2, 44, 12, 6, c);
 }
 
 /* Menu junk falling as solid cover; pressed buttons squeeze and click. */
@@ -356,36 +330,55 @@ static void draw_hacker_canes(void) {
     }
 }
 
-/* Azum's final ban over the wiped terminals. */
+/* The ban: first a full blackout as if the game died, then a console window
+ * types Azum's verdict while the world comes back. */
 static void draw_hacker_ban(void) {
-    if (hack_ban_t <= 0 || hack_t >= HACK_RAIN_AT) {
-        return;
-    }
-    double p = clamp(hack_ban_t / 0.25, 0, 1);
-    double pop = 1 - (1 - p) * (1 - p);
-    rect(0, 0, screen_w, screen_h, ((unsigned)(int)(pop * 120)) << 24 | 0x000000u);
-    double sc = 0.85 * pop;
-    if (sc <= 0.02) {
+    if (hack_ban_t <= 0 || hack_t >= HACK_RAIN_AT || hack_ban_t < HACK_BLACK_DUR) {
         return;
     }
     const char *l1 = language == 1 ? "[CONSOLE]: H4c4k0r забанен Azum's." : "[CONSOLE]: H4c4k0r banned by Azum's.";
     const char *l2 = language == 1 ? "[CONSOLE]: Причина: Не умеешь хакать - не берись."
                                    : "[CONSOLE]: Reason: can't hack - don't try.";
-    double step = hack_line_step(sc) * 1.5;
-    double w1 = text_ink_width(l1) * sc;
-    double w2 = text_ink_width(l2) * sc;
-    double wide = w1 > w2 ? w1 : w2;
-    double icon = 20 * pop;
-    double x0 = (screen_w - wide - icon - 8) / 2;
-    double y0 = screen_h / 2 - step;
+    double sc = hack_text_sc();
+    double step = hack_line_step(sc);
+    double head = hack_term_head();
+    double pad = 6;
+    double icon = step * 0.95;
+    double w = clamp(fmax(text_ink_width(l1), text_ink_width(l2)) * sc + 2 * pad + icon + 12,
+                     220, screen_w - 16);
+    double h = head + 2 * pad + 2 * step;
+    double x = (screen_w - w) / 2;
+    double y = screen_h * 0.30;
+    roundrect(x + 3, y + 5, w, h, 6, 0x60000000u);
+    roundrect(x, y, w, h, 6, 0xFF000000u | HACK_TERM_BODY);
+    roundrect_outline(x, y, w, h, 6, 2, HACK_TERM_EDGE);
+    hack_term_chrome(x, y, w, head, 0, language == 1 ? "C:\\Azum\\ban.exe" : "C:\\Azum\\ban.exe");
+    double t0 = HACK_BAN_AT + HACK_BLACK_DUR;
+    double n1 = clamp((hack_t - t0) * HACK_CMD_CPS, 0, utf8_len(l1));
+    double t1 = t0 + utf8_len(l1) / HACK_CMD_CPS + 0.25;
+    double n2 = clamp((hack_t - t1) * HACK_CMD_CPS, 0, utf8_len(l2));
     double k = 0;
     while (k < 2) {
         const char *line = k == 0 ? l1 : l2;
-        double yy = y0 + k * step;
-        hack_cube_icon(x0, yy + 2, icon, HACK_WHO_AZUM);
-        text_scaled(line, x0 + icon + 8, yy, 0xFFFFFFFFu, sc);
+        double n = k == 0 ? n1 : n2;
+        const char *vis = utf8_prefix(line, n);
+        double yy = y + head + pad + k * step;
+        hack_avatar(x + pad, yy + 1, icon, HACK_WHO_AZUM);
+        text_scaled(vis, x + pad + icon + 6, yy, 0xFFFFFFFFu, sc);
+        if (n < utf8_len(line) && n > 0 && fmod(event_t * 3, 2) < 1) {
+            double cw = text_ink_width(vis) * sc;
+            rect(x + pad + icon + 6 + cw + 1, yy, 5 * sc + 2, step * 0.72, 0xFFFFFFFFu);
+        }
         k = k + 1;
     }
+}
+
+/* The crash look: pure black over everything, HUD included. */
+static void draw_hacker_blackout(void) {
+    if (hack_ban_t <= 0 || hack_ban_t >= HACK_BLACK_DUR || hack_t >= HACK_RAIN_AT) {
+        return;
+    }
+    rect(0, 0, screen_w, screen_h, 0xFF000000u);
 }
 
 static void draw_hacker_cane_hud(void) {
@@ -399,41 +392,33 @@ static void draw_hacker_cane_hud(void) {
                  0xFFD54Au, 0.5);
 }
 
-/* World layer: stubs, cloud, junk pile and canes under the HUD. */
+/* World layer: the cloud, the junk pile and the canes under the HUD. */
 static void draw_hacker_world(void) {
     if (hack_active == 0) {
         return;
     }
-    draw_hacker_stubs();
+    draw_hacker_cloud();
     draw_hacker_buttons();
     draw_hacker_canes();
 }
 
-/* Overlay layer: glitch, terminals and the ban, above the HUD. */
+/* Overlay layer: glitch, the draggable consoles, the ban and the blackout. */
 static void draw_hacker_event(void) {
     if (hack_active == 0) {
         return;
     }
     draw_hacker_glitch();
     if (hack_t < HACK_RAIN_AT) {
-        double ban = hack_ban_t > 0 ? 1 : 0;
-#ifdef CB_PC
-        double w = hack_term_w();
-        hack_draw_term(0, 10, clamp(screen_h * 0.06, 30, 60), ban);
-        hack_draw_term(1, screen_w - w - 10, clamp(screen_h * 0.10, 54, 90), ban);
-        hack_draw_term(2, 10, screen_h * 0.52, ban);
-#else
-        /* Phones stack the windows and keep every one of them on screen. */
-        double h0 = hack_draw_term(0, 10, clamp(screen_h * 0.05, 26, 44), ban);
-        double y1 = clamp(screen_h * 0.46, 26 + h0 + 6, screen_h - 40);
-        double h1 = hack_draw_term(1, 10, y1, ban);
-        double y2 = y1 + h1 + 6;
-        if (y2 > screen_h - 120) {
-            y2 = screen_h - 120;
+        double erased = hack_ban_t > 0 ? 1 : 0;
+        double wi = 0;
+        while (wi < HACK_WINS) {
+            double x = clamp(hack_term_x[(int)wi], 4, screen_w - hack_term_w() - 4);
+            double y = clamp(hack_term_y[(int)wi], 4, screen_h - hack_term_head() - 40);
+            hack_draw_term(wi, x, y, erased);
+            wi = wi + 1;
         }
-        hack_draw_term(2, 10, y2, ban);
-#endif
         draw_hacker_ban();
     }
     draw_hacker_cane_hud();
+    draw_hacker_blackout();
 }

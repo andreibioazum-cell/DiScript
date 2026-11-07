@@ -2579,8 +2579,22 @@ static void test_hacker_event(void) {
     hack_button_push(&px, &py, player_half());
     assert(hit_rect(px, py, bx, by, bw, bh) == 0);
     /* Junk clicks with its native sound and does nothing else. */
-    assert(hack_touch(bx + bw / 2, by + bh / 2, 0) == 1);
+    assert(hack_touch(bx + bw / 2, by + bh / 2, 0, 1) == 1);
     assert(arr_get(hack_buttons, HB_PRESS) > 0);
+
+    /* Compact consoles drag by their green title bar and let go cleanly. */
+    {
+        double wx = hack_term_x[0];
+        double wy = hack_term_y[0];
+        assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
+        hack_touch(wx + 62, wy + 43, 2, 9);
+        hack_touch(wx + 62, wy + 43, 1, 9);
+        assert(fabs(hack_term_x[0] - (wx + 50)) < 1e-6);
+        assert(fabs(hack_term_y[0] - (wy + 40)) < 1e-6);
+        assert(hack_drag_win == -1);
+        /* A tap away from the bar still reaches the junk buttons. */
+        assert(hack_touch(wx + 12, wy + 3 + hack_term_head() + 30, 0, 9) == 0);
+    }
     draw_hacker_event();
     draw_hacker_world();
 
@@ -2599,7 +2613,7 @@ static void test_hacker_event(void) {
         update_hacker_event();
     }
     assert(hack_btn_made == 0 && hack_cloud_on == 0 && hack_cane_made >= 2);
-    assert(hack_touch(screen_w / 2, screen_h / 2, 0) == 0);
+    assert(hack_touch(screen_w / 2, screen_h / 2, 0, 1) == 0);
     cx = arr_get(hack_canes, HC_X);
     cy = arr_get(hack_canes, HC_Y);
     update_hacker_event();

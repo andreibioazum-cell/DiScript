@@ -60,6 +60,15 @@ static void hack_reset(void) {
     hack_cane_candy = 3;
     arr_clear(hack_buttons);
     arr_clear(hack_canes);
+    /* Compact defaults: two corners and a lower slot, never over the arena. */
+    hack_term_x[0] = 8;
+    hack_term_y[0] = hack_term_head() + 6;
+    hack_term_x[1] = screen_w - hack_term_w() - 8;
+    hack_term_y[1] = screen_h * 0.30;
+    hack_term_x[2] = 8;
+    hack_term_y[2] = screen_h * 0.60;
+    hack_drag_win = -1;
+    hack_drag_id = -1;
 }
 
 static void hack_spawn_button(void) {
@@ -234,8 +243,11 @@ static double hack_bounce_ball(double *x, double *y, double rad, double *vx, dou
 }
 
 /* Junk buttons click with their native sound and do absolutely nothing. */
-static double hack_touch(double x, double y, double action) {
+static double hack_touch(double x, double y, double action, double id) {
     double i;
+    if (hack_drag_touch(x, y, action, id) == 1) {
+        return 1;
+    }
     if (action != 0 || hack_active == 0 || finished != 0 || hack_t < HACK_BTN_START) {
         return 0;
     }
