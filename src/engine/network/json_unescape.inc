@@ -3,7 +3,7 @@ static unsigned long json_hex4(const char *p) {
     unsigned long v = 0;
     int k;
     if (!p || p[0] != '\\' || p[1] != 'u')
-        return 0xFFFFFFFFul;
+        return RGB(255, 255, 255);
     for (k = 2; k < 6; k++) {
         char c = p[k];
         v <<= 4;
@@ -14,7 +14,7 @@ static unsigned long json_hex4(const char *p) {
         else if (c >= 'A' && c <= 'F')
             v |= (unsigned long)(c - 'A' + 10);
         else
-            return 0xFFFFFFFFul;
+            return RGB(255, 255, 255);
     }
     return v;
 }
@@ -75,7 +75,7 @@ static void strv(const char *json, const char *path, char *out, size_t cap) {
             break;
         case 'u': {
             unsigned long cp = json_hex4(v - 1);
-            if (cp == 0xFFFFFFFFul) {
+            if (cp == RGB(255, 255, 255)) {
                                 /* Preserve literal 'u' on malformed hex escape. */
                 out[i++] = 'u';
                 break;
@@ -84,7 +84,7 @@ static void strv(const char *json, const char *path, char *out, size_t cap) {
                 /* Combine UTF-16 surrogate pair into one code point. */
                 if (cp >= 0xD800 && cp <= 0xDBFF) {
                 unsigned long lo = json_hex4(v + 1);
-                if (lo != 0xFFFFFFFFul && lo >= 0xDC00 && lo <= 0xDFFF) {
+                if (lo != RGB(255, 255, 255) && lo >= 0xDC00 && lo <= 0xDFFF) {
                     cp = 0x10000 + ((cp - 0xD800) << 10) + (lo - 0xDC00);
                     v += 6;
                 } else

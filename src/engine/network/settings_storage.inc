@@ -5,16 +5,14 @@ typedef struct {
     int loaded, has_file;
     int language, hitboxes, musicvol, winter, theme, mode, chosen;
     int legal;
+    int ppin, page; /* Parental control: device-only pin hash and age mode. */
+    int pin2;       /* Extra account password: device-only hash, never leaves the phone. */
     int pdc, pdv; /* Personal data consent timestamp and revision. */
 } Settings;
 static Settings st = {.lock = DS_MUTEX_INIT};
 
-static void st_lock(void) {
-    ds_mutex_lock(st.lock);
-}
-static void st_unlock(void) {
-    ds_mutex_unlock(st.lock);
-}
+static void st_lock(void) { ds_mutex_lock(st.lock); }
+static void st_unlock(void) { ds_mutex_unlock(st.lock); }
 
 static char sys_lang[8]; /* Device ISO 639-1 language code. */
 
@@ -32,13 +30,13 @@ static int system_language_default(void) {
     st_unlock();
     return ru;
 }
-
 static void settings_read(void) {
     char path[320], line[128];
     FILE *f;
         /* -1: no language in the file, use the phone language. */
     int language = -1, hitboxes = 1, musicvol = 70, has_file = 0;
     int winter = 0, legal = 0, theme = 1, mode = 0, pdc = 0, pdv = 0;
+    int ppin = 0, page = 0, pin2 = 0;
     /* -1 = no saved choice yet; an old style line counts as a choice. */
     int chosen = -1;
     st_lock();
@@ -88,6 +86,18 @@ static void settings_read(void) {
                 legal = value;
                 continue;
             }
+            if (sscanf(line, "ppin %d", &value) == 1) {
+                ppin = value;
+                continue;
+            }
+            if (sscanf(line, "pin2 %d", &value) == 1) {
+                pin2 = value;
+                continue;
+            }
+            if (sscanf(line, "page %d", &value) == 1) {
+                page = value;
+                continue;
+            }
             if (sscanf(line, "pdc %d", &value) == 1) {
                 pdc = value;
                 continue;
@@ -107,16 +117,18 @@ static void settings_read(void) {
     st.musicvol = musicvol < 0 ? 0 : (musicvol > 100 ? 100 : musicvol);
     st.winter = winter ? 1 : 0;
     st.theme = theme ? 1 : 0;
-    st.mode = mode >= 0 && mode <= 2 ? mode : 0;
+    st.mode = mode >= 0 && mode <= 1 ? mode : 0;
     st.chosen = chosen > 0 ? 1 : 0;
     st.legal = legal;
+    st.ppin = ppin > 0 ? ppin : 0;
+    st.pin2 = pin2 > 0 ? pin2 : 0;
+    st.page = page >= 0 && page <= 2 ? page : 0;
     st.pdc = pdc > 0 ? pdc : 0;
     st.pdv = pdc > 0 && pdv > 0 ? pdv : 0;
     st.has_file = has_file;
     st.loaded = 1;
     st_unlock();
 }
-
 static void settings_write(void) {
     char path[320], text[256];
     settings_read();
@@ -124,14 +136,13 @@ static void settings_write(void) {
     st_lock();
     snprintf(text, sizeof(text),
              "lang %d\nhitboxes %d\nmusicvol %d\nwinter %d\ntheme %d\nstyle %d\nchosen %d\nlegal %d\n"
-             "pdc %d\npdv %d\n",
-             st.language, st.hitboxes, st.musicvol, st.winter, st.theme, st.mode, st.chosen, st.legal, st.pdc,
-             st.pdv);
+             "ppin %d\npin2 %d\npage %d\npdc %d\npdv %d\n",
+             st.language, st.hitboxes, st.musicvol, st.winter, st.theme, st.mode, st.chosen, st.legal, st.ppin, st.pin2,
+             st.page, st.pdc, st.pdv);
     st.has_file = 1;
     st_unlock();
     file_write_atomic(path, text);
 }
-
 static void settings_push_to_cloud(void) {
     char nick[LOGIN_NICK_MAX + 1] = "";
     char body[BODY];
@@ -152,11 +163,10 @@ static void settings_push_to_cloud(void) {
         return;
     char url[URL];
     snprintf(url, sizeof(url), "%s/users/%s.json", net.base, nick);
-    snprintf(body, sizeof(body), "{\"lang\":%d,\"hitboxes\":%d,\"musicvol\":%d,\"winter\":%d}", language,
-             hitboxes, musicvol, winter);
+    snprintf(body, sizeof(body), "{\"lang\":%d,\"hitboxes\":%d,\"musicvol\":%d,\"winter\":%d}",
+             language, hitboxes, musicvol, winter);
     http_patch_async(url, body);
 }
-
 double net_load_language(void) {
     double v;
     settings_read();
@@ -165,7 +175,6 @@ double net_load_language(void) {
     st_unlock();
     return v;
 }
-
 double net_load_hitboxes(void) {
     double v;
     settings_read();
@@ -237,7 +246,7 @@ void net_save_new_theme(double on) {
     settings_write();
 }
 
-/* Three-way menu theme: 0 ordinary, 1 New Year, 2 Halloween. */
+/* Menu theme: 0 ordinary, 1 New Year. Anything else is treated as ordinary. */
 double net_load_theme_mode(void) {
     double v;
     settings_read();
@@ -250,7 +259,7 @@ double net_load_theme_mode(void) {
 void net_save_theme_mode(double mode) {
     settings_read();
     st_lock();
-    st.mode = mode >= 0 && mode <= 2 ? (int)mode : 0;
+    st.mode = mode >= 0 && mode <= 1 ? (int)mode : 0;
     st.loaded = 1;
     st_unlock();
     settings_write();
@@ -382,3 +391,57 @@ void net_pd_consent_upload(void) {
     snprintf(body, sizeof(body), "{\"pd_consent_ts\":%d,\"pd_consent_ver\":%d}", pdc, pdv);
     http_patch_async(url, body);
 }
+
+/* Device-only parental control: pin hash and age mode never leave the phone. */
+double net_load_parent_pin(void) {
+    double v;
+    settings_read();
+    st_lock();
+    v = (double)st.ppin;
+    st_unlock();
+    return v;
+}
+
+void net_save_parent_pin(int hash) {
+    settings_read();
+    st_lock();
+    st.ppin = hash > 0 ? hash : 0;
+    st_unlock();
+    settings_write();
+}
+
+/* Extra account password: same device-only rule as the parental pin. */
+double net_load_pin2(void) {
+    double v;
+    settings_read();
+    st_lock();
+    v = (double)st.pin2;
+    st_unlock();
+    return v;
+}
+
+void net_save_pin2(int hash) {
+    settings_read();
+    st_lock();
+    st.pin2 = hash > 0 ? hash : 0;
+    st_unlock();
+    settings_write();
+}
+
+double net_load_parent_age(void) {
+    double v;
+    settings_read();
+    st_lock();
+    v = (double)st.page;
+    st_unlock();
+    return v;
+}
+
+void net_save_parent_age(int age) {
+    settings_read();
+    st_lock();
+    st.page = age >= 0 && age <= 2 ? age : 0;
+    st_unlock();
+    settings_write();
+}
+

@@ -25,8 +25,8 @@ capped at `0..999`. An owner can update their own counts; another signed-in
 player can only add one to an existing counter (or create it with `1`).
 Deleting another player's gift counter is rejected.
 
-`pumpkin_cube` is different: only the primary admin can write it. An owner may
-save their entire profile only if the `pumpkin_cube` count stays unchanged. This
+`pumpkin_cube` was removed; the rule remains for backward compatibility.
+save their profile; the `pumpkin_cube` counter no longer exists in the game.
 extra profile-level check is necessary because Firebase parent `.write` rules
 also cover writes to descendants.
 
@@ -54,6 +54,6 @@ so malformed values are rejected before they reach game state.
    `firebase deploy --only database`.
 
 The static rule test checks the Christmas flag, event bounds, slot fields,
-required gift permissions, the admin-only pumpkin counter, and the owner-profile
+required gift permissions and the owner-profile
 invariant. The admin-panel schema test checks that the panel and Firebase rules
 agree about live fields.

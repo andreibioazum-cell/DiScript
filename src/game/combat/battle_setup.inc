@@ -2,6 +2,7 @@ static void reset_battle(void) {
     /* Refresh the developer permission once when a battle starts. */
     astra_ability_refresh();
     codecracker_refresh();
+    codecracker_look_reset();
     player->x = screen_w / 2;
     player->y = screen_h / 2;
     player->angle = 0;
@@ -10,6 +11,7 @@ static void reset_battle(void) {
     reset_remote_smooth();
     ball_reset();
     christmas_reset();
+    ice_reset();
     player->max_hp = astra_ability_max_hp_for(player_class, astra_ability_local());
     player->hp = player->max_hp;
     player->size = 25 * player_scale;

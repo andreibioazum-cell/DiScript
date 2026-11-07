@@ -24,6 +24,13 @@ typedef struct {
 } Joy;
 extern Joy joy;
 void ds_log(const char *format, ...);
+/* Non-zero silences informational logs (errors always print). */
+extern int ds_log_quiet;
+/* Native "open file" / "save file" dialogs, installed by the platform. */
+extern int (*ds_pick_open_hook)(char *dst, int cap);
+extern int (*ds_pick_save_hook)(const char *name, char *dst, int cap);
+int ds_pick_open_file(char *dst, int cap);
+int ds_pick_save_file(const char *name, char *dst, int cap);
 void ds_log_err(const char *format, ...);
 void ds_console_log(int is_error, const char *format, ...);
 typedef void (*DSProtectedFunction)(void *userdata);
@@ -87,6 +94,16 @@ void line(float x1, float y1, float x2, float y2, float thickness, uint32_t colo
 void ds_set_asset_manager(AAssetManager *assets);
 void ds_release_assets(void);
 int png_load(const char *name);
+/* Read a packaged asset file into `buf`; returns bytes or -1. */
+int ds_asset_read(const char *name, void *buf, int cap);
+/* Decode an in-memory PNG and install it under an existing asset name (mods). */
+int png_load_memory(const char *name, const void *data, int size);
+/* Point asset loading at a texture pack folder; empty path turns it off. */
+void ds_assets_pack_dir(const char *dir);
+/* Reload every cached texture from the active pack. */
+int ds_assets_reload_textures(void);
+/* Drop a pack override and reload the packaged asset. */
+int png_reset(const char *name);
 int tex_ready(const char *name);
 void tex(float x, float y, const char *name, float angle, float scale);
 void tex_tint(float x, float y, const char *name, float angle, float scale, uint32_t color);

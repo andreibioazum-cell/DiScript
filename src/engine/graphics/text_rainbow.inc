@@ -35,5 +35,5 @@ void text_shimmer(const char *s, float x, float y, uint32_t c, float sc, float p
     p->v.tr.y = y;
     p->v.tr.sc = sc;
     p->v.tr.hue = phase;
-    p->v.tr.c = (c & 0xFF000000u) ? c : (0xFF000000u | c);
+    p->v.tr.c = (c & RGB(0,0,0)) ? c : (RGB(0,0,0) | c);
 }

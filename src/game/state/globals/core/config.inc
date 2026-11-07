@@ -150,7 +150,6 @@ double LOOK_EBUC;
 double LOOK_ELF;
 double LOOK_ASTRA;
 double LOOK_GOLD;
-double LOOK_PUMPKIN;
 double azum_tex_ok;
 double azum_zombie_tex_ok;
 double azum_zombie_punch_tex_ok;
@@ -160,7 +159,6 @@ double ebuc_tex_ok;
 double ordinary_punch_tex_ok;
 double ordinary_gold_tex_ok;
 double ordinary_gold_punch_tex_ok;
-double ordinary_pumpkin_tex_ok;
 double azum_punch_tex_ok;
 double santa_punch_tex_ok;
 double ebuc_punch_tex_ok;
@@ -430,13 +428,12 @@ const char *login_pass;
 char login_nick_buf[128];
 char login_pass_buf[128];
 const char *LOBBY_MUSIC;
-const char *HALLOWEEN_MUSIC;
 const char *SERAPHIM_MUSIC;
 const char *BUTTON_CLICK_SOUND;
 double button_click_ok;
 /* Active UI theme: 1 = new purple gradient, 0 = classic flat rose. */
 double new_theme;
-double theme_mode;   /* 0 = ordinary, 1 = New Year, 2 = Halloween */
+double theme_mode;   /* 0 = ordinary, 1 = New Year */
 /* 1 once the player has pressed the theme button; saved in settings.dat. */
 double theme_chosen;
 /* Navigation generation counter used to scope button press pulses to one screen. */

@@ -125,8 +125,8 @@ static void http_log_exception(JNIEnv *env, const char *method) {
     (*env)->ExceptionClear(env);
 }
 
-static int http_ex(const char *method, const char *url, const char *body, char *out, size_t cap, const char *header,
-                   const char *value, char *etag, size_t etag_cap) {
+static int http_ex_once(const char *method, const char *url, const char *body, char *out, size_t cap, const char *header,
+                        const char *value, char *etag, size_t etag_cap) {
     JNIEnv *env = NULL;
     jobject conn = NULL, stream = NULL, urlobj = NULL;
     jclass urlc, connc, streamc;
@@ -188,7 +188,7 @@ static int http_ex(const char *method, const char *url, const char *body, char *
         }
     }
     {
-        int tmo = net_fast ? 1200 : TIMEOUT;
+        int tmo = net_fast ? 3000 : TIMEOUT;
         jmethodID set_ctmo = cached ? http_jni.c_ctmo : (*env)->GetMethodID(env, connc, "setConnectTimeout", "(I)V");
         jmethodID set_rtmo = cached ? http_jni.c_rtmo : (*env)->GetMethodID(env, connc, "setReadTimeout", "(I)V");
         (*env)->CallVoidMethod(env, conn, set_ctmo, tmo);
@@ -303,6 +303,20 @@ done:
     (*env)->PopLocalFrame(env, NULL);
     return ok ? code : 0;
 #undef JNI_CHECK
+}
+
+/* Retry once on a transport error for methods that are safe to repeat. */
+static int http_retry_safe(const char *method) {
+    const char *m = method ? method : "GET";
+    return strcmp(m, "GET") == 0 || strcmp(m, "PUT") == 0 || strcmp(m, "PATCH") == 0 || strcmp(m, "DELETE") == 0;
+}
+
+static int http_ex(const char *method, const char *url, const char *body, char *out, size_t cap, const char *header,
+                   const char *value, char *etag, size_t etag_cap) {
+    int code = http_ex_once(method, url, body, out, cap, header, value, etag, etag_cap);
+    if (code == 0 && !net_fast && http_retry_safe(method))
+        code = http_ex_once(method, url, body, out, cap, header, value, etag, etag_cap);
+    return code;
 }
 
 /* Stream Server-Sent Events via GET; returns HTTP status or 0 on transport error. */

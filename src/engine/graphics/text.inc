@@ -9,7 +9,7 @@ static uint32_t rainbow_rgb(float hue) {
     r = r < 0 ? 0 : (r > 1 ? 1 : r);
     g = g < 0 ? 0 : (g > 1 ? 1 : g);
     b = b < 0 ? 0 : (b > 1 ? 1 : b);
-    return 0xFF000000u | ((uint32_t)(r * 255.0f) << 16) | ((uint32_t)(g * 255.0f) << 8) |
+    return RGB(0,0,0) | ((uint32_t)(r * 255.0f) << 16) | ((uint32_t)(g * 255.0f) << 8) |
            (uint32_t)(b * 255.0f);
 }
 

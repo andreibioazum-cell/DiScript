@@ -1,3 +1,6 @@
+static double prev_look[4];
+static double blend_t[4];
+
 static double fighter_look_of(double slot) { return arr_get(fighter_looks, slot); }
 
 static double fighter_pose_of(double slot, double punching) {
@@ -8,8 +11,17 @@ static double fighter_pose_of(double slot, double punching) {
 }
 
 static void resolve_fighter_look(double slot, double cls, double skin) {
-    double wanted = class_look(cls, skin);
+    double wanted = cls == CLASS_CODECRACKER ? codecracker_match_look() : class_look(cls, skin);
+    double current = arr_get(fighter_looks, slot);
     if (look_ready(wanted) == 1) {
+        /* When the look actually changes, start a smooth blend. */
+        if (current != wanted) {
+            prev_look[(int)slot] = current;
+            blend_t[(int)slot] = 1.0;
+        } else {
+            prev_look[(int)slot] = LOOK_NONE;
+            blend_t[(int)slot] = 0.0;
+        }
         /* Publish the matching idle/punch pair atomically. */
         arr_set(fighter_looks, slot, wanted);
         arr_set(fighter_swings, slot, 1);
@@ -118,11 +130,22 @@ static void draw_fighter_shadow(double x, double y, double ang, double look, dou
 }
 
 static void draw_fighter_body(double x, double y, double ang, double look, double punching) {
+    int slot_idx = 0;
+    double blend = blend_t[0];
+    double prev = prev_look[0];
     double half_px = 25 * cube_scale * player_scale;
     double sprite_scale = cube_scale * player_scale;
     if (look == LOOK_NONE) {
+        if (blend > 0 && prev != LOOK_NONE && look_ready(prev) == 1) {
+            tex_tint(x - half_px, y - half_px, look_tex(prev, punching), sprite_a(ang), sprite_scale,
+                     (uint32_t)(int)(blend * 255.0));
+        }
         rect(x - half_px, y - half_px, 2 * half_px, 2 * half_px, fighter_fallback_rgb);
         return;
+    }
+    if (blend > 0 && prev != LOOK_NONE && look_ready(prev) == 1) {
+        tex_tint(x - half_px, y - half_px, look_tex(prev, 0), sprite_a(ang), sprite_scale,
+                 (uint32_t)(int)(blend * 255.0));
     }
     tex(x - half_px, y - half_px, look_tex(look, punching), sprite_a(ang), sprite_scale);
 }
@@ -144,6 +167,30 @@ static void draw_fighter_hurt(double x, double y, double ang, double look, doubl
 }
 
 /* Draw fighter sprite with optional flat color tint. */
+/* Draw a small cube trail behind the fighter during a dash.
+ * Each cube uses the fighter's own sprite scaled down, fading behind. */
+static void draw_dash_cube_trail(double x, double y, double ang, double look, double punching,
+                                  double scale) {
+    if (look == LOOK_NONE) {
+        return;
+    }
+    int i = 1;
+    while (i <= 3) {
+        double t = i / 4.0;
+        double alpha = 0.35 * (1.0 - t);
+        unsigned ai = (unsigned)(int)(alpha * 255.0 + 0.5);
+        if (ai >= 1) {
+            double small_scale = cube_scale * scale * 0.35;
+            double half_small = 25 * small_scale;
+            tex_tint(x - cos(ang) * 14 * i - half_small,
+                     y - sin(ang) * 14 * i - half_small,
+                     look_tex(look, punching), sprite_a(ang), small_scale,
+                     ((uint32_t)ai) << 24);
+        }
+        i = i + 1;
+    }
+}
+
 static void draw_fighter_tint(double x, double y, double ang, double look, double punching, double scale, double tint) {
     if (tint <= 0 || look == LOOK_NONE) {
         return;
@@ -151,4 +198,17 @@ static void draw_fighter_tint(double x, double y, double ang, double look, doubl
     double half_px = 25 * cube_scale * scale;
     tex_tint(x - half_px, y - half_px, look_tex(look, punching), sprite_a(ang), cube_scale * scale,
              (uint32_t)(int)tint);
+}
+
+/* Decrease blend timers every frame so sprite changes fade smoothly. */
+static void tick_fighter_blends(void) {
+    int i;
+    for (i = 0; i < 4; i++) {
+        if (blend_t[i] > 0) {
+            blend_t[i] = blend_t[i] - 0.10;
+            if (blend_t[i] < 0) {
+                blend_t[i] = 0;
+            }
+        }
+    }
 }

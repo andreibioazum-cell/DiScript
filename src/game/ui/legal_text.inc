@@ -1,11 +1,11 @@
 /* In-game legal documents summary and personal data consent version. */
 
-#define LEGAL_DOCS_VERSION 1
+#define LEGAL_DOCS_VERSION 2
 #define LEGAL_OPERATOR_RU "Дима Густенёв"
 #define LEGAL_OPERATOR_EN "Dima Gustenyov"
 /* Contact endpoint for personal data requests. */
 #define LEGAL_CONTACT "github.com/andreibioazum-cell/C-Larp/issues"
-#define LEGAL_PAGES 7
+#define LEGAL_PAGES 8
 #define LEGAL_LINES 10
 #define LEGAL_PAGE_CONSENT 5
 #define LEGAL_PAGE_RIGHTS 6
@@ -39,7 +39,7 @@ static const char *const legal_ru[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "находиться за пределами России", "(трансграничная передача, ст. 12 152-ФЗ).",
      "Срок: пока существует аккаунт; чат", "хранит лишь последние сообщения комнаты.",
      "Данные не продаются и не передаются", "третьим лицам, кроме случаев по закону.",
-     "Пароль на устройстве лежит в закрытой", "папке игры, другим приложениям не виден."},
+     "Пароль, PIN родителя и режим возраста", "хранятся только на устройстве."},
     {"Согласие на обработку данных", "Отмечая галочку при входе, вы свободно,",
      "своей волей и в своём интересе даёте", "оператору согласие на обработку данных",
      "со стр. 4: сбор, запись, хранение,", "уточнение, использование, передачу",
@@ -50,6 +50,10 @@ static const char *const legal_ru[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "Отзыв согласия - это удаление аккаунта:", "кнопка ниже стирает аккаунт, профиль",
      "в облаке и данные на этом устройстве.", "Ответ на обращение - до 10 рабочих дней.",
      "Жалобу можно подать в Роскомнадзор.", ""},
+    {"Лицензия и авторские права", "Код, графика, музыка, тексты и персонажи", "принадлежат правообладателю.",
+     "Все права защищены.", "Копировать, распространять, продавать игру,", "её код и материалы, а также",
+     "декомпилировать их и обходить защиту", "запрещено. Текстурпаки делаете вы и", "отвечаете за них сами:",
+     "в паках нельзя распространять материалы игры.", "Нарушение прекращает право играть в игру."},
 };
 
 static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
@@ -76,7 +80,7 @@ static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "be located outside Russia", "(cross-border transfer, 152-FZ art. 12).",
      "Kept while the account exists; the chat", "keeps only the latest room messages.",
      "Data is never sold or shared with third", "parties, except where the law requires.",
-     "On the device the password stays in the", "game's private folder, hidden from apps."},
+     "The password, parent PIN and age mode", "are kept on this device only."},
     {"Consent to data processing", "By ticking the box at sign-in you freely,",
      "of your own will and in your interest give", "the operator consent to process the data",
      "from page 4: collect, record, store,", "update, use, transfer to the Firebase",
@@ -87,6 +91,10 @@ static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "Withdrawing consent deletes the account:", "the button below erases the account, the",
      "cloud profile and data on this device.", "Requests are answered within 10 working days.",
      "You may complain to Roskomnadzor.", ""},
+    {"License and copyright", "The code, graphics, music, texts and", "characters belong to the rights holder.",
+     "All rights reserved.", "Copying, distributing or selling the game,", "its code and materials, decompiling them",
+     "or bypassing the protection is prohibited.", "Texture packs are made by you and are", "your responsibility:",
+     "packs may not redistribute the game materials.", "A violation ends the right to play."},
 };
 
 static const char *legal_line(double page, double line) {

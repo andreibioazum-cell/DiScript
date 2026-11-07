@@ -29,7 +29,11 @@ static const char *norm_name(const char *n) {
     return n;
 }
 static int open_asset(const char *n, uint8_t **out, size_t *sz) {
-    if (!n || !out || !sz || !amgr)
+    if (!n || !out || !sz)
+        return 0;
+    if (open_pack_file(n, out, sz))
+        return 1;
+    if (!amgr)
         return 0;
     AAsset *a = AAssetManager_open(amgr, n, AASSET_MODE_BUFFER);
     if (!a)
@@ -139,6 +143,115 @@ static Texture *load_png(const char *req) {
     ds_log("texture loaded: %s (%dx%d)", n, t->w, t->h);
     return t;
 }
+/* Drop a mod texture override and load the packaged asset again. */
+int png_reset(const char *req) {
+    const char *n = norm_name(req);
+    Texture *t;
+    if (!n)
+        return 0;
+    t = find_tx(n);
+    if (!t)
+        return 0;
+    ds_vk_texture_gpu_release(t);
+    free(t->gray_backup);
+    t->gray_backup = NULL;
+    free(t->pixels);
+    t->pixels = NULL;
+    t->w = 0;
+    t->h = 0;
+    t->opaque = 0;
+    t->upload_tries = 0;
+    return load_png(n) != NULL;
+}
+
+/* Reload every cached texture from the active pack (or the packaged asset). */
+int ds_assets_reload_textures(void) {
+    Texture *t;
+    int count = 0;
+    for (t = textures; t; t = t->next) {
+        if (t->name && png_reset(t->name) == 1)
+            count++;
+    }
+    return count;
+}
+
+/* Replace (or create) a texture from an in-memory PNG. Used by the mod loader:
+ * a mod ships ordinary.png and the game pushes it over the shipped asset
+ * without touching assets/ on disk. Returns 1 when the texture is live. */
+int png_load_memory(const char *req, const void *data, int size) {
+    const char *n = norm_name(req);
+    if (!n || !data || size <= 0 || size > (16 * 1024 * 1024))
+        return 0;
+    int w = 0, h = 0, ch = 0;
+    stbi_uc *dec = stbi_load_from_memory((const stbi_uc *)data, size, &w, &h, &ch, STBI_rgb_alpha);
+    if (!dec || w <= 0 || h <= 0 || w > 2048 || h > 2048) {
+        stbi_image_free(dec);
+        ds_log_err("mod texture refused: %s", n);
+        return 0;
+    }
+    Texture *t = find_tx(n);
+    if (!t) {
+        t = (Texture *)calloc(1, sizeof(*t));
+        if (!t) {
+            stbi_image_free(dec);
+            return 0;
+        }
+        t->name = strdup_safe(n);
+        if (!t->name) {
+            free(t);
+            stbi_image_free(dec);
+            return 0;
+        }
+        t->next = textures;
+        textures = t;
+    }
+    size_t pc = (size_t)w * (size_t)h;
+    uint32_t *px = (uint32_t *)malloc(pc * sizeof(*px));
+    if (!px) {
+        stbi_image_free(dec);
+        return 0;
+    }
+    int opaque = 1;
+    for (size_t i = 0; i < pc; i++) {
+        uint8_t a = dec[i * 4 + 3];
+        px[i] = dec[i * 4] | ((uint32_t)dec[i * 4 + 1] << 8) | ((uint32_t)dec[i * 4 + 2] << 16) |
+                ((uint32_t)a << 24);
+        if (a != 255)
+            opaque = 0;
+    }
+    stbi_image_free(dec);
+    ds_vk_texture_gpu_release(t);
+    free(t->gray_backup);
+    t->gray_backup = NULL;
+    free(t->pixels);
+    t->pixels = px;
+    t->w = w;
+    t->h = h;
+    t->opaque = opaque;
+    t->upload_tries = 0;
+    texture_gray_apply(t);
+    ds_vk_pending_texture(t);
+    ds_log("mod texture applied: %s (%dx%d)", n, w, h);
+    return 1;
+}
+
+/* Read a whole packaged asset into a caller buffer (mod example zip, etc.). */
+int ds_asset_read(const char *name, void *buf, int cap) {
+    uint8_t *enc = NULL;
+    size_t sz = 0;
+    int copied;
+    if (!buf || cap <= 0)
+        return -1;
+    if (!open_asset(name, &enc, &sz) || sz > (size_t)cap) {
+        free(enc);
+        return -1;
+    }
+    memcpy(buf, enc, sz);
+    copied = (int)sz;
+    free(enc);
+    return copied;
+}
+
 static int ensure_font(void) {
     if (font)
         return 1;
@@ -354,7 +467,7 @@ void tex_tint(float x, float y, const char *name, float a, float s, uint32_t c) 
 
 static uint32_t text_force_white(uint32_t c) {
 
-    if (c == 0xFFFF4444u || c == 0xFF4FC3F7u || c == 0xFFFF3333u || c == 0xFF33A8FFu || c == 0xFFFFD54Au || c == 0xFFFFDD33u)
+    if (c == RGB(255,68,68) || c == RGB(79,195,247) || c == RGB(255,51,51) || c == RGB(51,168,255) || c == RGB(255,213,74) || c == RGB(255,221,51))
         return c;
 
     if ((c & 0x00ffffffu) == 0x00202020u)

@@ -32,41 +32,41 @@ static double xmas_remote_hits_other(int shooter, double ox, double oy, double n
     return 0;
 }
 
-static void xmas_step_local(void) {
+static void xmas_step_local(XmasBall *b) {
     double left, piece, ox, oy;
-    if (xmas_ball.active == 0) {
+    if (b->active == 0) {
         return;
     }
-    xmas_ball.t = xmas_ball.t + dt;
+    b->t = b->t + dt;
     left = 1;
-    while (left > 0 && xmas_ball.active == 1) {
-        ox = xmas_ball.x;
-        oy = xmas_ball.y;
+    while (left > 0 && b->active == 1) {
+        ox = b->x;
+        oy = b->y;
         piece = left < 0.125 ? left : 0.125;
         left = left - piece;
-        xmas_ball.x = xmas_ball.x + xmas_ball.vx * dt * piece;
-        xmas_ball.y = xmas_ball.y + xmas_ball.vy * dt * piece;
-        xmas_ball.bounces = xmas_ball.bounces +
-                            xmas_bounce(&xmas_ball.x, &xmas_ball.y, &xmas_ball.vx, &xmas_ball.vy);
-        if (xmas_ball.bounces > XMAS_MAX_BOUNCES || xmas_ball.t > XMAS_MAX_TIME) {
-            xmas_burst(&xmas_ball);
+        b->x = b->x + b->vx * dt * piece;
+        b->y = b->y + b->vy * dt * piece;
+        b->bounces = b->bounces + xmas_bounce(&b->x, &b->y, &b->vx, &b->vy);
+        b->bounces = b->bounces + ice_bounce_ball(&b->x, &b->y, XMAS_RADIUS, &b->vx, &b->vy);
+        if (b->bounces > XMAS_MAX_BOUNCES || b->t > XMAS_MAX_TIME) {
+            xmas_burst(b);
             return;
         }
         if (game_state == ST_SOLO) {
             if (enemy != NULL && enemy->hp > 0 &&
-                ball_seg_hits_fighter(ox, oy, xmas_ball.x, xmas_ball.y, XMAS_RADIUS, enemy->x, enemy->y,
-                                      enemy->angle, enemy_scale) == 1) {
-                xmas_burst(&xmas_ball);
+                ball_seg_hits_fighter(ox, oy, b->x, b->y, XMAS_RADIUS, enemy->x, enemy->y, enemy->angle,
+                                      enemy_scale) == 1) {
+                xmas_burst(b);
                 return;
             }
         } else if (game_state == ST_ONLINE) {
-            if (xmas_seg_hits_online_foe(ox, oy, xmas_ball.x, xmas_ball.y) == 1) {
-                xmas_burst(&xmas_ball);
+            if (xmas_seg_hits_online_foe(ox, oy, b->x, b->y) == 1) {
+                xmas_burst(b);
                 return;
             }
         }
     }
-    xmas_trail_push(&xmas_ball);
+    xmas_trail_push(b);
 }
 
 static void xmas_step_remote(int s) {
@@ -85,6 +85,7 @@ static void xmas_step_remote(int s) {
         r->x = r->x + r->vx * dt * piece;
         r->y = r->y + r->vy * dt * piece;
         r->bounces = r->bounces + xmas_bounce(&r->x, &r->y, &r->vx, &r->vy);
+        r->bounces = r->bounces + ice_bounce_ball(&r->x, &r->y, XMAS_RADIUS, &r->vx, &r->vy);
         if (r->bounces > XMAS_MAX_BOUNCES || r->t > XMAS_MAX_TIME) {
             xmas_remote_burst(s);
             return;
@@ -103,22 +104,27 @@ static void xmas_step_remote(int s) {
 }
 
 static void christmas_tick(void) {
-    int s = 0;
+    int s = 0, k = 0;
     double i = 0;
     xmas_cd = tick_down(xmas_cd);
-    if (xmas_ball.boom_t > 0) {
-        xmas_ball.boom_t = tick_down(xmas_ball.boom_t);
-    }
-    while (i < XMAS_TRAIL) {
-        if (xmas_ball.trail_a[(int)i] > 0) {
-            xmas_ball.trail_a[(int)i] = xmas_ball.trail_a[(int)i] - dt / 0.45;
-            if (xmas_ball.trail_a[(int)i] < 0) {
-                xmas_ball.trail_a[(int)i] = 0;
-            }
+    while (k < XMAS_MAX_BALLS) {
+        XmasBall *b = &xmas_balls[k];
+        i = 0;
+        if (b->boom_t > 0) {
+            b->boom_t = tick_down(b->boom_t);
         }
-        i = i + 1;
+        while (i < XMAS_TRAIL) {
+            if (b->trail_a[(int)i] > 0) {
+                b->trail_a[(int)i] = b->trail_a[(int)i] - dt / 0.45;
+                if (b->trail_a[(int)i] < 0) {
+                    b->trail_a[(int)i] = 0;
+                }
+            }
+            i = i + 1;
+        }
+        xmas_step_local(b);
+        k = k + 1;
     }
-    xmas_step_local();
     if (game_state != ST_ONLINE) {
         return;
     }
@@ -152,32 +158,38 @@ static void christmas_tick(void) {
 static void xmas_draw_body(double x, double y) {
     double flake_scale = 0.72;
     double flake_half = 32 * flake_scale;
-    circle(x, y, XMAS_RADIUS, 0xFFEAF7FFu);
-    ring(x, y, XMAS_RADIUS, 3, 0xFF9FD3F0u);
-    /* Full, clear white snowflake in the same clean winter style as ebuC's
-     * elf kit; the red hitbox/debug outline is deliberately not rendered. */
-    tex_tint(x - flake_half, y - flake_half, SNOWFLAKE_TEX, 0, flake_scale, 0xFFFFFFFFu);
+    /* Plain white ball with a soft halo, in the clean winter style of ebuC's
+     * elf kit: no hard blue outline around the snowball. */
+    circle(x, y, XMAS_RADIUS + 4, 0x24FFFFFFu);
+    circle(x, y, XMAS_RADIUS, RGB(251,253,255));
+    /* Full, clear snowflake; the red hitbox/debug outline is never rendered. */
+    tex_tint(x - flake_half, y - flake_half, SNOWFLAKE_TEX, 0, flake_scale, RGB(255,255,255));
 }
 
 static void draw_christmas_snowballs(void) {
     double i = 0;
-    int s = 0;
+    int s = 0, k = 0;
     if (christmas_snowballs_on() == 0) {
         return;
     }
-    while (i < XMAS_TRAIL) {
-        if (xmas_ball.trail_a[(int)i] > 0) {
-            double a = xmas_ball.trail_a[(int)i];
-            circle(xmas_ball.trail_x[(int)i], xmas_ball.trail_y[(int)i], XMAS_RADIUS * (0.12 + 0.45 * a),
-                   ((unsigned)(int)(a * 170) << 24) | 0x00EAF7FFu);
+    while (k < XMAS_MAX_BALLS) {
+        XmasBall *b = &xmas_balls[k];
+        i = 0;
+        while (i < XMAS_TRAIL) {
+            if (b->trail_a[(int)i] > 0) {
+                double a = b->trail_a[(int)i];
+                circle(b->trail_x[(int)i], b->trail_y[(int)i], XMAS_RADIUS * (0.12 + 0.45 * a),
+                       ((unsigned)(int)(a * 170) << 24) | 0x00EAF7FFu);
+            }
+            i = i + 1;
         }
-        i = i + 1;
-    }
-    if (xmas_ball.active == 1) {
-        xmas_draw_body(xmas_ball.x, xmas_ball.y);
-    }
-    if (xmas_ball.boom_t > 0) {
-        draw_boom_at_r(xmas_ball.boom_x, xmas_ball.boom_y, xmas_ball.boom_t, XMAS_BOOM_RADIUS);
+        if (b->active == 1) {
+            xmas_draw_body(b->x, b->y);
+        }
+        if (b->boom_t > 0) {
+            draw_boom_at_r(b->boom_x, b->boom_y, b->boom_t, XMAS_BOOM_RADIUS);
+        }
+        k = k + 1;
     }
     while (s < NET_SLOTS) {
         if (xmas_remote[s].on == 1) {
@@ -206,4 +218,79 @@ static void draw_christmas_pad(void) {
         label = tr_snowball();
     }
     draw_pad(christmas_pad_x(), christmas_pad_y(), christmas_pad_r(), col, label, scale);
+}
+
+/* Santa's note: a small paper at Santa's bottom right during the New Year.
+ * It is pure decoration, drawn over the arena and under the HUD. */
+static double santa_letter_x(double sx, double size) {
+    return clamp(sx + size * 1.15, 8, screen_w - 184);
+}
+
+static void draw_santa_letter(void) {
+    double sx = 0, sy = 0, size = 0;
+    const char *line1 = language == 1 ? "Веди себя хорошо" : "Be good in";
+    const char *line2 = language == 1 ? "в 2026 и 2027 году!" : "2026 and 2027!";
+    const char *line3 = language == 1 ? "С любовью, Санта" : "Love, Santa";
+    double x, y, w = 176, h = 92;
+    if (winter_theme_on() == 0) {
+        return;
+    }
+    if (game_state != ST_SOLO && game_state != ST_ONLINE && game_state != ST_LOBBY) {
+        return;
+    }
+    if (player_class == CLASS_SANTA) {
+        sx = player->x;
+        sy = player->y;
+        size = player->size;
+    } else if (game_state == ST_SOLO && enemy_class == CLASS_SANTA) {
+        sx = enemy->x;
+        sy = enemy->y;
+        size = enemy->size;
+    } else if (game_state == ST_ONLINE) {
+        double i = 0;
+        while (i < max_players) {
+            double b = i * remote_fields;
+            if (arr_get(remotes, b + 5) == 1 && arr_get(remotes, b + 10) == CLASS_SANTA) {
+                sx = arr_get(remotes, b + 1);
+                sy = arr_get(remotes, b + 2);
+                size = 25 * cube_scale;
+                break;
+            }
+            i = i + 1;
+        }
+        if (size <= 0) {
+            return;
+        }
+    } else if (game_state == ST_LOBBY) {
+        sx = screen_w - 200;
+        sy = screen_h - 120;
+        size = 30;
+    } else {
+        return;
+    }
+    x = santa_letter_x(sx, size);
+    /* Keep clear of the joystick and the pads: the paper never covers them. */
+    {
+        double ymax = screen_h - h - 430;
+        if (ymax < 8) {
+            ymax = screen_h - h - 8;
+        }
+        y = clamp(sy + size * 1.05, 8, ymax);
+    }
+    roundrect(x, y, w, h, 8, RGB(253,246,227));
+    roundrect_outline(x, y, w, h, 8, 2, RGB(176,48,48));
+    /* Paper texture noise: small dots to simulate real paper grain. */
+    {
+        int dots_x[] = { x + 24, x + 58, x + 92, x + 126, x + 150, x + 34, x + 112, x + 142, x + 68 };
+        int dots_y[] = { y + 18, y + 32, y + 16, y + 42, y + 28, y + 58, y + 62, y + 46, y + 72 };
+        int n = sizeof(dots_x) / sizeof(dots_x[0]);
+        int k;
+        for (k = 0; k < n; k++) {
+            circle(dots_x[k], dots_y[k], 1, RGB(0,0,0));
+        }
+    }
+    rect(x + 10, y + 8, w - 20, 3, RGB(176,48,48));
+    text_scaled(line1, x + 14, y + 24, RGB(0,0,0), 0.46);
+    text_scaled(line2, x + 14, y + 46, RGB(0,0,0), 0.46);
+    text_scaled(line3, x + 14, y + 68, RGB(0,0,0), 0.46);
 }

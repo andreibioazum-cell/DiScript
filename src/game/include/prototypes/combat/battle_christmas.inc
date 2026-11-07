@@ -7,3 +7,4 @@ static double christmas_pad_r(void);
 static void christmas_tick(void);
 static void draw_christmas_snowballs(void);
 static void draw_christmas_pad(void);
+static void draw_santa_letter(void);

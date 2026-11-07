@@ -80,6 +80,9 @@ static jmp_buf ds_error_jump;
 static int ds_error_handler_active = 0;
 static int ds_has_error = 0;
 static int ds_restart_requested = 0;
+int ds_log_quiet = 0;
+int (*ds_pick_open_hook)(char *dst, int cap) = 0;
+int (*ds_pick_save_hook)(const char *name, char *dst, int cap) = 0;
 static char ds_last_error[DS_ERROR_MESSAGE_SIZE] = {0};
 typedef struct DSStringNode DSStringNode;
 struct DSStringNode {
@@ -96,6 +99,8 @@ static void platform_log(int is_error, const char *format, va_list args) {
 void ds_log(const char *format, ...) {
     char tmp[DS_CONSOLE_LINE_MAX];
     va_list args;
+    if (ds_log_quiet != 0)
+        return;
     va_start(args, format);
     platform_log(0, format, args);
     va_end(args);
@@ -118,6 +123,8 @@ void ds_log_err(const char *format, ...) {
 void ds_console_log(int is_error, const char *format, ...) {
     char tmp[DS_CONSOLE_LINE_MAX];
     va_list args;
+    if (is_error == 0 && ds_log_quiet != 0)
+        return;
     va_start(args, format);
     platform_log(is_error, format, args);
     va_end(args);
@@ -126,6 +133,20 @@ void ds_console_log(int is_error, const char *format, ...) {
     va_end(args);
     console_add(tmp, is_error ? 1 : 0);
 }
+int ds_pick_open_file(char *dst, int cap) {
+    if (!ds_pick_open_hook || !dst || cap <= 0)
+        return 0;
+    dst[0] = 0;
+    return ds_pick_open_hook(dst, cap);
+}
+
+int ds_pick_save_file(const char *name, char *dst, int cap) {
+    if (!ds_pick_save_hook || !dst || cap <= 0)
+        return 0;
+    dst[0] = 0;
+    return ds_pick_save_hook(name, dst, cap);
+}
+
 void ds_runtime_error(const char *format, ...) {
     char tmp[DS_CONSOLE_LINE_MAX];
     va_list args, copy;

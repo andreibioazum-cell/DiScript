@@ -45,10 +45,24 @@
       }
     },
 
+    "reports": {
+      ".read": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
+      "$key": {
+        ".write": "auth != null && (auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || (auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && !data.exists()))",
+        ".validate": "newData.hasChildren(['from','target','text','room','ts'])",
+        "from": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
+        "target": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
+        "text": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 120" },
+        "room": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 24" },
+        "ts": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 9000000000000" },
+        "$other": { ".validate": false }
+      }
+    },
+
     "users": {
       ".read": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'",
       "$nick": {
-        ".write": "(auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && newData.exists() && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc' && ((!data.child('gifts').child('pumpkin_cube').exists() && !newData.child('gifts').child('pumpkin_cube').exists()) || (data.child('gifts').child('pumpkin_cube').exists() && newData.child('gifts').child('pumpkin_cube').exists() && newData.child('gifts').child('pumpkin_cube').val() == data.child('gifts').child('pumpkin_cube').val()))) || (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && !newData.exists())",
+        ".write": "(auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && newData.exists() && newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc') || (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game') || (auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() && !newData.exists())",
         ".validate": "$nick.matches(/^[A-Za-z0-9_]{1,16}$/) && newData.hasChildren(['nick','cups','candies','cls','azum','santa','level','levels']) && (!newData.child('w').exists() || newData.child('w').val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc')",
         "nick": { ".validate": "newData.isString() && newData.val().length <= 16" },
         "pass": { ".validate": false },
@@ -75,10 +89,6 @@
             ".write": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password' && newData.exists()",
             ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999 && (auth.token.email.toLowerCase().replace('@cb4.game', '') == $nick.toLowerCase() || (data.exists() ? newData.val() == data.val() + 1 : newData.val() == 1))"
           },
-          "pumpkin_cube": {
-            ".write": "auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game'",
-            ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999"
-          },
      "rose": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 999" },
           "$other": { ".validate": false }
         },
@@ -89,20 +99,20 @@
         "ebuc": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
         "astra": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
         "codecracker": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
-        "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ordinary_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ordinary_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "azum_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "azum_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "santa_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "santa_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ebuc_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "ebuc_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "astra_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "astra_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "codecracker_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
-        "codecracker_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+        "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ordinary_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ordinary_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "azum_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "azum_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "santa_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "santa_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ebuc_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "ebuc_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "astra_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "astra_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "codecracker_level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
+        "codecracker_levels": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
                 "bp": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 7" },
         "bpx": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000" },
         "azum_skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 63" },
@@ -121,7 +131,7 @@
         "classic": { ".validate": "newData.isNumber() && (newData.val() == 0 || newData.val() == 1)" },
         "pd_consent_ts": { ".validate": "newData.isNumber() && newData.val() >= 1500000000 && newData.val() <= 4102444800" },
         "pd_consent_ver": { ".validate": "newData.isNumber() && newData.val() >= 1 && newData.val() <= 1000" },
-        "$other": { ".validate": false }
+        "$other": { ".validate": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'" }
       }
     },
 
@@ -201,10 +211,10 @@
             "xbdy": { ".validate": "newData.isNumber() && newData.val() >= -1.001 && newData.val() <= 1.001" },
             "xball": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1000000000000" },
             "cls": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 6 && newData.val() != 5" },
-            "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 3" },
+            "level": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 4" },
             "skin": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 1" },
             "w": { ".validate": "newData.isString() && newData.val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc'" },
-            "$other": { ".validate": false }
+            "$other": { ".validate": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'" }
           }
         },
         "chat": {
@@ -218,7 +228,7 @@
             "nick": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 16" },
             "text": { ".validate": "newData.isString() && newData.val().length >= 1 && newData.val().length <= 96" },
             "w": { ".validate": "newData.isString() && newData.val() == 'BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc'" },
-            "$other": { ".validate": false }
+            "$other": { ".validate": "auth != null && auth.token.email.matches(/@cb4[.]game$/) && auth.token.firebase.sign_in_provider == 'password'" }
           }
         },
         "$other": {

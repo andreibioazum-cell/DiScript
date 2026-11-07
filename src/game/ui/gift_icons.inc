@@ -7,7 +7,6 @@ static const char *gift_tex(double id) {
     if (id == 2) return "gift_bear.png";
     if (id == 3) return "gift_rocket.png";
     if (id == 4) return "gift_emerald.png";
-    if (id == NET_GIFT_PUMPKIN_CUBE_ID) return "gift_pumpkin_cube.png";
     return "gift_poop.png";
 }
 
@@ -45,7 +44,7 @@ static uint32_t gift_emerald_tint(void) {
     uint32_t ri = (uint32_t)floor(r * 255 + 0.5);
     uint32_t gi = (uint32_t)floor(g * 255 + 0.5);
     uint32_t bi = (uint32_t)floor(b * 255 + 0.5);
-    return 0xFF000000u | (ri << 16) | (gi << 8) | bi;
+    return RGB(0,0,0) | (ri << 16) | (gi << 8) | bi;
 }
 
 /* Draw a continuously cycling rainbow tint; hue is not stored in profiles. */
@@ -82,9 +81,9 @@ static const char *gift_rarity_name(double id) {
 /* Return rarity label color for sticker `id`. */
 static uint32_t gift_rarity_color(double id) {
     double r = gift_rarity(id);
-    if (r == 1) return 0xFF5CC8FF;
-    if (r == 2) return 0xFFC08CFF;
-    return 0xFFFFFFFF;
+    if (r == 1) return RGB(92,200,255);
+    if (r == 2) return RGB(192,140,255);
+    return RGB(255,255,255);
 }
 
 /* Draw centered rarity-colored sticker text inside box. */

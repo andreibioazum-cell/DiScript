@@ -13,7 +13,6 @@
 #include <android/log.h>
 #define LOG(...)                                                                                                       \
     do {                                                                                                               \
-        __android_log_print(ANDROID_LOG_INFO, "CubicBattleNet", __VA_ARGS__);                                            \
         ds_console_log(0, __VA_ARGS__);                                                                                \
     } while (0)
 #define LOGERR(...)                                                                                                    \
@@ -36,7 +35,7 @@
 #define HEARTBEAT_TICK 1200
 
 #define CHAT_PRUNE_TICK 5000
-#define TIMEOUT 6500
+#define TIMEOUT 12000
 #define STALE 8000
 #define CHAT_MAX 32
 #define CHAT_TEXT_MAX 96

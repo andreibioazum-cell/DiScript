@@ -2,15 +2,19 @@
 
 /* Draw non-overlapping concentric edge vignette bands around the arena. */
 static void draw_vignette(void) {
+    /* New Year keeps the same bands but in white snow light instead of black. */
+    double winter = winter_theme_on();
+    double peak = winter == 1 ? 0.46 : 0.24;
+    uint32_t rgb = winter == 1 ? 0xFFFFFFu : 0x000000u;
     int steps = 10;
     double sx = screen_w * 0.085 / steps;
     double sy = screen_h * 0.085 / steps;
     int i = 0;
     while (i < steps) {
         double k = (steps - i) / (double)steps;
-        unsigned ai = (unsigned)(int)(0.24 * k * k * 255.0 + 0.5);
+        unsigned ai = (unsigned)(int)(peak * k * k * 255.0 + 0.5);
         if (ai >= 1) {
-            uint32_t c = ((uint32_t)ai) << 24;
+            uint32_t c = (((uint32_t)ai) << 24) | rgb;
             double x = i * sx;
             double y = i * sy;
             double w = screen_w - 2 * x;

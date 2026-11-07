@@ -131,12 +131,9 @@ def check_assets() -> None:
     assert not missing, f"Не найдены текстуры: {missing}"
 
     required = (
-        ROOT / "assets" / "textures" / "ordinary_pumpkin_card.png",
-        ROOT / "assets" / "textures" / "ordinary_pumpkin.png",
         ROOT / "assets" / "textures" / "astra_xastra_card.png",
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",
-        ROOT / "assets" / "audio" / "halloween_lobby.wav",
         ROOT / "assets" / "audio" / "duel_theme.wav",
         ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
         ROOT / "assets" / "shaders" / "sprite.vert",
@@ -150,7 +147,6 @@ def check_assets() -> None:
     durations = {
         "lobbymusic.wav": 70,
         "winter_jingle.wav": 70,
-        "halloween_lobby.wav": 70,
         "duel_theme.wav": 45,
     }
     for name, expected in durations.items():
@@ -174,11 +170,7 @@ def check_assets() -> None:
         rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
         assert rms5 >= 4000.0, f"duel_theme.wav слишком тихий в начале боя (RMS={rms5:.1f})"
 
-    with wave.open(str(ROOT / "assets" / "audio" / "halloween_lobby.wav"), "rb") as halloween:
-        head = halloween.readframes(halloween.getframerate() * 5)
-        samples = struct.unpack("<" + "h" * (len(head) // 2), head)
-        rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
-        assert rms5 >= 2500.0, f"halloween_lobby.wav слишком тихий (RMS={rms5:.1f})"
+    assert not (ROOT / "assets" / "audio" / "halloween_lobby.wav").exists(), "Хэллоуинская музыка вернулась"
 
 
 def check_port_layout() -> None:

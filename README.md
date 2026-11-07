@@ -24,10 +24,48 @@
 
 ## Музыка
 
-Три оригинальных трека: обычная и новогодняя темы лобби — по **70 секунд**,
-новая тема боя Азума против Астры — **45 секунд**. Старая песня
+Три оригинальных трека: обычная и новогодняя темы лобби - по **70 секунд**,
+новая тема боя Азума против Астры - **45 секунд**. Старая песня
 `azum_vs_astra.wav` и исходный mp3 удалены; вся музыка собирается из нот
 скриптом `python3 tools/generate_music.py`. Подробности: [docs/music.md](docs/music.md).
+
+## Установка APK
+
+APK лежит в релизе `latest-build`: `CubicBattle4.apk`, рядом файл
+`CubicBattle4.apk.sha256`. Если телефон пишет «Пакет повреждён», значит файл
+докачался не полностью: скачай заново и сверь контрольную сумму на компьютере
+
+    python3 tools/check_apk.py CubicBattle4.apk
+
+Скрипт проверяет целостность архива, обязательные файлы, подписи v1 и v2 и
+печатает sha256. Строка из `.sha256` в релизе должна совпадать. Через кабель
+ошибку установки видно точнее: `adb install -r CubicBattle4.apk`.
+
+## Текстурпаки
+
+В левом верхнем углу лобби есть кнопка **Паки**. Текстурпак - это `.zip` или
+папка в `<данные игры>/packs/<имя>/`, где лежат файлы с теми же именами, что в
+`assets`: `textures/`, `sounds/`, `fonts/`. Включённый пак подменяет любую
+картинку, звук и шрифт игры без пересборки: выбор хранится в
+`packs/active.txt` и применяется сразу, картинки перечитываются на месте.
+Импорт идёт через файловый менеджер телефона (SAF); на ПК - через встроенный
+проводник. Паки делает сам игрок, поэтому распространять в них материалы игры
+нельзя (см. [LICENSE](LICENSE)).
+
+## Telegram-бот
+
+`bot/cb4_bot.py` - бот-компаньон: кубки раз в час, новости, премиум и
+админ-команды. Токен берётся из `CB4_BOT_TOKEN`, база - локальная SQLite.
+
+```
+pip install -r bot/requirements.txt
+export CB4_BOT_TOKEN="123456:AA..."
+python3 bot/cb4_bot.py
+```
+
+У игрока `Sanch` ник золотой, поэтому премиум в боте у него уже есть - заявку он
+не подаёт и звёзды не платит. Подробности и канон имени класса `буК` (род. `буКа`,
+англ. `ebuC` / `ebuC's`) - в [bot/README.md](bot/README.md).
 
 ## Веб-панель админа
 
@@ -56,7 +94,10 @@ python3 test/fake_firebase.py 8080
 Возрастная категория 12+. Пользовательское соглашение, политика обработки
 персональных данных и согласие на обработку лежат в [docs/legal](docs/legal);
 там же список того, что владелец должен сделать вне кода (уведомление
-Роскомнадзора, локализация данных и т. д.).
+Роскомнадзора, локализация данных и т. д.). Правовые тексты также встроены в
+игру: экран «Правовая информация» с лицензией, правами и согласием на
+обработку данных. Сторонние компоненты и их лицензии перечислены в
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
 
 ## Лицензия
 
@@ -91,6 +132,17 @@ The same game as in the APK, on a desktop: a window, the mouse and the keyboard.
 The game logic is shared with Android (`src/game`, `src/engine`); the PC layer
 is the window, a software rasterizer instead of Vulkan, WinHTTP instead of JNI
 and a keyboard-to-touch bridge. Details: [docs/pc-version.md](docs/pc-version.md).
+
+## Texture packs
+
+The lobby has a small **Packs** button in the top-left corner. A texture pack is
+a `.zip` or a folder in `<game data>/packs/<name>/` holding files named like the
+ones in `assets`: `textures/`, `sounds/`, `fonts/`. The active pack replaces any
+picture, sound or font of the game without a rebuild: the choice is kept in
+`packs/active.txt` and applied at once, textures are reloaded in place. Import
+goes through the phone file manager (SAF) on Android and through the built-in
+file manager on PC. Packs are made by players, so they must not redistribute the
+game materials (see [LICENSE](LICENSE)).
 
 ## Music
 

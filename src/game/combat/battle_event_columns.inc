@@ -70,13 +70,13 @@ static void draw_columns_cane(double x, double y) {
     double hx = x - 8 * s;
     double rim = 8 * s;
     double core = 4 * s;
-    line(back, y, tip, y, rim, 0xFF442611);
-    line(back, y, tip, y, core, 0xFFFFD56A);
-    line(back, y, back, up, rim, 0xFF442611);
-    line(back, up, hx, hook, rim, 0xFF442611);
-    line(back, y, back, up, core, 0xFFFFD56A);
-    line(back, up, hx, hook, core, 0xFFFFD56A);
-    circle(tip, y, core, 0xFFFFF0B0);
+    line(back, y, tip, y, rim, RGB(68,38,17));
+    line(back, y, tip, y, core, RGB(255,213,106));
+    line(back, y, back, up, rim, RGB(68,38,17));
+    line(back, up, hx, hook, rim, RGB(68,38,17));
+    line(back, y, back, up, core, RGB(255,213,106));
+    line(back, up, hx, hook, core, RGB(255,213,106));
+    circle(tip, y, core, RGB(255,240,176));
 }
 
 static void draw_columns_event(void) {
@@ -93,10 +93,10 @@ static void draw_columns_event(void) {
     if (tex_ready(EVENT_COLUMNS_TEX) == 1) {
         tex(cx - half, cy - half + wob, EVENT_COLUMNS_TEX, 0, scale);
     } else {
-        roundrect(cx - half, cy - half, columns_size * pop, columns_size * pop, 18, 0xFF174A82);
-        text_scaled(language == 1 ? "Колонки" : "Columns", cx - 30, cy - 8, 0xFFFFFFFF, 0.45);
+        roundrect(cx - half, cy - half, columns_size * pop, columns_size * pop, 18, RGB(23,74,130));
+        text_scaled(language == 1 ? "Колонки" : "Columns", cx - 30, cy - 8, RGB(255,255,255), 0.45);
     }
-    draw_overhead_nick(language == 1 ? "Колонки" : "Columns", cx, cy - half - 8 + wob, 0xFFFFD54A);
+    draw_overhead_nick(language == 1 ? "Колонки" : "Columns", cx, cy - half - 8 + wob, RGB(255,213,74));
     if (columns_shot_active == 1) {
         draw_columns_cane(columns_shot_x, columns_shot_y);
     }
@@ -108,5 +108,5 @@ static void draw_columns_hud(void) {
     }
     double remaining = columns_shot_total - columns_thrown;
     const char *label = language == 1 ? "Тростей осталось: " : "Canes left: ";
-    ctext_scaled(ds_concat(label, ds_num_to_string(remaining)), back_y + btn_h + 6, 0xFFFFFFFF, 0.5);
+    ctext_scaled(ds_concat(label, ds_num_to_string(remaining)), back_y + btn_h + 6, RGB(255,255,255), 0.5);
 }

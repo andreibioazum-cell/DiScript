@@ -319,7 +319,7 @@ static void draw_remote_bricks(void) {
             }
         }
         if (rb_on[s] == 1) {
-            circle(rb_x[s], rb_y[s], BALL_RADIUS, 0xFF3A8BFFu);
+            circle(rb_x[s], rb_y[s], BALL_RADIUS, RGB(58,139,255));
         }
         if (rb_boom_t[s] > 0) {
             draw_boom_at_r(rb_boom_x[s], rb_boom_y[s], rb_boom_t[s], BALL_BOOM_RADIUS);

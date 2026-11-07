@@ -34,7 +34,7 @@ def main() -> int:
         print(f"event rule rejects event 6: {event}", file=sys.stderr)
         return 1
     gifts = rules["users"]["$nick"]["gifts"]
-    for key in ("poop", "cake", "bear", "rocket", "emerald", "pumpkin_cube"):
+    for key in ("poop", "cake", "bear", "rocket", "emerald"):
         if key not in gifts:
             print(f"gift rule is missing: {key}", file=sys.stderr)
             return 1
@@ -42,16 +42,12 @@ def main() -> int:
             if rule not in gifts[key]:
                 print(f"gift {key} has no {rule} rule", file=sys.stderr)
                 return 1
-    pumpkin = gifts["pumpkin_cube"]
-    if "dimasi4ek229@cb4.game" not in pumpkin.get(".write", ""):
-        print("pumpkin_cube must be writable by the admin only", file=sys.stderr)
-        return 1
-    if "<= 999" not in pumpkin.get(".validate", ""):
-        print("pumpkin_cube counter must be capped at 999", file=sys.stderr)
+    if "pumpkin_cube" in gifts:
+        print("the pumpkin cube gift must be removed from the rules", file=sys.stderr)
         return 1
     owner_write = rules["users"]["$nick"][".write"]
-    if "gifts').child('pumpkin_cube" not in owner_write or "newData.child('gifts').child('pumpkin_cube').val() == data.child('gifts').child('pumpkin_cube').val()" not in owner_write:
-        print("owner profile writes must preserve the admin-only pumpkin_cube count", file=sys.stderr)
+    if "newData.exists()" not in owner_write:
+        print("owner profile writes must still require an existing profile", file=sys.stderr)
         return 1
     if gifts["$other"][".validate"] is not False:
         print("unknown gift keys must be rejected", file=sys.stderr)
@@ -63,9 +59,13 @@ def main() -> int:
     # The CodeCracker keeps a level branch of its own, so the profile has to
     # accept its two fields - and it has to accept the packed skin flags
     # (azum_skin carries the existing and ordinary-cube skin bits, 0..63), or a save with a skin is rejected.
-    for key in ("codecracker_level", "codecracker_levels"):
-        rule = profile.get(key, {}).get(".validate")
-        if not rule or "<= 3" not in rule:
+    # The game allows levels up to max_level = 4, so the profile rules must too,
+    # otherwise a level 4 save is rejected and the cloud keeps the old value.
+    for key in ("codecracker_level", "codecracker_levels", "level", "levels",
+                "ordinary_level", "azum_level", "santa_level", "ebuc_level"):
+        rule = profile.get(key, {}).get(".validate", "")
+        cap = rule.split("<=")[-1].strip() if "<=" in rule else ""
+        if not rule or not cap or int(float(cap)) < 4:
             print(f"profile rule for {key} is missing or too narrow: {rule}", file=sys.stderr)
             return 1
     skin_rule = profile.get("azum_skin", {}).get(".validate", "")
@@ -81,30 +81,27 @@ def main() -> int:
     fake = fake_firebase
     player = "Player2"
     existing = fake.DB["users"].get(player)
-    fake.DB["users"][player] = {"cups": 100, "gifts": {"poop": 1, "pumpkin_cube": 2}}
+    fake.DB["users"][player] = {"cups": 100, "w": fake.SECRET, "gifts": {"poop": 1}}
     player_email = "player2@cb4.game"
-    changed_profile = {"cups": 99, "gifts": {"poop": 1, "pumpkin_cube": 3}}
-    kept_profile = {"cups": 99, "gifts": {"poop": 1, "pumpkin_cube": 2}}
-    if fake.profile_write_preserves_pumpkin(["users", player], player_email, "PUT",
-                                            json.dumps(changed_profile).encode()):
-        print("fake Firebase allowed owner to alter pumpkin_cube through whole-profile PUT", file=sys.stderr)
+    kept_profile = {"cups": 99, "w": fake.SECRET, "gifts": {"poop": 2}}
+    lost_secret = {"cups": 99, "w": "x", "gifts": {"poop": 2}}
+    if not fake.owner_profile_write_ok(["users", player], player_email, "PUT",
+                                       json.dumps(kept_profile).encode()):
+        print("fake Firebase rejected a valid owner profile save", file=sys.stderr)
         return 1
-    if not fake.profile_write_preserves_pumpkin(["users", player], player_email, "PUT",
-                                                json.dumps(kept_profile).encode()):
-        print("fake Firebase rejected owner profile save preserving pumpkin_cube", file=sys.stderr)
+    if fake.owner_profile_write_ok(["users", player], player_email, "PUT",
+                                   json.dumps(lost_secret).encode()):
+        print("fake Firebase allowed an owner profile save that drops the password hash", file=sys.stderr)
         return 1
-    if fake.can_write(["users", player, "gifts", "pumpkin_cube"], player_email):
-        print("fake Firebase allowed direct ordinary-player pumpkin_cube write", file=sys.stderr)
-        return 1
-    if not fake.can_write(["users", player, "gifts", "pumpkin_cube"], "dimasi4ek229@cb4.game"):
-        print("fake Firebase rejected admin pumpkin_cube write", file=sys.stderr)
+    if fake.can_write(["users", player, "gifts", "poop"], "other@cb4.game"):
+        print("fake Firebase allowed a foreign player to write someone else's gift", file=sys.stderr)
         return 1
     if existing is None:
         del fake.DB["users"][player]
     else:
         fake.DB["users"][player] = existing
     print("db rules: event 0..6, Christmas flag + snowball slot fields, "
-          "gift keys poop/cake/bear/rocket/emerald plus admin-only pumpkin_cube, "
+          "gift keys poop/cake/bear/rocket/emerald, "
           "rainbow-rendered emerald without emerald_hue, "
           "wheel progress and packed skins OK")
     return 0

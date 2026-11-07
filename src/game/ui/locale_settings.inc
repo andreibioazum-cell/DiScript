@@ -18,24 +18,18 @@ static const char *tr_christmas_banner(void) {
     return "Merry Christmas!";
 }
 
-/* Three themes in one button on the Play screen: ordinary, New Year (grey
- * while unavailable) and Halloween. The label always says which one is active. */
+/* Two themes in one button on the Play screen: ordinary and New Year (grey
+ * while unavailable). The label always says which one is active. */
 static const char *tr_theme_label(void) {
     double mode = active_theme_mode();
     if (language == 1) {
         if (mode == 1) {
             return winter_theme_on() == 1 ? "Тема: Новогодняя" : "Тема: Новогодняя (недоступна)";
         }
-        if (mode == 2) {
-            return "Тема: Хэллоуин";
-        }
         return "Тема: Обычная";
     }
     if (mode == 1) {
         return winter_theme_on() == 1 ? "Theme: New Year" : "Theme: New Year (locked)";
-    }
-    if (mode == 2) {
-        return "Theme: Halloween";
     }
     return "Theme: Ordinary";
 }

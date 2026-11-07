@@ -259,7 +259,7 @@ static void draw_rooms(void) {
         rooms_field_draw(tr_rooms_pass_req(), rooms_pass, "", rooms_form_y(0), rooms_field == 2);
         button_scaled(tr_rooms_join(), rooms_x(), rooms_btn_y() - 96, rooms_w(), btn_h, 0.65);
     }
-    if (str_len(rooms_msg) > 0) ctext_scaled(rooms_msg, screen_h - 96, 0xFFFF6060, 0.55);
+    if (str_len(rooms_msg) > 0) ctext_scaled(rooms_msg, screen_h - 96, RGB(255,96,96), 0.55);
     draw_back();
 }
 

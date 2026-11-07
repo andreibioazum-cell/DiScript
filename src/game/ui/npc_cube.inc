@@ -208,10 +208,10 @@ static void draw_lobby_npc_sprite(void) {
     if (helpy_npc_tex_ok == 1) {
         tex(helpy_npc_x, helpy_npc_y + helpy_bob, HELPY_NPC_TEX, 0, helpy_npc_draw_sz / 512.0);
     } else {
-        roundrect(helpy_npc_x, helpy_npc_y + helpy_bob, helpy_npc_draw_sz, helpy_npc_draw_sz, 9, 0xFF383838);
+        roundrect(helpy_npc_x, helpy_npc_y + helpy_bob, helpy_npc_draw_sz, helpy_npc_draw_sz, 9, RGB(56,56,56));
     }
     draw_overhead_nick(language == 1 ? "Хелпи" : "Helpy", helpy_npc_x + helpy_npc_draw_sz / 2,
-                       helpy_npc_y + helpy_bob, 0xFFDDDDDD);
+                       helpy_npc_y + helpy_bob, RGB(255,255,255));
 }
 
 static void draw_lobby_npc_dialogue(void) {

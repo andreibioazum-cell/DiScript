@@ -10,10 +10,11 @@
 #define XMAS_MAX_BOUNCES BALL_MAX_BOUNCES
 #define XMAS_MAX_TIME BALL_MAX_TIME
 #define XMAS_COOLDOWN 1.0
-#define XMAS_DAMAGE BALL_BASE_DAMAGE   /* flat: no BALL_BOUNCE_DAMAGE growth */
+#define XMAS_DAMAGE 0.2               /* reduced split damage */
 #define XMAS_PUSH 7.0                 /* a tiny nudge, ebuC has none */
 #define XMAS_BOOM_RADIUS BALL_BOOM_RADIUS
 #define XMAS_TRAIL BALL_TRAIL
+#define XMAS_MAX_BALLS 4    /* several snowballs may fly at the same time */
 
 typedef struct {
     double active;
@@ -30,7 +31,8 @@ typedef struct {
     double boom_x, boom_y, boom_t;
 } XmasRemote;
 
-static XmasBall xmas_ball;
+static XmasBall xmas_balls[XMAS_MAX_BALLS];
+static double xmas_shot;
 static XmasRemote xmas_remote[NET_SLOTS];
 static double xmas_cd;
 
@@ -74,8 +76,11 @@ static void xmas_remote_clear(int s) {
 /* Baseline the shot counters so a projectile from a previous match does not
  * spawn again when a slot is (re)used. */
 static void christmas_reset(void) {
-    int s = 0;
-    xmas_ball_clear(&xmas_ball);
+    int s = 0, i = 0;
+    while (i < XMAS_MAX_BALLS) {
+        xmas_ball_clear(&xmas_balls[i]);
+        i = i + 1;
+    }
     xmas_cd = 0;
     while (s < NET_SLOTS) {
         xmas_remote_clear(s);
@@ -85,9 +90,12 @@ static void christmas_reset(void) {
 }
 
 static void christmas_clear_after_finish(void) {
-    int s = 0;
-    xmas_ball.active = 0;
-    xmas_ball.boom_t = 0;
+    int s = 0, i = 0;
+    while (i < XMAS_MAX_BALLS) {
+        xmas_balls[i].active = 0;
+        xmas_balls[i].boom_t = 0;
+        i = i + 1;
+    }
     while (s < NET_SLOTS) {
         xmas_remote_clear(s);
         s = s + 1;
@@ -101,7 +109,7 @@ static double christmas_can_throw(void) {
     if (game_state != ST_SOLO && game_state != ST_ONLINE) {
         return 0;
     }
-    if (finished != 0 || xmas_cd > 0 || xmas_ball.active == 1) {
+    if (finished != 0 || xmas_cd > 0) {
         return 0;
     }
     if (player == NULL || player->hp <= 0) {
@@ -126,18 +134,29 @@ static void christmas_throw_dir(double dx, double dy) {
         dx = dx / d;
         dy = dy / d;
     }
-    xmas_ball.active = 1;
-    xmas_ball.x = player->x;
-    xmas_ball.y = player->y;
-    xmas_ball.vx = dx * XMAS_SPEED;
-    xmas_ball.vy = dy * XMAS_SPEED;
-    xmas_ball.bounces = 0;
-    xmas_ball.t = 0;
-    xmas_ball.boom_t = 0;
-    xmas_ball.shot = xmas_ball.shot + 1;
+    {
+        int slot = 0, i;
+        for (i = 0; i < XMAS_MAX_BALLS; i++) {
+            if (xmas_balls[i].active == 0) {
+                slot = i;
+                break;
+            }
+        }
+        XmasBall *b = &xmas_balls[slot];
+        b->active = 1;
+        b->x = player->x;
+        b->y = player->y;
+        b->vx = dx * XMAS_SPEED;
+        b->vy = dy * XMAS_SPEED;
+        b->bounces = 0;
+        b->t = 0;
+        b->boom_t = 0;
+        b->shot = xmas_shot;
+        xmas_shot = xmas_shot + 1;
+    }
     xmas_cd = XMAS_COOLDOWN;
     if (game_state == ST_ONLINE) {
-        net_publish_xball(player->x / screen_w, player->y / screen_h, dx, dy, xmas_ball.shot);
+        net_publish_xball(player->x / screen_w, player->y / screen_h, dx, dy, xmas_shot);
     }
     ability_snd(GIFT_SOUND);
     ds_log("christmas: snowball thrown");

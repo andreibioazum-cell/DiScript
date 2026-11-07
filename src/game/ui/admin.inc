@@ -15,7 +15,7 @@ static double admin_tab = 0;
 static double admin_gift_choice = 0;
 static double admin_gift_busy = 0;
 static char admin_gift_target[24];
-static const char *admin_gift_names[NET_GIFT_TYPE_COUNT] = {"Poop", "Cake", "Teddy", "Rocket", "Emerald", "Pumpkin Cube"};
+static const char *admin_gift_names[NET_GIFT_TYPE_COUNT] = {"Poop", "Cake", "Teddy", "Rocket", "Emerald"};
 
 static double admin_header_h(void) { return clamp(screen_h * 0.03, 36, 56); }
 

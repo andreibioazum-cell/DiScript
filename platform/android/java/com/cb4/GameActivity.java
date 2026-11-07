@@ -2,11 +2,13 @@ package com.cb4;
 
 import android.app.NativeActivity;
 import android.content.Context;
+import android.content.Intent;
 import android.content.pm.PackageManager;
 import android.graphics.Color;
 import android.graphics.Rect;
 import android.os.Build;
 import android.os.Bundle;
+import android.os.ParcelFileDescriptor;
 import android.text.Editable;
 import android.text.InputFilter;
 import android.text.InputType;
@@ -64,6 +66,86 @@ public final class GameActivity extends NativeActivity {
     }
     private void keyboardHiddenNative() {
         if (nativeReady) try { nativeKeyboardHidden(); } catch (UnsatisfiedLinkError ignored) { }
+    }
+
+    private static final int REQUEST_PICK_ZIP = 4203;
+    private static final int REQUEST_SAVE_ZIP = 4204;
+
+    private native void nativePickedFd(int fd);
+    private native void nativeSavedFd(int fd);
+
+    private void handFdNative(int fd, boolean saving) {
+        if (!nativeReady) {
+            closeQuietly(fd);
+            return;
+        }
+        try {
+            if (saving) nativeSavedFd(fd); else nativePickedFd(fd);
+        } catch (UnsatisfiedLinkError ignored) {
+            closeQuietly(fd);
+        }
+    }
+
+    private static void closeQuietly(int fd) {
+        try {
+            ParcelFileDescriptor.adoptFd(fd).close();
+        } catch (Exception ignored) {
+            // Nothing to release.
+        }
+    }
+
+    /** System file manager: choose a mod .zip to import. */
+    public void pickModZip() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_OPEN_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("*/*");
+                    startActivityForResult(intent, REQUEST_PICK_ZIP);
+                } catch (RuntimeException ignored) {
+                    // No document picker on this device; the game falls back to its own browser.
+                }
+            }
+        });
+    }
+
+    /** System file manager: choose where to save the exported .zip. */
+    public void saveModZip(final String name) {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
+                    intent.addCategory(Intent.CATEGORY_OPENABLE);
+                    intent.setType("application/octet-stream");
+                    intent.putExtra(Intent.EXTRA_TITLE, name == null ? "mod.zip" : name);
+                    startActivityForResult(intent, REQUEST_SAVE_ZIP);
+                } catch (RuntimeException ignored) {
+                    // Same fallback as above.
+                }
+            }
+        });
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, Intent data) {
+        super.onActivityResult(requestCode, resultCode, data);
+        if (resultCode != RESULT_OK || data == null || data.getData() == null)
+            return;
+        if (requestCode != REQUEST_PICK_ZIP && requestCode != REQUEST_SAVE_ZIP)
+            return;
+        boolean saving = requestCode == REQUEST_SAVE_ZIP;
+        try {
+            ParcelFileDescriptor descriptor =
+                    getContentResolver().openFileDescriptor(data.getData(), saving ? "w" : "r");
+            if (descriptor == null)
+                return;
+            handFdNative(descriptor.detachFd(), saving);
+        } catch (Exception ignored) {
+            // The document could not be opened; the game shows its own message.
+        }
     }
 
     /** Android 13+ asks for notification permission at runtime; older versions grant it. */

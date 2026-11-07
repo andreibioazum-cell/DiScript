@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Готовит ресурсы и платформенный код Android для упаковки в APK."""
+"""Stages assets and the Android platform code for APK packaging."""
 
 from __future__ import annotations
 
@@ -39,7 +39,7 @@ def copy_asset_group(source: Path, destination: Path, prefix: Path) -> list[Path
 
 
 def stage_assets(source: Path, destination: Path) -> list[Path]:
-    """Создаёт чистое дерево ресурсов в формате Android APK."""
+    """Builds a clean asset tree in the Android APK layout."""
     source = source.resolve()
     destination = destination.resolve()
     if not source.is_dir():
@@ -58,7 +58,7 @@ def stage_assets(source: Path, destination: Path) -> list[Path]:
 
 
 def build_android_activity(source: Path, apk_root: Path) -> Path | None:
-    """Собирает системный мост Android в classes.dex."""
+    """Builds the Android system bridge into classes.dex."""
     sources = sorted(source.rglob("*.java")) if source.is_dir() else []
     if not sources:
         return None

@@ -312,7 +312,7 @@ static void draw_alone_wait(void) {
     const char *s = ds_concat(ds_concat(language == 1 ? "Ожидание игроков: " : "Waiting for players: ",
                                         ds_num_to_string((double)(int)(left + 0.999))),
                               language == 1 ? " с" : " s");
-    ctext_scaled(s, back_y + btn_h + 44, 0xFFFFFFFF, 0.6);
+    ctext_scaled(s, back_y + btn_h + 44, RGB(255,255,255), 0.6);
 }
 
 static void push_self(void) {
@@ -405,6 +405,8 @@ static void update_online(void) {
         }
     }
     move_player();
+    separate_fighters(0);
+    ice_tick();
     tick_dash();
     punch_left = tick_down(punch_left);
     follow_punch();

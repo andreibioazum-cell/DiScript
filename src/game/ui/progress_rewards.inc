@@ -103,9 +103,6 @@ static void save_progress(void) {
 }
 
 static void wheel_award_win(void) {
-    if (admin_playing() == 0) {
-        return;
-    }
     int spins = net_load_wheel_spins();
     int wins = net_load_wheel_wins() + 1;
     if (wins >= 6) {
@@ -172,10 +169,10 @@ static void progress_normalize(void) {
     while (order < class_count) {
         double cls = class_at_order(order);
         double un = clamp(class_unlocked_of(cls), 0, max_level);
-        double lv = class_level_of(cls);
-        if (lv < 0 || lv > un) {
-            lv = 0;
-        }
+        double lv = clamp(class_level_of(cls), 0, max_level);
+        /* A reached level is never dropped: unlock lags behind it, not the other way. */
+        if (un < lv)
+            un = lv;
         set_class_progress(cls, lv, un);
         order = order + 1;
     }
@@ -190,9 +187,9 @@ static void progress_normalize(void) {
         player_class = CLASS_ORDINARY;
     }
     levels_unlocked = clamp(levels_unlocked, 0, max_level);
-    if (player_level < 0 || player_level > levels_unlocked) {
-        player_level = 0;
-    }
+    player_level = clamp(player_level, 0, max_level);
+    if (levels_unlocked < player_level)
+        levels_unlocked = player_level;
 }
 
 static void progress_from_storage(void) {
@@ -287,6 +284,8 @@ static void settings_from_storage(void) {
     winter_theme = net_load_winter_theme();
     new_theme = net_load_new_theme();
     theme_mode = net_load_theme_mode();
+    if (theme_mode < 0 || theme_mode > 1)
+        theme_mode = 0;
     theme_chosen = net_load_theme_chosen();
     apply_theme();
 }

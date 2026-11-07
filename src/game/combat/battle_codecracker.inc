@@ -1,7 +1,35 @@
 /* CodeCracker overclock ultimate, contact bite/heal, and spark trail FX. */
 
-static const double codecracker_tint_rgb = 0x00E676;
-static const double codecracker_tint_a = 0.35;
+/* CodeCracker wears a random cube skin from the whole roster, washed out to a
+ * pale near-white tint so it stays recognisable as the hacker class. */
+static const double codecracker_tint_rgb = 0xF2F6FF;
+static const double codecracker_tint_a = 0.42;
+static double codecracker_look_pick = -1;
+
+static double codecracker_random_look(void) {
+    int try_count = 0;
+    while (try_count < 16) {
+        int cls = rand() % (int)class_count;
+        double skin = (rand() % 5 == 0) ? SKIN_SPECIAL : SKIN_NORMAL;
+        double look = class_look((double)cls, skin);
+        if (look != LOOK_NONE && look_ready(look) == 1) {
+            return look;
+        }
+        try_count = try_count + 1;
+    }
+    return LOOK_NONE;
+}
+
+/* One random skin per battle, so the silhouette does not flicker each frame. */
+static double codecracker_match_look(void) {
+    if (codecracker_look_pick >= 0 && look_ready(codecracker_look_pick) == 1) {
+        return codecracker_look_pick;
+    }
+    codecracker_look_pick = codecracker_random_look();
+    return codecracker_look_pick;
+}
+
+static void codecracker_look_reset(void) { codecracker_look_pick = -1; }
 
 static void codecracker_refresh(void) { codecracker_ok = 1; }
 

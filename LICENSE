@@ -1,4 +1,4 @@
-Cubic Battle 4 — ПРОПРИЕТАРНАЯ ЛИЦЕНЗИЯ / PROPRIETARY LICENSE
+Cubic Battle 4 - ПРОПРИЕТАРНАЯ ЛИЦЕНЗИЯ / PROPRIETARY LICENSE
 
 Copyright (C) 2026 Дима Густенёв (Dimasi4ek229). Все права защищены.
 All rights reserved.
@@ -48,3 +48,65 @@ expressly permitted by this license is prohibited.
 
 The game may be distributed by the copyright holder to players free of
 charge; that does not grant any rights to its source code.
+
+RU (продолжение):
+
+ЗАПРЕЩАЕТСЯ ТАКЖЕ:
+- обходить, отключать или изменять защиту игры, систему аккаунтов, проверку
+  пароля, правила базы данных и защиту от читов;
+- подделывать сетевые запросы игры, писать в базу данных игры от имени других
+  лиц или иными способами вмешиваться в работу серверов;
+- использовать название «Cubic Battle 4», имена персонажей и знаки проекта в
+  своих продуктах без письменного разрешения правообладателя;
+- распространять текстурпаки и иные сборки, содержащие материалы проекта
+  (графику, музыку, шрифты игры) вне официальной раздачи.
+
+ОТКАЗ ОТ ГАРАНТИЙ. Игра и материалы предоставляются «как есть», без каких-либо
+гарантий, явных или подразумеваемых, включая гарантии пригодности для конкретной
+цели и отсутствия нарушений прав третьих лиц.
+
+ОГРАНИЧЕНИЕ ОТВЕТСТВЕННОСТИ. Правообладатель не отвечает за косвенные, особые
+или штрафные убытки, упущенную выгоду и потерю данных, возникшие из-за
+использования или невозможности использования игры, в пределах, допускаемых
+законом. Ответственность ограничена суммой, фактически уплаченной за игру
+(игра бесплатна).
+
+ПРЕКРАЩЕНИЕ. Нарушение любого условия прекращает право использования игры
+автоматически, без предупреждения.
+
+ТРЕБОВАНИЯ О НАРУШЕНИИ. Сообщения о нарушении авторских прав и запросы об
+удалении материалов принимаются по адресу: github.com/andreibioazum-cell/C-Larp.
+
+ПРИМЕНИМОЕ ПРАВО. Применяется право Российской Федерации.
+
+EN (continued):
+
+ALSO PROHIBITED:
+- bypassing, disabling or altering the game's protection, account system,
+  password checks, database rules and anti-cheat measures;
+- forging the game's network requests, writing to the game database on behalf
+  of other people, or otherwise interfering with the servers;
+- using the name "Cubic Battle 4", its characters and marks in your own
+  products without the written permission of the rights holder;
+- distributing texture packs or other builds that contain project materials
+  (the game's graphics, music, fonts) outside the official distribution.
+
+NO WARRANTY. The game and materials are provided "as is", without warranty of
+any kind, express or implied, including fitness for a particular purpose and
+non-infringement.
+
+LIMITATION OF LIABILITY. The rights holder is not liable for indirect, special
+or punitive damages, lost profits or lost data arising from the use of or
+inability to use the game, to the extent permitted by law. Liability is limited
+to the amount actually paid for the game (the game is free of charge).
+
+TERMINATION. Any breach terminates the right to use the game automatically and
+without notice.
+
+INFRINGEMENT REPORTS. Copyright reports and takedown requests:
+github.com/andreibioazum-cell/C-Larp.
+
+GOVERNING LAW. The law of the Russian Federation applies.
+
+THIRD-PARTY COMPONENTS. Bundled third-party parts keep their own licenses and
+are listed in THIRD_PARTY_NOTICES.md.
