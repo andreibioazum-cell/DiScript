@@ -268,6 +268,8 @@ static void draw_hacker_glitch(void) {
     }
 }
 
+#include <ctype.h>
+
 /* Menu junk falling as solid cover; pressed buttons squeeze and click. */
 static void draw_hacker_buttons(void) {
     double i = 0;
@@ -294,7 +296,7 @@ static void draw_hacker_buttons(void) {
         
         /* Capitalize first letter only, not full caps */
         char cap_label[64];
-        snprintf(cap_label, sizeof(cap_label), "%c%s", toupper(label[0]), label + 1);
+        snprintf(cap_label, sizeof(cap_label), "%c%s", toupper((unsigned char)label[0]), label + 1);
         
         double sc = fit_text_scale(cap_label, bw - 16, clamp(bh / 60.0, 0.4, 0.72));
         text_in_box(cap_label, bx, by, bw, bh, shade(text_color, 1 - PRESS_SHADE * k), sc);
