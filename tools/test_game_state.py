@@ -23,6 +23,8 @@ def main() -> int:
                 "-Wextra",
                 "-Werror",
                 "-Wno-unused-function",
+                # GCC-only warning; clang silently ignores the flag.
+                "-Wno-format-truncation",
                 "-pedantic",
                 "-ffunction-sections",
                 "-fdata-sections",

@@ -15,7 +15,10 @@ from urllib.parse import parse_qs
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PANEL = os.path.join(ROOT, "index.html")
 
-ADMINS = ("dimasi4ek229@cb4.game",)
+# Root admins. qwertyuiopaj1234 may do everything except hand out gifts
+# to other players - mirrored from firebase.rules.json.
+ADMINS = ("dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game")
+GIFTLESS_ADMIN = "qwertyuiopaj1234@cb4.game"
 SECRET = "BMAhzk26iwVJAK3KpPxoFCzkt08FL0Hc"  # write secret ("w") from firebase.rules.json
 PUBLIC_ROOT = ("AzumBuff", "FlashSale", "Christmas")  # publicly readable root nodes
 GAME_ROOT = ("users", "rooms", "bans", "event", "banner")
@@ -261,7 +264,7 @@ def can_write(parts, email):
     if head in ADMIN_ONLY_WRITE:
         if head == "bans" and len(parts) > 1:
                         # you cannot ban your own admins - same as in the rules
-            if parts[1].lower() == "dimasi4ek229":
+            if parts[1].lower() in ("dimasi4ek229", "qwertyuiopaj1234"):
                 return False
         return email in ADMINS
     if head == "rooms":
@@ -279,6 +282,10 @@ def can_write(parts, email):
         if len(parts) < 2:
             return email in ADMINS                  # full users node
         if email in ADMINS:
+            # The giftless admin never writes other players' gift counters.
+            if (email == GIFTLESS_ADMIN and len(parts) > 3 and parts[2].lower() == "gifts"
+                    and parts[1].lower() != email.split("@")[0].lower()):
+                return False
             return True
         return parts[1].lower() == email.split("@")[0].lower()
     return email in ADMINS

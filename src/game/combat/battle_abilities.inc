@@ -404,5 +404,7 @@ static void update_game(void) {
     update_enemy();
     separate_fighters(1);
     ice_push_point(&enemy->x, &enemy->y, enemy_half());
+    hack_button_push(&enemy->x, &enemy->y, enemy_half());
     ice_tick();
+    update_hacker_event();
 }

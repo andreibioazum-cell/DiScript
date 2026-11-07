@@ -20,9 +20,14 @@ static double admin_nick_equal(const char *a, const char *b) {
     return a[i] == b[i];
 }
 
+/* Root admins: Dimasi4ek229 does everything, qwertyuiopaj1234 everything
+ * except handing out gifts (see admin_gifts_allowed). */
 static double admin_slot(const char *nick) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1) {
         return 1;
+    }
+    if (admin_nick_equal(nick, QWERTY_NICK) == 1) {
+        return 2;
     }
     return 0;
 }
@@ -94,9 +99,17 @@ static double sanch_rewards_kept(void) {
 }
 
 
-/* Return 1 when signed-in player can manage gifts in CCP. */
+/* Return 1 when signed-in player can manage gifts in CCP. Handing out gifts
+ * stays exclusive to the root admin: qwertyuiopaj1234 gets every other admin
+ * power, but never the gift tab and never free stickers. */
 static double admin_gifts_allowed(void) {
-    return admin_playing();
+    if (net_login_status() != 2) {
+        return 0;
+    }
+    if (admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1) {
+        return 1;
+    }
+    return 0;
 }
 
 /* Return 1 when the online player has seasonal Battle Pass access. */
@@ -113,8 +126,12 @@ static double bpass_rewards_allowed(void) {
     return 0;
 }
 
+/* Chat actions sign with the acting admin's own nick. */
 static const char *admin_nick_of(double slot) {
     (void)slot;
+    if (net_login_status() == 2 && admin_slot(net_login_nick()) != 0) {
+        return net_login_nick();
+    }
     return ADMIN_NICK;
 }
 

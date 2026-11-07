@@ -5,6 +5,7 @@ build/
 staging/
 *.apk
 *.so
+!assets/hack/h4c4k0r.so
 *.o
 aligned.apk
 unsigned.apk

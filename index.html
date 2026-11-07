@@ -199,7 +199,7 @@
 <section id="tools" class="hide">
   <h2>3. Точечные инструменты</h2>
 
-  <h3>Ивент боя (0..6 - как в игре)</h3>
+  <h3>Ивент боя (0..7 - как в игре)</h3>
   <div class="row">
     <button data-ev="0">0 · Выкл</button>
     <button data-ev="1">1 · Диско</button>
@@ -208,6 +208,7 @@
     <button data-ev="4">4 · Кубик</button>
     <button data-ev="5">5 · Колонки</button>
     <button data-ev="6">6 · Слабые удары (плиты)</button>
+    <button data-ev="7">7 · Взлом H4c4k0r</button>
     <span class="muted" id="evNow"></span>
   </div>
 
@@ -448,8 +449,8 @@ const CHAT_REQ   = ["uid","nick","text"];
 const CHAT_FIELDS = {uid: str(8,24), nick: str(1,16), text: str(1,96), w: secret()};
 
 const BANNER_FIELDS = {ts: num(0,9000000000000), text: str(1,96), color: str(1,16)};
-const EVENT_MAX = 6;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates */
-const EVENT_NAMES = ["Выкл","Диско","Плиты","Дед Мороз","Кубик","Колонки","Слабые удары (плиты)"];
+const EVENT_MAX = 7;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid */
+const EVENT_NAMES = ["Выкл","Диско","Плиты","Дед Мороз","Кубик","Колонки","Слабые удары (плиты)","Взлом H4c4k0r"];
 const NICK_RE   = /^[A-Za-z0-9_]{1,16}$/;
 const PROD_DB_RE = /firebaseio\.com|googleapis\.com/i;
 
@@ -548,7 +549,10 @@ function suffixWarn(){
 }
 
 /* Firebase Auth helpers and legacy password suffix fallbacks. */
-const ADMINS = ["dimasi4ek229@cb4.game"];
+/* Root admins. qwertyuiopaj1234 may do everything except hand out gifts:
+ * the DB rules block his writes into other players' gift counters and the
+ * game hides the CCP gift tab from him. */
+const ADMINS = ["dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game"];
 const KNOWN_SUFFIXES = ["|cb4v1", "#cb4", ""];
 
 const AUTH_ERR = {
@@ -692,7 +696,7 @@ async function doLogin(){
     log("База: " + dbUrl() + (isTest() ? " · тестовый режим" : ""), isTest() ? "warn" : "");
     log("Токен: провайдер " + ((p.firebase || {}).sign_in_provider || "?") +
         ", годен до " + new Date((p.exp || 0) * 1000).toLocaleTimeString(), "");
-    if(isAdmin) log("Права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат", "good");
+    if(isAdmin) log("Права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат" + (email.toLowerCase() === "qwertyuiopaj1234@cb4.game" ? " (кроме выдачи подарков - её правила оставляют Dimasi4ek229)" : ""), "good");
     else{
       log("Это не админский аккаунт: читаются игровые узлы, чат и слоты чистить можно, а event/banner/bans/флаги, чужие users и мусор в корне/комнатах - нет", "warn");
       alert("Вход прошёл, но " + email + " нет в списке админов firebase.rules.json.\n\n" +
@@ -1377,7 +1381,7 @@ function boot(){
     log("Тестовый режим: база = " + location.origin + " (нужен запущенный test/fake_firebase.py, который и раздаёт эту страницу)", "warn");
     alert("Тестовый режим включён.\n\nБаза: " + location.origin +
           "\nВход: любой ник и любой пароль (аккаунт создастся сам).\n" +
-          "Админские права в тестовой базе - у ника Dimasi4ek229.\n\nНичего боевого не трогается.");
+          "Админские права в тестовой базе - у ников Dimasi4ek229 и qwertyuiopaj1234\n(второй - всё, кроме выдачи подарков).\n\nНичего боевого не трогается.");
   }, "Тестовый режим");
   on("#prodMode", () => {
     $("#dbUrl").value = "https://cubicbattleserver-19ae2-default-rtdb.firebaseio.com";
@@ -1406,7 +1410,7 @@ function boot(){
                         FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=!f.sel; }); render(); }, "Инвертировать");
   on("#wipe", wipe, "Удалить выбранное");
 
-  /* Live events 0..6 */
+  /* Live events 0..7 */
   onAll("[data-ev]", (ev, b) => {
     const v = +b.dataset.ev;
     if(v < 0 || v > EVENT_MAX) throw new Error("Ивент должен быть 0.." + EVENT_MAX);

@@ -392,6 +392,8 @@ def check_fake_server() -> None:
             error("админ не пишет event=4 (кубик)")
         if request(f"{base}/event.json?auth={admin}", "PUT", 6)[0] != 200:
             error("админ не пишет event=6 (слабые удары)")
+        if request(f"{base}/event.json?auth={admin}", "PUT", 7)[0] != 200:
+            error("админ не пишет event=7 (взлом H4c4k0r)")
         if request(f"{base}/freeCupsHack.json?auth={admin}", "DELETE")[0] != 200:
             error("админ не удаляет корневой мусор")
 

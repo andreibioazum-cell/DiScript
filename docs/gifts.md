@@ -15,10 +15,13 @@ The shop sells five ordinary stickers; the emerald is the most expensive
 | `rocket` | Rocket | 400 |
 | `emerald` | Emerald | 500 |
 
-For the main admin account (`Dimasi4ek229`, same `admin_slot`) ordinary
-stickers are free: `gifts.inc` writes only the counter and does not touch
-`cups`; the Buy button is never grey for this account. That does not open
-the removed `pumpkin_cube` gift.
+For the gift admin account (`Dimasi4ek229`, the only `admin_gifts_allowed()`)
+ordinary stickers are free: `gifts.inc` writes only the counter and does not
+touch `cups`; the Buy button is never grey for this account. That does not
+open the removed `pumpkin_cube` gift. The second root admin
+(`qwertyuiopaj1234`) pays full price like any player and cannot hand out
+gifts at all: the rules exclude him from the `+1` branch and the game hides
+the CCP Gifts tab from him.
 
 The first sticker used to be `rose`; it is now `poop`. Old `rose` counters may
 still sit in profiles - the rules keep accepting them, but the game neither
@@ -47,10 +50,11 @@ users/<nick>/gifts/poop          0..999 owned stickers
   sticker from the player's own counter and adds **half of the shop price** to
   the cups (12 / 50 / 125 / 200 / 250). The shop stays the cheaper way to get a
   sticker, while a duplicate from an event is still worth something.
-* **Admin grant** - the CCP panel's Gifts tab performs the same `+1` write; it
-  does not debit cups. It only needs the recipient's nickname: nicknames are
-  unique, so the nickname already points at exactly one account. The exclusive
-  `pumpkin_cube` is available only through this admin action.
+* **Admin grant** - the CCP panel's Gifts tab (visible to `Dimasi4ek229`
+  only) performs the same `+1` write; it does not debit cups. It only needs
+  the recipient's nickname: nicknames are unique, so the nickname already
+  points at exactly one account. The exclusive `pumpkin_cube` is available
+  only through this admin action.
 =======
 * **Send** - `-1` to the sender's `gifts/<id>` first, then `+1` to the recipient's.
   Each step is a single-child write, so the other counters are never rewritten.

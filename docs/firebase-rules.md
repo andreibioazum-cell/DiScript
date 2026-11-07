@@ -9,11 +9,15 @@ single child rule unless you also understand the inherited parent permissions.
 
 | Path | Read | Write |
 | --- | --- | --- |
-| `/AzumBuff`, `/FlashSale`, `/Christmas` | Anyone | `Dimasi4ek229` only; values must be `0` or `1` |
-| `/event`, `/banner`, `/bans` | Signed-in `@cb4.game` password accounts | `Dimasi4ek229` only |
-| `/users/<nick>` | Signed-in `@cb4.game` password accounts | The matching account, with the game's `w` secret; or `Dimasi4ek229` |
+| `/AzumBuff`, `/FlashSale`, `/Christmas` | Anyone | Root admins (`Dimasi4ek229`, `qwertyuiopaj1234`); values must be `0` or `1` |
+| `/event`, `/banner`, `/bans` | Signed-in `@cb4.game` password accounts | Root admins; neither of them can be banned |
+| `/users/<nick>` | Signed-in `@cb4.game` password accounts | The matching account, with the game's `w` secret; or either root admin |
 | `/rooms/<room>` | Signed-in `@cb4.game` password accounts | Admin or the specific owner/slot rules in the file |
 | Unknown root paths | Admin only | Nobody |
+
+There are two root admins: `dimasi4ek229@cb4.game` and
+`qwertyuiopaj1234@cb4.game`. The second one may do everything **except hand
+out gifts** - see the gift counters below.
 
 The root `.write: false` is intentional: every writable root is explicitly
 listed. It prevents a new, unreviewed node from becoming writable by accident.
@@ -23,7 +27,10 @@ listed. It prevents a new, unreviewed node from becoming writable by accident.
 The ordinary gift counters (`poop`, `cake`, `bear`, `rocket`, `emerald`) are
 capped at `0..999`. An owner can update their own counts; another signed-in
 player can only add one to an existing counter (or create it with `1`).
-Deleting another player's gift counter is rejected.
+Deleting another player's gift counter is rejected. The second root admin
+`qwertyuiopaj1234` is excluded from that increment branch: he may write
+profiles, cups and candies, but never another player's gift counters - gift
+handing stays with `Dimasi4ek229` and the owner.
 
 `pumpkin_cube` was removed; the rule remains for backward compatibility.
 save their profile; the `pumpkin_cube` counter no longer exists in the game.

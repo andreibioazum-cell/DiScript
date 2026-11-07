@@ -20,15 +20,15 @@
 
 Файл целиком вставлять обязательно, если ты ещё не публиковал правила из этой
 ветки: в нём явно описаны права игроков и админа, подарки (включая admin-only
-the removed `pumpkin_cube` is no longer used; `emerald_hue` is forbidden; `event` range is 0..6.
+the removed `pumpkin_cube` is no longer used; `emerald_hue` is forbidden; `event` range is 0..7.
 Старые правила могут отличаться от текущей схемы.
 
 ### Если хочется поменять только две строки
 
 Если правила из этой ветки уже опубликованы раньше (изумруд покупается, кубик
 включается), для баланса достаточно поправить два `validate`: `cups` и `candies`.
-Чтобы включить ивент слабых ударов на плитах, отдельно расширь диапазон `event` с 0..5
-до 0..6. В редакторе нажми `Ctrl+F`, найди `newData.val() <= 10000000` - это две строки
+Чтобы включить ивент слабых ударов на плитах и седьмой ивент «Взлом H4c4k0r», отдельно
+расширь диапазон `event` с 0..5 до 0..7. В редакторе нажми `Ctrl+F`, найди `newData.val() <= 10000000` - это две строки
 (кубки и конфеты). Замени их на:
 
 ```
@@ -36,7 +36,7 @@ the removed `pumpkin_cube` is no longer used; `emerald_hue` is forbidden; `event
 "candies": { ".validate": "newData.isNumber() && newData.val() >= 0 && newData.val() <= 10000000 && (auth != null && auth.token.email.toLowerCase() == 'dimasi4ek229@cb4.game' || !data.exists() || newData.val() <= data.val() + 1000)" },
 ```
 
-В правиле `event` также замени `newData.val() <= 5` на `newData.val() <= 6`.
+В правиле `event` также замени `newData.val() <= 5` на `newData.val() <= 7`.
 
 Сохрани кнопкой **Publish**. Смысл: за одну запись баланс может вырасти не
 больше чем на 1000, администраторы - без ограничения.
