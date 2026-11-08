@@ -312,15 +312,9 @@ static void draw_enemy_ball(void) {
     if (game_state != ST_SOLO) {
         return;
     }
-    if (admin_cheat_ball_path() == 1) {
-        if (enemy_ball.active == 1) {
-            draw_ball_path_from(enemy_ball.x, enemy_ball.y, enemy_ball.vx, enemy_ball.vy, enemy_ball.bounces,
-                                enemy_ball.t, 0x00FFD54Fu, 0, 0);
-        } else if (enemy_class == CLASS_EBUC && (enemy_ball_mode == 1 || enemy_super_kind == 4) && finished == 0) {
-            draw_ball_path_from(enemy->x, enemy->y, cos(enemy->angle) * BALL_SPEED, sin(enemy->angle) * BALL_SPEED,
-                                0, 0, 0x00FFD54Fu, 0, 26 * enemy_scale);
-        }
-    }
+    /* The "ebuC's bounces" cheat predicts the PLAYER's own ball only: the
+     * enemy's bounce path is never revealed, so the foe keeps its surprise.
+     * Only the ball body and its trail are drawn here. */
     ult_ball_draw_body(&enemy_ball);
 }
 

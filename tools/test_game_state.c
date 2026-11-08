@@ -5351,8 +5351,8 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and all cheat labels. */
-    assert(adm_text_n == 5 + ADMIN_CHEATS);
+    /* The title, orb, three tabs (cheats, gifts, events) and all cheat labels. */
+    assert(adm_text_n == 6 + ADMIN_CHEATS);
     {
         double saved_lang_ab = language;
         language = 1;
@@ -5578,11 +5578,117 @@ int main(void) {
         }
         assert(red_hit >= 2);
 
+        /* The cheat predicts the PLAYER's ball only: while the bot's ball is
+         * in flight - and while the bot ebuC is aiming a new one - the enemy
+         * path (amber 0x00FFD54F and its red danger segments) is never drawn. */
+        enemy_ball_fire();
+        assert(enemy_ball_active() == 1);
+        enemy_ball.bounces = 2; /* a path that would bounce across the screen */
+        adm_reset_log();
+        draw_enemy_ball();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            uint32_t c = adm_colors[ci] & 0x00FFFFFFu;
+            assert(c != 0x00FFD54Fu && c != 0x00FF2D2Du);
+        }
+        /* The ball body itself still shows: the path is what stays hidden. */
+        assert(adm_has_text(admin_cheat_label(6)) == 0);
+        enemy_ball_reset();
+        /* An aiming bot ebuC leaks nothing either, even with the cheat on. */
+        enemy_class = CLASS_EBUC;
+        enemy_ball_mode = 1;
+        enemy->angle = 1.2;
+        adm_reset_log();
+        draw_enemy_ball();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            uint32_t c = adm_colors[ci] & 0x00FFFFFFu;
+            assert(c != 0x00FFD54Fu && c != 0x00FF2D2Du);
+        }
+        /* ...and the player's own path is still drawn right next to it. */
+        adm_reset_log();
+        draw_ball();
+        {
+            int amber = 0;
+            for (int ci = 0; ci < adm_color_n; ci++)
+                if ((adm_colors[ci] & 0x00FFFFFFu) == 0x00FFD54Fu)
+                    amber++;
+            assert(amber == 0 && adm_color_n > 0);
+        }
+        enemy_class = CLASS_ORDINARY;
+        enemy_ball_mode = 0;
+
         admin_press_cheat(6);
         assert(admin_cheat_ball_path() == 0);
         cheat_stain = 0;
         ball_reset();
         player_class = CLASS_ORDINARY;
+    }
+
+    /* CCP event switches: the panel tab turns the global events on and off
+     * without typing the admin chat command. Index 0 is OFF, 1..7 are the
+     * events, and the row lights up the event that is actually live. */
+    {
+        double saved_w = screen_w, saved_h = screen_h;
+        screen_w = 1080;
+        screen_h = 2400;
+        game_state = ST_LOBBY;
+        assert(admin_events_allowed() == 1);
+        stub_event_mode = 0;
+        language = 1;
+        assert(strcmp(admin_event_label(0), "Выключить") == 0);
+        assert(strcmp(admin_event_label(1), "Диско") == 0);
+        assert(strcmp(admin_event_label(7), "Взлом H4c4k0r") == 0);
+        language = 0;
+        assert(strcmp(admin_event_label(0), "Turn off") == 0);
+        assert(strcmp(admin_event_label(1), "Disco") == 0);
+        assert(strcmp(admin_event_label(7), "H4c4k0r raid") == 0);
+        language = 1;
+
+        /* Every switch, straight through the panel: the value reaches the
+         * same net_event_set() the chat command uses. */
+        for (int i = 0; i < ADMIN_EVENTS; i++) {
+            stub_event_mode = i == 3 ? 3 : 0;
+            admin_press_event(i);
+            assert(stub_event_mode == i);
+            assert(admin_event_value(i) == 1);
+            for (int j = 0; j < ADMIN_EVENTS; j++)
+                if (j != i)
+                    assert(admin_event_value(j) == 0);
+        }
+        /* The panel draws the event grid with every label and the live
+         * switch filled, and the tab is reachable by a tap. */
+        admin_panel_open = 1;
+        admin_tab = 2;
+        assert(fabs(admin_content_h() - (admin_event_grid_h() + admin_row_h() + admin_gap())) < 1e-9);
+        adm_reset_log();
+        admin_draw();
+        for (int i = 0; i < ADMIN_EVENTS; i++)
+            assert(adm_has_text(admin_event_label(i)) == 1);
+        assert(adm_has_text("Ивенты") == 1);
+        assert(adm_all_greyscale() == 1 && adm_all_flat() == 1);
+        /* One filled tab + one filled event switch. */
+        assert(adm_fill_count(0x333333) == 2);
+        assert(adm_no_white_fill() == 1);
+
+        /* Tapping the third tab opens the event grid; tapping a switch fires. */
+        admin_tab = 0;
+        stub_event_mode = 0;
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.85, admin_content_top() + 6);
+        assert(admin_tab == 2);
+        double ev_top = admin_content_top() + admin_row_h() + admin_gap();
+        double ev_rh = admin_cheat_row_h();
+        double ev_bw = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
+        /* bottom-right cell of the 2 x 4 grid = event 7 */
+        admin_panel_press(admin_panel_x() + admin_pad() + ev_bw + admin_gap() + 10,
+                          ev_top + 3 * (ev_rh + admin_gap()) + ev_rh / 2);
+        assert(stub_event_mode == 7);
+        /* ...and the OFF switch on top of it clears the event again. */
+        admin_panel_press(admin_panel_x() + admin_pad() + 10, ev_top + ev_rh / 2);
+        assert(stub_event_mode == 0);
+        admin_panel_open = 0;
+        admin_tab = 0;
+        stub_event_mode = 0;
+        screen_w = saved_w;
+        screen_h = saved_h;
     }
 
     net_ban_set("remote_guy", 0);
@@ -6364,7 +6470,11 @@ int main(void) {
         game_state = ST_LOBBY;
         admin_panel_open = 1;
         admin_tab = 1;
+        /* No gift tab, but the events tab is a real second tab: the left half
+         * returns to the modifier switches, the right half opens events. */
         admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        assert(admin_tab == 2);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
         assert(admin_tab == 0);
         adm_reset_log();
         admin_draw();
@@ -6429,7 +6539,7 @@ int main(void) {
         assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
         admin_panel_open = 1;
         admin_tab = 1;
-        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
         assert(admin_tab == 0);
         adm_reset_log();
         admin_draw();
@@ -6441,7 +6551,7 @@ int main(void) {
         game_state = ST_LOBBY;
         admin_panel_open = 1;
         admin_tab = 1;
-        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
         assert(admin_tab == 0);
         adm_reset_log();
         language = 1;

@@ -38,12 +38,23 @@ static double admin_panel_w(void) {
 static double admin_row_h(void) { return clamp(screen_h * 0.066, 36, 76); }
 
 #define ADMIN_CHEATS 9
+/* Event switches live on their own CCP tab: 0 = OFF, 1..7 = the global events. */
+#define ADMIN_EVENTS 8
 static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
+/* The event tab is a 2 x 4 grid of the same buttons. */
+static double admin_event_rows(void) { return ADMIN_EVENTS / 2; }
+static double admin_event_grid_h(void) { return admin_event_rows() * admin_row_h() + (admin_event_rows() - 1) * admin_gap(); }
+
 static double admin_content_h(void) {
-    return (admin_tab == 0 || admin_gifts_allowed() == 0) ? admin_grid_h() + admin_row_h() + admin_gap()
-                                                          : 9 * admin_row_h() + 8 * admin_gap();
+    if (admin_tab == 2 && admin_events_allowed() == 1) {
+        return admin_event_grid_h() + admin_row_h() + admin_gap();
+    }
+    if (admin_tab == 1 && admin_gifts_allowed() == 1) {
+        return 9 * admin_row_h() + 8 * admin_gap();
+    }
+    return admin_grid_h() + admin_row_h() + admin_gap();
 }
 
 static double admin_cheat_row_h(void) {
@@ -180,6 +191,93 @@ static double admin_cheat_value(double idx) {
         return cheat_autoblock;
     }
     return cheat_hack;
+}
+
+/* Name of one CCP event switch: index 0 is OFF, 1..7 are the global events. */
+static const char *admin_event_label(double idx) {
+    if (idx == 0) {
+        return language == 1 ? "Выключить" : "Turn off";
+    }
+    if (idx == 1) {
+        return language == 1 ? "Диско" : "Disco";
+    }
+    if (idx == 2) {
+        return language == 1 ? "Плиты" : "Plates";
+    }
+    if (idx == 3) {
+        return language == 1 ? "Дед Мороз" : "Santa";
+    }
+    if (idx == 4) {
+        return language == 1 ? "Кубик" : "Cube";
+    }
+    if (idx == 5) {
+        return language == 1 ? "Колонки" : "Columns";
+    }
+    if (idx == 6) {
+        return language == 1 ? "Слабые удары" : "Weak hits";
+    }
+    return language == 1 ? "Взлом H4c4k0r" : "H4c4k0r raid";
+}
+
+/* Chat-style command for one switch; admin_handle() owns the whole logic. */
+static const char *admin_event_cmd(double idx) {
+    if (idx == 0) {
+        return "event 0";
+    }
+    if (idx == 1) {
+        return "event 1";
+    }
+    if (idx == 2) {
+        return "event 2";
+    }
+    if (idx == 3) {
+        return "event 3";
+    }
+    if (idx == 4) {
+        return "event 4";
+    }
+    if (idx == 5) {
+        return "event 5";
+    }
+    if (idx == 6) {
+        return "event 6";
+    }
+    return "event 7";
+}
+
+/* Return 1 while the switch is the live event; OFF lights up when 0 is live. */
+static double admin_event_value(double idx) {
+    if (admin_modifiers_allowed() == 0) {
+        return 0;
+    }
+    if (net_flags_reachable() != 1) {
+        return idx == 0 ? 1 : 0;
+    }
+    return net_event() == idx ? 1 : 0;
+}
+
+/* Return 1 when the signed-in player may switch global events for everyone. */
+static double admin_events_allowed(void) {
+    return is_admin();
+}
+
+/* Switch a global event from the CCP panel - same path as the chat command.
+ * Index 0 is a plain OFF switch: unlike the typed `event 0` command it never
+ * falls through to turning the disco event on by accident. */
+static void admin_press_event(double idx) {
+    if (admin_events_allowed() == 0) {
+        return;
+    }
+    if (idx == 0) {
+        if (net_event() != 0) {
+            admin_handle(admin_event_cmd(0));
+        } else {
+            net_event_set(0);
+            ds_log("admin: event off");
+        }
+        return;
+    }
+    admin_handle(admin_event_cmd(idx));
 }
 
 /* Return 1 while any admin cheat switch is active. */

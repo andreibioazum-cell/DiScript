@@ -144,17 +144,56 @@ static void admin_panel_press(double x, double y) {
         admin_panel_close();
         return;
     }
-    if (admin_gifts_allowed() == 0) {
-        if (admin_tab == 1) admin_keyboard_drop();
+    if (admin_gifts_allowed() == 0 && admin_tab == 1) {
+        admin_keyboard_drop();
+        admin_tab = 0;
+    }
+    if (admin_events_allowed() == 0 && admin_tab == 2) {
         admin_tab = 0;
     }
     double tab_y = admin_content_top();
     if (y >= tab_y && y <= tab_y + admin_row_h()) {
-        if (admin_gifts_allowed() == 1) {
-            if (admin_tab == 1) admin_keyboard_drop();
-            admin_tab = x < px + pw / 2 ? 0 : 1;
-            play_button_click();
+        double pxi = px + admin_pad();
+        double pwt = pw - 2 * admin_pad();
+        double taps = (admin_gifts_allowed() == 1 && admin_events_allowed() == 1) ? 3 : 2;
+        double tw = (pwt - (taps - 1) * admin_gap()) / taps;
+        double hit = floor((x - pxi) / (tw + admin_gap()));
+        if (admin_gifts_allowed() == 0 && admin_events_allowed() == 0) {
+            /* A single caption: every tap lands back on the cheat switches. */
+            admin_tab = 0;
+            return;
         }
+        if (admin_events_allowed() == 0) {
+            if (admin_tab == 1) admin_keyboard_drop();
+            admin_tab = hit <= 0 ? 0 : 1;
+            play_button_click();
+            return;
+        }
+        if (admin_gifts_allowed() == 0) {
+            admin_tab = hit <= 0 ? 0 : 2;
+            play_button_click();
+            return;
+        }
+        if (admin_tab == 1 && hit != 1) admin_keyboard_drop();
+        admin_tab = hit <= 0 ? 0 : (hit == 1 ? 1 : 2);
+        play_button_click();
+        return;
+    }
+    if (admin_tab == 2 && admin_events_allowed() == 1) {
+        double top = admin_content_top() + admin_row_h() + admin_gap();
+        double bw = (pw - 2 * admin_pad() - admin_gap()) / 2;
+        double rh = admin_cheat_row_h();
+        double row = floor((y - top) / (rh + admin_gap()));
+        if (row < 0 || row > floor((ADMIN_EVENTS - 1) / 2) || x < px + admin_pad() || x > px + pw - admin_pad()) {
+            return;
+        }
+        double col = x >= px + admin_pad() + bw + admin_gap() ? 1 : 0;
+        double idx = row * 2 + col;
+        if (idx >= ADMIN_EVENTS) {
+            return;
+        }
+        play_button_click();
+        admin_press_event(idx);
         return;
     }
     if (admin_tab == 1 && admin_gifts_allowed() == 1) {
@@ -290,12 +329,45 @@ static void admin_draw_cheats(void) {
     }
 }
 
+static void admin_draw_events(void) {
+    double px = admin_panel_x() + admin_pad();
+    double pw = admin_panel_w() - 2 * admin_pad();
+    double bw = (pw - admin_gap()) / 2;
+    double rh = admin_cheat_row_h();
+    double top = admin_content_top() + admin_row_h() + admin_gap();
+    double idx = 0;
+    while (idx < ADMIN_EVENTS) {
+        double row = floor(idx / 2);
+        double col = idx - row * 2;
+        double bx = px + col * (bw + admin_gap());
+        double by = top + row * (rh + admin_gap());
+        const char *label = admin_event_label(idx);
+        admin_btn(label, bx, by, bw, rh, admin_event_value(idx), fit_text_scale(label, bw - 12, rh / 58.0));
+        idx = idx + 1;
+    }
+}
+
 static void admin_draw_tabs(void) {
     double px = admin_panel_x() + admin_pad();
     double y = admin_content_top();
     double h = admin_row_h();
     if (admin_gifts_allowed() == 0) {
-        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, admin_panel_w() - 2 * admin_pad(), h, 1, 0.55);
+        double pw_t = admin_panel_w() - 2 * admin_pad();
+        if (admin_events_allowed() == 0) {
+            admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, pw_t, h, 1, 0.55);
+            return;
+        }
+        /* No gift management: modifier switches on the left, events right. */
+        double w2 = (pw_t - admin_gap()) / 2;
+        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, w2, h, admin_tab == 0, 0.55);
+        admin_btn(language == 1 ? "Ивенты" : "Events", px + w2 + admin_gap(), y, w2, h, admin_tab == 2, 0.55);
+        return;
+    }
+    if (admin_events_allowed() == 1) {
+        double w3 = (admin_panel_w() - 2 * admin_pad() - 2 * admin_gap()) / 3;
+        admin_btn(language == 1 ? "Читы" : "Cheats", px, y, w3, h, admin_tab == 0, 0.55);
+        admin_btn(language == 1 ? "Подарки" : "Gifts", px + w3 + admin_gap(), y, w3, h, admin_tab == 1, 0.55);
+        admin_btn(language == 1 ? "Ивенты" : "Events", px + 2 * (w3 + admin_gap()), y, w3, h, admin_tab == 2, 0.55);
         return;
     }
     double w = (admin_panel_w() - 2 * admin_pad() - admin_gap()) / 2;
@@ -345,7 +417,13 @@ static void admin_draw_panel(void) {
     ring(cxx, py + hh / 2, cr, clamp(cr * 0.14, 2, 3), admin_frame());
     text_in_box("X", cxx - cr, py + hh / 2 - cr, cr * 2, cr * 2, admin_frame(), cr / 30.0);
     admin_draw_tabs();
-    if (admin_tab == 0 || admin_gifts_allowed() == 0) admin_draw_cheats(); else admin_draw_gifts();
+    if (admin_tab == 2 && admin_events_allowed() == 1) {
+        admin_draw_events();
+    } else if (admin_tab == 1 && admin_gifts_allowed() == 1) {
+        admin_draw_gifts();
+    } else {
+        admin_draw_cheats();
+    }
 }
 
 static void admin_draw(void) {

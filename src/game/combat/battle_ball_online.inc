@@ -308,9 +308,8 @@ static void remote_bricks_tick(void) {
 static void draw_remote_bricks(void) {
     int s = 0, k;
     while (s < REMOTE_BRICKS) {
-        if (rb_on[s] == 1 && admin_cheat_ball_path() == 1) {
-            draw_ball_path_from(rb_x[s], rb_y[s], rb_vx[s], rb_vy[s], rb_bounces[s], rb_t[s], 0x00FFD54Fu, 0, 0);
-        }
+        /* Online opponents' predicted bounce paths stay hidden for the same
+         * reason as the bot's: the cheat shows the player's own ball only. */
         for (k = 0; k < BALL_TRAIL; k++) {
             if (rb_trail_a[s][k] > 0) {
                 double a = rb_trail_a[s][k];
