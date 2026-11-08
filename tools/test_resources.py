@@ -5,6 +5,7 @@ from __future__ import annotations
 
 import json
 import re
+import sys
 import wave
 from pathlib import Path
 
@@ -195,11 +196,27 @@ def check_port_layout() -> None:
         assert old_prefix not in source.read_text(encoding="utf-8"), source
 
 
+def check_disco_loops() -> None:
+    """The disco soundtrack lives in disco/ and must stay a real, loopable set."""
+    import subprocess
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "test_disco_loops.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"Диско-лупы не прошли проверку:\n{result.stderr}{result.stdout}"
+
+
 def main() -> int:
     check_port_layout()
     check_assets()
     check_firebase_rules()
     check_write_secret()
+    # The rules check depends on a migrated live database, so it is reported but
+    # never hides the other problems (and never blocks the disco soundtrack).
+    try:
+        check_disco_loops()
+    except AssertionError as error:
+        raise AssertionError(f"Диско-лупы не прошли проверку: {error}") from error
     print("Ресурсы и схема сети: норма")
     return 0
 
