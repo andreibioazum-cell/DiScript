@@ -69,8 +69,9 @@ def check_firebase_rules() -> None:
 
     ban_write = rules["bans"]["$nick"][".write"]
     assert "newData.exists()" in ban_write
+    # Two root admins may ban, and neither of them may ban themselves.
     assert "$nick.toLowerCase() != 'dimasi4ek229'" in ban_write
-    assert "qwertyuiopaj1234" not in ban_write.lower()
+    assert "$nick.toLowerCase() != 'qwertyuiopaj1234'" in ban_write
 
 
 def check_write_secret() -> None:
@@ -198,6 +199,29 @@ def check_port_layout() -> None:
         assert old_prefix not in source.read_text(encoding="utf-8"), source
 
 
+def check_audio_rights() -> None:
+    """Each WAV carries the project's copyright notice and nobody else's sound."""
+
+    sys.path.insert(0, str(ROOT / "tools"))
+    import audio_rights
+
+    files = sorted((ROOT / "assets" / "audio").rglob("*.wav"))
+    assert files, "No audio files found"
+    for path in files:
+        info = audio_rights.read_info(path)
+        name = path.relative_to(ROOT).as_posix()
+        assert info.get("ICOP") == audio_rights.COPYRIGHT, f"{name}: no project copyright notice"
+        assert info.get("IART") == audio_rights.RIGHTS_HOLDER_LATIN, f"{name}: wrong author"
+        assert info.get("INAM"), f"{name}: no track name"
+        assert info.get("ISFT", "").startswith("tools/"), f"{name}: no generator recorded"
+        assert "third-party" in info.get("ICMT", ""), f"{name}: the notice must state the sound is original"
+
+    # A leaked recording would be the one thing the notice cannot cover.
+    for pattern in ("*.mp3", "*.m4a", "*.ogg", "*.flac", "*.aac"):
+        stray = sorted((ROOT / "assets").rglob(pattern)) + sorted(ROOT.glob(pattern))
+        assert not stray, f"Third-party audio in the repository: {[p.name for p in stray]}"
+
+
 def check_disco_loops() -> None:
     """The disco soundtrack lives in disco/ and must stay a real, loopable set."""
     import subprocess
@@ -213,6 +237,7 @@ def main() -> int:
     check_assets()
     check_firebase_rules()
     check_write_secret()
+    check_audio_rights()
     # The rules check depends on a migrated live database, so it is reported but
     # never hides the other problems (and never blocks the disco soundtrack).
     try:

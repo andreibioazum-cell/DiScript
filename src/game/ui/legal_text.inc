@@ -51,9 +51,9 @@ static const char *const legal_ru[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "в облаке и данные на этом устройстве.", "Ответ на обращение - до 10 рабочих дней.",
      "Жалобу можно подать в Роскомнадзор.", ""},
     {"Лицензия и авторские права", "Код, графика, музыка, тексты и персонажи", "принадлежат правообладателю.",
-     "Все права защищены.", "Копировать, распространять, продавать игру,", "её код и материалы, а также",
-     "декомпилировать их и обходить защиту", "запрещено. Текстурпаки делаете вы и", "отвечаете за них сами:",
-     "в паках нельзя распространять материалы игры.", "Нарушение прекращает право играть в игру."},
+     "Все права защищены.", "Вся музыка и звуки игры", "синтезированы для проекта: в них нет",
+     "ни одного сэмпла, записи или чужой", "мелодии, права на них - у проекта.", "Копировать, распространять, продавать",
+     "игру, её код и материалы, декомпилировать", "их и обходить защиту запрещено."},
 };
 
 static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
@@ -92,9 +92,9 @@ static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "cloud profile and data on this device.", "Requests are answered within 10 working days.",
      "You may complain to Roskomnadzor.", ""},
     {"License and copyright", "The code, graphics, music, texts and", "characters belong to the rights holder.",
-     "All rights reserved.", "Copying, distributing or selling the game,", "its code and materials, decompiling them",
-     "or bypassing the protection is prohibited.", "Texture packs are made by you and are", "your responsibility:",
-     "packs may not redistribute the game materials.", "A violation ends the right to play."},
+     "All rights reserved.", "All music and sound effects were", "synthesised for the project: they contain",
+     "no sample, recording or borrowed melody,", "and the project owns them.", "Copying, distributing or selling the game,",
+     "its code and materials, or bypassing", "the protection is prohibited."},
 };
 
 static const char *legal_line(double page, double line) {

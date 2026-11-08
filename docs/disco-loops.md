@@ -104,7 +104,23 @@ that the file is the one the game plays (`src/game/fx/disco_music.inc`).
 
 ## Rights
 
-The code and the WAV files it writes belong to the project (see
-[LICENSE](../LICENSE)). Because every sound is computed from the maths in this
-repository, the loops contain no third-party recordings or melodies. Permission
-to redistribute them comes from the copyright holder of the project.
+The loop is the project's own work. The code that writes it and the WAV file it
+produces belong to the copyright holder, `Дима Густенёв (Dimasi4ek229)`, under
+the same proprietary terms as the rest of the game (see [LICENSE](../LICENSE)).
+Because every sound is computed from the maths in this repository, the file
+contains no third-party recording, sample or melody, and permission to
+redistribute it comes from the copyright holder alone.
+
+The notice is also written into the file itself - a RIFF `LIST/INFO` chunk made
+by `tools/audio_rights.py`:
+
+```
+IART  Dima Gustenev (Dimasi4ek229)
+ICOP  (C) 2026 Dima Gustenev (Dimasi4ek229). All rights reserved.
+ICMT  Original work synthesised by the Cubic Battle 4 tools. No samples, no
+      third-party recordings or melodies.
+ISFT  tools/generate_disco_loops.py
+```
+
+`tools/test_resources.py` fails if any WAV in `assets/audio/` loses that notice
+or if an `mp3`/`m4a`/`ogg`/`flac`/`aac` file appears in the repository.

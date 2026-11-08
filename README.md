@@ -43,7 +43,12 @@ python3 tools/generate_disco_loops.py    # диско-луп для ивента
 ```
 
 Никаких сэмплов, сторонних библиотек или чужих мелодий: всё считается кодом.
-Подробности: [docs/music.md](docs/music.md) и
+
+**Права:** вся музыка и все звуки созданы для проекта и принадлежат
+правообладателю, `Дима Густенёв (Dimasi4ek229)`, на тех же условиях, что и код
+(см. [LICENSE](LICENSE)). Уведомление об авторских правах встроено в каждый
+WAV-файл - чанк RIFF `LIST/INFO` (`tools/audio_rights.py`), его проверяет
+`tools/test_resources.py`. Подробности: [docs/music.md](docs/music.md) и
 [docs/disco-loops.md](docs/disco-loops.md).
 
 ## Диско-луп (1 трек на 30 секунд)

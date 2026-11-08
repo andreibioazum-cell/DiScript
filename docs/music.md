@@ -4,6 +4,12 @@
 `tools/generate_music.py` без сторонних библиотек и без аудиосэмплов. Формат
 одинаковый для всех треков: WAV, стерео, 16 бит PCM, 22050 Гц.
 
+Права на всю музыку и звуки принадлежат правообладателю проекта,
+`Дима Густенёв (Dimasi4ek229)`, и распространяются по той же проприетарной
+лицензии, что и код (см. [LICENSE](../LICENSE)). Ни одного сэмпла, скачанной
+записи или чужой мелодии в этих файлах нет - это условие проверяет
+`tools/test_resources.py`.
+
 | Файл | Где играет | Длительность |
 | --- | --- | --- |
 | `assets/audio/tracks/lobby.wav` | Обычная тема в лобби и меню | **70 с** |
@@ -17,12 +23,41 @@
 это как `sounds/tracks/` и `sounds/sfx/` - именно так музыку и эффекты читает
 игра на Android и на ПК.
 
+## Авторские права внутри файлов
+
+Каждый WAV в `assets/audio/` несёт уведомление об авторских правах в
+стандартном чанке RIFF `LIST/INFO` (`tools/audio_rights.py`):
+
+| Поле | Значение |
+| --- | --- |
+| `IART` | `Dima Gustenev (Dimasi4ek229)` |
+| `ICOP` | `(C) 2026 Dima Gustenev (Dimasi4ek229). All rights reserved.` |
+| `ICMT` | работа оригинальная, сэмплов и чужих записей нет |
+| `INAM` | имя трека (`lobby`, `duel`, `disco_01_roller_rink_sunset`, ...) |
+| `ISFT` | скрипт, который собрал файл |
+
+Посмотреть можно любым инструментом (`ffprobe`, `mediainfo`) или так:
+
+```
+python3 -c "import sys; sys.path.insert(0,'tools'); import audio_rights; from pathlib import Path; print(audio_rights.read_info(Path('assets/audio/tracks/lobby.wav')))"
+```
+
+Заголовок намеренно в ASCII: UTF-8 в `INFO` читается инструментами по-разному,
+поэтому имя правообладателя в файле записано латиницей. Канонический текст
+прав - в `LICENSE`, `THIRD_PARTY_NOTICES.md` и на экране «Правовая
+информация» в самой игре.
+
 ## Пересобрать музыку
 
 ```
 python3 tools/generate_music.py            # все три трека
 python3 tools/generate_music.py duel.wav   # только один трек
+python3 tools/generate_disco_loops.py      # диско-луп
+python3 tools/gen_ability_sounds.py        # все звуки в assets/audio/sfx
 ```
+
+Любой из генераторов пишет файл вместе с уведомлением об авторских правах,
+так что пересборка не «теряет» права у файла.
 
 Генератор детерминированный: один и тот же код всегда даёт один и тот же WAV.
 Никаких mp3, скачанных мелодий или внешних зависимостей - только `array`,
@@ -64,6 +99,8 @@ Wept»), его генератор `tools/generate_seraphim.py` и исходн�
 `tools/test_resources.py` проверяет, что все три темы на месте, имеют стерео
 16-битный формат, длительности ровно 70 / 70 / 45 секунд, что первые 5 секунд
 боевой темы достаточно громкие (RMS ≥ 4000), а старые файлы не вернулись в
-репозиторий. CI дополнительно проверяет, что `sounds/tracks/lobby.wav`,
+репозиторий. Он же (`check_audio_rights`) требует, чтобы у **каждого** WAV был
+наш чанк `INFO` с верным `ICOP`/`IART`/`ISFT` и чтобы в репозитории не было ни
+одного `mp3`, `m4a`, `ogg`, `flac` или `aac`. CI дополнительно проверяет, что `sounds/tracks/lobby.wav`,
 `sounds/tracks/winter_lobby.wav`, `sounds/tracks/duel.wav` и
 `sounds/sfx/punch.wav` попали в собранный Windows-пакет и в APK.

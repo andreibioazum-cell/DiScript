@@ -3,7 +3,10 @@
 
 The mixer never fades anything: buffers wrap around the loop point, so a note
 that starts near 29.9 s finishes at the top of the file.  That is what makes the
-thirty-second files in ``assets/audio/disco`` seamless loops.
+thirty-second files in ``assets/audio/tracks`` seamless loops.
+
+The written WAV carries the project's copyright notice in its RIFF INFO chunk
+(``tools/audio_rights.py``), because the loop is original work of the project.
 """
 
 from __future__ import annotations
@@ -11,16 +14,16 @@ from __future__ import annotations
 from array import array
 import math
 import sys
-import wave
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import audio_rights  # noqa: E402
 import disco_synth as ds  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-# A separate soundtrack folder, so the ten loops never end up inside the
-# APK/PC build (assets/audio is copied into both by stage_assets.py).
+# Music lives in its own folder under assets/audio; stage_assets.py copies it
+# into the APK/PC packages as sounds/tracks.
 OUT = ROOT / "assets" / "audio" / "tracks"
 RATE = ds.RATE
 SECONDS = 30.0
@@ -389,15 +392,15 @@ def write_loop(name: str, m: Mixer) -> None:
     path = OUT / f"{name}.wav"
     path.parent.mkdir(parents=True, exist_ok=True)
     chunk = RATE * 5
-    with wave.open(str(path), "wb") as output:
-        output.setnchannels(2)
-        output.setsampwidth(2)
-        output.setframerate(RATE)
+    output = audio_rights.open_wav(path, 2, RATE, FRAMES, name, "tools/generate_disco_loops.py")
+    try:
         for begin in range(0, FRAMES, chunk):
             end = min(FRAMES, begin + chunk)
             pcm = array("h", bytes(4 * (end - begin)))
             for i in range(begin, end):
                 pcm[2 * (i - begin)] = int(max(-32767, min(32767, left[i] * 32767)))
                 pcm[2 * (i - begin) + 1] = int(max(-32767, min(32767, right[i] * 32767)))
-            output.writeframes(pcm.tobytes())
+            output.write(pcm.tobytes())
+    finally:
+        output.close()
     print(f"{path.relative_to(ROOT)}: {FRAMES / RATE:.3f} с, {path.stat().st_size / 1024:.0f} КиБ")

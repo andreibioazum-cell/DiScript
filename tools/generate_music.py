@@ -21,7 +21,10 @@ from array import array
 import math
 from pathlib import Path
 import sys
-import wave
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import audio_rights  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
 AUDIO = ROOT / "assets" / "audio" / "tracks"
@@ -208,12 +211,8 @@ def write_track(path: Path, left: array, right: array, fade_in: float, fade_out:
     for i in range(frames):
         pcm.append(int(max(-32767, min(32767, left[i] * scale * 32767))))
         pcm.append(int(max(-32767, min(32767, right[i] * scale * 32767))))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(path), "wb") as output:
-        output.setnchannels(2)
-        output.setsampwidth(2)
-        output.setframerate(RATE)
-        output.writeframes(pcm.tobytes())
+    audio_rights.write_wav(path, 2, RATE, pcm.tobytes(), path.stem,
+                          "tools/generate_music.py")
     print(f"{path.relative_to(ROOT)}: {frames / RATE:.2f} с")
 
 

@@ -1,13 +1,22 @@
 #!/usr/bin/env python3
-"""Synthesize ability WAV sound effects into assets/audio/sfx/."""
+"""Synthesize ability WAV sound effects into assets/audio/sfx/.
+
+Every effect is original: it is computed from oscillators, noise and envelopes,
+never cut from a sample library. Each file carries the project's copyright
+notice in a RIFF INFO chunk through ``tools/audio_rights.py``.
+"""
 
 from __future__ import annotations
 
 import math
 import random
 import struct
-import wave
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import audio_rights  # noqa: E402
 
 ROOT = Path(__file__).resolve().parent.parent
 OUT = ROOT / "assets" / "audio" / "sfx"
@@ -27,11 +36,8 @@ def synth(seconds: float, fn) -> list[int]:
 
 def save(name: str, samples: list[int]) -> None:
     path = OUT / name
-    with wave.open(str(path), "wb") as w:
-        w.setnchannels(1)
-        w.setsampwidth(2)
-        w.setframerate(RATE)
-        w.writeframes(b"".join(struct.pack("<h", s) for s in samples))
+    pcm = b"".join(struct.pack("<h", s) for s in samples)
+    audio_rights.write_wav(path, 1, RATE, pcm, path.stem, "tools/gen_ability_sounds.py")
     print("%s: %d сэмплов" % (name, len(samples)))
 
 
@@ -96,6 +102,15 @@ def main() -> int:
     save("overclock.wav", synth(0.50, lambda t, i:
                                 env(t, 0.50, 0.02) * (0.45 * math.sin(2 * math.pi * (180 + 2440 * t) * t) +
                                                       0.18 * math.sin(2 * math.pi * (720 + 9760 * t) * t))))
+
+        # Button click: a short crisp tick. It used to be the one sound in the
+        # repository without a generator, so it is synthesised here now: a tiny
+        # pitched blip plus a softened noise transient, 45 ms, no tail.
+    def click(t: float, i: int) -> float:
+        blip = 0.55 * math.sin(2 * math.pi * (1450 - 1800 * t) * t)
+        transient = 0.30 * nz(t * 5.3) * math.exp(-t * 240)
+        return math.sin(math.pi * min(1.0, t / 0.045)) * (blip + transient)
+    save("button_click.wav", synth(0.045, click))
 
         # Zombie punch: the same push as the normal punch plus a growl - a saw
         # 105 -> 50 Hz with tremolo - and a bit of crunch. The growl used to slide to
