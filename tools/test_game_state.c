@@ -267,6 +267,8 @@ void keyboard_backspace(void) {
 }
 int keyboard_enter_pressed(void) { return 0; }
 int keyboard_uses_editor(void) { return 0; }
+void keyboard_tick(uint64_t now_ms) { (void)now_ms; }
+void keyboard_cancel_repeat(void) { }
 int keyboard_handle_key(int keycode, int action, int meta) {
     (void)keycode;
     (void)action;
@@ -2757,7 +2759,7 @@ static void test_hacker_event(void) {
     double candy_before;
     double bx, by, bw, bh, px, py;
     double cx, cy, dx, dy;
-    int i, n;
+    int i, n, got_before;
     screen_w = 1280;
     screen_h = 720;
     game_reset();
@@ -2769,7 +2771,6 @@ static void test_hacker_event(void) {
     update_hacker_event();
     assert(hack_active == 0);
 
-    /* The raid starts from the admin chat command like every other event. */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "test");
     stub_login_status = 2;
@@ -2777,7 +2778,6 @@ static void test_hacker_event(void) {
     assert(admin_handle("event 7") == 1 && stub_event_mode == 7);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     stub_event_mode = 0;
-    /* And locally from the admin cheat switch (admin account only). */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     cheat_hack = 1;
     assert(admin_cheat_hack() == 1 && hack_enabled() == 1);
@@ -2785,7 +2785,6 @@ static void test_hacker_event(void) {
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     assert(hack_enabled() == 0);
 
-    /* Boot: payload of this build's platform parses, junk table is known. */
     event_mode = HACK_EVENT;
     update_hacker_event();
     assert(hack_active == 1 && hack_glitch > 0);
@@ -2794,81 +2793,84 @@ static void test_hacker_event(void) {
 #else
     assert(hack_platform == HACK_PLAT_PHONE && hack_detect_platform() == HACK_PLAT_PHONE);
 #endif
-    assert(hack_payload_ok == 1 && hack_payload_bytes == 27);
-    assert(hack_cmd_n == 4 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);
+    assert(hack_payload_ok == 1 && hack_payload_bytes == 39);
+    assert(hack_cmd_n == 8 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);
     assert(str_len(hack_junk_label(0)) > 0 && str_len(hack_junk_label(9)) > 0);
     draw_hacker_event();
     draw_hacker_world();
 
-    /* 0..14 s: glitch ends, all four commands fire, one cloud survives. */
-    for (i = 0; i < 280; i++) {
-        update_hacker_event();
-        if (i % 9 == 0) {
-            draw_hacker_event();
-            draw_hacker_world();
-        }
-    }
-    assert(fabs(hack_t - 14.0) < 0.06);
-    assert(hack_glitch <= 0 && hack_cmd_idx == 4 && hack_cloud_on == 1);
-    assert(hack_stub_disco_t > 0 && hack_stub_plates_t > 0);
-    /* Typed live: the greeting is complete, Azum has not started laughing. */
-    assert(hack_typed_chars(1) == utf8_len(hack_line_text(1)));
-    assert(hack_typed_chars(6) == 0);
-    assert(hack_btn_made == 0);
+    /* Commands appear one by one; the cloud is not born before /event 11. */
+    for (i = 0; i < 260; i++) update_hacker_event(); /* t ~= 13 */
+    assert(hack_cmd_idx == 1 && hack_stub_on[0] == 1 && hack_stub_on[1] == 0);
+    assert(hack_cloud_on == 0 && hack_tornado_on == 0 && hack_second_open() == 0);
+    for (i = 0; i < 420; i++) update_hacker_event(); /* t ~= 34 */
+    assert(hack_cmd_idx == 6);
+    for (i = 0; i < HACK_STUB_MAX; i++) assert(hack_stub_on[i] == 1);
+    assert(hack_cloud_on == 0 && hack_tornado_on == 0);
+    for (i = 0; i < 180; i++) update_hacker_event(); /* t ~= 43 */
+    assert(hack_cmd_idx == 8 && hack_cloud_on == 1 && hack_tornado_on == 1);
+    assert(hack_second_open() == 0); /* cloud is visible first */
+    for (i = 0; i < 80; i++) update_hacker_event(); /* t ~= 47 */
+    assert(hack_second_open() == 1);
+    assert(hack_line_start(11) >= HACK_SECOND_AT);
+    /* Props are inert: the real event stays 7 and no reward/plate state ran. */
+    assert(event_mode == HACK_EVENT && plates_phase == 0);
+    draw_hacker_event();
+    draw_hacker_world();
 
-    /* 40 s: the menu junk avalanches, falls and lands as solid cover. */
-    for (i = 0; i < 620; i++) {
-        update_hacker_event();
-    }
+    /* The hacker loses his temper and only then the button cover rains. */
+    for (i = 0; i < 560; i++) update_hacker_event(); /* t ~= 75 */
     assert(hack_btn_made >= 3);
-    for (i = 0; i < 60; i++) {
-        update_hacker_event();
-    }
+    for (i = 0; i < 60; i++) update_hacker_event();
     assert(arr_get(hack_buttons, HB_LAND) == 1);
     bx = arr_get(hack_buttons, HB_X);
     by = arr_get(hack_buttons, HB_Y);
     bw = arr_get(hack_buttons, HB_W);
     bh = arr_get(hack_buttons, HB_H);
-    /* A fighter inside a landed button is pushed out of it. */
     px = bx + bw / 2;
     py = by + bh / 2;
     hack_button_push(&px, &py, player_half());
     assert(hit_rect(px, py, bx, by, bw, bh) == 0);
-    /* Junk clicks with its native sound and does nothing else. */
     assert(hack_touch(bx + bw / 2, by + bh / 2, 0, 1) == 1);
     assert(arr_get(hack_buttons, HB_PRESS) > 0);
 
-    /* Compact consoles drag by their green title bar and let go cleanly. */
+    /* Both consoles drag by their title bars and release cleanly. */
     {
-        double wx = hack_term_x[0];
-        double wy = hack_term_y[0];
-        assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
-        hack_touch(wx + 62, wy + 43, 2, 9);
-        hack_touch(wx + 62, wy + 43, 1, 9);
-        assert(fabs(hack_term_x[0] - (wx + 50)) < 1e-6);
-        assert(fabs(hack_term_y[0] - (wy + 40)) < 1e-6);
-        assert(hack_drag_win == -1);
-        /* A tap away from the bar still reaches the junk buttons. */
-        assert(hack_touch(wx + 12, wy + 3 + hack_term_head() + 30, 0, 9) == 0);
+        int win;
+        for (win = 0; win <= 1; win++) {
+            double wx = hack_term_x[win];
+            double wy = hack_term_y[win];
+            assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
+            hack_touch(wx + 62, wy + 43, 2, 9);
+            hack_touch(wx + 62, wy + 43, 1, 9);
+            assert(fabs(hack_term_x[win] - (wx + 50)) < 1e-6);
+            assert(fabs(hack_term_y[win] - (wy + 40)) < 1e-6);
+            assert(hack_drag_win == -1);
+        }
     }
     draw_hacker_event();
     draw_hacker_world();
 
-    /* 75 s: Azum's ban wipes the terminals red. */
-    for (i = 0; i < 560; i++) {
-        update_hacker_event();
-        if (i % 11 == 0) {
-            draw_hacker_event();
-        }
-    }
-    assert(hack_ban_t > 0 && hack_t >= HACK_BAN_AT);
+    /* Ban: a very long blackout, then the terminal verdict and animated close. */
+    for (i = 0; i < 600 && hack_ban_t == 0; i++) update_hacker_event();
+    assert(hack_ban_t > 0 && hack_cinematic_lock() == 1);
+    assert(hack_touch(screen_w / 2, screen_h / 2, 0, 1) == 1);
+    for (i = 0; i < 340; i++) update_hacker_event(); /* +17 s */
+    assert(hack_ban_t < HACK_BLACK_DUR && hack_cinematic_lock() == 1);
     draw_hacker_event();
-
-    /* 80 s: everything explodes, the cane rain slides at exactly 45 degrees. */
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 160; i++) update_hacker_event(); /* verdict / close */
+    assert(hack_ban_t > HACK_BLACK_DUR);
+    draw_hacker_event();
+    candy_before = candies;
+    got_before = (int)hack_cane_got;
+    n = 0;
+    while (hack_t < hack_rain_at() + 1.0 && n < 2000) {
         update_hacker_event();
+        n++;
     }
-    assert(hack_btn_made == 0 && hack_cloud_on == 0 && hack_cane_made >= 2);
+    assert(hack_cinematic_lock() == 0);
+    assert(hack_btn_made == 0 && hack_cloud_on == 0 && hack_tornado_on == 0 && hack_cane_made >= 2);
+    for (i = 0; i < HACK_STUB_MAX; i++) assert(hack_stub_on[i] == 0);
     assert(hack_touch(screen_w / 2, screen_h / 2, 0, 1) == 0);
     cx = arr_get(hack_canes, HC_X);
     cy = arr_get(hack_canes, HC_Y);
@@ -2880,8 +2882,6 @@ static void test_hacker_event(void) {
     }
     draw_hacker_world();
 
-    /* Collect all ten canes: each one pays candies on the spot. */
-    candy_before = candies;
     n = 0;
     while (hack_cane_got < hack_cane_total && n < 3000) {
         int slot = -1;
@@ -2900,16 +2900,12 @@ static void test_hacker_event(void) {
         n++;
     }
     assert(hack_cane_got == 10);
-    assert(candies - candy_before >= 10 * hack_cane_candy);
-    /* The clean victory closes the round once the last cane is gone. */
-    for (i = 0; i < 200 && finished == 0; i++) {
-        update_hacker_event();
-    }
+    assert(candies - candy_before >= (10 - got_before) * hack_cane_candy);
+    for (i = 0; i < 200 && finished == 0; i++) update_hacker_event();
     assert(finished == 1);
     draw_hacker_event();
     draw_hacker_world();
 
-    /* Event off: the whole scene rewinds for the next round. */
     event_mode = 0;
     update_hacker_event();
     assert(hack_active == 0 && hack_t == 0 && hack_cane_got == 0);
@@ -2917,7 +2913,7 @@ static void test_hacker_event(void) {
     stub_net_slot = -1;
     screen_w = saved_w;
     screen_h = saved_h;
-    puts("events: H4c4k0r raid 7 payload, junk cover, ban, 45-degree cane rain");
+    puts("events: H4c4k0r raid 7 ordered dummy events, delayed second console, long ban close, cane rain");
 }
 
 static void test_eax229_and_rooms(void) {

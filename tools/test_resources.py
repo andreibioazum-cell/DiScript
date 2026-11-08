@@ -162,6 +162,8 @@ def check_assets() -> None:
         ROOT / "assets" / "audio" / "licenses" / "Disco-Medusae-CC-BY-4.0.txt",
         ROOT / "third_party" / "music" / "Disco Medusae - Kevin MacLeod.mp3",
         ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
+        ROOT / "assets" / "hack" / "h4c4k0r.bin",
+        ROOT / "assets" / "hack" / "h4c4k0r.so",
         ROOT / "assets" / "shaders" / "sprite.vert",
         ROOT / "assets" / "shaders" / "solid.frag",
         ROOT / "assets" / "shaders" / "image.frag",

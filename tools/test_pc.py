@@ -695,6 +695,60 @@ def test_admin_commands_and_disco(assets: Path) -> None:
         check("disco author/licence footer is visible", colors.get(b"\xff\xff\xff", 0) > 30, str(colors.get(b"\xff\xff\xff", 0)))
 
 
+def test_hacker_raid_cinematic(assets: Path) -> None:
+    """Event 7: ordered dummy props, delayed second console, long frozen blackout."""
+    print("\n== 3n. H4c4k0r raid cinematic ==")
+    with fake_server():
+        result = harness(
+            assets, SCRATCH / "hacker_raid",
+            [
+                "--frames", "9600", *login_taps(),
+                "--touch", "800:500:53:0", "--touch", "803:500:53:1",
+                # God mode keeps the idle test pilot alive through the long scene.
+                "--touch", "820:179:395:0", "--touch", "823:179:395:1",
+                "--touch", "850:391:349:0", "--touch", "853:391:349:1",
+                # commands tab opens scrolled to the end: event 7 is the last button
+                "--touch", "900:410:644:0", "--touch", "903:410:644:1",
+                "--touch", "950:439:287:0", "--touch", "953:439:287:1",
+                "--touch", "1000:270:336:0", "--touch", "1003:270:336:1",
+                "--touch", "1060:270:404:0", "--touch", "1063:270:404:1",
+                "--report", "1200",
+                "--dump", f"3800:{SCRATCH / 'raid_props.bmp'}",
+                "--dump", f"4100:{SCRATCH / 'raid_second_console.bmp'}",
+                "--report", "8000", "--report", "8300",
+                "--dump", f"8100:{SCRATCH / 'raid_blackout.bmp'}",
+                "--dump", f"8800:{SCRATCH / 'raid_ban_terminal.bmp'}",
+                "--report", "9500",
+            ],
+        )
+    check("raid harness ran", result.returncode == 0, result.stderr[-1500:])
+    reports = parse_reports(result.stdout)
+    start = reports.get(1200, {})
+    black_a, black_b = reports.get(8000, {}), reports.get(8300, {})
+    end = reports.get(9500, {})
+    check("event 7 is active", start.get("event") == "7", str(start))
+    check("dummy disco stays silent", start.get("disco") == "0", str(start))
+    check("blackout freezes the fight (no hidden damage)",
+          black_a.get("finished") == "0" and black_b.get("finished") == "0" and
+          black_a.get("hp") == black_b.get("hp") and black_a.get("foe") == black_b.get("foe"),
+          f"{black_a} / {black_b}")
+    check("raid reaches compensation without errors", end.get("error") == "0" and end.get("event") == "7", str(end))
+    black = SCRATCH / "raid_blackout.bmp"
+    verdict = SCRATCH / "raid_ban_terminal.bmp"
+    props = SCRATCH / "raid_props.bmp"
+    check("raid screenshots rendered", black.is_file() and verdict.is_file() and props.is_file())
+    if black.is_file():
+        width, height, pixels = read_bmp(black)
+        colors = bmp_colors(pixels, width, height, step=4)
+        total = sum(colors.values())
+        check("long blackout is really black", colors.get(b"\x00\x00\x00", 0) > total * 0.98,
+              str(colors.get(b"\x00\x00\x00", 0) / max(total, 1)))
+    if verdict.is_file():
+        width, height, pixels = read_bmp(verdict)
+        colors = bmp_colors(pixels, width, height, step=4)
+        check("ban terminal appears inside the dark screen", colors.get(b"\x00\x00\x00", 0) < sum(colors.values()) * 0.98)
+
+
 def test_login(assets: Path) -> None:
     """Full network path: login screen -> form -> Firebase Auth -> profile.
 
@@ -778,6 +832,7 @@ def main() -> int:
         test_brick_online,
         test_codecracker_online,
         test_admin_commands_and_disco,
+        test_hacker_raid_cinematic,
         test_login,
     ]
     for test in tests:

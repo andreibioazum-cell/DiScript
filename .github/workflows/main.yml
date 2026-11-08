@@ -32,6 +32,7 @@ jobs:
           CC=gcc python3 tools/test_game_state.py
           python3 tools/test_resources.py
           CC=gcc python3 tools/test_audio_loop.py
+          CC=gcc python3 tools/test_backspace_repeat.py
 
       - name: Install Zig
         run: pip install ziglang
@@ -53,6 +54,7 @@ jobs:
           test -f build/pc/dist/assets/sounds/disco_medusae_kevin_macleod.mp3
           test -f build/pc/dist/assets/sounds/Disco-Medusae-NOTICE.txt
           test -f build/pc/dist/assets/sounds/licenses/Disco-Medusae-CC-BY-4.0.txt
+          test -f build/pc/dist/assets/hack/h4c4k0r.so
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 
       - name: Publish Windows .exe to Release

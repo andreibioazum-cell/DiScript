@@ -41,8 +41,15 @@ static void hack_reset(void) {
     hack_payload_ok = 0;
     hack_payload_bytes = 0;
     hack_cmd_idx = 0;
-    hack_stub_disco_t = 0;
-    hack_stub_plates_t = 0;
+    {
+        int stub;
+        for (stub = 0; stub < HACK_STUB_MAX; stub++) {
+            hack_stub_on[stub] = 0;
+            hack_stub_t[stub] = 0;
+        }
+    }
+    hack_tornado_on = 0;
+    hack_tornado_t = 0;
     hack_cloud_on = 0;
     hack_cloud_t = 0;
     hack_btn_cd = 0;
@@ -60,14 +67,19 @@ static void hack_reset(void) {
     hack_cane_candy = 3;
     arr_clear(hack_buttons);
     arr_clear(hack_canes);
-    /* One merged console starts in the top-left corner, never over the arena;
-     * slots 1-2 are legacy and never drawn. */
+    /* Hacker starts top-left. Azum's delayed console sits top-right on a
+     * wide screen, or below the hacker console on a portrait phone. */
     hack_term_x[0] = 8;
     hack_term_y[0] = hack_term_head() + 6;
-    hack_term_x[1] = 8;
+#ifdef CB_PC
+    hack_term_x[1] = screen_w - hack_term_w() - 12;
     hack_term_y[1] = hack_term_head() + 6;
-    hack_term_x[2] = 8;
-    hack_term_y[2] = hack_term_head() + 6;
+#else
+    hack_term_x[1] = 8;
+    hack_term_y[1] = screen_h * 0.46;
+#endif
+    hack_term_x[2] = hack_term_x[1];
+    hack_term_y[2] = hack_term_y[1];
     hack_drag_win = -1;
     hack_drag_id = -1;
 }
@@ -246,6 +258,9 @@ static double hack_bounce_ball(double *x, double *y, double rad, double *vx, dou
 /* Junk buttons click with their native sound and do absolutely nothing. */
 static double hack_touch(double x, double y, double action, double id) {
     double i;
+    if (hack_cinematic_lock() == 1) {
+        return 1;
+    }
     if (hack_drag_touch(x, y, action, id) == 1) {
         return 1;
     }
@@ -386,12 +401,6 @@ static void update_hacker_event(void) {
     if (hack_glitch > 0) {
         hack_glitch = hack_glitch - dt;
     }
-    if (hack_stub_disco_t > 0) {
-        hack_stub_disco_t = hack_stub_disco_t - dt;
-    }
-    if (hack_stub_plates_t > 0) {
-        hack_stub_plates_t = hack_stub_plates_t - dt;
-    }
     if (hack_cloud_on == 1) {
         hack_cloud_t = hack_cloud_t + dt;
     }
@@ -408,20 +417,25 @@ static void update_hacker_event(void) {
         }
     }
     hack_tick_buttons();
-    if (hack_ban_t == 0 && hack_t >= HACK_BAN_AT) {
+    if (hack_ban_t == 0 && hack_t >= hack_ban_scene_at()) {
         hack_ban_t = 0.0001;
-        ds_log("h4c4k0r: Azum's ban landed, terminals wiped");
+        ds_log("h4c4k0r: Azum's ban landed, long blackout begins");
     }
     if (hack_ban_t > 0) {
         hack_ban_t = hack_ban_t + dt;
     }
-    if (hack_t >= HACK_RAIN_AT) {
+    if (hack_t >= hack_rain_at()) {
         if (hack_boomed == 0) {
             /* Terminals and the whole junk pile explode at once. */
             hack_boomed = 1;
             hack_cloud_on = 0;
-            hack_stub_disco_t = 0;
-            hack_stub_plates_t = 0;
+            {
+                int stub;
+                for (stub = 0; stub < HACK_STUB_MAX; stub++) {
+                    hack_stub_on[stub] = 0;
+                }
+            }
+            hack_tornado_on = 0;
             arr_clear(hack_buttons);
             hack_btn_made = 0;
             ds_gfx_shake(7, 0.5);

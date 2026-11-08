@@ -208,7 +208,7 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
                 (void)pc_back();
         } else if (wp == VK_BACK) {
             if (keyboard_visible())
-                keyboard_backspace();
+                keyboard_handle_key(67 /* AKEYCODE_DEL */, 0, 0);
         } else if (wp == VK_RETURN) {
             if (keyboard_visible())
                 pc_keyboard_enter();
@@ -219,6 +219,8 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pc_keys[wp & 0xff] = 0;
         if (msg == WM_SYSKEYUP)
             return 0;
+        if (wp == VK_BACK)
+            keyboard_handle_key(67 /* AKEYCODE_DEL */, 1, 0);
         return 0;
     case WM_CHAR: {
         char utf8[8];
@@ -237,6 +239,7 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         return 0;
     case WM_KILLFOCUS:
         memset(pc_keys, 0, sizeof(pc_keys));
+        keyboard_cancel_repeat();
         if (pc_mouse_down && !pc_mouse_punch)
             pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
         pc_mouse_down = 0;

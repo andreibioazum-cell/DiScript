@@ -86,6 +86,9 @@ double game_pc_enemy_hp(void) { return enemy ? enemy->hp : 0.0; }
 double game_pc_finished(void) { return finished; }
 double game_pc_event(void) { return event_mode; }
 int game_pc_disco_music(void) { return disco_ok == 1 && snd_playing(DISCO_MUSIC) == 1; }
+double game_pc_hack_time(void) { return hack_t; }
+double game_pc_hack_ban(void) { return hack_ban_t; }
+int game_pc_hack_lock(void) { return hack_cinematic_lock() == 1; }
 double game_pc_ult_mode(void) { return ball_mode; }
 
 double game_pc_chaos(void) { return 0; }

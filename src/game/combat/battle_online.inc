@@ -371,6 +371,16 @@ static void update_online(void) {
         start_transition(0);
         return;
     }
+    if (hack_cinematic_lock() == 1) {
+        update_event();
+        drop_joy();
+        player_block = 0;
+        blk_id = -1;
+        if (punch) {
+            punch->active = 0;
+        }
+        return;
+    }
     tick_alert_hold();
     update_banner();
     tick_revive();

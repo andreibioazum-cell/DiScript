@@ -384,6 +384,11 @@ static void logic_touch(double x, double y, double action, double id) {
     } else if (action == 1 || action == 3) {
         press_points_drop(id);
     }
+    /* During the raid's black screen nothing underneath is clickable. */
+    if ((game_state == ST_SOLO || game_state == ST_ONLINE) && hack_cinematic_lock() == 1) {
+        press_points_drop(id);
+        return;
+    }
     /* Route touch to admin orb and panel first. */
     if (admin_touch(x, y, action, id) == 1) {
         press_points_drop(id);

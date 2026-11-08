@@ -330,6 +330,16 @@ static void update_game(void) {
     if (finished != 0) {
         return;
     }
+    /* The ban blackout is theatre, not a free kill: freeze the whole fight. */
+    if (hack_cinematic_lock() == 1) {
+        drop_joy();
+        player_block = 0;
+        blk_id = -1;
+        if (punch) {
+            punch->active = 0;
+        }
+        return;
+    }
     if (player->hp <= 0) {
         if (try_revive() == 0) {
             finish_game(2);
@@ -410,5 +420,5 @@ static void update_game(void) {
     ice_push_point(&enemy->x, &enemy->y, enemy_half());
     hack_button_push(&enemy->x, &enemy->y, enemy_half());
     ice_tick();
-    update_hacker_event();
+    /* update_event() above already ticked the raid; do not double-advance it. */
 }

@@ -236,6 +236,7 @@ static int pc_step(void) {
         if (dt > 0.1)
             dt = 0.1;
         prev_frame_ns = now;
+        keyboard_tick(monotonic_ns() / 1000000ull);
         if (!ds_call_protected(protected_game_update, NULL, "update"))
             mark_game_failed("update");
         else if (ds_game_restart_requested()) {

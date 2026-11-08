@@ -81,6 +81,10 @@ int keyboard_handle_key(int keycode, int action, int meta);
 int keyboard_uses_editor(void);
 void keyboard_type(const char *text);
 void keyboard_backspace(void);
+/* Held-Backspace autorepeat: platform calls tick once per frame with a
+ * monotonic millisecond clock; cancel stops repeats on hide/focus loss. */
+void keyboard_tick(uint64_t now_ms);
+void keyboard_cancel_repeat(void);
 void rect(float x, float y, float w, float h, uint32_t color);
 void roundrect(float x, float y, float w, float h, float r, uint32_t color);
 /* Draw rounded vertical gradient button fill. */

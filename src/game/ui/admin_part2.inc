@@ -365,6 +365,9 @@ static void admin_draw(void) {
     if (admin_modifiers_allowed() == 0) {
         return;
     }
+    if ((game_state == ST_SOLO || game_state == ST_ONLINE) && hack_cinematic_lock() == 1) {
+        return;
+    }
     if (admin_ball_x == 0 && admin_ball_y == 0) {
         admin_ball_x = screen_w - (admin_ball_r() + 14);
         admin_ball_y = back_y + btn_h * 0.5;
