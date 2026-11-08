@@ -9,6 +9,9 @@ double seraphim_level;
 double seraphim_fade_in;
 double seraphim_fade_out;
 double winter_jingle_volume;
+/* Disco event loop: 0 while it is not loaded, fade level in 0..1. */
+double disco_ok;
+double disco_level;
 double event_mode;
 double disco_t;
 double alone_t;

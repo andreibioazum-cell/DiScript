@@ -44,6 +44,7 @@ jobs:
           test -f build/pc/dist/assets/sounds/tracks/lobby.wav
           test -f build/pc/dist/assets/sounds/tracks/winter_lobby.wav
           test -f build/pc/dist/assets/sounds/tracks/duel.wav
+          test -f build/pc/dist/assets/sounds/tracks/disco_01_roller_rink_sunset.wav
           test -f build/pc/dist/assets/sounds/sfx/punch.wav
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 

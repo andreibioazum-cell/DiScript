@@ -11,9 +11,9 @@
 | `assets/audio/tracks/duel.wav` | Бой Азума против Астры (соло и онлайн) | **45 с** |
 
 Короткие звуки ударов, способностей и кнопок лежат отдельно, в
-`assets/audio/sfx/`; их собирает `tools/gen_ability_sounds.py`. Восемь
-диско-лупов рядом с темами (`disco_01...disco_08`) описаны в
-[disco-loops.md](disco-loops.md). Во время сборки `stage_assets.py` раскладывает
+`assets/audio/sfx/`; их собирает `tools/gen_ability_sounds.py`. Диско-луп
+рядом с темами, `disco_01_roller_rink_sunset.wav`, звучит на диско-ивенте в бою
+и описан в [disco-loops.md](disco-loops.md). Во время сборки `stage_assets.py` раскладывает
 это как `sounds/tracks/` и `sounds/sfx/` - именно так музыку и эффекты читает
 игра на Android и на ПК.
 

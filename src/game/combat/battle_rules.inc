@@ -236,8 +236,13 @@ static double azum_dash_damage_for(void) {
     return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }
 
-/* Enemies now deal their full class damage instead of the old 20% reduction. */
-#define ENEMY_OTHER_DAMAGE_MULT 1.00
+/* Enemies deal a fraction of their class damage: the old 20% cut.
+ * ENEMY_OTHER_DAMAGE_MULT scales every enemy hit in solo and against bots -
+ * punch, dash, strike, turret counter and ball. It was raised to 1.00 for a
+ * while and that made every class feel like it dealt a ton of damage, so it
+ * stays at the lower value. Do not tune it per class: one value keeps solo
+ * and online fights on the same scale. */
+#define ENEMY_OTHER_DAMAGE_MULT 0.80
 
 static double enemy_damage_mult_for(double cls) {
     (void)cls;

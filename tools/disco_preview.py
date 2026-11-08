@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Draws ``docs/disco-preview.png``: one peak/rms strip per disco loop.
+"""Draws ``docs/disco-preview.png``: a peak/rms strip of the disco loop.
 
 Only the standard library is used (``wave``, ``struct``, ``zlib``).  The picture
 makes the section build-up and the seamless loop point easy to check by eye:
@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[1]
 DISCO = ROOT / "assets" / "audio" / "tracks"
 OUT = ROOT / "docs" / "disco-preview.png"
 
-ROWS = 8
+ROWS = 1
 COLS = 660          # one column is ~45 ms of audio
 ROW_H = 42
 GAP = 10
@@ -75,7 +75,7 @@ def load_peaks(path: Path) -> tuple[list[float], list[float]]:
 
 def main() -> int:
     files = sorted(DISCO.glob("disco_*.wav"))
-    assert len(files) == ROWS, f"expected {ROWS} loops, found {len(files)}"
+    assert len(files) == ROWS, f"expected {ROWS} loop, found {len(files)}"
     buffer = bytearray(bytes(BACKGROUND) * (WIDTH * HEIGHT))
 
     for y in range(HEIGHT):

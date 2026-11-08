@@ -84,6 +84,10 @@ static int seraphim_should_play(void) {
 }
 
 static void update_seraphim_music(void) {
+    /* The disco loop owns the mix while it plays. */
+    if (disco_music_blocks() == 1) {
+        return;
+    }
     double target_vol = clamp(music_volume / 100 * 1.65, 0, 1);
     if (seraphim_should_play() == 1) {
         if (seraphim_ok == 0) {
@@ -145,6 +149,9 @@ static void logic_init(void) {
 }
 
 static void update_music(void) {
+    if (disco_music_blocks() == 1) {
+        return;
+    }
     select_lobby_music();
     if (music_ok == 0) {
         return;
@@ -171,6 +178,7 @@ static void logic_update(void) {
     acct_tick();
     update_studio();
     update_transition();
+    update_disco_music();
     update_music();
     update_seraphim_music();
     reload_textures();
@@ -211,6 +219,7 @@ static void logic_update(void) {
     }
     update_christmas();
     update_weather();
+    tick_report_pick();
 }
 
 static void draw_screen(void) {
@@ -269,6 +278,9 @@ static void logic_draw(void) {
     }
     if (reports_open_flag == 1) {
         draw_reports();
+    }
+    if (report_pick_open == 1) {
+        draw_report_pick();
     }
     if (parent_open == 1) {
         draw_parental();
@@ -415,6 +427,10 @@ static void logic_touch(double x, double y, double action, double id) {
     }
     if (reports_open_flag == 1) {
         touch_reports(x, y, action, id);
+        return;
+    }
+    if (report_pick_open == 1) {
+        touch_report_pick(x, y, action, id);
         return;
     }
     if (parent_open == 1) {

@@ -89,6 +89,7 @@
 #include "combat/battle_event_hacker_draw.inc"
 #include "fx/weather.inc"
 #include "fx/christmas.inc"
+#include "fx/disco_music.inc"
 #include "fx/dust.inc"
 #include "core/textures.inc"
 #include "core/engine_overlays.inc"

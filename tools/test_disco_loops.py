@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Checks the eight disco loops in assets/audio/tracks.
+"""Checks the disco loop in assets/audio/tracks.
 
 What is checked here:
 
@@ -11,7 +11,8 @@ What is checked here:
   the end of the file is not quieter than the middle (the loop does not end in
   silence);
 * level: RMS inside a sane range, peak far from clipping, no DC offset;
-* the eight files are really different tracks and not one file copied.
+* the loop is the one the game plays in the disco event (source and file
+  name match src/game/fx/disco_music.inc).
 """
 
 from __future__ import annotations
@@ -27,13 +28,6 @@ TRACKS = ROOT / "assets" / "audio" / "tracks"
 # File stem -> (BPM, bars).  Note that 8 * bars == BPM, so 30 s is whole bars.
 LOOPS = {
     "disco_01_roller_rink_sunset": (120, 15),
-    "disco_02_neon_boots": (128, 16),
-    "disco_03_mirrorball_dreams": (112, 14),
-    "disco_04_saturday_night_bus": (120, 15),
-    "disco_05_feel_the_floor": (128, 16),
-    "disco_06_boogie_boulevard": (112, 14),
-    "disco_07_disco_nebula": (128, 16),
-    "disco_08_strobe_hearts": (120, 15),
 }
 
 
@@ -92,9 +86,17 @@ def check_loop(name: str, bpm: int, bars: int) -> None:
 
 def check_set() -> None:
     files = sorted(TRACKS.glob("disco_*.wav"))
-    assert len(files) == 8, f"assets/audio/tracks must hold 8 disco loops, found {len(files)}"
-    signatures = {path.read_bytes()[:4096] for path in files}
-    assert len(signatures) == 8, "some loops start identically - these are copies, not tracks"
+    assert len(files) == 1, f"assets/audio/tracks must hold one disco loop, found {len(files)}"
+    assert files[0].stem in LOOPS, f"unexpected disco file: {files[0].name}"
+
+
+def check_game_uses_it() -> None:
+    """The game must play exactly the file that is checked here."""
+    source = (ROOT / "src" / "game" / "fx" / "disco_music.inc").read_text(encoding="utf-8")
+    for name in LOOPS:
+        assert f'"{name}.wav"' in source, f"src/game/fx/disco_music.inc does not play {name}.wav"
+    for path in TRACKS.glob("disco_*.wav"):
+        assert path.stem in LOOPS, f"{path.name} is not used by the game"
 
 
 def check_game_music() -> None:
@@ -117,7 +119,7 @@ def check_preview() -> None:
     assert header[:8] == b"\x89PNG\r\n\x1a\n", "docs/disco-preview.png is damaged"
     width = int.from_bytes(header[16:20], "big")
     height = int.from_bytes(header[20:24], "big")
-    assert (width, height) == (684, 422), f"docs/disco-preview.png has size {width}x{height}"
+    assert (width, height) == (684, 58), f"docs/disco-preview.png has size {width}x{height}"
 
 
 def check_generator() -> None:
@@ -133,13 +135,14 @@ def check_generator() -> None:
 
 def main() -> int:
     check_set()
+    check_game_uses_it()
     check_game_music()
     check_preview()
     check_generator()
     for name, (bpm, bars) in LOOPS.items():
         check_loop(name, bpm, bars)
     total = sum((TRACKS / f"{name}.wav").stat().st_size for name in LOOPS) / (1024 * 1024)
-    print(f"Disco loops: ok, 8 files of 30 s, {total:.1f} MiB together")
+    print(f"Disco loop: ok, one 30 s file, {total:.1f} MiB")
     return 0
 
 
