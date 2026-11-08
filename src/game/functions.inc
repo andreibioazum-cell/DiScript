@@ -57,6 +57,7 @@
 #include "include/prototypes/combat/battle_event_hacker.inc"
 #include "include/prototypes/fx/weather.inc"
 #include "include/prototypes/fx/christmas.inc"
+#include "include/prototypes/fx/disco_music.inc"
 #include "include/prototypes/fx/dust.inc"
 #include "include/prototypes/core/textures.inc"
 #include "include/prototypes/core/engine.inc"

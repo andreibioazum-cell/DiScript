@@ -37,7 +37,7 @@ static void disco_silence_other_music(void) {
 static void update_disco_music(void) {
     double target = clamp(music_volume / 100.0, 0, 1);
     if (disco_should_play() == 1) {
-        if (disco_ok == 0) {
+        if (disco_ok != 1) {
             disco_ok = snd_load(DISCO_MUSIC);
             if (disco_ok == 1) {
                 ds_log("disco: own loop ready (%s)", DISCO_MUSIC);

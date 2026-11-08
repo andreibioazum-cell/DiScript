@@ -19,8 +19,16 @@ static void draw_disco(void) {
 
 static void update_event(void) {
     /* Event numbering: 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid. */
-    /* Offline: no server-run events, everything is the ordinary battle. */
-    event_mode = net_flags_reachable() == 1 ? net_event() : 0;
+    if (net_flags_reachable() == 1) {
+        /* Online: the server-run global event, solo battles included. */
+        event_mode = net_event();
+    } else if (game_state == ST_SOLO) {
+        /* Offline solo: events launched from the CCP admin commands tab run
+         * locally; without one this is just 0 and the battle is ordinary. */
+        event_mode = net_event();
+    } else {
+        event_mode = 0;
+    }
     if (plates_round_on() == 1 && candies_on() == 0) {
         event_mode = 0;
     }

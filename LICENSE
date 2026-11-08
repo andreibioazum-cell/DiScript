@@ -130,4 +130,10 @@ github.com/andreibioazum-cell/C-Larp.
 GOVERNING LAW. The law of the Russian Federation applies.
 
 THIRD-PARTY COMPONENTS. Bundled third-party parts keep their own licenses and
-are listed in THIRD_PARTY_NOTICES.md.
+are listed in THIRD_PARTY_NOTICES.md. In particular, "Disco Medusae" by Kevin
+MacLeod (incompetech.com), including the bundled WAV conversion, is licensed
+under Creative Commons Attribution 4.0 International:
+https://creativecommons.org/licenses/by/4.0/ . The project's proprietary
+restrictions do not replace or revoke the permissions granted by that license
+for the recording. Retain the attribution, license link and modification notes
+in assets/audio/Disco-Medusae-NOTICE.txt when sharing or adapting it.

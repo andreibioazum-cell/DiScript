@@ -424,6 +424,12 @@ static int32_t handle_input(struct android_app *app, AInputEvent *event) {
             keyboard_hide();
             return 1;
         }
+        /* Backspace UP must stop the native repeat even if the IME already
+         * hid itself; DOWN starts one immediate delete plus the 500 ms timer. */
+        if ((key == AKEYCODE_DEL || key == AKEYCODE_FORWARD_DEL) && action == AKEY_EVENT_ACTION_UP) {
+            keyboard_handle_key(key, action, meta);
+            return 1;
+        }
         if (keyboard_visible() && (action == AKEY_EVENT_ACTION_DOWN || action == AKEY_EVENT_ACTION_MULTIPLE)) {
             if (keyboard_handle_key(key, action, meta))
                 return 1;
@@ -525,6 +531,7 @@ void android_main(struct android_app *app) {
             if (dt > 0.1)
                 dt = 0.1;
             prev_frame_ns = now;
+            keyboard_tick(monotonic_ns() / 1000000ull);
             if (!ds_call_protected(protected_game_update, NULL, "update"))
                 mark_game_failed("update");
             else if (ds_game_restart_requested()) {

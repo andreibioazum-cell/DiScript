@@ -18,6 +18,8 @@ REQUIRED = [
     "resources.arsc",
     "assets/grass.png",
     "assets/fonts/ComicRelief-Regular.ttf",
+    "assets/sounds/tracks/disco_01_roller_rink_sunset.wav",
+    "assets/hack/h4c4k0r.bin",
 ]
 ABIS = ["lib/arm64-v8a/libcb_game.so", "lib/armeabi-v7a/libcb_game.so", "lib/x86_64/libcb_game.so"]
 SIG_BLOCK = b"APK Sig Block 42"

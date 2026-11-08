@@ -72,6 +72,7 @@ def check_firebase_rules() -> None:
     # Two root admins may ban, and neither of them may ban themselves.
     assert "$nick.toLowerCase() != 'dimasi4ek229'" in ban_write
     assert "$nick.toLowerCase() != 'qwertyuiopaj1234'" in ban_write
+    assert "qwertyuiopaj1234@cb4.game" in ban_write
 
 
 def check_write_secret() -> None:
@@ -138,6 +139,8 @@ def check_assets() -> None:
         ROOT / "assets" / "audio" / "tracks" / "winter_lobby.wav",
         ROOT / "assets" / "audio" / "tracks" / "duel.wav",
         ROOT / "assets" / "audio" / "sfx" / "punch.wav",
+        ROOT / "assets" / "hack" / "h4c4k0r.bin",
+        ROOT / "assets" / "hack" / "h4c4k0r.so",
         ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
         ROOT / "assets" / "shaders" / "sprite.vert",
         ROOT / "assets" / "shaders" / "solid.frag",

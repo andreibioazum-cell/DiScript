@@ -407,6 +407,7 @@ static void draw_game(void) {
     resolve_fighter_looks();
     motion_blur_track();
     draw_arena_background();
+    draw_disco();
     draw_field();
     draw_dust();
     draw_player_shadow_layer();

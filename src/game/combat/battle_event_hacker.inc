@@ -1,24 +1,24 @@
-/* Event 7 (H4c4k0r raid): a scripted scene where an unskilled hacker breaks
- * into the round. Everything he starts is a broken local dummy: his payload
- * file (.so on PC, .bin on phones) loads per device, his /event commands turn
- * into tiny dead stubs plus one harmless cloud, his menu buttons rain down as
- * solid cover, then Azum's ban wipes the terminals and the players get a New
- * Year candy-cane compensation. The timeline below is scene order only; no
- * timer is ever shown on screen. */
+/* Event 7 (H4c4k0r raid): a local, scripted admin-vs-hacker battle.
+ * Nothing here executes code or changes server permissions. The payload is
+ * only a tiny command table; every "event" it asks for becomes a decorative,
+ * inert prop. Azum's second console opens after the props are actually on
+ * screen, and the final ban is a long blackout followed by an animated
+ * terminal shutdown. The existing button cover / cane compensation remains. */
 
 #define HACK_EVENT 7
 
-/* Scene beats in seconds since the raid started. */
+/* Scene beats in seconds. Timings are never printed on screen. */
 #define HACK_GLITCH_TIME 1.2
-#define HACK_BTN_START 40.0
-#define HACK_BTN_INTERVAL 1.7
-#define HACK_BAN_AT 75.0
-/* The ban opens with a full blackout: the game looks crashed for this long. */
-#define HACK_BLACK_DUR 1.2
-#define HACK_WINS 3
-#define HACK_RAIN_AT 80.0
-#define HACK_TYPE_CPS 22.0
+#define HACK_SECOND_AT 46.0
+#define HACK_REPLY_AT 49.0
+#define HACK_BTN_START 70.0
+#define HACK_BTN_INTERVAL 1.25
+#define HACK_BAN_AT 100.0
+/* A deliberately long, silent crash-like blackout (was 1.2 s). */
+#define HACK_BLACK_DUR 18.0
+#define HACK_BAN_CPS 24.0
 #define HACK_CMD_CPS 30.0
+#define HACK_TYPE_CPS 22.0
 #define HACK_CANE_SPEED 250.0
 #define HACK_CANE_INTERVAL 0.35
 #define HACK_CANE_LIFE 22.0
@@ -30,13 +30,14 @@
 #define HACK_PLAT_PC 2
 #define HACK_KIND_EVENT 1
 #define HACK_KIND_CLOUD 2
+#define HACK_CMD_MAX 8
+#define HACK_STUB_MAX 6
 
 /* Compact cmd-style title bar height, shared by logic (drag) and draw. */
 static double hack_term_head(void) {
     return clamp(screen_h * 0.032, 18, 28);
 }
 
-/* Cmd window width: compact on both form factors, never over the arena. */
 static double hack_term_w(void) {
 #ifdef CB_PC
     return clamp(screen_w * 0.34, 280, 480);
@@ -82,52 +83,49 @@ typedef struct {
     const char *en;
 } HackLine;
 
-/* The whole argument, three terminal windows, typed live by both sides. */
+/* Window 0: hacker. Window 1: Azum, opened later by hack_second_open(). */
 static const HackLine hack_script[] = {
     {0.8, 0, HACK_WHO_WARN, "[WArNiNg]: External connection detected...", "[WArNiNg]: External connection detected..."},
     {2.6, 0, HACK_WHO_HACK,
-     "Ну привет, кубики. Я тут просканировал вашу систему, подгрузил нужный .bin/.so скрипт и сейчас включу вообще все ваши режимы разом!",
-     "Hi there, cubes. I just scanned your system, loaded the right .bin/.so script and now I will switch on every single mode at once!"},
-    {9.0, 0, HACK_WHO_HACK, "/event 1", "/event 1"},
-    {10.5, 0, HACK_WHO_HACK, "/event 2", "/event 2"},
-    {12.0, 0, HACK_WHO_HACK, "/event 10", "/event 10"},
-    {13.5, 0, HACK_WHO_HACK, "/event 11", "/event 11"},
-    {20.0, 0, HACK_WHO_AZUM, "ХАХАХАХАХАХА! Серьёзно?!", "HAHAHAHAHAHAHA! Seriously?!"},
-    {22.0, 0, HACK_WHO_AZUM,
-     "Ты подгрузил свой .bin/.so файл, прописал /event 10, а вылезло одно жалкое облачко в углу экрана? Твои команды вообще не работают! Я сейчас от смеха упаду!",
-     "You loaded your .bin/.so file, typed /event 10, and one pathetic little cloud popped up in the corner of the screen? Your commands do nothing at all! I am falling over laughing!"},
-    {28.0, 0, HACK_WHO_HACK,
-     "Что ты смеёшься?! Что ты смеёшься вообще, Азумина?! Подумаешься, облачко!",
-     "What are you laughing at?! What are you laughing at, Azumina?! Big deal, one cloud!"},
-    {32.0, 0, HACK_WHO_HACK,
-     "Я сломаю всю твою игру! Всю до единой строчки кода, Эй-Зум ходячий! Ты у меня поплачешь!",
-     "I will break your whole game! Every single line of code, walking A-Yu-m! You will cry for me!"},
-    {40.0, 1, HACK_WHO_HACK,
-     "Ну что, доигрался со своим смехом, Азумчик-недокрученный?! Смотри сколько кнопок на экране! Нажмите на кнопку \"УДАЛИТЬ ИГРУ\"!! Быстро!!! Вы почему не выходите?!",
-     "So, done laughing, Azumchik-the-undertightened?! Look how many buttons are on screen! Press the \"DELETE THE GAME\" button!! Now!!! Why are you not quitting?!"},
-    {48.0, 1, HACK_WHO_AZUM,
-     "Да потому что это просто пустышки, гений кода. Мои игроки на них как на батутах прыгают.",
-     "Because they are empty shells, code genius. My players bounce on them like on trampolines."},
-    {53.0, 1, HACK_WHO_HACK,
-     "ААААА, Я СЛОМАЮ ВАШ ПРЕМИУМ! СЛЫШИШЬ МЕНЯ, КУБИК АЗУМНЫЙ?! Я УНИЧТОЖУ СЕРВЕР!",
-     "AAAAH, I WILL BREAK YOUR PREMIUM! HEAR ME, AZUM-CUBE?! I WILL DESTROY THE SERVER!"},
-    {57.0, 1, HACK_WHO_AZUM,
-     "Ой, ладно, Азу-терминатор тебе этого сделать не даст. Мне надоело это читать. Счастливо оставаться.",
-     "Oh please, Azu-terminator will not let you. I am tired of reading this. Stay well."},
-    {72.0, 2, HACK_WHO_HACK, "Ах так?! Я сделаю ещё раз всё это!", "Oh really?! I will do all of this again!"},
-    {73.2, 2, HACK_WHO_HACK, "Азума-разум... 3... 2... 1...", "Azuma-razum... 3... 2... 1..."},
-    {74.6, 2, HACK_WHO_HACK, "1", "1"},
+     "Ну привет, кубики. Я просканировал систему, подгрузил .bin/.so скрипт и сейчас включу все ваши режимы по очереди!",
+     "Hi there, cubes. I scanned the system, loaded the .bin/.so script and now I will switch on every mode, one by one!"},
+    {10.0, 0, HACK_WHO_HACK, "/event 1", "/event 1"},
+    {14.0, 0, HACK_WHO_HACK, "/event 2", "/event 2"},
+    {18.0, 0, HACK_WHO_HACK, "/event 3", "/event 3"},
+    {22.0, 0, HACK_WHO_HACK, "/event 4", "/event 4"},
+    {26.0, 0, HACK_WHO_HACK, "/event 5", "/event 5"},
+    {30.0, 0, HACK_WHO_HACK, "/event 6", "/event 6"},
+    {36.0, 0, HACK_WHO_HACK, "/event 10", "/event 10"},
+    {40.0, 0, HACK_WHO_HACK, "/event 11", "/event 11"},
+    {46.5, 1, HACK_WHO_AZUM, "Защищённый канал подключён. Я вижу твои пустышки.", "Secure channel attached. I see your empty props."},
+    {49.0, 1, HACK_WHO_AZUM, "ХАХАХАХАХАХА! Серьёзно?!", "HAHAHAHAHAHAHA! Seriously?!"},
+    {51.5, 1, HACK_WHO_AZUM,
+     "Вот теперь вижу: одно жалкое облачко и торнадо, который даже не крутит. Диско молчит, плиты пустые, Дед Мороз, куб и Колонки стоят как манекены. Ни одна твоя команда не работает!",
+     "Now I see it: one pathetic cloud and a tornado that does not even spin. Disco is silent, plates are empty, Santa, the cube and Columns stand like dummies. None of your commands work!"},
+    {60.0, 0, HACK_WHO_HACK,
+     "Что ты смеёшься?! Подумаешь, облачко! Я сломаю всю твою игру, каждую строчку кода!",
+     "What are you laughing at?! Big deal, one cloud! I will break your whole game, every line of code!"},
+    {65.0, 0, HACK_WHO_HACK,
+     "Ладно... режимы не слушаются. Тогда я завалю вас кнопками! Нажмите \"УДАЛИТЬ ИГРУ\"! Быстро! Почему вы не выходите?!",
+     "Fine... the modes ignore me. Then I will bury you in buttons! Press \"DELETE THE GAME\"! Now! Why are you not quitting?!"},
+    {78.0, 1, HACK_WHO_AZUM,
+     "Потому что это пустышки, гений кода. Мои игроки прыгают на них как на батутах.",
+     "Because they are empty shells, code genius. My players bounce on them like trampolines."},
+    {83.0, 0, HACK_WHO_HACK,
+     "ААААА! Я УНИЧТОЖУ СЕРВЕР! Я СЛОМАЮ ВАШ ПРЕМИУМ!",
+     "AAAAH! I WILL DESTROY THE SERVER! I WILL BREAK YOUR PREMIUM!"},
+    {88.0, 1, HACK_WHO_AZUM,
+     "Хватит. Я перехватил твоё соединение. Сейчас закрою твой терминал.",
+     "Enough. I intercepted your connection. Now I am closing your terminal."},
+    {94.0, 0, HACK_WHO_HACK, "Нет! Подожди! Я успею переподключиться: 3... 2... 1...", "No! Wait! I can reconnect in time: 3... 2... 1..."},
 };
 #define HACK_LINES ((double)(sizeof(hack_script) / sizeof(hack_script[0])))
-#define HACK_WINS 3
 
-/* Payload command schedule: the hacker fires his table in this order. */
-static const double hack_cmd_at[4] = {9.0, 10.5, 12.0, 13.5};
-
-/* Parsed payload table (filled by hack_load_payload). */
-static double hack_cmd_id[4];
-static double hack_cmd_kind[4];
-static double hack_cmd_life[4];
+/* The payload fires only after the matching /event line has finished typing. */
+static const double hack_cmd_at[HACK_CMD_MAX] = {10.6, 14.6, 18.6, 22.6, 26.6, 30.6, 36.6, 40.6};
+static double hack_cmd_id[HACK_CMD_MAX];
+static double hack_cmd_kind[HACK_CMD_MAX];
+static double hack_cmd_life[HACK_CMD_MAX];
 static double hack_cmd_n;
 static double hack_btn_total;
 static double hack_cane_total;
@@ -138,25 +136,22 @@ static double hack_enabled(void) {
     if (game_state != ST_SOLO && game_state != ST_ONLINE) {
         return 0;
     }
-    if (game_state == ST_ONLINE && event_mode == HACK_EVENT) {
+    if (event_mode == HACK_EVENT) {
         return 1;
     }
     return admin_cheat_hack();
 }
 
-/* The game ships for exactly two devices, so the raid looks at which one it
- * landed on: a Windows PC or an Android phone. Nothing else exists. */
 static double hack_detect_platform(void) {
 #ifdef CB_PC
-    return HACK_PLAT_PC;      /* Windows */
+    return HACK_PLAT_PC;
 #else
-    return HACK_PLAT_PHONE;   /* Android */
+    return HACK_PLAT_PHONE;
 #endif
 }
 
-/* Read this device's payload container and parse the hacker's command table. */
 static double hack_load_payload(void) {
-    static unsigned char buf[64];
+    static unsigned char buf[96];
     const char *name;
     double plat;
     int n;
@@ -185,8 +180,8 @@ static double hack_load_payload(void) {
     }
     hack_cmd_n = 0;
     double cnt = buf[10];
-    if (cnt > 4) {
-        cnt = 4;
+    if (cnt > HACK_CMD_MAX) {
+        cnt = HACK_CMD_MAX;
     }
     i = 0;
     while (i < (int)cnt && 11 + i * 3 + 2 < n) {
@@ -213,51 +208,92 @@ static double hack_load_payload(void) {
     return 1;
 }
 
-/* One typed command: real events come up as dead stubs, clouds as one dummy. */
-/* His commands switch nothing on: the timers tick in silence, the cloud just
- * hangs there. No stub visuals, no sounds, no "broken" notes anywhere. */
+/* Inert props only: no event_mode switch, no sound, no collision, no reward. */
 static void hack_fire_cmd(double id, double kind, double life) {
-    if (kind == HACK_KIND_EVENT) {
-        if (id == 1) {
-            hack_stub_disco_t = life;
-        } else if (id == 2) {
-            hack_stub_plates_t = life;
+    (void)life;
+    if (kind == HACK_KIND_EVENT && id >= 1 && id <= HACK_STUB_MAX) {
+        int slot = (int)id - 1;
+        if (hack_stub_on[slot] == 0) {
+            hack_stub_on[slot] = 1;
+            hack_stub_t[slot] = hack_t;
         }
         return;
     }
-    if (kind == HACK_KIND_CLOUD && life > 0 && hack_cloud_on == 0) {
+    if (kind == HACK_KIND_CLOUD && id == 10 && hack_tornado_on == 0) {
+        hack_tornado_on = 1;
+        hack_tornado_t = hack_t;
+        return;
+    }
+    if (kind == HACK_KIND_CLOUD && id == 11 && hack_cloud_on == 0) {
         hack_cloud_on = 1;
-        hack_cloud_x = screen_w - 62;
-        hack_cloud_y = 64;
+        /* Below the first console and above Azum's later window: always visible. */
+        hack_cloud_x = screen_w - 58;
+        hack_cloud_y = screen_h * 0.33;
         hack_cloud_t = 0;
     }
 }
 
-/* Terminals drag by their green title bar; the grab swallows the pointer so
- * the fight underneath is not disturbed while a window moves. */
+/* Hacker uses window 0; Azum's replies use the delayed window 1. */
+static double hack_line_win(double i) {
+    int k = (int)i;
+    if (k < 0 || k >= (int)HACK_LINES) {
+        return 0;
+    }
+    return hack_script[k].who == HACK_WHO_AZUM ? 1 : 0;
+}
+
+static double hack_second_open(void) {
+    return hack_active == 1 && hack_cloud_on == 1 && hack_cloud_t >= 4.0 && hack_t >= HACK_SECOND_AT;
+}
+
+/* Ban dialogue lives in the draw layer but its timing is shared with logic. */
+static const char *hack_ban_l1(void);
+static const char *hack_ban_l2(void);
+static const char *hack_ban_reconnect(void);
+static const char *hack_ban_denied(void);
+static const char *hack_ban_exit(void);
+static double hack_ban_verdict_end(void);
+static double hack_ban_reply_end(void);
+static double hack_ban_exit_end(void);
+static double hack_ban_click_at(void);
+static double hack_ban_closed_at(void);
+static double hack_ban_done_at(void);
+static double hack_ban_scene_at(void);
+static double hack_rain_at(void);
+
+/* Freeze the fight while the screen is black / the ban terminal closes. */
+static double hack_cinematic_lock(void) {
+    return hack_active == 1 && hack_ban_t > 0 && hack_ban_t < hack_ban_done_at();
+}
+
+/* The merged console drags by its title bar; the grab swallows the pointer. */
 static double hack_drag_touch(double x, double y, double action, double id) {
     double w = hack_term_w();
     double head = hack_term_head();
-    if (hack_drag_win < 0 && action == 0 && hack_active == 1 && hack_t < HACK_RAIN_AT) {
-        double wi = 0;
-        while (wi < HACK_WINS) {
-            if (hit_rect(x, y, hack_term_x[(int)wi], hack_term_y[(int)wi], w, head) == 1) {
-                hack_drag_win = wi;
+    if (hack_cinematic_lock() == 1) {
+        return 1;
+    }
+    if (hack_drag_win < 0 && action == 0 && hack_active == 1 && hack_t < hack_rain_at()) {
+        int win = hack_second_open() == 1 ? 1 : 0;
+        while (win >= 0) {
+            if (hit_rect(x, y, hack_term_x[win], hack_term_y[win], w, head) == 1) {
+                hack_drag_win = win;
                 hack_drag_id = id;
-                hack_drag_dx = x - hack_term_x[(int)wi];
-                hack_drag_dy = y - hack_term_y[(int)wi];
+                hack_drag_dx = x - hack_term_x[win];
+                hack_drag_dy = y - hack_term_y[win];
                 return 1;
             }
-            wi = wi + 1;
+            win = win - 1;
         }
         return 0;
     }
     if (hack_drag_win < 0 || id != hack_drag_id) {
         return 0;
     }
+    int win = (int)hack_drag_win;
     if (action == 0 || action == 2) {
-        hack_term_x[(int)hack_drag_win] = clamp(x - hack_drag_dx, 4, screen_w - w - 4);
-        hack_term_y[(int)hack_drag_win] = clamp(y - hack_drag_dy, 4, screen_h - head - 40);
+        hack_term_x[win] = clamp(x - hack_drag_dx, 4, screen_w - w - 4);
+        hack_term_y[win] = clamp(y - hack_drag_dy, 4, screen_h - head - 40);
     }
     if (action == 1 || action == 3) {
         hack_drag_win = -1;

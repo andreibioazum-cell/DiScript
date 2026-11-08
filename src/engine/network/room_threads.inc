@@ -190,8 +190,10 @@ static void *reader_thread(void *arg) {
                 int ev = num_int(event_resp, "", 0);
                 if (ev < 0)
                     ev = 0;
-                if (ev > 5)
-                    ev = 5;
+                /* Modes 0..7: 6 weak-hit plates and 7 H4c4k0r raid are real
+                 * events; clamping to 5 made the server's 7 never launch. */
+                if (ev > 7)
+                    ev = 7;
                 lock();
                 if (now_ms() >= event_local_until_ms)
                     net.event = ev;

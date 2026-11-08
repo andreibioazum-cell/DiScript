@@ -11,7 +11,7 @@ Layout (v1, every field one byte unless noted):
   8  platform      2 = PC, 1 = phone
   9  version       1
  10  cmd_count
- 11  cmds[]        id, kind (1 = real event stub, 2 = cloud dummy), life_s
+ 11  cmds[]        id, kind (1 = event prop, 2 = custom cloud/tornado), life_s
  ... button_count  how many menu buttons the avalanche drops
  ... cane_count    New Year canes of the compensation rain
  ... cane_candy    candies ("tips") per collected cane
@@ -27,14 +27,18 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 OUT = ROOT / "assets" / "hack"
 
-# The hacker's own command numbering: 1 and 2 exist in the real game event
-# table (disco, plates), 10 and 11 are his custom cloud storm that the game
-# has never heard of. kind 1 = "run a real event", kind 2 = "custom dummy".
+# Every command becomes a persistent inert prop. Real event ids 1..6 are
+# disco, plates, Santa, cube, Columns and weak-hit plates; custom 10/11 are
+# a decorative tornado and one cloud. life=0 means "until the ban cleanup".
 COMMANDS = (
-    (1, 1, 6),    # /event 1  -> disco stub, 6 s of broken flicker
-    (2, 1, 6),    # /event 2  -> plates stub, two dead plates
-    (10, 2, 58),  # /event 10 -> custom cloud storm: one cloud survives 58 s
-    (11, 2, 0),   # /event 11 -> second cloud: dies at once, the storm is dead
+    (1, 1, 0),    # /event 1  -> silent disco ball
+    (2, 1, 0),    # /event 2  -> two dead plates at the real plate anchors
+    (3, 1, 0),    # /event 3  -> Santa mannequin
+    (4, 1, 0),    # /event 4  -> collectible-cube mannequin
+    (5, 1, 0),    # /event 5  -> Columns mannequin
+    (6, 1, 0),    # /event 6  -> weak-hit plates stay equally dead
+    (10, 2, 0),   # /event 10 -> tornado that never spins or moves anything
+    (11, 2, 0),   # /event 11 -> one cloud, spawned only after this line types
 )
 BUTTON_COUNT = 14   # menu buttons that rain down as physical cover
 CANE_COUNT = 10     # exactly ten Ded Moroz canes in the compensation rain

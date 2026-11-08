@@ -11,10 +11,13 @@ double hack_payload_ok;
 double hack_payload_bytes;
 /* Index of the next payload command the hacker "types" and fires. */
 double hack_cmd_idx;
-/* Broken event stubs: disco flicker and dead plates leftovers. */
-double hack_stub_disco_t;
-double hack_stub_plates_t;
-/* The one cloud of the hacker's custom storm, hanging in the corner. */
+/* Persistent inert props for /event 1..6; born time drives a small pop-in. */
+double hack_stub_on[6];
+double hack_stub_t[6];
+/* Custom /event 10 tornado: decorative only, no weather or physics. */
+double hack_tornado_on;
+double hack_tornado_t;
+/* The one cloud of the hacker's custom storm (/event 11). */
 double hack_cloud_on;
 double hack_cloud_x;
 double hack_cloud_y;

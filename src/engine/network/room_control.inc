@@ -126,16 +126,18 @@ void net_event_set(double mode) {
      * 6 weak hits, 7 H4c4k0r raid. */
     if (m > 7)
         m = 7;
+    /* Always remember the choice locally: offline solo battles run it from
+     * this value even when there is no server to write to. */
+    lock();
+    net.event = m;
+    event_local_until_ms = now_ms() + EVENT_LOCAL_HOLD_MS;
+    unlock();
     if (!net.base[0])
         return;
     char url[URL], body[32];
     snprintf(url, sizeof(url), "%s/event.json", net.base);
     snprintf(body, sizeof(body), "%d", m);
     event_write_async(url, body);
-    lock();
-    net.event = m;
-    event_local_until_ms = now_ms() + EVENT_LOCAL_HOLD_MS;
-    unlock();
     LOG("event set %d", m);
 }
 
