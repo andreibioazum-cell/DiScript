@@ -565,7 +565,7 @@ def test_ball(assets: Path) -> None:
 
 
 def test_ult_mode_switch(assets: Path) -> None:
-    """The little button above the ult of "буК": dispenser or ball.
+    """The little button above the ult of the ebuC class: dispenser or ball.
 
     The pad itself never charges anything: in dispenser mode a press fires the
     usual super at once, however long the finger stays. Switching the button

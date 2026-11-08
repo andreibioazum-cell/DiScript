@@ -207,15 +207,11 @@ python3 test/fake_firebase.py 8080
 
 ## Чистка мусора из старых версий
 
-Старые профили могут содержать `users/<ник>/gifts/emerald_hue` и
-`users/<ник>/gifts/rose`. `emerald_hue` уже запрещён правилами, а `rose`
-<<<<<<< HEAD
-оставлен для совместимости со старыми профилями; игра оба поля игнорирует. `gifts/pumpkin_cube` - не
-=======
-`pumpkin_cube` removed; rules kept for old profiles; game ignores the field. `gifts/pumpkin_cube` - no longer
->>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
-устаревшее поле: это эксклюзивный подарок, выдаваемый только администратором;
-правила также запрещают игроку изменить его счётчик сохранением всего профиля.
+Старые профили могут содержать `users/<ник>/gifts/emerald_hue`,
+`users/<ник>/gifts/rose` и `users/<ник>/gifts/pumpkin_cube`. `emerald_hue` уже
+запрещён правилами, `rose` - устаревшее поле, а `pumpkin_cube` - эксклюзивный
+подарок, выдаваемый только администратором; правила также запрещают игроку
+изменить его счётчик сохранением всего профиля.
 
 Панель описывает их в `LEGACY_FIELDS` (шаблоны путей, `*` - ник игрока).
 `analyze()` помечает такие пути отдельной категорией `legacy` с понятной

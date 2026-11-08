@@ -24,27 +24,41 @@
 
 ## Музыка
 
-Три оригинальных трека: обычная и новогодняя темы лобби - по **70 секунд**,
-новая тема боя Азума против Астры - **45 секунд**. Старая песня
-`azum_vs_astra.wav` и исходный mp3 удалены; вся музыка собирается из нот
-скриптом `python3 tools/generate_music.py`. Подробности: [docs/music.md](docs/music.md).
+Вся музыка оригинальная и лежит в одном месте, `assets/audio/tracks/`:
 
-## Диско-лупы (10 треков по 30 секунд)
+* `lobby.wav` - обычная тема лобби, **70 секунд**;
+* `winter_lobby.wav` - новогодняя тема лобби, **70 секунд**;
+* `duel.wav` - тема боя Азума против Астры, **45 секунд**;
+* восемь диско-лупов `disco_01...disco_08` - по **30 секунд**, бесшовные.
 
-В папке `disco/` лежат десять **оригинальных** диско-лупов по 30 секунд,
-сгенерированных этим репозиторием: без сэмплов, без сторонних библиотек, без
-чужих мелодий. Каждый файл - бесшовная петля, стык попадает на первую долю.
+Короткие звуки ударов, способностей и кнопок лежат отдельно, в
+`assets/audio/sfx/`. При сборке `stage_assets.py` раскладывает это как
+`sounds/tracks/` и `sounds/sfx/` - так музыку и эффекты читает игра и на
+Android, и на ПК.
 
-* **Слушать:** открой `disco/index.html` (проигрыватель с повтор-режимом).
-* **Пересобрать:** `python3 tools/generate_disco_loops.py` (только Python 3,
-  около 90 секунд на все десять; `--list` покажет темпы и такты).
-* **Проверить:** `python3 tools/test_disco_loops.py` (формат, длительность,
-  целое число тактов, отсутствие щелчка на стыке, уровень).
-* **Посмотреть:** `python3 tools/disco_preview.py` - осциллограммы всех десяти
-  лупов в `disco/preview.png`.
+```
+python3 tools/generate_music.py          # три темы, из нот
+python3 tools/generate_disco_loops.py    # восемь диско-лупов, из нот же
+```
 
-Лупы намеренно лежат вне `assets/`, поэтому не попадают ни в APK, ни в
-Windows-сборку. Список треков, тональности и устройство синтеза:
+Никаких сэмплов, сторонних библиотек или чужих мелодий: всё считается кодом.
+Подробности: [docs/music.md](docs/music.md) и
+[docs/disco-loops.md](docs/disco-loops.md).
+
+## Диско-лупы (8 треков по 30 секунд)
+
+Восемь **оригинальных** диско-лупов по 30 секунд, каждый - бесшовная петля:
+темп подобран так, что 30 секунд укладываются в целое число тактов, стык всегда
+попадает на первую долю, а хвосты нот заворачиваются в начало файла.
+
+* **Пересобрать:** `python3 tools/generate_disco_loops.py`
+  (`--list` покажет темпы и число тактов).
+* **Проверить:** `python3 tools/test_disco_loops.py` - формат, длительность,
+  целые такты, отсутствие щелчка на стыке, уровень.
+* **Посмотреть:** `python3 tools/disco_preview.py` рисует осциллограммы всех
+  восьми лупов в `docs/disco-preview.png`.
+
+Список с тональностями и BPM, а также устройство синтеза:
 [docs/disco-loops.md](docs/disco-loops.md).
 
 ## Установка APK
@@ -63,27 +77,12 @@ APK лежит в релизе `latest-build`: `CubicBattle4.apk`, рядом ф
 
 В левом верхнем углу лобби есть кнопка **Паки**. Текстурпак - это `.zip` или
 папка в `<данные игры>/packs/<имя>/`, где лежат файлы с теми же именами, что в
-`assets`: `textures/`, `sounds/`, `fonts/`. Включённый пак подменяет любую
-картинку, звук и шрифт игры без пересборки: выбор хранится в
+`assets`: `textures/`, `sounds/tracks/`, `sounds/sfx/`, `fonts/`. Включённый
+пак подменяет любую картинку, звук и шрифт игры без пересборки: выбор хранится в
 `packs/active.txt` и применяется сразу, картинки перечитываются на месте.
 Импорт идёт через файловый менеджер телефона (SAF); на ПК - через встроенный
 проводник. Паки делает сам игрок, поэтому распространять в них материалы игры
 нельзя (см. [LICENSE](LICENSE)).
-
-## Telegram-бот
-
-`bot/cb4_bot.py` - бот-компаньон: кубки раз в час, новости, премиум и
-админ-команды. Токен берётся из `CB4_BOT_TOKEN`, база - локальная SQLite.
-
-```
-pip install -r bot/requirements.txt
-export CB4_BOT_TOKEN="123456:AA..."
-python3 bot/cb4_bot.py
-```
-
-У игрока `Sanch` ник золотой, поэтому премиум в боте у него уже есть - заявку он
-не подаёт и звёзды не платит. Подробности и канон имени класса `буК` (род. `буКа`,
-англ. `ebuC` / `ebuC's`) - в [bot/README.md](bot/README.md).
 
 ## Веб-панель админа
 
@@ -155,8 +154,8 @@ and a keyboard-to-touch bridge. Details: [docs/pc-version.md](docs/pc-version.md
 
 The lobby has a small **Packs** button in the top-left corner. A texture pack is
 a `.zip` or a folder in `<game data>/packs/<name>/` holding files named like the
-ones in `assets`: `textures/`, `sounds/`, `fonts/`. The active pack replaces any
-picture, sound or font of the game without a rebuild: the choice is kept in
+ones in `assets`: `textures/`, `sounds/tracks/`, `sounds/sfx/`, `fonts/`. The
+active pack replaces any picture, sound or font of the game without a rebuild: the choice is kept in
 `packs/active.txt` and applied at once, textures are reloaded in place. Import
 goes through the phone file manager (SAF) on Android and through the built-in
 file manager on PC. Packs are made by players, so they must not redistribute the

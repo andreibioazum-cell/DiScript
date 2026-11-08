@@ -102,18 +102,24 @@ static const char *snd_base_name(const char *name) {
     return n;
 }
 
+/* Audio lives in two folders: sounds/tracks for music, sounds/sfx for hits.
+   Music tracks are the large files, so they are tried first for anything that
+   is not obviously a short effect. */
 static int snd_open_by_name(const char *base, uint8_t **out, size_t *sz) {
     char path[1200];
 
     size_t n = strlen(base);
     int has_waw = n > 4 && strcmp(base + n - 4, ".waw") == 0;
-    snprintf(path, sizeof(path), "sounds/%s", base);
-    if (snd_open_candidate(path, out, sz))
-        return 1;
-    if (has_waw) {
-        snprintf(path, sizeof(path), "sounds/%.*s.wav", (int)(n - 4), base);
+    static const char *const folders[] = { "sounds/tracks/", "sounds/sfx/", "sounds/" };
+    for (size_t f = 0; f < sizeof(folders) / sizeof(folders[0]); f++) {
+        snprintf(path, sizeof(path), "%s%s", folders[f], base);
         if (snd_open_candidate(path, out, sz))
             return 1;
+        if (has_waw) {
+            snprintf(path, sizeof(path), "%s%.*s.wav", folders[f], (int)(n - 4), base);
+            if (snd_open_candidate(path, out, sz))
+                return 1;
+        }
     }
     snprintf(path, sizeof(path), "%s", base);
     if (snd_open_candidate(path, out, sz))

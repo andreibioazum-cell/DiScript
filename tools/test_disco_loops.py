@@ -1,18 +1,17 @@
 #!/usr/bin/env python3
-"""Проверяет десять диско-лупов в disco/.
+"""Checks the eight disco loops in assets/audio/tracks.
 
-Что именно проверяется:
+What is checked here:
 
-* формат: WAV, стерео, 16 бит, 22 050 Гц, ровно 30.000 с;
-* целое число тактов: длительность соответствует документированному BPM,
-  поэтому стык петли попадает на первую долю;
-* зацикленность: скачок между последним и первым сэмплом не больше обычного
-  шага сигнала в этом же файле (щелчка на стыке нет), и конец файла не тише
-  середины (луп не заканчивается тишиной);
-* уровень: RMS в разумных пределах, пик далёк от перегрузки, нет постоянной
-  составляющей;
-* файлы не пустые и различаются по содержимому (десять разных треков, а не
-  один файл, скопированный десять раз).
+* format: WAV, stereo, 16 bit, 22 050 Hz, exactly 30.000 s;
+* whole bars: the duration matches the documented BPM, so the loop point
+  falls on the first beat of a bar;
+* seamless wrap: the jump between the last and the first sample is no bigger
+  than the ordinary sample step of the same file (no click at the seam), and
+  the end of the file is not quieter than the middle (the loop does not end in
+  silence);
+* level: RMS inside a sane range, peak far from clipping, no DC offset;
+* the eight files are really different tracks and not one file copied.
 """
 
 from __future__ import annotations
@@ -23,28 +22,26 @@ import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parents[1]
-DISCO = ROOT / "disco"
+TRACKS = ROOT / "assets" / "audio" / "tracks"
 
-# Имя -> (BPM, число тактов).  Ровно 8 * тактов = BPM, значит 30 с = целые такты.
+# File stem -> (BPM, bars).  Note that 8 * bars == BPM, so 30 s is whole bars.
 LOOPS = {
-    "01_roller_rink_sunset": (120, 15),
-    "02_neon_boots": (128, 16),
-    "03_mirrorball_dreams": (112, 14),
-    "04_saturday_night_bus": (120, 15),
-    "05_velvet_elevator": (104, 13),
-    "06_feel_the_floor": (128, 16),
-    "07_boogie_boulevard": (112, 14),
-    "08_disco_nebula": (128, 16),
-    "09_strobe_hearts": (120, 15),
-    "10_last_dance_last_train": (104, 13),
+    "disco_01_roller_rink_sunset": (120, 15),
+    "disco_02_neon_boots": (128, 16),
+    "disco_03_mirrorball_dreams": (112, 14),
+    "disco_04_saturday_night_bus": (120, 15),
+    "disco_05_feel_the_floor": (128, 16),
+    "disco_06_boogie_boulevard": (112, 14),
+    "disco_07_disco_nebula": (128, 16),
+    "disco_08_strobe_hearts": (120, 15),
 }
 
 
 def load(path: Path) -> tuple[array.array, array.array, int]:
     with wave.open(str(path), "rb") as audio:
-        assert audio.getnchannels() == 2, f"{path.name}: нужен стерео"
-        assert audio.getsampwidth() == 2, f"{path.name}: нужно 16 бит"
-        assert audio.getframerate() == 22050, f"{path.name}: нужна частота 22050 Гц"
+        assert audio.getnchannels() == 2, f"{path.name}: stereo expected"
+        assert audio.getsampwidth() == 2, f"{path.name}: 16 bit expected"
+        assert audio.getframerate() == 22050, f"{path.name}: 22050 Hz expected"
         frames = audio.getnframes()
         raw = array.array("h", audio.readframes(frames))
     return raw[0::2], raw[1::2], frames
@@ -55,82 +52,94 @@ def percentile(values: list[int], share: float) -> int:
 
 
 def check_loop(name: str, bpm: int, bars: int) -> None:
-    path = DISCO / f"{name}.wav"
-    assert path.is_file(), f"Нет диско-лупа: {path.relative_to(ROOT)}"
+    path = TRACKS / f"{name}.wav"
+    assert path.is_file(), f"missing disco loop: {path.relative_to(ROOT)}"
     left, right, frames = load(path)
 
     duration = frames / 22050
-    assert abs(duration - 30.0) < 1e-9, f"{name}: длительность {duration}, нужно 30 с"
+    assert abs(duration - 30.0) < 1e-9, f"{name}: duration {duration}, 30 s expected"
     musical_bars = duration * bpm / 240.0
     assert abs(musical_bars - bars) < 1e-6, (
-        f"{name}: при {bpm} BPM в файле {musical_bars:.3f} такта, ожидалось {bars}"
+        f"{name}: at {bpm} BPM the file holds {musical_bars:.3f} bars, {bars} expected"
     )
 
-    # Щелчок на стыке: скачок на границе не должен выделяться на фоне сигнала.
+    # Seam click: the jump at the boundary must not stand out from the signal.
     steps = sorted(abs(left[i + 1] - left[i]) for i in range(0, frames - 1, 11))
     seam = abs(left[0] - left[-1])
     limit = percentile(steps, 0.9995)
-    # Настоящий луп даёт отношение ~0.1, обрезанный не на такт - больше 0.5.
+    # A real loop scores around 0.1, a file cut mid-bar scores above 0.5.
     assert seam <= limit * 0.35 + 64, (
-        f"{name}: разрыв на стыке {seam} при обычном шаге до {limit} - будет щелчок"
+        f"{name}: seam jump {seam} against an ordinary step of {limit} - that clicks"
     )
 
-    # Конец файла не должен быть тишиной: иначе луп «дышит» на стыке.
+    # The end of the file must not be silent, or the loop breathes at the seam.
     tail = frames // 20
     tail_rms = math.sqrt(sum(value * value for value in left[-tail:]) / tail)
     total_rms = math.sqrt(sum(value * value for value in left) / frames)
     assert tail_rms > total_rms * 0.45, (
-        f"{name}: последние 50 мс тихие (RMS {tail_rms:.0f} против {total_rms:.0f})"
+        f"{name}: last 50 ms are quiet (RMS {tail_rms:.0f} against {total_rms:.0f})"
     )
 
     peak = max(max(map(abs, left)), max(map(abs, right)))
-    assert peak < 0.97 * 32767, f"{name}: пик {peak} слишком близко к перегрузке"
+    assert peak < 0.97 * 32767, f"{name}: peak {peak} is too close to clipping"
     level = total_rms / 32767
-    assert 0.09 < level < 0.3, f"{name}: RMS {level:.3f} вне рабочего диапазона"
+    assert 0.09 < level < 0.3, f"{name}: RMS {level:.3f} outside the working range"
 
     for channel in (left, right):
-        assert abs(sum(channel) / frames) < 200, f"{name}: постоянная составляющая в канале"
-    assert left != right, f"{name}: каналы одинаковые, стерео потеряно"
+        assert abs(sum(channel) / frames) < 200, f"{name}: DC offset in a channel"
+    assert left != right, f"{name}: channels are identical, stereo lost"
 
 
 def check_set() -> None:
-    files = sorted(DISCO.glob("*.wav"))
-    assert len(files) == 10, f"В assets/audio/disco должно быть 10 файлов, а есть {len(files)}"
+    files = sorted(TRACKS.glob("disco_*.wav"))
+    assert len(files) == 8, f"assets/audio/tracks must hold 8 disco loops, found {len(files)}"
     signatures = {path.read_bytes()[:4096] for path in files}
-    assert len(signatures) == 10, "Некоторые лупы начинаются одинаково - это копии, а не разные треки"
+    assert len(signatures) == 8, "some loops start identically - these are copies, not tracks"
+
+
+def check_game_music() -> None:
+    """The three in-game tracks keep their format next to the loops."""
+    expected = {"lobby.wav": 70, "winter_lobby.wav": 70, "duel.wav": 45}
+    for name, seconds in expected.items():
+        path = TRACKS / name
+        assert path.is_file(), f"missing game track: {path.relative_to(ROOT)}"
+        with wave.open(str(path), "rb") as audio:
+            assert audio.getnchannels() == 2 and audio.getsampwidth() == 2, name
+            assert abs(audio.getnframes() / audio.getframerate() - seconds) < 0.01, name
 
 
 def check_preview() -> None:
-    """Превью-картинка набора: десять осциллограмм прямо из WAV-файлов."""
-    preview = DISCO / "preview.png"
+    """The preview picture is drawn straight from the WAV files."""
+    preview = ROOT / "docs" / "disco-preview.png"
     if not preview.exists():
         return
     header = preview.read_bytes()[:24]
-    assert header[:8] == b"\x89PNG\r\n\x1a\n", "disco/preview.png повреждён"
+    assert header[:8] == b"\x89PNG\r\n\x1a\n", "docs/disco-preview.png is damaged"
     width = int.from_bytes(header[16:20], "big")
     height = int.from_bytes(header[20:24], "big")
-    assert (width, height) == (684, 526), f"disco/preview.png неверного размера {width}x{height}"
+    assert (width, height) == (684, 422), f"docs/disco-preview.png has size {width}x{height}"
 
 
 def check_generator() -> None:
-    """Генератор должен оставаться без внешних зависимостей и без сэмплов."""
+    """The generator must stay free of third-party packages and of samples."""
     for name in ("disco_synth.py", "disco_loops.py", "disco_arrange.py",
                  "generate_disco_loops.py"):
         text = (ROOT / "tools" / name).read_text(encoding="utf-8")
         for forbidden in ("import numpy", "import scipy", "import pydub", "subprocess",
                           "urllib", "requests"):
-            assert forbidden not in text, f"tools/{name}: сторонние зависимости или сеть ({forbidden})"
-    assert not list(DISCO.glob("*.mp3")), "В assets/audio/disco не должно быть mp3"
+            assert forbidden not in text, f"tools/{name}: third-party import or network ({forbidden})"
+    assert not list(TRACKS.glob("*.mp3")), "no mp3 belongs in assets/audio/tracks"
 
 
 def main() -> int:
     check_set()
+    check_game_music()
     check_preview()
     check_generator()
     for name, (bpm, bars) in LOOPS.items():
         check_loop(name, bpm, bars)
-    total = sum((DISCO / f"{name}.wav").stat().st_size for name in LOOPS) / (1024 * 1024)
-    print(f"Диско-лупы: норма, 10 файлов по 30 с, вместе {total:.1f} МиБ")
+    total = sum((TRACKS / f"{name}.wav").stat().st_size for name in LOOPS) / (1024 * 1024)
+    print(f"Disco loops: ok, 8 files of 30 s, {total:.1f} MiB together")
     return 0
 
 

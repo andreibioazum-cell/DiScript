@@ -29,16 +29,16 @@ static void start_music(void) {
         music_level = 1;
         snd_volume(lobby_music_current, music_volume / 100);
         snd_loop(lobby_music_current);
-        ds_log("init: lobby music on");
+        ds_log("init: lobby music on (%s)", lobby_music_current);
     } else {
-        ds_log("init: no lobby music");
+        ds_log("init: no lobby music (%s)", lobby_music_current);
     }
     seraphim_ok = snd_load(SERAPHIM_MUSIC);
     if (seraphim_ok == 1) {
         seraphim_level = 0;
-        ds_log("init: duel theme ready");
+        ds_log("init: duel theme ready (%s)", SERAPHIM_MUSIC);
     } else {
-        ds_log("init: no duel theme");
+        ds_log("init: no duel theme (%s)", SERAPHIM_MUSIC);
     }
 }
 
@@ -119,6 +119,8 @@ static void logic_init(void) {
     ds_log("init: loading textures");
     load_textures();
     button_click_ok = snd_load(BUTTON_CLICK_SOUND);
+    if (button_click_ok != 1)
+        ds_log("init: no button click sound (%s)", BUTTON_CLICK_SOUND);
     if (button_click_ok == 1) {
         snd_volume(BUTTON_CLICK_SOUND, 0.7);
     }

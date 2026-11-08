@@ -427,8 +427,8 @@ login_field_gap = 64;
 login_btn_gap = 22;
 login_nick = "";
 login_pass = "";
-LOBBY_MUSIC = "lobbymusic.wav";
-SERAPHIM_MUSIC = "duel_theme.wav";
+LOBBY_MUSIC = "lobby.wav";
+SERAPHIM_MUSIC = "duel.wav";
 BUTTON_CLICK_SOUND = "button_click.wav";
 button_click_ok = 0;
 

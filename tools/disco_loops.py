@@ -21,7 +21,7 @@ import disco_synth as ds  # noqa: E402
 ROOT = Path(__file__).resolve().parents[1]
 # A separate soundtrack folder, so the ten loops never end up inside the
 # APK/PC build (assets/audio is copied into both by stage_assets.py).
-OUT = ROOT / "disco"
+OUT = ROOT / "assets" / "audio" / "tracks"
 RATE = ds.RATE
 SECONDS = 30.0
 FRAMES = int(SECONDS * RATE)

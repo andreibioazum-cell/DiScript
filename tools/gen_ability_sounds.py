@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Synthesize ability WAV sound effects into assets/audio/."""
+"""Synthesize ability WAV sound effects into assets/audio/sfx/."""
 
 from __future__ import annotations
 
@@ -10,7 +10,7 @@ import wave
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
-OUT = ROOT / "assets" / "audio"
+OUT = ROOT / "assets" / "audio" / "sfx"
 RATE = 22050
 
 

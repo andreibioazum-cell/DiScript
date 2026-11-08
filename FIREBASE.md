@@ -503,13 +503,10 @@ Firebase: Realtime Database → `users/<ник>` → поле `cups` → впи�
 То есть `бу` строчными и `К` заглавная (`буК`, `буКа`), а по-английски
 `ebu` строчными и `C` заглавная (`ebuC`, `ebuC's`). Не «Куб», не «Бук»,
 не «EBUC» и не «ebuc». Написание закреплено тестами
-(`tools/test_game_state.c`, `tools/test_bot_sanch.py`) и одинаково в игре,
-в документации и в Telegram-боте (`bot/`).
+(`tools/test_game_state.c`) и одинаково в игре и в документации.
 
-### Sanch: золотой ник и премиум в боте
+### Sanch: золотой ник
 
 У `Sanch` ник в игре золотой (`sanch_color = 0xFFFFD54A`,
-`sanch_head_color = 0xFFFFDD33`, `src/game/state/create/core/config_part2.inc`),
-поэтому в Telegram-боте премиум у него уже есть: заявку он не подаёт, звёзды
-не платит, а в профиле написано «💎 Премиум (золотой ник)». Как это устроено -
-`bot/README.md`.
+`sanch_head_color = 0xFFFFDD33`, `src/game/state/create/core/config_part2.inc`).
+Отдельного Telegram-бота у проекта нет, правило живёт только в игре.

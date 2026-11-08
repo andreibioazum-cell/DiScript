@@ -3,13 +3,15 @@
 
 All tracks are 22.05 kHz stereo 16-bit PCM WAV:
 
-  * ``lobbymusic.wav``    - 70 s ordinary lobby theme (4 developed sections)
-  * ``winter_jingle.wav`` - 70 s New Year lobby theme (4 developed sections)
-  * ``duel_theme.wav``    - 45 s Azum-vs-Astra duel theme (24 bars @ 128 BPM)
+  * ``lobby.wav``        - 70 s ordinary lobby theme (4 developed sections)
+  * ``winter_lobby.wav`` - 70 s New Year lobby theme (4 developed sections)
+  * ``duel.wav``         - 45 s Azum-vs-Astra duel theme (24 bars @ 128 BPM)
+
+All three are written to ``assets/audio/tracks`` next to the eight disco loops.
 
 The old ``azum_vs_astra.wav`` imitation of "And The Seraphim Wept" and its
-reference mp3 are gone; ``duel_theme.wav`` is a completely original, brighter
-composition. Run ``python3 tools/generate_music.py`` to rebuild all four;
+reference mp3 are gone; ``duel.wav`` is a completely original, brighter
+composition. Run ``python3 tools/generate_music.py`` to rebuild all three;
 pass one or more file names to rebuild only those.
 """
 
@@ -22,7 +24,7 @@ import sys
 import wave
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDIO = ROOT / "assets" / "audio"
+AUDIO = ROOT / "assets" / "audio" / "tracks"
 RATE = 22050
 TAU = math.tau
 _noise_state = 0x6A09E667
@@ -317,26 +319,24 @@ def winter_track() -> tuple[array, array]:
     return left, right
 
 
-<<<<<<< HEAD
-# ---------------------------------------------------------------------------
-# Halloween lobby theme: playful minor-key organ, low plucks and orange-glow
-# bells. Four changing sections build into a warm loop rather than a jump scare.
-# ---------------------------------------------------------------------------
-HALLOWEEN_ROOTS = (45, 41, 43, 38, 45, 41, 40)
-HALLOWEEN_CHORDS = (
-    (57, 60, 64), (53, 57, 60), (55, 58, 62), (50, 53, 57),
-    (57, 60, 64), (53, 57, 60), (52, 55, 58),
-)
-HALLOWEEN_MELODY = (
-    (81, 84, 86, 84, 82, 81, 76, 79), (77, 81, 84, 81, 79, 77, 72, 76),
-    (79, 82, 86, 82, 81, 79, 74, 77), (74, 77, 81, 77, 76, 74, 69, 72),
-    (81, 84, 88, 86, 84, 82, 79, 76), (77, 81, 84, 86, 84, 81, 76, 72),
-    (76, 79, 82, 79, 78, 76, 71, 74),
+DUEL_BEAT = 60.0 / 128.0
+DUEL_SLOT = DUEL_BEAT * 4
+DUEL_SLOTS = (
+    (57, (57, 60, 64), (76, 72, 69, 72)), (57, (57, 60, 64), (76, 79, 81, 79)),
+    (53, (53, 57, 60), (72, 74, 77, 74)), (55, (55, 59, 62), (74, 76, 79, 77)),
+    (57, (57, 60, 64), (81, 79, 76, 72)), (57, (57, 60, 64), (84, 81, 79, 76)),
+    (48, (48, 52, 55), (79, 76, 72, 76)), (55, (55, 59, 62), (83, 79, 74, 79)),
+    (57, (57, 60, 64), (76, 77, 79, 81)), (52, (52, 55, 59), (79, 76, 72, 74)),
+    (53, (53, 57, 60), (81, 84, 81, 77)), (55, (55, 59, 62), (79, 83, 86, 83)),
+    (57, (57, 60, 64), (84, 81, 79, 76)), (52, (52, 55, 59), (76, 79, 83, 79)),
+    (53, (53, 57, 60), (77, 81, 84, 81)), (55, (55, 59, 62), (79, 83, 86, 88)),
+    (57, (57, 60, 64), (88, 84, 81, 84)), (57, (57, 60, 64), (86, 84, 81, 79)),
+    (48, (48, 52, 55), (84, 81, 76, 81)), (55, (55, 59, 62), (83, 84, 86, 83)),
+    (57, (57, 60, 64), (81, 84, 88, 84)), (52, (52, 55, 59), (79, 83, 86, 83)),
+    (53, (53, 57, 60), (84, 81, 77, 81)), (57, (57, 60, 64), (88, 84, 81, 76)),
 )
 
 
-=======
->>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
 def duel_track() -> tuple[array, array]:
     left, right = stereo(45.0)
     beat = DUEL_BEAT
@@ -395,9 +395,9 @@ def duel_track() -> tuple[array, array]:
 
 def main(argv: list[str] | None = None) -> int:
     tracks = (
-        ("lobbymusic.wav", lobby_track, 0.025, 0.025),
-        ("winter_jingle.wav", winter_track, 0.025, 0.025),
-        ("duel_theme.wav", duel_track, 0.02, 0.06),
+        ("lobby.wav", lobby_track, 0.025, 0.025),
+        ("winter_lobby.wav", winter_track, 0.025, 0.025),
+        ("duel.wav", duel_track, 0.02, 0.06),
     )
     wanted = set(argv or [])
     for name, builder, fade_in, fade_out in tracks:

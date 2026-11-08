@@ -41,21 +41,6 @@ users/<nick>/gifts/poop          0..999 owned stickers
 * **Buy** - one authenticated PATCH to `users/<nick>.json` that writes the new
   cup balance and the incremented sticker together, so a purchase cannot take
   the cups without delivering the sticker.
-<<<<<<< HEAD
-* **Send** - `-1` to the sender's `gifts/<id>` first, then `+1` to the
-  recipient's. Each step is a single-child write, so the other counters are
-  never rewritten. If the second write fails, the client puts the sticker back
-  into the sender's counter.
-* **Sell** - one authenticated PATCH to `users/<nick>.json` that takes one
-  sticker from the player's own counter and adds **half of the shop price** to
-  the cups (12 / 50 / 125 / 200 / 250). The shop stays the cheaper way to get a
-  sticker, while a duplicate from an event is still worth something.
-* **Admin grant** - the CCP panel's Gifts tab (visible to `Dimasi4ek229`
-  only) performs the same `+1` write; it does not debit cups. It only needs
-  the recipient's nickname: nicknames are unique, so the nickname already
-  points at exactly one account. The exclusive `pumpkin_cube` is available
-  only through this admin action.
-=======
 * **Send** - `-1` to the sender's `gifts/<id>` first, then `+1` to the recipient's.
   Each step is a single-child write, so the other counters are never rewritten.
   If the second write fails, the client puts the sticker back into the sender's
@@ -66,7 +51,6 @@ users/<nick>/gifts/poop          0..999 owned stickers
   while a duplicate from an event is still worth something.
 * **Admin grant** - the CCP panel's Gifts tab performs the same `+1` write;
   it does not debit cups. It only needs the recipient's nickname.
->>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
 
 The sticker counter in the buy/sell PATCH is written as a **path**, not as a
 nested object:
@@ -78,60 +62,17 @@ nested object:
 A REST PATCH replaces the named subtree as a whole, so the nested form
 (`{"cups":137,"gifts":{"poop":0}}`) wiped every other counter of the
 collection - selling one poop also "sold" the emerald. The path form writes
-<<<<<<< HEAD
-only `gifts/poop` and leaves `gifts/cake`, `gifts/emerald` and the rest
-untouched, while the balance and the sticker still change in one atomic
-request.
-=======
 only `gifts/poop` and leaves the rest untouched, while the balance and the
 sticker change in one atomic request.
->>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
 
 All requests are normal Firebase REST calls with the signed-in player's ID
 token (`fb_http`), exactly like progress saves.
 
-<<<<<<< HEAD
-## Database rules
-
-`firebase.rules.json` allows a signed-in `@cb4.game` password player to read
-profiles, as before. For each gift counter:
-
-* for ordinary gift types, the owner may set the counter to any value `0..999`;
-* for `gifts/pumpkin_cube`, only an admin may write; an owner writing their
-  whole profile must leave that counter unchanged, so an ordinary profile save
-  cannot bypass the special gift rule;
-* another player may only move it from `N` to `N + 1` (one sticker per write),
-  and may create a missing counter only with `1`;
-* deletes are denied (`newData.exists()` in the `.write` rule), so nobody can
-  wipe somebody else's collection;
-* the rest of the profile (cups, levels, classes) stays owner-only, so gifting
-  cannot change anything besides the gift counter.
-
-Deploy the rules with:
-
-```
-firebase deploy --only database
-```
-
-If an older build had the `giftAction` callable deployed, remove it (nothing in
-the game calls it anymore):
-
-```
-firebase functions:delete giftAction
-```
-
-The cup balance is client-written, same trust model as the rest of the
-progress save, so a modified client could still fake its own cups - but not
-another player's profile. The rules now also cap how far one write may raise a
-balance (`newData.val() <= data.val() + 1000`), so a hand-made request cannot
-jump straight to millions; administrators are exempt.
-=======
 The cup balance is client-written, same trust model as the rest of the progress
 save, so a modified client could still fake its own cups - but not another
 player's profile. The rules now also cap how far one write may raise a balance
 (`newData.val() <= data.val() + 1000`), so a hand-made request cannot jump
 straight to millions; administrators are exempt.
->>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
 
 The shop never computes the new balance from the local copy: buying and
 selling write the balance together with the sticker and the client adopts the

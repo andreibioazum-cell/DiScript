@@ -258,4 +258,4 @@ def render(t: Track, target_rms: float = 0.18) -> None:
     mixer.echo(echo_beat(t))
     rms, peak = mixer.master(1.35, target_rms)
     dl.write_loop(t.name, mixer)
-    print(f"  {t.bpm} BPM, {t.bars} тактов, RMS {rms:.3f}, пик {peak:.3f}")
+    print(f"  {t.bpm} BPM, {t.bars} bars, RMS {rms:.3f}, peak {peak:.3f}")

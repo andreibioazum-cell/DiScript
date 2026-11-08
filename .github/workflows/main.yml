@@ -41,9 +41,10 @@ jobs:
           cp -r build/pc/assets build/pc/dist/assets
           test -f build/pc/dist/assets/grass.png
           test -f build/pc/dist/assets/fonts/ComicRelief-Regular.ttf
-          test -f build/pc/dist/assets/sounds/lobbymusic.wav
-          test -f build/pc/dist/assets/sounds/winter_jingle.wav
-          test -f build/pc/dist/assets/sounds/duel_theme.wav
+          test -f build/pc/dist/assets/sounds/tracks/lobby.wav
+          test -f build/pc/dist/assets/sounds/tracks/winter_lobby.wav
+          test -f build/pc/dist/assets/sounds/tracks/duel.wav
+          test -f build/pc/dist/assets/sounds/sfx/punch.wav
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 
       - name: Publish Windows .exe to Release
@@ -196,7 +197,7 @@ jobs:
             assets/grass.png \
             assets/ordinary_gold.png \
             assets/astra_xastra_card.png \
-            assets/sounds/lobbymusic.wav \
+            assets/sounds/tracks/lobby.wav \
             assets/fonts/ComicRelief-Regular.ttf \
             classes.dex \
             lib/arm64-v8a/libcb_game.so \

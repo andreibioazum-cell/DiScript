@@ -6,18 +6,22 @@
 
 | Файл | Где играет | Длительность |
 | --- | --- | --- |
-| `assets/audio/lobbymusic.wav` | Обычная тема в лобби и меню | **70 с** |
-| `assets/audio/winter_jingle.wav` | Тема Нового года в лобби | **70 с** |
-| `assets/audio/duel_theme.wav` | Бой Азума против Астры (соло и онлайн) | **45 с** |
+| `assets/audio/tracks/lobby.wav` | Обычная тема в лобби и меню | **70 с** |
+| `assets/audio/tracks/winter_lobby.wav` | Тема Нового года в лобби | **70 с** |
+| `assets/audio/tracks/duel.wav` | Бой Азума против Астры (соло и онлайн) | **45 с** |
 
-Остальные файлы в `assets/audio/` - короткие звуки ударов, способностей и
-кнопок; их собирает `tools/gen_ability_sounds.py`.
+Короткие звуки ударов, способностей и кнопок лежат отдельно, в
+`assets/audio/sfx/`; их собирает `tools/gen_ability_sounds.py`. Восемь
+диско-лупов рядом с темами (`disco_01...disco_08`) описаны в
+[disco-loops.md](disco-loops.md). Во время сборки `stage_assets.py` раскладывает
+это как `sounds/tracks/` и `sounds/sfx/` - именно так музыку и эффекты читает
+игра на Android и на ПК.
 
 ## Пересобрать музыку
 
 ```
-python3 tools/generate_music.py                 # все четыре трека
-python3 tools/generate_music.py duel_theme.wav # только один трек
+python3 tools/generate_music.py            # все три трека
+python3 tools/generate_music.py duel.wav   # только один трек
 ```
 
 Генератор детерминированный: один и тот же код всегда даёт один и тот же WAV.
@@ -52,13 +56,14 @@ python3 tools/generate_music.py duel_theme.wav # только один трек
 
 Старый трек `assets/audio/azum_vs_astra.wav` (подражание «And The Seraphim
 Wept»), его генератор `tools/generate_seraphim.py` и исходный
-`And_The_Seraphim_Wept.mp3` **удалены**. Новый `duel_theme.wav` не использует
+`And_The_Seraphim_Wept.mp3` **удалены**. Новый `duel.wav` не использует
 ни одной ноты или сэмпла из того файла.
 
 ## Проверки
 
-`tools/test_resources.py` проверяет, что все четыре WAV на месте, имеют стерео
-16-битный формат, длительности ровно 70 / 70 / 70 / 45 секунд, что первые 5 секунд
-боевого трека достаточно громкие (RMS ≥ 4000), а старые файлы не вернулись в
-репозиторий. CI дополнительно проверяет наличие всех четырёх треков в папке
-`sounds/` собранного Windows-пакета.
+`tools/test_resources.py` проверяет, что все три темы на месте, имеют стерео
+16-битный формат, длительности ровно 70 / 70 / 45 секунд, что первые 5 секунд
+боевой темы достаточно громкие (RMS ≥ 4000), а старые файлы не вернулись в
+репозиторий. CI дополнительно проверяет, что `sounds/tracks/lobby.wav`,
+`sounds/tracks/winter_lobby.wav`, `sounds/tracks/duel.wav` и
+`sounds/sfx/punch.wav` попали в собранный Windows-пакет и в APK.

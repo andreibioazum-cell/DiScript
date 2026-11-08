@@ -34,7 +34,8 @@ python3 tools/build_pc.py --windows
 ```
 
 Результат - `build/pc/CubicBattle4.exe` и `build/pc/assets/` (текстуры лежат
-в корне, рядом папки `fonts/` и `sounds/` - та же раскладка, что внутри APK).
+в корне, рядом папки `fonts/` и `sounds/` с подпапками `tracks/` и `sfx/` -
+та же раскладка, что внутри APK).
 
 Linux-харнесс без окна (тот же код, фиксированные кадры, BMP-скриншоты):
 

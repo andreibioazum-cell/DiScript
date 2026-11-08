@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""The ten disco loops: patterns, harmony and hooks, all written by hand.
+"""The eight disco loops: patterns, harmony and hooks, all written by hand.
 
 Play this file with ``python3 tools/generate_disco_loops.py`` (or with
 ``--list`` for a summary).  Each entry is one 30 second loop; tempos are whole
@@ -22,7 +22,7 @@ from disco_arrange import (A, Ab, Abmaj7, Am, Am7, Bb, BbM, Bbm, Bm, C, Cm, Cm7,
 # congas, brass hook in the second half.
 # ---------------------------------------------------------------------------
 T01 = Track(
-    "01_roller_rink_sunset", 15, intro=2, turn=1,
+    "disco_01_roller_rink_sunset", 15, intro=2, turn=1,
     chords=[Am, F, C, G],
     pad={"kind": "strings", "amp": 0.062, "attack": 0.3, "release": 0.5, "send": 0.22,
          "detune": (0.996, 1.0, 1.004)},
@@ -74,7 +74,7 @@ def spice_02(m, t, chords) -> None:
 
 
 T02 = Track(
-    "02_neon_boots", 16, intro=1, turn=3,
+    "disco_02_neon_boots", 16, intro=1, turn=3,
     chords=[F, Dm, BbM, C],
     pad={"kind": "strings", "amp": 0.064, "attack": 0.22, "release": 0.4, "send": 0.2,
          "detune": (0.9965, 1.0, 1.0035)},
@@ -124,7 +124,7 @@ def spice_03(m, t, chords) -> None:
 
 
 T03 = Track(
-    "03_mirrorball_dreams", 14, intro=1, turn=1,
+    "disco_03_mirrorball_dreams", 14, intro=1, turn=1,
     chords=[Dm7, Gm, BbM, Am],
     pad={"kind": "strings", "amp": 0.07, "attack": 0.4, "release": 0.6, "send": 0.28,
          "detune": (0.997, 1.0, 1.003)},
@@ -171,7 +171,7 @@ def spice_04(m, t, chords) -> None:
 
 
 T04 = Track(
-    "04_saturday_night_bus", 15, intro=2, turn=1,
+    "disco_04_saturday_night_bus", 15, intro=2, turn=1,
     chords=[Cm, Ab, BbM, Gm],
     pad={"kind": "brass", "amp": 0.055, "attack": 0.1, "release": 0.25, "send": 0.2,
          "detune": (0.999, 1.001)},
@@ -204,55 +204,10 @@ T04 = Track(
 
 
 # ---------------------------------------------------------------------------
-# 05 Velvet Elevator - E minor, 108 BPM, 12 bars.  Slow-motion: soft kick,
-# electric piano, breathy choir hook.
-# ---------------------------------------------------------------------------
-def spice_05(m, t, chords) -> None:
-    bar = t.bar
-    for b in range(t.intro, t.bars):
-        root, triad = chords[b]
-        for step in (2, 6, 10, 14):
-            for voice, note in enumerate(triad):
-                m.sustain("glass", dl.midi(note + 12), b * bar + step * bar / 16.0,
-                          bar * 0.3, 0.05, (voice - 1) * 0.3, 0.005, 0.55, 0.35,
-                          0.15, 0.0, 0.3)
-
-
-T05 = Track(
-    "05_velvet_elevator", 13, intro=1, turn=0,
-    chords=[Em7, Am7, D, G],
-    pad={"kind": "strings", "amp": 0.072, "attack": 0.45, "release": 0.7, "send": 0.3,
-         "detune": (0.996, 1.0, 1.004)},
-    pad2={"kind": "choir", "amp": 0.032, "octave": 12, "attack": 0.6, "release": 0.8,
-          "send": 0.4, "detune": (0.998, 1.002)},
-    bass={"marks": "8..8..8..8..8.5.", "amp": 0.36, "gate": 1.0, "turn_double": True},
-    drums={
-        "kick": ("", 0.68),
-        "clap": ("....x.......x...", 0.608, 0.0, 0.24, 1),
-        "shaker": ("x.x.x.x.x.x.x.x.", 0.221, -0.3, 0.0, 1),
-        "hat": ("..:...:...:...:.", 0.3, 0.3, 0.1, 1),
-        "ohat": ("..x.......x.....", 0.24, 0.4, 0.26, 4),
-        "rim": (".......x.......x", 0.22, -0.24, 0.3, 8),
-    },
-    hook={"kind": "choir", "amp": 0.1, "pan": 0.12, "send": 0.45, "vib": 0.007,
-          "attack": 0.06, "release": 0.35, "gate": 0.94, "transpose": (0, 0, 12)},
-    phrase=((0, 76, 6), (6, 74, 2), (8, 71, 4), (12, 74, 4), (16, 72, 6), (22, 74, 2),
-            (24, 76, 4), (28, 79, 4), (32, 81, 6), (38, 79, 2), (40, 76, 4),
-            (44, 74, 4), (48, 74, 4), (52, 71, 4), (56, 74, 8)),
-    phrase_alt=((0, 79, 6), (6, 76, 2), (8, 74, 4), (12, 71, 4), (16, 79, 6),
-                (22, 76, 2), (24, 76, 4), (28, 74, 4), (32, 79, 6), (38, 81, 2),
-                (40, 83, 4), (44, 81, 4), (48, 79, 4), (52, 76, 4), (56, 71, 8)),
-    stabs={"marks": "....8.......8...", "amp": 0.045, "kind": "glass", "length": 0.4,
-           "from_bar": 8, "half_time": True},
-    spice=spice_05,
-)
-
-
-# ---------------------------------------------------------------------------
-# 06 Feel the Floor - A minor, 132 BPM, 16 bars.  Cowbell, phased clav riff,
+# 05 Feel the Floor - A minor, 132 BPM, 16 bars.  Cowbell, phased clav riff,
 # swing on the bass.
 # ---------------------------------------------------------------------------
-def spice_06(m, t, chords) -> None:
+def spice_05(m, t, chords) -> None:
     bar = t.bar
     riff = "1..2..3..2..1.."
     for b in range(t.intro, t.bars):
@@ -269,8 +224,8 @@ def spice_06(m, t, chords) -> None:
                       0.003, 0.3, 0.3, 0.06, 0.0, 0.2)
 
 
-T06 = Track(
-    "06_feel_the_floor", 16, intro=3, turn=1,
+T05 = Track(
+    "disco_05_feel_the_floor", 16, intro=3, turn=1,
     chords=[Am, Dm, Em, Am],
     pad={"kind": "strings", "amp": 0.052, "attack": 0.2, "release": 0.35, "send": 0.18,
          "detune": (0.9965, 1.0035)},
@@ -300,14 +255,14 @@ T06 = Track(
     stabs={"marks": "..8...8...8...8.", "amp": 0.07, "kind": "brass", "length": 0.12,
            "from_bar": 3},
     swing=0.16,
-    spice=spice_06,
+    spice=spice_05,
 )
 
 
 # ---------------------------------------------------------------------------
-# 07 Boogie Boulevard - Bb major, 116 BPM, 14 bars.  Boogie piano, live congas.
+# 06 Boogie Boulevard - Bb major, 116 BPM, 14 bars.  Boogie piano, live congas.
 # ---------------------------------------------------------------------------
-def spice_07(m, t, chords) -> None:
+def spice_06(m, t, chords) -> None:
     bar = t.bar
     boogie = "8.58.68.78.58.6."
     for b in range(t.intro, t.bars):
@@ -325,8 +280,8 @@ def spice_07(m, t, chords) -> None:
                           0.06, 0.0, 0.14)
 
 
-T07 = Track(
-    "07_boogie_boulevard", 14, intro=1, turn=1,
+T06 = Track(
+    "disco_06_boogie_boulevard", 14, intro=1, turn=1,
     chords=[BbM, Gm, Cm, F],
     pad={"kind": "strings", "amp": 0.045, "attack": 0.2, "release": 0.35, "send": 0.18,
          "detune": (0.997, 1.003)},
@@ -353,15 +308,15 @@ T07 = Track(
                 (56, 77, 8)),
     stabs={"marks": "..8...8...8...8.", "amp": 0.06, "kind": "clav", "length": 0.14,
            "pan": 0.2, "from_bar": 5},
-    spice=spice_07,
+    spice=spice_06,
 )
 
 
 # ---------------------------------------------------------------------------
-# 08 Disco Nebula - F minor, 128 BPM, 16 bars.  Space laser arps, glass bells,
+# 07 Disco Nebula - F minor, 128 BPM, 16 bars.  Space laser arps, glass bells,
 # wide detuned strings.
 # ---------------------------------------------------------------------------
-def spice_08(m, t, chords) -> None:
+def spice_07(m, t, chords) -> None:
     bar = t.bar
     dl.arp(m, t.intro * bar, bar, chords[t.intro:], t.bars - t.intro,
            "1234123412341234", 0.075, "glass", 12, 0.3, gate=0.45)
@@ -372,8 +327,8 @@ def spice_08(m, t, chords) -> None:
     dl.fx(m, 12 * bar, "laser", 0.09, -0.4)
 
 
-T08 = Track(
-    "08_disco_nebula", 16, intro=1, turn=3,
+T07 = Track(
+    "disco_07_disco_nebula", 16, intro=1, turn=3,
     chords=[Fm, Bbm, Eb, Cm],
     pad={"kind": "strings", "amp": 0.062, "attack": 0.3, "release": 0.5, "send": 0.25,
          "detune": (0.995, 1.0, 1.005)},
@@ -401,16 +356,16 @@ T08 = Track(
                 (56, 87, 8)),
     stabs={"marks": "..8...8...8...8.", "amp": 0.055, "kind": "brass", "length": 0.12,
            "pan": -0.2, "from_bar": 6},
-    spice=spice_08,
+    spice=spice_07,
 )
 
 
 # ---------------------------------------------------------------------------
-# 09 Strobe Hearts - D major, 122 BPM, 16 bars.  Bright party disco, saw lead
+# 08 Strobe Hearts - D major, 122 BPM, 16 bars.  Bright party disco, saw lead
 # and brass answers.
 # ---------------------------------------------------------------------------
-T09 = Track(
-    "09_strobe_hearts", 15, intro=2, turn=1,
+T08 = Track(
+    "disco_08_strobe_hearts", 15, intro=2, turn=1,
     chords=[D, A, Bm, G],
     pad={"kind": "strings", "amp": 0.06, "attack": 0.25, "release": 0.4, "send": 0.2,
          "detune": (0.997, 1.0, 1.003)},
@@ -444,61 +399,14 @@ T09 = Track(
 )
 
 
-# ---------------------------------------------------------------------------
-# 10 Last Dance, Last Train - Eb major, 108 BPM, 12 bars.  Late-night closer:
-# warm pads, mellow choir lead, glass sparkle.
-# ---------------------------------------------------------------------------
-def spice_10(m, t, chords) -> None:
-    bar = t.bar
-    for b in range(t.intro, t.bars):
-        root, triad = chords[b]
-        for step in (0, 6, 10):
-            for voice, note in enumerate(triad):
-                m.sustain("glass", dl.midi(note + 12), b * bar + step * bar / 16.0,
-                          bar * 0.4, 0.045, (voice - 1) * 0.32, 0.01, 0.6, 0.3,
-                          0.2, 0.0, 0.4)
-    dl.stabs(m, t.intro * bar, bar, chords[t.intro:], t.bars - t.intro,
-             "....:.......:...", 0.03, "hollow", 0.4, 0.2, 0.3)
-
-
-T10 = Track(
-    "10_last_dance_last_train", 13, intro=1, turn=0,
-    chords=[Ebmaj7, Cm7, Abmaj7, BbM],
-    pad={"kind": "strings", "amp": 0.072, "attack": 0.5, "release": 0.8, "send": 0.32,
-         "detune": (0.995, 1.0, 1.005)},
-    pad2={"kind": "hollow", "amp": 0.03, "octave": 12, "attack": 0.3, "release": 0.5,
-          "send": 0.4, "detune": (0.997, 1.003)},
-    bass={"marks": "8..8..8..8..o..5", "amp": 0.33, "gate": 1.1, "turn_double": True},
-    drums={
-        "kick": ("", 0.66),
-        "clap": ("....x.......x...", 0.57, 0.0, 0.28, 1),
-        "shaker": ("x.x.x.x.x.x.x.x.", 0.208, 0.38, 0.0, 1),
-        "hat": ("..:...:...:...:.", 0.27, -0.34, 0.12, 1),
-        "rim": (".....x.......x..", 0.22, 0.24, 0.3, 4),
-    },
-    hook={"kind": "choir", "amp": 0.1, "pan": -0.1, "send": 0.5, "vib": 0.006,
-          "attack": 0.08, "release": 0.4, "gate": 0.95, "transpose": (0, 0, 12)},
-    phrase=((0, 75, 4), (4, 79, 2), (6, 82, 2), (8, 79, 4), (12, 79, 4), (16, 84, 4),
-            (20, 82, 2), (22, 80, 2), (24, 79, 6), (30, 75, 2), (32, 77, 4),
-            (36, 80, 2), (38, 84, 2), (40, 82, 4), (44, 80, 4), (48, 79, 4),
-            (52, 77, 4), (56, 75, 8)),
-    phrase_alt=((0, 87, 4), (4, 84, 2), (6, 82, 2), (8, 79, 4), (12, 79, 4), (16, 84, 4),
-                (20, 87, 2), (22, 89, 2), (24, 87, 6), (30, 87, 2), (32, 84, 4),
-                (36, 82, 2), (38, 80, 2), (40, 79, 4), (44, 79, 4), (48, 82, 4),
-                (52, 79, 4), (56, 75, 8)),
-    stabs={"marks": "....:.......:...", "amp": 0.04, "kind": "hollow", "length": 0.35,
-           "pan": 0.2, "from_bar": 8, "half_time": True},
-    spice=spice_10,
-)
-
-
-TRACKS = (T01, T02, T03, T04, T05, T06, T07, T08, T09, T10)
+# The set written to disk: eight loops, numbered 01..08.
+TRACKS = (T01, T02, T03, T04, T05, T06, T07, T08)
 
 
 def main(argv: list[str]) -> int:
     if "--list" in argv:
         for t in TRACKS:
-            print(f"{t.name}.wav  {t.bpm} BPM  {t.bars} тактов  {dl.SECONDS:.0f} с")
+            print(f"{t.name}.wav  {t.bpm} BPM  {t.bars} bars  {dl.SECONDS:.0f} s")
         return 0
     wanted = {arg for arg in argv if not arg.startswith("-")}
     for t in TRACKS:
