@@ -1,5 +1,8 @@
 #!/usr/bin/env python3
-"""Writes every in-game music track with no third-party libraries.
+"""Writes the three original project themes with no third-party libraries.
+
+The external Kevin MacLeod disco recording is deliberately excluded; rebuild
+it with tools/import_disco_music.py, never with note synthesis.
 
 All tracks are 22.05 kHz stereo 16-bit PCM WAV:
 
@@ -9,8 +12,8 @@ All tracks are 22.05 kHz stereo 16-bit PCM WAV:
 
 The old ``azum_vs_astra.wav`` imitation of "And The Seraphim Wept" and its
 reference mp3 are gone; ``duel_theme.wav`` is a completely original, brighter
-composition. Run ``python3 tools/generate_music.py`` to rebuild all four;
-pass one or more file names to rebuild only those.
+composition. Run ``python3 tools/generate_music.py`` to rebuild all three;
+pass one or more of those file names to rebuild only those.
 """
 
 from __future__ import annotations
@@ -317,26 +320,6 @@ def winter_track() -> tuple[array, array]:
     return left, right
 
 
-<<<<<<< HEAD
-# ---------------------------------------------------------------------------
-# Halloween lobby theme: playful minor-key organ, low plucks and orange-glow
-# bells. Four changing sections build into a warm loop rather than a jump scare.
-# ---------------------------------------------------------------------------
-HALLOWEEN_ROOTS = (45, 41, 43, 38, 45, 41, 40)
-HALLOWEEN_CHORDS = (
-    (57, 60, 64), (53, 57, 60), (55, 58, 62), (50, 53, 57),
-    (57, 60, 64), (53, 57, 60), (52, 55, 58),
-)
-HALLOWEEN_MELODY = (
-    (81, 84, 86, 84, 82, 81, 76, 79), (77, 81, 84, 81, 79, 77, 72, 76),
-    (79, 82, 86, 82, 81, 79, 74, 77), (74, 77, 81, 77, 76, 74, 69, 72),
-    (81, 84, 88, 86, 84, 82, 79, 76), (77, 81, 84, 86, 84, 81, 76, 72),
-    (76, 79, 82, 79, 78, 76, 71, 74),
-)
-
-
-=======
->>>>>>> fdf6a8e (New Year batch + simplification: white vignette, blue ice blocks, Santa letter, codecreeper light random cube skin, English comments, no long dashes, docs updated, pumpkin gift removed)
 def duel_track() -> tuple[array, array]:
     left, right = stereo(45.0)
     beat = DUEL_BEAT
@@ -400,6 +383,9 @@ def main(argv: list[str] | None = None) -> int:
         ("duel_theme.wav", duel_track, 0.02, 0.06),
     )
     wanted = set(argv or [])
+    unknown = wanted - {name for name, _, _, _ in tracks}
+    if unknown:
+        raise ValueError(f"Not generated project music: {sorted(unknown)}; use import_disco_music.py for the disco recording")
     for name, builder, fade_in, fade_out in tracks:
         if wanted and name not in wanted:
             continue

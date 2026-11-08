@@ -5,8 +5,15 @@ hack_platform = 0;
 hack_payload_ok = 0;
 hack_payload_bytes = 0;
 hack_cmd_idx = 0;
-hack_stub_disco_t = 0;
-hack_stub_plates_t = 0;
+{
+    int stub;
+    for (stub = 0; stub < 6; stub++) {
+        hack_stub_on[stub] = 0;
+        hack_stub_t[stub] = 0;
+    }
+}
+hack_tornado_on = 0;
+hack_tornado_t = 0;
 hack_cloud_on = 0;
 hack_cloud_x = 0;
 hack_cloud_y = 0;

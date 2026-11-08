@@ -1,4 +1,14 @@
 static double admin_touch(double x, double y, double action, double id);
+static double admin_commands_allowed(void);
+static double admin_cmd_content_h(void);
+static void admin_cmd_press(double x, double y);
+static double admin_cmd_touch(double x, double y, double action, double id);
+static void admin_cmd_tick(void);
+static void admin_cmd_draw(void);
+static void admin_cmd_send(void);
+static void admin_cmd_event_press(double idx);
+static double admin_cmd_wheel(double steps);
+static void admin_cmd_reset(void);
 static void admin_panel_close(void);
 static void admin_draw(void);
 static void admin_tick(void);

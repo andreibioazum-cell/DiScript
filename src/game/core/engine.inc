@@ -84,6 +84,7 @@ static int seraphim_should_play(void) {
 }
 
 static void update_seraphim_music(void) {
+    if (disco_music_blocks() == 1) return;
     double target_vol = clamp(music_volume / 100 * 1.65, 0, 1);
     if (seraphim_should_play() == 1) {
         if (seraphim_ok == 0) {
@@ -143,6 +144,7 @@ static void logic_init(void) {
 }
 
 static void update_music(void) {
+    if (disco_music_blocks() == 1) return;
     select_lobby_music();
     if (music_ok == 0) {
         return;
@@ -169,6 +171,7 @@ static void logic_update(void) {
     acct_tick();
     update_studio();
     update_transition();
+    update_disco_music();
     update_music();
     update_seraphim_music();
     reload_textures();
@@ -380,6 +383,11 @@ static void logic_touch(double x, double y, double action, double id) {
         press_points_add(x, y, id);
     } else if (action == 1 || action == 3) {
         press_points_drop(id);
+    }
+    /* During the raid's black screen nothing underneath is clickable. */
+    if ((game_state == ST_SOLO || game_state == ST_ONLINE) && hack_cinematic_lock() == 1) {
+        press_points_drop(id);
+        return;
     }
     /* Route touch to admin orb and panel first. */
     if (admin_touch(x, y, action, id) == 1) {

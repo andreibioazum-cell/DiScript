@@ -5,7 +5,7 @@
 #define LEGAL_OPERATOR_EN "Dima Gustenyov"
 /* Contact endpoint for personal data requests. */
 #define LEGAL_CONTACT "github.com/andreibioazum-cell/C-Larp/issues"
-#define LEGAL_PAGES 8
+#define LEGAL_PAGES 9
 #define LEGAL_LINES 10
 #define LEGAL_PAGE_CONSENT 5
 #define LEGAL_PAGE_RIGHTS 6
@@ -50,10 +50,15 @@ static const char *const legal_ru[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "Отзыв согласия - это удаление аккаунта:", "кнопка ниже стирает аккаунт, профиль",
      "в облаке и данные на этом устройстве.", "Ответ на обращение - до 10 рабочих дней.",
      "Жалобу можно подать в Роскомнадзор.", ""},
-    {"Лицензия и авторские права", "Код, графика, музыка, тексты и персонажи", "принадлежат правообладателю.",
-     "Все права защищены.", "Копировать, распространять, продавать игру,", "её код и материалы, а также",
+    {"Лицензия и авторские права", "Кроме сторонних компонентов (стр. 9),", "код, графика, музыка, тексты и персонажи",
+     "принадлежат правообладателю.", "Копировать, распространять, продавать игру,", "её код и материалы, а также",
      "декомпилировать их и обходить защиту", "запрещено. Текстурпаки делаете вы и", "отвечаете за них сами:",
-     "в паках нельзя распространять материалы игры.", "Нарушение прекращает право играть в игру."},
+     "в паках нельзя распространять материалы игры.", "Сторонние лицензии указаны отдельно."},
+    {"Музыка диско: автор и лицензия", "Disco Medusae - Kevin MacLeod", "Автор: Kevin MacLeod (incompetech.com)",
+     "Лицензия: Creative Commons Attribution 4.0", "https://creativecommons.org/licenses/by/4.0/",
+     "Источник: incompetech.com/music/royalty-free/", "index.html?isrc=USUAN1500041",
+     "Изменения: перекодировано в MP3 32 kbps,", "стерео, 22050 Гц; темп и высота не менялись.",
+     "Это опубликованная запись, не генерация.", "Полный текст: assets/audio/licenses/."},
 };
 
 static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
@@ -91,10 +96,15 @@ static const char *const legal_en[LEGAL_PAGES][LEGAL_LINES + 1] = {
      "Withdrawing consent deletes the account:", "the button below erases the account, the",
      "cloud profile and data on this device.", "Requests are answered within 10 working days.",
      "You may complain to Roskomnadzor.", ""},
-    {"License and copyright", "The code, graphics, music, texts and", "characters belong to the rights holder.",
-     "All rights reserved.", "Copying, distributing or selling the game,", "its code and materials, decompiling them",
+    {"License and copyright", "Except third-party components (page 9),", "code, graphics, music, texts and characters",
+     "belong to the rights holder.", "Copying, distributing or selling the game,", "its code and materials, decompiling them",
      "or bypassing the protection is prohibited.", "Texture packs are made by you and are", "your responsibility:",
-     "packs may not redistribute the game materials.", "A violation ends the right to play."},
+     "packs may not redistribute the game materials.", "Third-party licenses are listed separately."},
+    {"Disco music: author and license", "Disco Medusae - Kevin MacLeod", "Author: Kevin MacLeod (incompetech.com)",
+     "License: Creative Commons Attribution 4.0", "https://creativecommons.org/licenses/by/4.0/",
+     "Source: incompetech.com/music/royalty-free/", "index.html?isrc=USUAN1500041",
+     "Changes: re-encoded as MP3 32 kbps,", "stereo, 22050 Hz; no tempo or pitch changes.",
+     "A published recording, not generated music.", "Full license: assets/audio/licenses/."},
 };
 
 static const char *legal_line(double page, double line) {

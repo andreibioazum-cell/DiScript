@@ -50,10 +50,7 @@ public final class GameActivity extends NativeActivity {
     private volatile boolean imeLooksVisible;
     private int showAttempts;
 
-    private long lastDeleteAt;
-    private int deleteStreak;
-    private boolean pendingDelete;
-
+    private native void nativeBackspaceKey(int action);
     private native void nativeReplaceText(String text);
     private native void nativeSubmitText();
     private native void nativeKeyboardHidden();
@@ -220,32 +217,27 @@ public final class GameActivity extends NativeActivity {
                 FrameLayout.LayoutParams.MATCH_PARENT, editorH, Gravity.TOP);
         addContentView(chatEditor, params);
 
-        chatEditor.addTextChangedListener(new TextWatcher() {
-            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) {
-
-                pendingDelete = !syncingFromNative && count > 0 && after == 0;
+        /* IMEs that delete through InputConnection are handled by EditText's
+         * own repeat. IMEs / hardware keys that send KeyEvents go to the C
+         * timer below, and are consumed here so EditText does not double-delete. */
+        chatEditor.setOnKeyListener(new View.OnKeyListener() {
+            @Override public boolean onKey(View view, int keyCode, KeyEvent event) {
+                if (!nativeReady || !wantKeyboard) return false;
+                if (keyCode != KeyEvent.KEYCODE_DEL && keyCode != KeyEvent.KEYCODE_FORWARD_DEL) return false;
+                int action = event.getAction();
+                if (action == KeyEvent.ACTION_DOWN || action == KeyEvent.ACTION_UP) {
+                    try { nativeBackspaceKey(action); } catch (UnsatisfiedLinkError ignored) { return false; }
+                    return true;
+                }
+                return false;
             }
+        });
+        chatEditor.addTextChangedListener(new TextWatcher() {
+            @Override public void beforeTextChanged(CharSequence s, int start, int count, int after) { }
             @Override public void onTextChanged(CharSequence s, int start, int before, int count) { }
             @Override public void afterTextChanged(Editable value) {
                 if (syncingFromNative) return;
                 replaceTextNative(value.toString());
-                if (pendingDelete) {
-                    long now = android.os.SystemClock.elapsedRealtime();
-                    deleteStreak = (now - lastDeleteAt <= 200) ? deleteStreak + 1 : 1;
-                    lastDeleteAt = now;
-                    pendingDelete = false;
-
-                    if (deleteStreak >= 6 && chatEditor.length() > 0) {
-                        deleteStreak = 0;
-                        chatEditor.post(new Runnable() {
-                            @Override public void run() {
-                                if (chatEditor.length() > 0) chatEditor.setText("");
-                            }
-                        });
-                    }
-                } else {
-                    deleteStreak = 0;
-                }
             }
         });
         chatEditor.setOnFocusChangeListener(new View.OnFocusChangeListener() {

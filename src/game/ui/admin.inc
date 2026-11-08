@@ -1,4 +1,5 @@
-/* Draggable monochrome admin orb and two-tab control panel. */
+/* Draggable monochrome admin orb and control panel: Cheats, Gifts (root
+ * admin only) and Admin commands (root admins, see admin_commands.inc). */
 
 static double admin_a(double rgb, double a) {
     return (1 + floor(a * 254)) * 0x1000000 + rgb;
@@ -42,8 +43,13 @@ static double admin_graph_rows(void) { return (ADMIN_CHEATS + 1) / 2; }
 static double admin_grid_h(void) { return admin_graph_rows() * admin_row_h() + (admin_graph_rows() - 1) * admin_gap(); }
 
 static double admin_content_h(void) {
-    return (admin_tab == 0 || admin_gifts_allowed() == 0) ? admin_grid_h() + admin_row_h() + admin_gap()
-                                                          : 9 * admin_row_h() + 8 * admin_gap();
+    if (admin_tab == 2 && admin_commands_allowed() == 1) {
+        return admin_row_h() + admin_gap() + admin_cmd_content_h();
+    }
+    if (admin_tab == 1 && admin_gifts_allowed() == 1) {
+        return 9 * admin_row_h() + 8 * admin_gap();
+    }
+    return admin_grid_h() + admin_row_h() + admin_gap();
 }
 
 static double admin_cheat_row_h(void) {
@@ -88,12 +94,11 @@ static double admin_on(void) { return 0x333333; }
 
 static double admin_off(void) { return 0x000000; }
 
-/* Draw opaque monochrome admin button. */
-static double admin_btn_r(void) { return 9; }
+/* Flat opaque controls: no bright perimeter around every button. */
+static double admin_btn_r(void) { return 12; }
 
 static void admin_btn(const char *label, double x, double y, double w, double h, double on, double scale) {
     roundrect(x, y, w, h, admin_btn_r(), on == 1 ? admin_on() : admin_off());
-    roundrect_outline(x, y, w, h, admin_btn_r(), 2, admin_frame());
     text_in_box(label, x, y, w, h, admin_frame(), scale);
 }
 
@@ -298,4 +303,51 @@ static double admin_cheat_autoblock(void) {
 /* Local replay switch for the H4c4k0r raid scene (event 7). */
 static double admin_cheat_hack(void) {
     return admin_modifiers_allowed() == 1 && cheat_hack == 1 ? 1 : 0;
+}
+
+/* Visible tab count and slot->tab mapping: Cheats always, Gifts for the root
+ * admin, Admin commands for both root admins. Slots stay in that order. */
+static double admin_tab_slots(void) {
+    return 1 + (admin_gifts_allowed() == 1 ? 1 : 0) + (admin_commands_allowed() == 1 ? 1 : 0);
+}
+
+static double admin_tab_at_slot(double slot) {
+    if (slot == 0) {
+        return 0;
+    }
+    if (admin_gifts_allowed() == 1) {
+        return slot == 1 ? 1 : 2;
+    }
+    return 2;
+}
+
+static const char *admin_tab_label(double tab) {
+    if (tab == 1) {
+        return language == 1 ? "Подарки" : "Gifts";
+    }
+    if (tab == 2) {
+        return language == 1 ? "Админ команды" : "Admin commands";
+    }
+    return language == 1 ? "Читы" : "Cheats";
+}
+
+static void admin_draw_tabs(void) {
+    double px = admin_panel_x() + admin_pad();
+    double y = admin_content_top();
+    double h = admin_row_h();
+    double full = admin_panel_w() - 2 * admin_pad();
+    double n = admin_tab_slots();
+    if (n == 1) {
+        admin_btn(language == 1 ? "Модификаторы" : "Modifiers", px, y, full, h, 1, 0.55);
+        return;
+    }
+    double w = (full - (n - 1) * admin_gap()) / n;
+    double slot = 0;
+    while (slot < n) {
+        double tab = admin_tab_at_slot(slot);
+        const char *label = admin_tab_label(tab);
+        admin_btn(label, px + slot * (w + admin_gap()), y, w, h, admin_tab == tab,
+                  fit_text_scale(label, w - 10, 0.55));
+        slot = slot + 1;
+    }
 }

@@ -9,6 +9,8 @@ static int kb_len = 0;
 static int kb_show = 0;
 static int kb_enter = 0;
 static pthread_mutex_t kb_mutex = PTHREAD_MUTEX_INITIALIZER;
+static BackspaceRepeat kb_del_repeat = {0, 0};
+static pthread_mutex_t kb_repeat_mutex = PTHREAD_MUTEX_INITIALIZER;
 
 static JNIEnv *kb_get_env(int *attached) {
     JNIEnv *env = NULL;
@@ -163,6 +165,7 @@ void keyboard_hide(void) {
     pthread_mutex_lock(&kb_mutex);
     kb_show = 0;
     pthread_mutex_unlock(&kb_mutex);
+    keyboard_cancel_repeat();
     if (!kb_call_void_method("hideGameKeyboard") && kb_activity)
         ANativeActivity_hideSoftInput(kb_activity, ANATIVEACTIVITY_HIDE_SOFT_INPUT_IMPLICIT_ONLY);
 }
@@ -183,6 +186,7 @@ void keyboard_clear(void) {
     kb_len = 0;
     kb_enter = 0;
     pthread_mutex_unlock(&kb_mutex);
+    keyboard_cancel_repeat();
     (void)kb_call_text_method("setGameKeyboardText", "");
 }
 
@@ -263,36 +267,43 @@ void keyboard_type(const char *text) {
     kb_sync_editor();
 }
 
-#define KB_DEL_STREAK_GAP_MS 150
-#define KB_DEL_STREAK_CLEAR 6
-static long long kb_del_last_ms = 0;
-static int kb_del_streak = 0;
+/* Delete exactly one trailing UTF-8 codepoint; never clear a whole streak. */
 void keyboard_backspace(void) {
-    struct timespec now;
-    long long now_ms;
     pthread_mutex_lock(&kb_mutex);
-    if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)
-        now_ms = (long long)now.tv_sec * 1000 + now.tv_nsec / 1000000;
-    else
-        now_ms = kb_del_last_ms + KB_DEL_STREAK_GAP_MS + 1;
-    if (now_ms - kb_del_last_ms <= KB_DEL_STREAK_GAP_MS)
-        kb_del_streak++;
-    else
-        kb_del_streak = 1;
-    kb_del_last_ms = now_ms;
-    if (kb_del_streak >= KB_DEL_STREAK_CLEAR) {
-        kb_text[0] = '\0';
-        kb_len = 0;
-    } else {
-        while (kb_len > 0) {
-            unsigned char c = (unsigned char)kb_text[--kb_len];
-            kb_text[kb_len] = '\0';
-            if ((c & 0xC0) != 0x80)
-                break;
-        }
+    while (kb_len > 0) {
+        unsigned char c = (unsigned char)kb_text[--kb_len];
+        kb_text[kb_len] = '\0';
+        if ((c & 0xC0) != 0x80)
+            break;
     }
     pthread_mutex_unlock(&kb_mutex);
     kb_sync_editor();
+}
+
+static void kb_erase_one_cb(void *userdata) {
+    (void)userdata;
+    keyboard_backspace();
+}
+
+void keyboard_cancel_repeat(void) {
+    pthread_mutex_lock(&kb_repeat_mutex);
+    backspace_repeat_up(&kb_del_repeat);
+    pthread_mutex_unlock(&kb_repeat_mutex);
+}
+
+/* Called once per Android game loop with CLOCK_MONOTONIC milliseconds. */
+void keyboard_tick(uint64_t now_ms) {
+    int show;
+    pthread_mutex_lock(&kb_mutex);
+    show = kb_show;
+    pthread_mutex_unlock(&kb_mutex);
+    pthread_mutex_lock(&kb_repeat_mutex);
+    if (!show) {
+        backspace_repeat_up(&kb_del_repeat);
+    } else {
+        backspace_repeat_tick(&kb_del_repeat, now_ms, kb_erase_one_cb, NULL);
+    }
+    pthread_mutex_unlock(&kb_repeat_mutex);
 }
 
 static unsigned int kb_unicode(int keycode, int meta) {
@@ -339,11 +350,22 @@ done:
 }
 
 int keyboard_handle_key(int keycode, int action, int meta) {
-    (void)action;
-
     if (keycode == AKEYCODE_DEL || keycode == AKEYCODE_FORWARD_DEL) {
-        keyboard_backspace();
+        struct timespec now;
+        uint64_t now_ms = 0;
+        if (clock_gettime(CLOCK_MONOTONIC, &now) == 0)
+            now_ms = (uint64_t)now.tv_sec * 1000ull + (uint64_t)now.tv_nsec / 1000000ull;
+        pthread_mutex_lock(&kb_repeat_mutex);
+        if (action == AKEY_EVENT_ACTION_DOWN) {
+            backspace_repeat_down(&kb_del_repeat, now_ms, kb_erase_one_cb, NULL);
+        } else if (action == AKEY_EVENT_ACTION_UP) {
+            backspace_repeat_up(&kb_del_repeat);
+        }
+        pthread_mutex_unlock(&kb_repeat_mutex);
         return 1;
+    }
+    if (action != AKEY_EVENT_ACTION_DOWN && action != AKEY_EVENT_ACTION_MULTIPLE) {
+        return 0;
     }
     if (keycode == AKEYCODE_ENTER || keycode == AKEYCODE_NUMPAD_ENTER || keycode == AKEYCODE_DPAD_CENTER) {
         pthread_mutex_lock(&kb_mutex);
@@ -393,6 +415,12 @@ int keyboard_handle_key(int keycode, int action, int meta) {
     return 0;
 }
 
+JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeBackspaceKey(JNIEnv *env, jobject self, jint action) {
+    (void)env;
+    (void)self;
+    keyboard_handle_key(AKEYCODE_DEL, (int)action, 0);
+}
+
 JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeReplaceText(JNIEnv *env, jobject self, jstring value) {
     (void)self;
     pthread_mutex_lock(&kb_mutex);
@@ -430,6 +458,7 @@ JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeKeyboardHidden(JNIEnv *en
     pthread_mutex_lock(&kb_mutex);
     kb_show = 0;
     pthread_mutex_unlock(&kb_mutex);
+    keyboard_cancel_repeat();
 }
 
 #endif

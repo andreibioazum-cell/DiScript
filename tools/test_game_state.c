@@ -267,6 +267,8 @@ void keyboard_backspace(void) {
 }
 int keyboard_enter_pressed(void) { return 0; }
 int keyboard_uses_editor(void) { return 0; }
+void keyboard_tick(uint64_t now_ms) { (void)now_ms; }
+void keyboard_cancel_repeat(void) { }
 int keyboard_handle_key(int keycode, int action, int meta) {
     (void)keycode;
     (void)action;
@@ -625,6 +627,10 @@ int snd_play(const char *name) {
 }
 static int seraphim_playing = 0;
 static double seraphim_vol = 0;
+static int disco_playing = 0;
+static int disco_loop_calls = 0;
+static int disco_loop_flag = 0;
+static double disco_vol = 0;
 int snd_loop(const char *name) {
     if (name && LOBBY_MUSIC && strcmp(name, LOBBY_MUSIC) == 0) {
         lobby_playing = 1;
@@ -636,6 +642,11 @@ int snd_loop(const char *name) {
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0) {
         seraphim_playing = 1;
     }
+    if (name && strcmp(name, DISCO_MUSIC) == 0) {
+        disco_playing = 1;
+        disco_loop_calls++;
+        disco_loop_flag = 1;
+    }
     return 1;
 }
 int snd_playing(const char *name) {
@@ -645,6 +656,7 @@ int snd_playing(const char *name) {
         return winter_playing;
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
         return seraphim_playing;
+    if (name && strcmp(name, DISCO_MUSIC) == 0) return disco_playing;
     return 0;
 }
 void snd_stop(const char *name) {
@@ -654,10 +666,12 @@ void snd_stop(const char *name) {
         winter_playing = 0;
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
         seraphim_playing = 0;
+    if (name && strcmp(name, DISCO_MUSIC) == 0) disco_playing = 0;
 }
 void snd_volume(const char *name, double volume) {
     if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
         seraphim_vol = volume;
+    if (name && strcmp(name, DISCO_MUSIC) == 0) disco_vol = volume;
 }
 
 int tex_ready(const char *name) {
@@ -1097,21 +1111,40 @@ const char *net_chat_passwd_new(const char *msg) {
     stub_passwd_new[i] = 0;
     return stub_passwd_new;
 }
+/* Quoted banner command, mirroring room_control.inc: text "words" [color]. */
 double net_chat_is_text_cmd(const char *msg) {
-    (void)msg;
-    return 0;
+    if (!msg || strlen(msg) < 5 || strncmp(msg, "text ", 5) != 0)
+        return 0;
+    const char *t = msg + 5;
+    while (*t == ' ' || *t == '\t') t++;
+    if (*t != '"')
+        return 0;
+    const char *close = strchr(t + 1, '"');
+    return close && close > t + 1;
 }
+static char stub_text_cmd_buf[256];
 const char *net_chat_text_cmd_text(const char *msg) {
-    (void)msg;
-    return "";
+    stub_text_cmd_buf[0] = 0;
+    if (net_chat_is_text_cmd(msg) != 1)
+        return stub_text_cmd_buf;
+    const char *t = msg + 5;
+    while (*t == ' ' || *t == '\t') t++;
+    const char *close = strchr(t + 1, '"');
+    size_t n = (size_t)(close - (t + 1));
+    if (n >= sizeof(stub_text_cmd_buf))
+        n = sizeof(stub_text_cmd_buf) - 1;
+    memcpy(stub_text_cmd_buf, t + 1, n);
+    stub_text_cmd_buf[n] = 0;
+    return stub_text_cmd_buf;
 }
 const char *net_chat_text_cmd_color(const char *msg) {
     (void)msg;
-    return "";
+    return "white";
 }
+static char stub_banner_sent[256], stub_banner_color_sent[32];
 void net_banner_send(const char *text, const char *color) {
-    (void)text;
-    (void)color;
+    snprintf(stub_banner_sent, sizeof(stub_banner_sent), "%s", text ? text : "");
+    snprintf(stub_banner_color_sent, sizeof(stub_banner_color_sent), "%s", color ? color : "");
 }
 void net_chat_trim(double keep) { (void)keep; }
 int png_load(const char *name) {
@@ -1899,7 +1932,7 @@ static void test_legal(void) {
     assert(docs_page == 0 && t_dir == 1);
     finish_transition();
     assert(docs_page == 1);
-    docs_show(LEGAL_PAGES - 1, 0);   /* the license page is last now */
+    docs_show(LEGAL_PAGES - 1, 0);   /* music credits are the final legal page */
     assert(hit_docs_next(docs_next_x() + docs_nav_w() / 2, docs_row_y() + btn_h / 2) == 0);
     docs_show(LEGAL_PAGE_RIGHTS, 0);
     logic_touch(docs_mid_x() + docs_mid_w() / 2, docs_row_y() + btn_h / 2, 0, 45);
@@ -2019,6 +2052,231 @@ static void test_admin_keyboard(void) {
     t_dir = saved_dir;
     keyboard_hide();
     puts("admin panel: every way of closing it also hides the keyboard");
+}
+
+/* CCP "Admin commands" tab: the banner text command on top, event buttons
+ * with a horizontal scroll below, root admins only. */
+static void test_admin_commands(void) {
+    double saved_w = screen_w, saved_h = screen_h, saved_stat = game_state;
+    double saved_tab = admin_tab, saved_open = admin_panel_open, saved_dir = t_dir;
+    double saved_event = stub_event_mode;
+    screen_w = 720;
+    screen_h = 1280;
+    game_state = ST_LOBBY;
+    t_dir = 0;
+    stub_login_status = 2;
+    stub_event_mode = 0;
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    assert(admin_commands_allowed() == 1 && admin_tab_slots() == 3);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "qwertyuiopaj1234");
+    assert(admin_commands_allowed() == 1 && admin_tab_slots() == 2 && admin_tab_at_slot(1) == 2);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "Sanch");
+    assert(admin_commands_allowed() == 0 && admin_tab_slots() == 1);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+
+    admin_panel_open = 1;
+    admin_tab = 0;
+    double full = admin_panel_w() - 2 * admin_pad();
+    double tw = (full - 2 * admin_gap()) / 3;
+    admin_panel_press(admin_panel_x() + admin_pad() + 2 * (tw + admin_gap()) + tw / 2,
+                      admin_content_top() + 4);
+    assert(admin_tab == 2);
+    admin_cmd_reset();
+    admin_cmd_tick();
+    /* The supplied mockup opens at the RIGHT edge: a clipped 4, then 5 6 7. */
+    assert(admin_cmd_scroll_max() > 0);
+    assert(fabs(admin_cmd_scroll - admin_cmd_scroll_max()) < 1e-9);
+    adm_reset_log();
+    admin_draw();
+    assert(adm_all_greyscale() == 1 && adm_all_flat() == 1 && adm_no_white_fill() == 1);
+    assert(adm_has_text(language == 1 ? "Что вы хотите написать?" : "What do you want to write?") == 1);
+    assert(adm_has_text(language == 1 ? "введите текст..." : "enter text...") == 1);
+    assert(adm_has_text(language == 1 ? "Отправить" : "Send") == 1);
+    assert(adm_has_text(language == 1 ? "запустить event." : "run event.") == 1);
+    assert(adm_has_text("4") == 1 && adm_has_text("5") == 1 && adm_has_text("6") == 1 && adm_has_text("7") == 1);
+    assert(adm_has_text("0") == 0);
+    double x = admin_cmd_x(), w = admin_cmd_w(), bw = admin_cmd_btn_w();
+    double partial = x - (x + 4 * admin_cmd_step() - admin_cmd_scroll);
+    assert(partial > bw * 0.45 && partial < bw); /* the end is visibly clipped, not missing */
+    assert(fabs(admin_cmd_thumb_x() + admin_cmd_thumb_w() - (x + w)) < 1e-9);
+    assert(admin_cmd_strip_y() + admin_cmd_strip_h() <= admin_panel_y() + admin_panel_h() - admin_pad() + 0.01);
+
+    /* Dragging the actual thumb reaches the beginning; lifting is not a tap. */
+    double by = admin_cmd_bar_y() + admin_cmd_bar_h() / 2;
+    double tx = admin_cmd_thumb_x() + admin_cmd_thumb_w() / 2;
+    stub_event_mode = 3;
+    assert(admin_cmd_touch(tx, by, 0, 3) == 1);
+    assert(admin_cmd_touch(x + admin_cmd_thumb_w() / 2, by, 2, 3) == 1);
+    assert(admin_cmd_scroll == 0 && stub_event_mode == 3);
+    assert(admin_cmd_touch(x + admin_cmd_thumb_w() / 2, by, 1, 3) == 1);
+    assert(stub_event_mode == 3);
+    /* Tapping the empty track pages without launching an event. */
+    assert(admin_cmd_touch(x + w / 2, by, 0, 3) == 1);
+    assert(admin_cmd_scroll > 0 && admin_cmd_scroll < admin_cmd_scroll_max());
+    assert(admin_cmd_touch(x + w / 2, by, 1, 3) == 1);
+    assert(stub_event_mode == 3);
+    /* PC wheel works in both directions and clamps at the end. */
+    admin_cmd_scroll = admin_cmd_scroll_max();
+    assert(admin_cmd_wheel(1.0) == 1);
+    assert(fabs(admin_cmd_scroll - (admin_cmd_scroll_max() - admin_cmd_step())) < 1e-9);
+    assert(admin_cmd_wheel(-10.0) == 1 && admin_cmd_scroll == admin_cmd_scroll_max());
+    assert(admin_cmd_wheel(100.0) == 1 && admin_cmd_scroll == 0);
+
+    /* Event buttons use the same chat commands; zero switches the event off. */
+    admin_cmd_event_press(4);
+    assert(stub_event_mode == 4);
+    admin_cmd_event_press(7);
+    assert(stub_event_mode == 7);
+    admin_cmd_event_press(0);
+    assert(stub_event_mode == 0);
+    admin_cmd_event_press(0);
+    assert(stub_event_mode == 0);
+
+    keyboard_show();
+    stub_kb_set("hello cubes");
+    admin_cmd_tick();
+    assert(strcmp(admin_cmd_text, "hello cubes") == 0);
+    stub_banner_sent[0] = 0;
+    admin_cmd_send();
+    assert(strstr(stub_banner_sent, "hello cubes") != NULL);
+    assert(strstr(stub_banner_sent, ADMIN_NICK) != NULL);
+    assert(strcmp(stub_banner_color_sent, "white") == 0);
+    assert(admin_cmd_text[0] == 0 && keyboard_visible() == 1);
+    stub_kb_set("event 5");
+    admin_cmd_tick();
+    admin_cmd_send();
+    assert(stub_event_mode == 5);
+    keyboard_hide();
+    stub_kb_set("");
+
+    snprintf(admin_cmd_text, sizeof(admin_cmd_text), "%s", "draft");
+    admin_cmd_press(x + 20, admin_cmd_input_y() + 4);
+    assert(keyboard_visible() == 1);
+    char kb_check[64];
+    keyboard_get_text_to(kb_check, sizeof(kb_check));
+    assert(strcmp(kb_check, "draft") == 0);
+    /* Touching the strip dismisses the phone keyboard but preserves the draft. */
+    double sy = admin_cmd_strip_y() + admin_cmd_strip_h() / 2;
+    assert(admin_cmd_touch(x + 20, sy, 0, 8) == 1);
+    assert(keyboard_visible() == 0 && strcmp(admin_cmd_text, "draft") == 0);
+    assert(admin_cmd_touch(x + 20, sy, 3, 8) == 1);
+    stub_kb_set("");
+    admin_cmd_text[0] = 0;
+
+    stub_kb_set("draft two");
+    keyboard_show();
+    admin_panel_press(admin_panel_x() + admin_pad() + 4, admin_content_top() + 4);
+    assert(admin_tab == 0 && keyboard_visible() == 0 && strcmp(admin_cmd_text, "draft two") == 0);
+    admin_tab = 2;
+    stub_kb_set("");
+    admin_cmd_text[0] = 0;
+
+    /* Finger drag scrolls the strip; a short tap presses the visible button. */
+    admin_cmd_scroll = 0;
+    admin_cmd_vel = 0;
+    double sx = x + 140;
+    assert(admin_cmd_touch(sx, sy, 0, 3) == 1);
+    assert(admin_cmd_touch(sx + 30, sy, 2, 99) == 1); /* secondary finger ignored */
+    assert(admin_cmd_touch(sx - 100, sy, 2, 3) == 1);
+    assert(fabs(admin_cmd_scroll - 100) < 1e-6);
+    assert(admin_cmd_touch(sx - 100, sy, 1, 3) == 1);
+    assert(admin_cmd_scroll >= 100 && admin_cmd_scroll <= admin_cmd_scroll_max());
+    admin_cmd_scroll = 0;
+    admin_cmd_vel = 0;
+    stub_event_mode = 3;
+    double bx = x + bw / 2;
+    assert(admin_cmd_touch(bx, sy, 0, 4) == 1);
+    assert(admin_cmd_touch(bx, sy, 1, 4) == 1);
+    assert(stub_event_mode == 0);
+    double bx2 = x + 2 * admin_cmd_step() + bw / 2;
+    assert(admin_cmd_touch(bx2, sy, 0, 4) == 1);
+    assert(admin_cmd_touch(bx2, sy, 1, 4) == 1);
+    assert(stub_event_mode == 2);
+    /* Cancel cannot accidentally launch an event. */
+    assert(admin_cmd_touch(bx, sy, 0, 4) == 1);
+    assert(admin_cmd_touch(bx, sy, 3, 4) == 1);
+    assert(stub_event_mode == 2);
+
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "Sanch");
+    snprintf(admin_cmd_text, sizeof(admin_cmd_text), "%s", "not allowed");
+    stub_banner_sent[0] = 0;
+    stub_event_mode = 0;
+    admin_cmd_send();
+    admin_cmd_event_press(4);
+    assert(stub_banner_sent[0] == 0 && stub_event_mode == 0);
+    assert(admin_cmd_wheel(1) == 0);
+
+    admin_cmd_text[0] = 0;
+    admin_cmd_reset();
+    admin_cmd_status_t = 0;
+    admin_tab = saved_tab;
+    admin_panel_open = saved_open;
+    game_state = saved_stat;
+    t_dir = saved_dir;
+    screen_w = saved_w;
+    screen_h = saved_h;
+    stub_event_mode = saved_event;
+    keyboard_hide();
+    stub_kb_set("");
+    puts("admin commands tab: mockup layout, clipped end, thumb/wheel/drag and permissions OK");
+}
+
+static void test_disco_music(void) {
+    double saved_state = game_state, saved_event = event_mode, saved_finished = finished;
+    double saved_volume = music_volume, saved_dt = dt, saved_ok = disco_ok, saved_level = disco_level;
+    double saved_lobby = music_level, saved_duel = seraphim_level;
+    double saved_w = screen_w, saved_h = screen_h, saved_chat = chat_open;
+    double saved_jingle_ok = christmas_jingle_ok, saved_jingle_tried = christmas_jingle_tried;
+    const char *saved_lobby_track = lobby_music_current;
+    int saved_lp = lobby_playing, saved_sp = seraphim_playing, saved_wp = winter_playing;
+    screen_w = 540; screen_h = 960; chat_open = 0;
+    game_state = ST_SOLO; event_mode = 1; finished = 0;
+    music_volume = 50; dt = 0.1; disco_ok = -1; disco_level = 0;
+    lobby_playing = 1; seraphim_playing = 1; winter_playing = 1;
+    lobby_music_current = LOBBY_MUSIC;
+    music_level = 1; seraphim_level = 1;
+    christmas_jingle_ok = 1; christmas_jingle_tried = 1;
+    disco_loop_calls = 0; disco_loop_flag = 0;
+    update_disco_music();
+    assert(disco_ok == 1 && disco_playing == 1 && disco_loop_calls == 1 && disco_loop_flag == 1);
+    assert(lobby_playing == 0 && seraphim_playing == 0 && winter_playing == 0);
+    assert(disco_music_blocks() == 1);
+    update_music(); update_seraphim_music(); update_christmas_jingle();
+    assert(lobby_playing == 0 && seraphim_playing == 0 && winter_playing == 0);
+    for (int i = 0; i < 100; i++) update_disco_music();
+    assert(disco_loop_calls == 1); /* one mixer loop, not a restart every tick */
+    assert(fabs(disco_vol - 0.5) < 1e-9 && fabs(disco_level - 1) < 1e-9);
+    music_volume = 20;
+    update_disco_music();
+    assert(fabs(disco_vol - 0.2) < 1e-9);
+    adm_reset_log();
+    draw_disco_credit();
+    assert(adm_has_text("Disco Medusae") == 1 && adm_has_text("Kevin MacLeod") == 1);
+    assert(adm_has_text("CC BY 4.0") == 1);
+    assert(disco_credit_hit(screen_w / 2, screen_h - 40) == 1);
+    event_mode = 0;
+    assert(disco_should_play() == 0 && disco_music_blocks() == 1);
+    for (int i = 0; i < 6; i++) update_disco_music();
+    assert(disco_playing == 0 && disco_level == 0 && disco_music_blocks() == 0);
+    game_state = ST_LOBBY; event_mode = 1;
+    assert(disco_should_play() == 0);
+    update_disco_music();
+    assert(disco_playing == 0);
+    game_state = ST_ONLINE; event_mode = 1; finished = 1;
+    assert(disco_should_play() == 0);
+    finished = 0;
+    assert(disco_should_play() == 1);
+    assert(strcmp(legal_line(LEGAL_PAGES - 1, 4), "https://creativecommons.org/licenses/by/4.0/") == 0);
+    assert(strstr(legal_line(LEGAL_PAGES - 1, 1), "Kevin MacLeod") != NULL);
+    game_state = saved_state; event_mode = saved_event; finished = saved_finished;
+    music_volume = saved_volume; dt = saved_dt; disco_ok = saved_ok; disco_level = saved_level;
+    music_level = saved_lobby; seraphim_level = saved_duel;
+    screen_w = saved_w; screen_h = saved_h; chat_open = saved_chat;
+    christmas_jingle_ok = saved_jingle_ok; christmas_jingle_tried = saved_jingle_tried;
+    lobby_music_current = saved_lobby_track;
+    lobby_playing = saved_lp; seraphim_playing = saved_sp; winter_playing = saved_wp;
+    disco_playing = 0;
+    puts("disco music: real bundled track, loop, volume, exclusive playback, fade and credits OK");
 }
 
 /* Promo 2027: the success text is a private copy, not a pointer into the
@@ -2501,7 +2759,7 @@ static void test_hacker_event(void) {
     double candy_before;
     double bx, by, bw, bh, px, py;
     double cx, cy, dx, dy;
-    int i, n;
+    int i, n, got_before;
     screen_w = 1280;
     screen_h = 720;
     game_reset();
@@ -2513,7 +2771,6 @@ static void test_hacker_event(void) {
     update_hacker_event();
     assert(hack_active == 0);
 
-    /* The raid starts from the admin chat command like every other event. */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     snprintf(stub_login_pass, sizeof(stub_login_pass), "%s", "test");
     stub_login_status = 2;
@@ -2521,7 +2778,6 @@ static void test_hacker_event(void) {
     assert(admin_handle("event 7") == 1 && stub_event_mode == 7);
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     stub_event_mode = 0;
-    /* And locally from the admin cheat switch (admin account only). */
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     cheat_hack = 1;
     assert(admin_cheat_hack() == 1 && hack_enabled() == 1);
@@ -2529,7 +2785,6 @@ static void test_hacker_event(void) {
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
     assert(hack_enabled() == 0);
 
-    /* Boot: payload of this build's platform parses, junk table is known. */
     event_mode = HACK_EVENT;
     update_hacker_event();
     assert(hack_active == 1 && hack_glitch > 0);
@@ -2538,81 +2793,84 @@ static void test_hacker_event(void) {
 #else
     assert(hack_platform == HACK_PLAT_PHONE && hack_detect_platform() == HACK_PLAT_PHONE);
 #endif
-    assert(hack_payload_ok == 1 && hack_payload_bytes == 27);
-    assert(hack_cmd_n == 4 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);
+    assert(hack_payload_ok == 1 && hack_payload_bytes == 39);
+    assert(hack_cmd_n == 8 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);
     assert(str_len(hack_junk_label(0)) > 0 && str_len(hack_junk_label(9)) > 0);
     draw_hacker_event();
     draw_hacker_world();
 
-    /* 0..14 s: glitch ends, all four commands fire, one cloud survives. */
-    for (i = 0; i < 280; i++) {
-        update_hacker_event();
-        if (i % 9 == 0) {
-            draw_hacker_event();
-            draw_hacker_world();
-        }
-    }
-    assert(fabs(hack_t - 14.0) < 0.06);
-    assert(hack_glitch <= 0 && hack_cmd_idx == 4 && hack_cloud_on == 1);
-    assert(hack_stub_disco_t > 0 && hack_stub_plates_t > 0);
-    /* Typed live: the greeting is complete, Azum has not started laughing. */
-    assert(hack_typed_chars(1) == utf8_len(hack_line_text(1)));
-    assert(hack_typed_chars(6) == 0);
-    assert(hack_btn_made == 0);
+    /* Commands appear one by one; the cloud is not born before /event 11. */
+    for (i = 0; i < 260; i++) update_hacker_event(); /* t ~= 13 */
+    assert(hack_cmd_idx == 1 && hack_stub_on[0] == 1 && hack_stub_on[1] == 0);
+    assert(hack_cloud_on == 0 && hack_tornado_on == 0 && hack_second_open() == 0);
+    for (i = 0; i < 420; i++) update_hacker_event(); /* t ~= 34 */
+    assert(hack_cmd_idx == 6);
+    for (i = 0; i < HACK_STUB_MAX; i++) assert(hack_stub_on[i] == 1);
+    assert(hack_cloud_on == 0 && hack_tornado_on == 0);
+    for (i = 0; i < 180; i++) update_hacker_event(); /* t ~= 43 */
+    assert(hack_cmd_idx == 8 && hack_cloud_on == 1 && hack_tornado_on == 1);
+    assert(hack_second_open() == 0); /* cloud is visible first */
+    for (i = 0; i < 80; i++) update_hacker_event(); /* t ~= 47 */
+    assert(hack_second_open() == 1);
+    assert(hack_line_start(11) >= HACK_SECOND_AT);
+    /* Props are inert: the real event stays 7 and no reward/plate state ran. */
+    assert(event_mode == HACK_EVENT && plates_phase == 0);
+    draw_hacker_event();
+    draw_hacker_world();
 
-    /* 40 s: the menu junk avalanches, falls and lands as solid cover. */
-    for (i = 0; i < 620; i++) {
-        update_hacker_event();
-    }
+    /* The hacker loses his temper and only then the button cover rains. */
+    for (i = 0; i < 560; i++) update_hacker_event(); /* t ~= 75 */
     assert(hack_btn_made >= 3);
-    for (i = 0; i < 60; i++) {
-        update_hacker_event();
-    }
+    for (i = 0; i < 60; i++) update_hacker_event();
     assert(arr_get(hack_buttons, HB_LAND) == 1);
     bx = arr_get(hack_buttons, HB_X);
     by = arr_get(hack_buttons, HB_Y);
     bw = arr_get(hack_buttons, HB_W);
     bh = arr_get(hack_buttons, HB_H);
-    /* A fighter inside a landed button is pushed out of it. */
     px = bx + bw / 2;
     py = by + bh / 2;
     hack_button_push(&px, &py, player_half());
     assert(hit_rect(px, py, bx, by, bw, bh) == 0);
-    /* Junk clicks with its native sound and does nothing else. */
     assert(hack_touch(bx + bw / 2, by + bh / 2, 0, 1) == 1);
     assert(arr_get(hack_buttons, HB_PRESS) > 0);
 
-    /* Compact consoles drag by their green title bar and let go cleanly. */
+    /* Both consoles drag by their title bars and release cleanly. */
     {
-        double wx = hack_term_x[0];
-        double wy = hack_term_y[0];
-        assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
-        hack_touch(wx + 62, wy + 43, 2, 9);
-        hack_touch(wx + 62, wy + 43, 1, 9);
-        assert(fabs(hack_term_x[0] - (wx + 50)) < 1e-6);
-        assert(fabs(hack_term_y[0] - (wy + 40)) < 1e-6);
-        assert(hack_drag_win == -1);
-        /* A tap away from the bar still reaches the junk buttons. */
-        assert(hack_touch(wx + 12, wy + 3 + hack_term_head() + 30, 0, 9) == 0);
+        int win;
+        for (win = 0; win <= 1; win++) {
+            double wx = hack_term_x[win];
+            double wy = hack_term_y[win];
+            assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
+            hack_touch(wx + 62, wy + 43, 2, 9);
+            hack_touch(wx + 62, wy + 43, 1, 9);
+            assert(fabs(hack_term_x[win] - (wx + 50)) < 1e-6);
+            assert(fabs(hack_term_y[win] - (wy + 40)) < 1e-6);
+            assert(hack_drag_win == -1);
+        }
     }
     draw_hacker_event();
     draw_hacker_world();
 
-    /* 75 s: Azum's ban wipes the terminals red. */
-    for (i = 0; i < 560; i++) {
-        update_hacker_event();
-        if (i % 11 == 0) {
-            draw_hacker_event();
-        }
-    }
-    assert(hack_ban_t > 0 && hack_t >= HACK_BAN_AT);
+    /* Ban: a very long blackout, then the terminal verdict and animated close. */
+    for (i = 0; i < 600 && hack_ban_t == 0; i++) update_hacker_event();
+    assert(hack_ban_t > 0 && hack_cinematic_lock() == 1);
+    assert(hack_touch(screen_w / 2, screen_h / 2, 0, 1) == 1);
+    for (i = 0; i < 340; i++) update_hacker_event(); /* +17 s */
+    assert(hack_ban_t < HACK_BLACK_DUR && hack_cinematic_lock() == 1);
     draw_hacker_event();
-
-    /* 80 s: everything explodes, the cane rain slides at exactly 45 degrees. */
-    for (i = 0; i < 100; i++) {
+    for (i = 0; i < 160; i++) update_hacker_event(); /* verdict / close */
+    assert(hack_ban_t > HACK_BLACK_DUR);
+    draw_hacker_event();
+    candy_before = candies;
+    got_before = (int)hack_cane_got;
+    n = 0;
+    while (hack_t < hack_rain_at() + 1.0 && n < 2000) {
         update_hacker_event();
+        n++;
     }
-    assert(hack_btn_made == 0 && hack_cloud_on == 0 && hack_cane_made >= 2);
+    assert(hack_cinematic_lock() == 0);
+    assert(hack_btn_made == 0 && hack_cloud_on == 0 && hack_tornado_on == 0 && hack_cane_made >= 2);
+    for (i = 0; i < HACK_STUB_MAX; i++) assert(hack_stub_on[i] == 0);
     assert(hack_touch(screen_w / 2, screen_h / 2, 0, 1) == 0);
     cx = arr_get(hack_canes, HC_X);
     cy = arr_get(hack_canes, HC_Y);
@@ -2624,8 +2882,6 @@ static void test_hacker_event(void) {
     }
     draw_hacker_world();
 
-    /* Collect all ten canes: each one pays candies on the spot. */
-    candy_before = candies;
     n = 0;
     while (hack_cane_got < hack_cane_total && n < 3000) {
         int slot = -1;
@@ -2644,16 +2900,12 @@ static void test_hacker_event(void) {
         n++;
     }
     assert(hack_cane_got == 10);
-    assert(candies - candy_before >= 10 * hack_cane_candy);
-    /* The clean victory closes the round once the last cane is gone. */
-    for (i = 0; i < 200 && finished == 0; i++) {
-        update_hacker_event();
-    }
+    assert(candies - candy_before >= (10 - got_before) * hack_cane_candy);
+    for (i = 0; i < 200 && finished == 0; i++) update_hacker_event();
     assert(finished == 1);
     draw_hacker_event();
     draw_hacker_world();
 
-    /* Event off: the whole scene rewinds for the next round. */
     event_mode = 0;
     update_hacker_event();
     assert(hack_active == 0 && hack_t == 0 && hack_cane_got == 0);
@@ -2661,7 +2913,7 @@ static void test_hacker_event(void) {
     stub_net_slot = -1;
     screen_w = saved_w;
     screen_h = saved_h;
-    puts("events: H4c4k0r raid 7 payload, junk cover, ban, 45-degree cane rain");
+    puts("events: H4c4k0r raid 7 ordered dummy events, delayed second console, long ban close, cane rain");
 }
 
 static void test_eax229_and_rooms(void) {
@@ -5296,8 +5548,8 @@ int main(void) {
     /* The panel calls itself a content creator panel and the orb wears the
      * short name; the admin nick and the old "label: on/off" status line under
      * the panel are gone. */
-    /* The title, close button, orb, two tabs and all cheat labels. */
-    assert(adm_text_n == 5 + ADMIN_CHEATS);
+    /* The title, close button, orb, every visible tab and all cheat labels. */
+    assert(adm_text_n == 3 + (int)admin_tab_slots() + ADMIN_CHEATS);
     {
         double saved_lang_ab = language;
         language = 1;
@@ -5978,6 +6230,8 @@ int main(void) {
     test_overlay_transitions();
     test_gifts_page();
     test_admin_keyboard();
+    test_admin_commands();
+    test_disco_music();
 
     /* Christmas theme and Battle Pass are available to all CCP moderators;
      * only the primary admin has the Gifts half of the CCP panel. */
@@ -6308,13 +6562,18 @@ int main(void) {
         language = 1;
         game_state = ST_LOBBY;
         admin_panel_open = 1;
+        /* The giftless root admin keeps chat-command powers: the right tab is
+         * now Admin commands, while Gifts stays exclusive to the primary. */
+        assert(admin_commands_allowed() == 1 && admin_tab_slots() == 2);
         admin_tab = 1;
         admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
-        assert(admin_tab == 0);
+        assert(admin_tab == 2);
         adm_reset_log();
         admin_draw();
-        assert(adm_has_text("CCP") == 1 && adm_has_text("Модификаторы") == 1);
+        assert(adm_has_text("CCP") == 1 && adm_has_text("Админ команды") == 1);
         assert(adm_has_text("Подарки") == 0 && adm_has_text("Выдать подарок") == 0);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
+        assert(admin_tab == 0);
         admin_panel_open = 0;
 
         /* Without the global flag, Sanch has ordinary visuals and no event,
@@ -6418,6 +6677,7 @@ int main(void) {
         admin_panel_open = 1;
         admin_draw();
         assert(adm_has_text("CCP") == 1 && adm_has_text("Читы") == 1 && adm_has_text("Подарки") == 1);
+        assert(adm_has_text("Админ команды") == 1 && admin_tab_slots() == 3);
         admin_panel_open = 0;
         winter_theme = 0;
 

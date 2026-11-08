@@ -16,6 +16,8 @@ static char kb_text[KB_BUF] = {0};
 static int kb_len = 0;
 static int kb_show = 0;
 static int kb_enter = 0;
+static BackspaceRepeat kb_del_repeat = {0, 0};
+static uint64_t kb_clock_ms = 0;
 
 void ds_set_activity(void *act) { (void)act; }
 
@@ -26,6 +28,7 @@ void keyboard_show(void) { kb_show = 1; }
 void keyboard_hide(void) {
     kb_show = 0;
     kb_enter = 0;
+    keyboard_cancel_repeat();
 }
 
 /* Copy current text input buffer into caller-owned storage. */
@@ -39,6 +42,7 @@ void keyboard_clear(void) {
     kb_text[0] = '\0';
     kb_len = 0;
     kb_enter = 0;
+    keyboard_cancel_repeat();
 }
 
 int keyboard_visible(void) { return kb_show; }
@@ -120,17 +124,39 @@ void keyboard_backspace(void) {
     kb_text[kb_len] = '\0';
 }
 
+static void kb_erase_one_cb(void *userdata) {
+    (void)userdata;
+    keyboard_backspace();
+}
+
+void keyboard_cancel_repeat(void) {
+    backspace_repeat_up(&kb_del_repeat);
+}
+
+void keyboard_tick(uint64_t now_ms) {
+    kb_clock_ms = now_ms;
+    if (!kb_show) {
+        keyboard_cancel_repeat();
+        return;
+    }
+    backspace_repeat_tick(&kb_del_repeat, now_ms, kb_erase_one_cb, NULL);
+}
+
 /* Process Android-numbered key events and Enter key presses. */
 int keyboard_handle_key(int keycode, int action, int meta) {
     (void)meta;
+    if (keycode == PC_KEY_DEL) {
+        if (action == 0) {
+            backspace_repeat_down(&kb_del_repeat, kb_clock_ms, kb_erase_one_cb, NULL);
+        } else if (action == 1) {
+            backspace_repeat_up(&kb_del_repeat);
+        }
+        return 1;
+    }
     if (action != 0 && action != 2) /* down / multiple only */
         return 0;
     if (keycode == PC_KEY_ENTER) {
         kb_enter = 1;
-        return 1;
-    }
-    if (keycode == PC_KEY_DEL) {
-        keyboard_backspace();
         return 1;
     }
     if (keycode == PC_KEY_SPACE) {

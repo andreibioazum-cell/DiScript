@@ -3,6 +3,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
 import wave
@@ -69,7 +70,8 @@ def check_firebase_rules() -> None:
     ban_write = rules["bans"]["$nick"][".write"]
     assert "newData.exists()" in ban_write
     assert "$nick.toLowerCase() != 'dimasi4ek229'" in ban_write
-    assert "qwertyuiopaj1234" not in ban_write.lower()
+    assert "$nick.toLowerCase() != 'qwertyuiopaj1234'" in ban_write
+    assert "qwertyuiopaj1234@cb4.game" in ban_write
 
 
 def check_write_secret() -> None:
@@ -110,6 +112,26 @@ def check_write_secret() -> None:
             f"{name}: пароль собирается без секретного хвоста"
 
 
+def check_disco_music() -> None:
+    """The disco asset must remain the verified recording, compressed to <= 1 MB."""
+    source = ROOT / "third_party/music/Disco Medusae - Kevin MacLeod.mp3"
+    output = ROOT / "assets/audio/disco_medusae_kevin_macleod.mp3"
+    assert hashlib.sha256(source.read_bytes()).hexdigest() == (
+        "0957c02613a361cd89b3f95ab8d0e708ded2849cc28787202e7a46931ff4bace"
+    ), "Disco source recording changed"
+    assert output.stat().st_size <= 1_000_000, "Disco asset must stay at or below 1 MB"
+    assert hashlib.sha256(output.read_bytes()).hexdigest() == (
+        "1552423b8d64f01b94a895acb3dec3ab23b9cbd7b7a6bf0677f606cb283c1a9f"
+    ), "Disco MP3 differs from the verified compression"
+    notice = (ROOT / "assets/audio/Disco-Medusae-NOTICE.txt").read_text(encoding="utf-8")
+    for text in ("Kevin MacLeod", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/",
+                 "USUAN1500041", "22050", "MP3", "not AI-generated"):
+        assert text in notice, f"Missing disco attribution: {text}"
+    license_text = (ROOT / "assets/audio/licenses/Disco-Medusae-CC-BY-4.0.txt").read_text(encoding="utf-8")
+    assert "Attribution 4.0 International" in license_text
+    assert "Creative Commons Attribution 4.0 International" in license_text
+
+
 def check_assets() -> None:
     names: set[str] = set()
     game = ROOT / "src" / "game"
@@ -135,7 +157,13 @@ def check_assets() -> None:
         ROOT / "assets" / "audio" / "lobbymusic.wav",
         ROOT / "assets" / "audio" / "winter_jingle.wav",
         ROOT / "assets" / "audio" / "duel_theme.wav",
+        ROOT / "assets" / "audio" / "disco_medusae_kevin_macleod.mp3",
+        ROOT / "assets" / "audio" / "Disco-Medusae-NOTICE.txt",
+        ROOT / "assets" / "audio" / "licenses" / "Disco-Medusae-CC-BY-4.0.txt",
+        ROOT / "third_party" / "music" / "Disco Medusae - Kevin MacLeod.mp3",
         ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
+        ROOT / "assets" / "hack" / "h4c4k0r.bin",
+        ROOT / "assets" / "hack" / "h4c4k0r.so",
         ROOT / "assets" / "shaders" / "sprite.vert",
         ROOT / "assets" / "shaders" / "solid.frag",
         ROOT / "assets" / "shaders" / "image.frag",
@@ -198,6 +226,7 @@ def check_port_layout() -> None:
 def main() -> int:
     check_port_layout()
     check_assets()
+    check_disco_music()
     check_firebase_rules()
     check_write_secret()
     print("Ресурсы и схема сети: норма")

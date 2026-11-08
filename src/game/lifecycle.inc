@@ -12,7 +12,9 @@ void game_init(AAssetManager *assets) {
 void game_reset(void) {
     if (state_ready)
         state_destroy();
+    snd_stop(DISCO_MUSIC);
     state_create();
+    admin_cmd_reset();
     state_ready = 1;
 }
 

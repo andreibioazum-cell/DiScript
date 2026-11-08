@@ -323,7 +323,21 @@ static void update_game(void) {
     tick_status_fades();
     tick_hurt_fades();
     update_aim();
+    /* Solo battles run events too: the server event when online, or the one
+     * launched locally from the CCP admin commands tab while offline. The
+     * raid's cane rain keeps ticking after the round ends, like online. */
+    update_event();
     if (finished != 0) {
+        return;
+    }
+    /* The ban blackout is theatre, not a free kill: freeze the whole fight. */
+    if (hack_cinematic_lock() == 1) {
+        drop_joy();
+        player_block = 0;
+        blk_id = -1;
+        if (punch) {
+            punch->active = 0;
+        }
         return;
     }
     if (player->hp <= 0) {
@@ -406,5 +420,5 @@ static void update_game(void) {
     ice_push_point(&enemy->x, &enemy->y, enemy_half());
     hack_button_push(&enemy->x, &enemy->y, enemy_half());
     ice_tick();
-    update_hacker_event();
+    /* update_event() above already ticked the raid; do not double-advance it. */
 }
