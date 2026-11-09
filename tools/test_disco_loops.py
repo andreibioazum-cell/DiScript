@@ -100,8 +100,13 @@ def check_game_uses_it() -> None:
 
 
 def check_game_music() -> None:
-    """The three in-game tracks keep their format next to the loops."""
-    expected = {"lobby.wav": 70, "winter_lobby.wav": 70, "duel.wav": 45}
+    """The in-game themes and the quiet menu beds keep their format."""
+    expected = {
+        "lobby.wav": 70,
+        "winter_lobby.wav": 70,
+        "ambient_lobby.wav": 32,
+        "ambient_winter.wav": 32,
+    }
     for name, seconds in expected.items():
         path = TRACKS / name
         assert path.is_file(), f"missing game track: {path.relative_to(ROOT)}"

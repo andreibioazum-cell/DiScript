@@ -4,10 +4,10 @@ const char *lobby_music_current;
 double music_fade_in_time;
 double music_fade_out_time;
 double music_volume;
-double seraphim_ok;
-double seraphim_level;
-double seraphim_fade_in;
-double seraphim_fade_out;
+/* Ambient bed under the current menu theme. */
+double ambient_ok;
+double ambient_level;
+const char *ambient_current;
 double disco_ok;
 double disco_level;
 double winter_jingle_volume;

@@ -368,6 +368,11 @@ public final class GameActivity extends NativeActivity {
         return wantKeyboard;
     }
 
+    /** Local wall clock in milliseconds, used by the in-game New Year countdown. */
+    public long gameWallClockMillis() {
+        return System.currentTimeMillis();
+    }
+
     public void hideGameKeyboard() {
         runOnUiThread(new Runnable() {
             @Override

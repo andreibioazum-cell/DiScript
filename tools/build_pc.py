@@ -216,6 +216,11 @@ def main() -> int:
     parser.add_argument("--check", action="store_true", help="после сборки прогнать дымовой тест")
     parser.add_argument("--no-assets", action="store_true", help="не готовить папку ресурсов заново")
     parser.add_argument(
+        "--embed-assets",
+        action="store_true",
+        help="встроить ресурсы в Linux-бинарник (Windows делает это всегда)",
+    )
+    parser.add_argument(
         "--firebase",
         metavar="URL",
         help="адрес базы для этой сборки (по умолчанию боевой; харнессу - http://127.0.0.1:18765)",
@@ -245,9 +250,15 @@ def main() -> int:
 
     if build_windows:
         binary, _driver = compile_windows(extra)
+        # One self-contained .exe: the whole asset tree is appended to the image,
+        # so the game has textures, font and music without an assets folder.
+        run([sys.executable, "tools/embed_assets.py", str(assets), str(binary)], "встраиваю ресурсы в .exe")
         log(f"готово: {binary.relative_to(ROOT)} ({binary.stat().st_size} байт)")
     else:
         binary = compile_linux(extra)
+        if args.embed_assets:
+            run([sys.executable, "tools/embed_assets.py", str(assets), str(binary)],
+                "встраиваю ресурсы в бинарник")
         log(f"готово: {binary.relative_to(ROOT)}")
 
     if args.check:

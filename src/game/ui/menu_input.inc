@@ -462,7 +462,7 @@ static void wheel_spin_do(void) {
     wheel_result_slice = selected_slice;
     wheel_spin_start = fmod(wheel_rotation, 360.0);
     if (wheel_spin_start < 0) wheel_spin_start = wheel_spin_start + 360.0;
-    double align = fmod(360.0 - (selected_slice * 60.0 + wheel_spin_start), 360.0);
+    double align = fmod(360.0 - (selected_slice * 72.0 + wheel_spin_start), 360.0);
     if (align < 0) align = align + 360.0;
     wheel_spin_delta = 5 * 360.0 + align;
     wheel_anim_t = WHEEL_SPIN_DURATION;

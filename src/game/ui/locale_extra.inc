@@ -46,6 +46,13 @@ static const char *tr_admin_ban_protected(void) {
     return "Admin accounts cannot be banned";
 }
 
+static const char *tr_hack_root_only(void) {
+    if (language == 1) {
+        return "Рейд H4c4k0r запускает только главный админ";
+    }
+    return "Only the root admin can start the H4c4k0r raid";
+}
+
 static const char *tr_skins_note_for(double cls) {
     if (cls == CLASS_ORDINARY) {
         return language == 1 ? "Скин Pumpkin выпадает с колеса фортуны" : "Pumpkin skin is a Fortune wheel reward";

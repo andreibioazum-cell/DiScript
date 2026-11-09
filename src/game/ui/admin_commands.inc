@@ -89,6 +89,7 @@ static const char *admin_cmd_caption(void) {
     if (admin_cmd_status_t > 0) {
         if (admin_cmd_status == 1) return language == 1 ? "Баннер отправлен!" : "Banner sent!";
         if (admin_cmd_status == 3) return language == 1 ? "Событие выключено" : "Event switched off";
+        if (admin_cmd_status == 4) return language == 1 ? "Рейд H4c4k0r только для главного админа" : "The H4c4k0r raid is root-admin only";
         return language == 1 ? "Команда выполнена!" : "Command done!";
     }
     return language == 1 ? "Что вы хотите написать?" : "What do you want to write?";
@@ -124,6 +125,13 @@ static void admin_cmd_send(void) {
 }
 static void admin_cmd_event_press(double idx) {
     if (admin_commands_allowed() == 0) return;
+    /* The H4c4k0r raid (7) is root-admin only: it hijacks the screen and ends
+     * with a ban, so a moderator must not be able to launch it. */
+    if (idx == 7 && admin_hack_event_allowed() == 0) {
+        admin_cmd_status = 4;
+        admin_cmd_status_t = 2.5;
+        return;
+    }
     play_button_click();
     if (idx == 0) {
         if (net_event() != 0) {

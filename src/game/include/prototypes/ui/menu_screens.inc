@@ -17,3 +17,4 @@ static void draw_skins(void);
 static double lb_place_bg(double i);
 static void draw_lb_row(double i);
 static void draw_leaderboard(void);
+static void draw_countdown(void);

@@ -55,6 +55,11 @@ static double admin_handle(const char *msg) {
         return 1;
     }
     if (str_eq(msg, "event 7") == 1) {
+        if (admin_hack_event_allowed() == 0) {
+            net_chat_send(tr_hack_root_only());
+            ds_log("admin: event 7 refused, root admin only");
+            return 1;
+        }
         net_event_set(7);
         net_chat_send(ds_concat(ds_concat("СОБЫТИЕ «ВЗЛОМ H4c4k0r» от ", by), "! Он уже ломает ивенты..."));
         ds_log("admin: event 7 hacker raid");

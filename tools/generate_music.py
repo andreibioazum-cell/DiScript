@@ -5,9 +5,11 @@ All tracks are 22.05 kHz stereo 16-bit PCM WAV:
 
   * ``lobby.wav``        - 70 s ordinary lobby theme (4 developed sections)
   * ``winter_lobby.wav`` - 70 s New Year lobby theme (4 developed sections)
-  * ``duel.wav``         - 45 s Azum-vs-Astra duel theme (24 bars @ 128 BPM)
+  * ``ambient_lobby.wav`` / ``ambient_winter.wav`` - 32 s quiet beds for the menus
+  * ``ambient_lobby.wav``  - 32 s quiet ambient bed over the ordinary theme
+  * ``ambient_winter.wav`` - 32 s quiet ambient bed over the New Year theme
 
-All three are written to ``assets/audio/tracks`` next to the eight disco loops.
+All of them are written to ``assets/audio/tracks`` next to the eight disco loops.
 
 The old ``azum_vs_astra.wav`` imitation of "And The Seraphim Wept" and its
 reference mp3 are gone; ``duel.wav`` is a completely original, brighter
@@ -191,7 +193,8 @@ def add_kick(left: array, right: array, start: float, level: float = 0.4) -> Non
         right[begin + i] += value
 
 
-def write_track(path: Path, left: array, right: array, fade_in: float, fade_out: float) -> None:
+def write_track(path: Path, left: array, right: array, fade_in: float, fade_out: float,
+                level: float = 1.0) -> None:
     fade_in_n = max(1, int(fade_in * RATE))
     fade_out_n = max(1, int(fade_out * RATE))
     frames = len(left)
@@ -206,7 +209,7 @@ def write_track(path: Path, left: array, right: array, fade_in: float, fade_out:
         left[i] = math.tanh(left[i] * gain)
         right[i] = math.tanh(right[i] * gain)
         peak = max(peak, abs(left[i]), abs(right[i]))
-    scale = 0.88 / max(peak, 1e-9)
+    scale = 0.88 * level / max(peak, 1e-9)
     pcm = array("h")
     for i in range(frames):
         pcm.append(int(max(-32767, min(32767, left[i] * scale * 32767))))
@@ -318,6 +321,64 @@ def winter_track() -> tuple[array, array]:
     return left, right
 
 
+
+AMBIENT_LENGTH = 32.0   # ambient beds loop every 32 s
+
+
+def ambient_track(chords, seed_beats) -> tuple[array, array]:
+    """A quiet 32 s ambient bed for the menus of one theme.
+
+    No melody and no drums: only long, slowly breathing pads with a soft
+    shimmer on top, so it sits under the interface instead of competing with
+    it. ``chords`` is a four-chord progression (MIDI roots) and ``seed_beats``
+    walk the shimmer one scale step at a time; both are fixed, so every build
+    makes the same file.
+    """
+    left, right = stereo(AMBIENT_LENGTH)
+    slot = AMBIENT_LENGTH / len(chords)
+    # Two seeded random walks: which pad voice moves and which shimmer note.
+    walk = []
+    step = 0
+    for i in range(64):
+        step = (step + (1 if (i * 7 + 3) % 5 else -1) + 4) % 4
+        walk.append(step)
+        del i
+    scale = (0, 2, 4, 7, 9, 12, 14, 16)
+    for index, root in enumerate(chords):
+        start = index * slot
+        # Three detuned voices, each an octave-spread triad, breathing in.
+        for voice, offset in enumerate((0, 7, 12)):
+            note = root + offset
+            drift = walk[(index * 3 + voice) % len(walk)]
+            add_tone(left, right, start, slot + 1.6, note, 0.20,
+                     (voice - 1) * 0.5, "soft", 1.6, 2.2)
+            add_tone(left, right, start + 0.4, slot + 1.4, note + 12, 0.055,
+                     -(voice - 1) * 0.4, "choir", 2.0, 2.4)
+            if drift >= 2:
+                add_tone(left, right, start + slot * 0.45, slot * 0.9, note + 19, 0.03,
+                         0.35 if voice else -0.35, "sine", 1.8, 2.0)
+        # Long bass pedal under the chord, with a gentle fifth.
+        add_tone(left, right, start, slot + 1.2, root - 12, 0.16, 0.0, "bass", 0.9, 2.0)
+        add_tone(left, right, start + slot * 0.5, slot * 0.9, root - 5, 0.055, 0.0,
+                 "sine", 1.2, 1.8)
+        # Shimmer: two soft bells per chord, panned across the field.
+        for pulse in range(2):
+            note = root + 24 + scale[seed_beats[(index * 2 + pulse) % len(seed_beats)] % len(scale)]
+            add_bell(left, right, start + slot * (0.25 + 0.5 * pulse), 2.4, note, 0.05,
+                     0.45 if pulse == 0 else -0.45)
+    return left, right
+
+
+def lobby_ambient_track() -> tuple[array, array]:
+    """Ordinary theme: warm A minor pads (Am - F - C - G)."""
+    return ambient_track((57, 53, 48, 55), (0, 3, 5, 2, 7, 4, 1, 6))
+
+
+def winter_ambient_track() -> tuple[array, array]:
+    """New Year theme: bright D major pads with a sleigh-bell shimmer (D - Bm - G - A)."""
+    return ambient_track((50, 47, 43, 45), (4, 7, 5, 2, 6, 3, 7, 5))
+
+
 DUEL_BEAT = 60.0 / 128.0
 DUEL_SLOT = DUEL_BEAT * 4
 DUEL_SLOTS = (
@@ -393,17 +454,20 @@ def duel_track() -> tuple[array, array]:
 
 
 def main(argv: list[str] | None = None) -> int:
+    # The ambient beds are deliberately quieter than the themes (level ~1/3):
+    # they sit under the interface, they never lead it.
     tracks = (
-        ("lobby.wav", lobby_track, 0.025, 0.025),
-        ("winter_lobby.wav", winter_track, 0.025, 0.025),
-        ("duel.wav", duel_track, 0.02, 0.06),
+        ("lobby.wav", lobby_track, 0.025, 0.025, 1.0),
+        ("winter_lobby.wav", winter_track, 0.025, 0.025, 1.0),
+        ("ambient_lobby.wav", lobby_ambient_track, 0.9, 0.9, 0.34),
+        ("ambient_winter.wav", winter_ambient_track, 0.9, 0.9, 0.34),
     )
     wanted = set(argv or [])
-    for name, builder, fade_in, fade_out in tracks:
+    for name, builder, fade_in, fade_out, level in tracks:
         if wanted and name not in wanted:
             continue
         left, right = builder()
-        write_track(AUDIO / name, left, right, fade_in, fade_out)
+        write_track(AUDIO / name, left, right, fade_in, fade_out, level)
     return 0
 
 

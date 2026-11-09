@@ -69,6 +69,21 @@ static void packs_add(const char *name) {
     packs_count = packs_count + 1;
 }
 
+/* Make every folder of a relative path ("pack/textures"), so an archive with
+ * subfolders can be unpacked: a pack is usually textures/ + gifts/. */
+static void packs_mkdir_parents(const char *rel) {
+    char path[192];
+    int i;
+    snprintf(path, sizeof(path), "%s", rel);
+    for (i = 0; path[i]; i++) {
+        if (path[i] != '/')
+            continue;
+        path[i] = 0;
+        net_packs_mkdir(path);
+        path[i] = '/';
+    }
+}
+
 /* Unpack <data>/packs/<name>.zip into <data>/packs/<name>/; 1 on success. */
 static int packs_unzip(const char *name) {
     static unsigned char zip[PACK_ZIP_MAX];
@@ -77,9 +92,11 @@ static int packs_unzip(const char *name) {
     int len, count, p = 0, i = 0, ok = 1;
     snprintf(rel, sizeof(rel), "%s.zip", name);
     len = net_packs_read(rel, zip, PACK_ZIP_MAX);
+
     if (len <= 0)
         return 0;
     count = zip_list(zip, len, entries, sizeof(entries));
+
     if (count <= 0)
         return 0;
     while (entries[p] && i < count) {
@@ -104,14 +121,19 @@ static int packs_unzip(const char *name) {
                 continue;
             }
             snprintf(rel_file, sizeof(rel_file), "%s/%s", name, entry);
-            if (net_packs_write(rel_file, data, size) != 1)
+            packs_mkdir_parents(rel_file);
+            if (net_packs_write(rel_file, data, size) != 1) {
+                ds_log("packs: cannot write %s", rel_file);
                 ok = 0;
+            }
         }
     }
     return ok;
 }
 
-/* List packs, unpacking archives dropped next to the folders. */
+/* List packs, unpacking archives dropped next to the folders. Every folder in
+ * <data>/packs is a pack; a .zip next to it is unpacked once and then counts as
+ * one too, so an exported archive can simply be dropped into the folder. */
 static void packs_scan(void) {
     static char names[PACKS_LIST_MAX];
     int n, p = 0, seen = 0;
@@ -236,6 +258,169 @@ static void packs_import_zip(const unsigned char *data, int len, const char *sou
     packs_set_active(base);
     packs_msg_set(packs_tr("Пак установлен", "Pack installed"));
     ds_log("texture pack imported: %s", base);
+}
+
+/* --- texture pack export ---------------------------------------------------
+ * The built-in textures are the base of every pack, so the game hands them out
+ * as a ready .zip: unzip it, repaint the PNGs you want, zip it back and import
+ * it through the packs screen. Entries are stored uncompressed, exactly what
+ * the pack reader expects. */
+
+#define PACK_EXPORT_MAX (6 * 1024 * 1024)
+#define PACK_EXPORT_FILES 64
+#define PACK_EXPORT_LIST 16384
+#define PACK_CHUNK_MAX (1024 * 1024)
+#define PACK_EXPORT_NAME_MAX 96
+#define PACK_EXPORT_FILE "cb4_textures.zip"
+
+/* Raw texture bytes and the archive are two buffers on purpose: zip_build
+ * writes the local headers from the start of its output, so it must not share
+ * memory with the data it is copying. */
+static unsigned char pack_export_data[PACK_EXPORT_MAX];
+static unsigned char *pack_export_zip;
+static unsigned char pack_chunk[PACK_CHUNK_MAX];
+static int pack_export_size;
+static double pack_export_wait;
+static ZipEntry pack_export_entries[PACK_EXPORT_FILES];
+static char pack_export_names[PACK_EXPORT_FILES][PACK_EXPORT_NAME_MAX];
+static char pack_export_sources[PACK_EXPORT_FILES][PACK_EXPORT_NAME_MAX];
+
+/* Remember one PNG by the name the loader asks for it. */
+static int pack_export_add(int used, const char *source) {
+    const char *file = strrchr(source, '/');
+    int n;
+    file = file ? file + 1 : source;
+    n = snprintf(pack_export_names[used], PACK_EXPORT_NAME_MAX, "%s", file);
+    if (n <= 0 || n >= PACK_EXPORT_NAME_MAX)
+        return 0;
+    snprintf(pack_export_sources[used], PACK_EXPORT_NAME_MAX, "%s", source);
+    return 1;
+}
+
+/* Build the archive in memory. Returns its size, or -1 with the message set. */
+static int pack_export_build(void) {
+    static char listing[PACK_EXPORT_LIST];
+    int used = 0, p = 0, i, total = 0, size, count = 0;
+    packs_msg_set(packs_tr("Готовлю пак...", "Building the pack..."));
+    if (ds_asset_list("", listing, sizeof(listing)) <= 0) {
+        packs_msg_set(packs_tr("Текстуры не читаются", "Cannot read the textures"));
+        return -1;
+    }
+    /* Listing lines are "f|<name>|" / "d|<name>|". */
+    while (listing[p] && used < PACK_EXPORT_FILES) {
+        char kind = listing[p], name[160];
+        int k = 0;
+        p = p + 2;
+        while (listing[p] && listing[p] != '|' && k < (int)sizeof(name) - 1)
+            name[k++] = listing[p++];
+        name[k] = 0;
+        if (listing[p] == '|')
+            p = p + 1;
+        if (listing[p] == '\n')
+            p = p + 1;
+        if (kind != 'f' || k == 0 || packs_ends_with(name, ".png") != 1)
+            continue;
+        /* Flat on purpose: the pack loader looks files up by their bare asset
+         * name (grass.png, gift_bear.png), so the archive mirrors that. */
+        if (pack_export_add(used, name) == 1)
+            used = used + 1;
+    }
+    if (used <= 0) {
+        packs_msg_set(packs_tr("В игре нет текстур", "The game has no textures"));
+        return -1;
+    }
+    for (i = 0; i < used; i++) {
+        size = ds_asset_extract(pack_export_sources[i], pack_chunk, PACK_CHUNK_MAX);
+        if (size <= 0)
+            continue;
+        if (total + size > PACK_EXPORT_MAX)
+            break;
+        memcpy(pack_export_data + total, pack_chunk, (size_t)size);
+        pack_export_entries[i].name = pack_export_names[i];
+        pack_export_entries[i].data = pack_export_data + total;
+        pack_export_entries[i].len = (unsigned int)size;
+        total = total + size;
+        count = i + 1;
+    }
+    if (total <= 0) {
+        packs_msg_set(packs_tr("Текстуры не читаются", "Cannot read the textures"));
+        return -1;
+    }
+    if (!pack_export_zip) {
+        pack_export_zip = (unsigned char *)malloc(PACK_EXPORT_MAX);
+        if (!pack_export_zip) {
+            packs_msg_set(packs_tr("Пак не помещается в память", "The pack does not fit in memory"));
+            return -1;
+        }
+    }
+    size = zip_build(pack_export_entries, count, pack_export_zip, PACK_EXPORT_MAX);
+    if (size <= 0) {
+        packs_msg_set(packs_tr("Пак не помещается в память", "The pack does not fit in memory"));
+        return -1;
+    }
+    ds_log("texture pack export: %d files, %d bytes", count, size);
+    return size;
+}
+
+/* Finish an export that waits for the Android document picker: the picker
+ * returns its file descriptor a few frames later, so the bytes are handed over
+ * once it shows up and the request is dropped when the player backs out. */
+static void pack_export_tick(void) {
+    int kind = 0;
+    int fd;
+    if (pack_export_size <= 0)
+        return;
+    pack_export_wait = pack_export_wait + dt;
+    fd = net_fs_take_fd(&kind);
+    if (fd >= 0 && kind == 2) {
+        if (net_fs_write_fd(fd, pack_export_zip, pack_export_size) == 1) {
+            packs_msg_set(packs_tr("Пак сохранён", "Pack saved"));
+            ds_log("texture pack exported to the picked document");
+        } else {
+            packs_msg_set(packs_tr("Не удалось записать .zip", "Could not write the .zip"));
+        }
+        net_fs_close_fd(fd);
+        pack_export_size = 0;
+        return;
+    }
+    if (fd >= 0)
+        net_fs_close_fd(fd);
+    if (pack_export_wait > 120.0) {
+        /* Too long for a dialog that is still open: the player cancelled. */
+        pack_export_size = 0;
+    }
+}
+
+/* Save the archive: the system dialog on PC, the document picker on Android. */
+static void pack_export_save(void) {
+    int size = pack_export_build();
+    if (size <= 0)
+        return;
+    pack_export_size = size;
+    pack_export_wait = 0;
+#if defined(__ANDROID__)
+    if (net_fs_pick_export(PACK_EXPORT_FILE) != 1) {
+        pack_export_size = 0;
+        packs_msg_set(packs_tr("Системный выбор файла недоступен", "No system file picker here"));
+        return;
+    }
+    packs_msg_set(packs_tr("Выбери, куда сохранить .zip", "Pick where to save the .zip"));
+#else
+    {
+        char target[1024];
+        if (ds_pick_save_file(PACK_EXPORT_FILE, target, (int)sizeof(target)) != 1) {
+            pack_export_size = 0;
+            return;
+        }
+        if (net_fs_write(target, pack_export_zip, size) == 1) {
+            packs_msg_set(packs_tr("Пак сохранён", "Pack saved"));
+            ds_log("texture pack exported: %s", target);
+        } else {
+            packs_msg_set(packs_tr("Не удалось записать .zip", "Could not write the .zip"));
+        }
+        pack_export_size = 0;
+    }
+#endif
 }
 
 /* Called once on start, before the first frame is drawn. */

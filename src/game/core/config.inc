@@ -99,6 +99,16 @@ static double sanch_rewards_kept(void) {
 }
 
 
+/* The scripted raid (event 7) stays with the root admin. It takes over the
+ * whole screen and bans the player at the end, so it must not be fired by an
+ * account that only moderates. */
+static double admin_hack_event_allowed(void) {
+    if (net_login_status() != 2) {
+        return 0;
+    }
+    return admin_nick_equal(net_login_nick(), ADMIN_NICK) == 1 ? 1 : 0;
+}
+
 /* Return 1 when signed-in player can manage gifts in CCP. Handing out gifts
  * stays exclusive to the root admin: qwertyuiopaj1234 gets every other admin
  * power, but never the gift tab and never free stickers. */

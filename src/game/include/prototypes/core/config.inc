@@ -7,6 +7,7 @@ static double sanch_no_christmas(void);
 static double sanch_rewards_kept(void);
 static double seasonal_content_allowed(void);
 static double admin_gifts_allowed(void);
+static double admin_hack_event_allowed(void);
 static double bpass_allowed(void);
 static double bpass_rewards_allowed(void);
 static const char *admin_nick_of(double slot);

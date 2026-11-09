@@ -1,9 +1,10 @@
 /* CodeCracker overclock ultimate, contact bite/heal, and spark trail FX. */
 
-/* CodeCracker wears a random cube skin from the whole roster, washed out to a
- * pale near-white tint so it stays recognisable as the hacker class. */
-static const double codecracker_tint_rgb = 0xF2F6FF;
-static const double codecracker_tint_a = 0.42;
+/* CodeCracker wears a random cube skin from the whole roster with a light,
+ * slightly cool wash - never a white one. The old 0.42 white tint made the
+ * class look brighter than every other cube on the field. */
+static const double codecracker_tint_rgb = 0xBFD2F0;
+static const double codecracker_tint_a = 0.16;
 static double codecracker_look_pick = -1;
 
 static double codecracker_random_look(void) {

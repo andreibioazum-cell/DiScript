@@ -28,10 +28,6 @@ static void disco_silence_other_music(void) {
     if (snd_playing(WINTER_JINGLE) == 1) {
         snd_stop(WINTER_JINGLE);
     }
-    if (snd_playing(SERAPHIM_MUSIC) == 1) {
-        snd_stop(SERAPHIM_MUSIC);
-        seraphim_level = 0;
-    }
 }
 
 static void update_disco_music(void) {

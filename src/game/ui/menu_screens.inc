@@ -337,13 +337,13 @@ static void draw_wheel(void) {
     circle(cx, cy, radius + wheel_outline_px, wheel_outline);
     double slice = 0;
     while (slice < 5) {
-        double center_deg = -90 + slice * 60 + rotation;
-        sector(cx, cy, radius, center_deg - 30, 60, colors[(int)slice]);
+        double center_deg = -90 + slice * 72 + rotation;
+        sector(cx, cy, radius, center_deg - 36, 72, colors[(int)slice]);
         slice = slice + 1;
     }
     slice = 0;
     while (slice < 5) {
-        double a = (-120 + slice * 60 + rotation) * 3.141592653589793 / 180;
+        double a = (-126 + slice * 72 + rotation) * 3.141592653589793 / 180;
         line(cx, cy, cx + cos(a) * radius, cy + sin(a) * radius,
              wheel_outline_px, wheel_outline);
         slice = slice + 1;
@@ -351,7 +351,7 @@ static void draw_wheel(void) {
 
     slice = 0;
     while (slice < 5) {
-        double a = (-90 + slice * 60 + rotation) * 3.141592653589793 / 180;
+        double a = (-90 + slice * 72 + rotation) * 3.141592653589793 / 180;
         double px = cx + cos(a) * radius * 0.58;
         double py = cy + sin(a) * radius * 0.58;
         double label_w = radius * 0.62;

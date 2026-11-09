@@ -137,7 +137,8 @@ def check_assets() -> None:
         ROOT / "assets" / "textures" / "astra_xastra_card.png",
         ROOT / "assets" / "audio" / "tracks" / "lobby.wav",
         ROOT / "assets" / "audio" / "tracks" / "winter_lobby.wav",
-        ROOT / "assets" / "audio" / "tracks" / "duel.wav",
+        ROOT / "assets" / "audio" / "tracks" / "ambient_lobby.wav",
+        ROOT / "assets" / "audio" / "tracks" / "ambient_winter.wav",
         ROOT / "assets" / "audio" / "sfx" / "punch.wav",
         ROOT / "assets" / "hack" / "h4c4k0r.bin",
         ROOT / "assets" / "hack" / "h4c4k0r.so",
@@ -153,7 +154,8 @@ def check_assets() -> None:
     durations = {
         "lobby.wav": 70,
         "winter_lobby.wav": 70,
-        "duel.wav": 45,
+        "ambient_lobby.wav": 32,
+        "ambient_winter.wav": 32,
     }
     for name, expected in durations.items():
         path = ROOT / "assets" / "audio" / "tracks" / name
@@ -168,14 +170,22 @@ def check_assets() -> None:
     assert not (ROOT / "And_The_Seraphim_Wept.mp3").exists(), "A third-party mp3 is in the repository again"
     assert not (ROOT / "tools" / "generate_seraphim.py").exists(), "The generator of the old song is back"
 
-    with wave.open(str(ROOT / "assets" / "audio" / "tracks" / "duel.wav"), "rb") as duel:
-        assert duel.getnchannels() == 2 and duel.getsampwidth() == 2, "Wrong duel.wav format"
-        rate = duel.getframerate()
-        head = duel.readframes(rate * 5)
-        import struct, math
-        samples = struct.unpack("<" + "h" * (len(head) // 2), head)
-        rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
-        assert rms5 >= 4000.0, f"duel.wav is too quiet at the start of the fight (RMS={rms5:.1f})"
+    # The fight has no separate duel theme any more, so the removed track must
+    # not come back, and the quiet menu beds must stay quieter than the themes.
+    assert not (ROOT / "assets" / "audio" / "tracks" / "duel.wav").exists(), "The duel theme is back"
+    import struct, math
+
+    def rms_of(path: Path) -> float:
+        with wave.open(str(path), "rb") as audio:
+            frames = audio.readframes(audio.getframerate() * 5)
+        samples = struct.unpack("<" + "h" * (len(frames) // 2), frames)
+        return math.sqrt(sum(x * x for x in samples) / len(samples))
+
+    lobby_rms = rms_of(ROOT / "assets" / "audio" / "tracks" / "lobby.wav")
+    assert lobby_rms >= 4000.0, f"lobby.wav is too quiet (RMS={lobby_rms:.1f})"
+    for bed in ("ambient_lobby.wav", "ambient_winter.wav"):
+        bed_rms = rms_of(ROOT / "assets" / "audio" / "tracks" / bed)
+        assert bed_rms < lobby_rms * 0.8, f"{bed} is not a quiet bed (RMS={bed_rms:.1f})"
 
     assert not (ROOT / "assets" / "audio" / "halloween_lobby.wav").exists(), "The Halloween music is back"
 

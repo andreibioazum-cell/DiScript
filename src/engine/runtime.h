@@ -31,6 +31,9 @@ extern int (*ds_pick_open_hook)(char *dst, int cap);
 extern int (*ds_pick_save_hook)(const char *name, char *dst, int cap);
 int ds_pick_open_file(char *dst, int cap);
 int ds_pick_save_file(const char *name, char *dst, int cap);
+int ds_asset_list(const char *dir, char *out, int cap);
+int ds_asset_extract(const char *name, void *buf, int cap);
+int ds_asset_size(const char *name);
 void ds_log_err(const char *format, ...);
 void ds_console_log(int is_error, const char *format, ...);
 typedef void (*DSProtectedFunction)(void *userdata);
@@ -70,6 +73,9 @@ const char *str_sub(const char *s, double start, double len);
 const char *str_trim(const char *s);
 const char *str_upper(const char *s);
 void ds_set_activity(void *activity);
+/* Local wall clock in seconds since 1970, for the New Year countdown badge.
+ * 0 means the platform cannot read a clock. */
+long ds_wall_clock(void);
 void bye_notice_show(const char *text);
 void keyboard_show(void);
 void keyboard_hide(void);

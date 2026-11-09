@@ -3,6 +3,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <dirent.h>
 
 #include "game/game.c"
 
@@ -625,8 +626,9 @@ int snd_play(const char *name) {
     }
     return 1;
 }
-static int seraphim_playing = 0;
-static double seraphim_vol = 0;
+static int ambient_playing = 0;
+static double ambient_vol = 0;
+static const char *ambient_current_track = NULL; /* set by snd_loop */
 static int disco_playing = 0;
 static int disco_loop_calls = 0;
 static int disco_loop_flag = 0;
@@ -639,13 +641,14 @@ int snd_loop(const char *name) {
         winter_playing = 1;
         winter_loop_calls++;
     }
-    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0) {
-        seraphim_playing = 1;
-    }
     if (name && strcmp(name, DISCO_MUSIC) == 0) {
         disco_playing = 1;
         disco_loop_calls++;
         disco_loop_flag = 1;
+    }
+    if (name && (strcmp(name, AMBIENT_ORDINARY) == 0 || strcmp(name, AMBIENT_WINTER) == 0)) {
+        ambient_playing = 1;
+        ambient_current_track = name;
     }
     return 1;
 }
@@ -654,9 +657,9 @@ int snd_playing(const char *name) {
         return lobby_playing;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         return winter_playing;
-    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
-        return seraphim_playing;
     if (name && strcmp(name, DISCO_MUSIC) == 0) return disco_playing;
+    if (name && (strcmp(name, AMBIENT_ORDINARY) == 0 || strcmp(name, AMBIENT_WINTER) == 0))
+        return ambient_playing;
     return 0;
 }
 void snd_stop(const char *name) {
@@ -664,14 +667,14 @@ void snd_stop(const char *name) {
         lobby_playing = 0;
     if (name && WINTER_JINGLE && strcmp(name, WINTER_JINGLE) == 0)
         winter_playing = 0;
-    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
-        seraphim_playing = 0;
     if (name && strcmp(name, DISCO_MUSIC) == 0) disco_playing = 0;
+    if (name && (strcmp(name, AMBIENT_ORDINARY) == 0 || strcmp(name, AMBIENT_WINTER) == 0))
+        ambient_playing = 0;
 }
 void snd_volume(const char *name, double volume) {
-    if (name && SERAPHIM_MUSIC && strcmp(name, SERAPHIM_MUSIC) == 0)
-        seraphim_vol = volume;
     if (name && strcmp(name, DISCO_MUSIC) == 0) disco_vol = volume;
+    if (name && ambient_current_track && strcmp(name, ambient_current_track) == 0)
+        ambient_vol = volume;
 }
 
 int tex_ready(const char *name) {
@@ -944,6 +947,16 @@ int net_fs_read(const char *path, void *buf, int cap) { (void)path; (void)buf; (
 int net_fs_home(char *dst, size_t cap) { if (cap) dst[0] = 0; return 0; }
 int net_fs_dir_readable(const char *dir) { (void)dir; return 0; }
 int ds_pick_open_file(char *dst, int cap) { if (cap) dst[0] = 0; return 0; }
+int ds_pick_save_file(const char *name, char *dst, int cap) { (void)name; if (cap) dst[0] = 0; return 0; }
+int net_fs_write(const char *path, const void *data, int len) { (void)path; (void)data; (void)len; return 0; }
+/* No document picker in the harness: the export dialog tests stay on PC paths. */
+int net_fs_take_fd(int *kind) { if (kind) *kind = 0; return -1; }
+int net_fs_write_fd(int fd, const void *data, int len) { (void)fd; (void)data; (void)len; return 0; }
+void net_fs_close_fd(int fd) { (void)fd; }
+/* Wall clock: the New Year countdown needs a real date, so the harness pins
+ * one and the test can move it. */
+static long stub_wall_clock;
+long ds_wall_clock(void) { return stub_wall_clock; }
 void ds_assets_pack_dir(const char *dir) { (void)dir; }
 int ds_assets_reload_textures(void) { return 0; }
 double net_load_parent_pin(void) { return 0; }
@@ -1167,6 +1180,50 @@ int ds_asset_read(const char *name, void *buf, int cap) {
     fclose(f);
     return (int)got;
 }
+/* The exporter asks the engine for a flat list of assets and then reads them
+ * one by one; the harness serves the real repo assets so the produced .zip can
+ * be checked with an ordinary unzip tool. */
+int ds_asset_list(const char *dir, char *out, int cap) {
+    DIR *d;
+    struct dirent *e;
+    int count = 0;
+    (void)dir;
+    if (!out || cap <= 0)
+        return 0;
+    out[0] = 0;
+    d = opendir("assets/textures");
+    if (!d)
+        return 0;
+    while ((e = readdir(d)) != NULL) {
+        int used = (int)strlen(out);
+        int len = (int)strlen(e->d_name);
+        if (e->d_name[0] == '.' || len < 5 || strcmp(e->d_name + len - 4, ".png") != 0)
+            continue;
+        if (used + len + 5 >= cap)
+            break;
+        snprintf(out + used, (size_t)(cap - used), "f|%s|\n", e->d_name);
+        count++;
+    }
+    closedir(d);
+    return count;
+}
+
+int ds_asset_extract(const char *name, void *buf, int cap) {
+    char path[256];
+    FILE *f;
+    size_t got;
+    if (!name || !buf || cap <= 0)
+        return -1;
+    /* Textures sit in assets/textures in the repo, the raid payload in assets/. */
+    snprintf(path, sizeof(path), "assets/textures/%s", name);
+    f = fopen(path, "rb");
+    if (!f)
+        return ds_asset_read(name, buf, cap);
+    got = fread(buf, 1, (size_t)cap, f);
+    fclose(f);
+    return (int)got;
+}
+
 double str_index_of(const char *hay, const char *needle) {
     (void)hay;
     (void)needle;
@@ -2221,28 +2278,140 @@ static void test_admin_commands(void) {
     puts("admin commands tab: mockup layout, clipped end, thumb/wheel/drag and permissions OK");
 }
 
+/* The exporter must hand out a real .zip: the packs screen tells players to
+ * unzip it, repaint the PNGs and import it again, so every entry has to be
+ * stored with a CRC a normal unzip tool accepts. */
+static void test_pack_export(void) {
+    int size, count = 0, seen_png = 0, seen_gift = 0;
+    char names[2048];
+    char *cursor;
+    if (ds_asset_list("", names, (int)sizeof(names)) == 0) {
+        puts("texture pack export: skipped (no asset folder in the harness)");
+        return;
+    }
+    size = pack_export_build();
+    assert(size > 0);
+    assert(size < PACK_EXPORT_MAX);
+    assert(zip_u32((const unsigned char *)pack_export_zip) == 0x04034b50u);
+    count = zip_list(pack_export_zip, size, names, (int)sizeof(names));
+    assert(count >= 30);
+    cursor = names;
+    while (cursor && *cursor) {
+        char *nl = strchr(cursor, '\n');
+        if (nl)
+            *nl = 0;
+        /* Flat names: the pack loader looks assets up by their bare name. */
+        assert(strchr(cursor, '/') == NULL);
+        assert(packs_ends_with(cursor, ".png") == 1);
+        if (strncmp(cursor, "gift_", 5) == 0)
+            seen_gift = 1;
+        else
+            seen_png = 1;
+        assert(zip_find(pack_export_zip, size, cursor, NULL, NULL, NULL, NULL) == 1);
+        cursor = nl ? nl + 1 : NULL;
+    }
+    assert(seen_png == 1 && seen_gift == 1);
+    /* The built-in textures are the base of a pack: reading one back gives the
+     * same bytes as the file it was copied from. */
+    {
+        static unsigned char out[PACK_CHUNK_MAX];
+        static unsigned char direct[PACK_CHUNK_MAX];
+        int got = zip_extract(pack_export_zip, size, "grass.png", out, (int)sizeof(out));
+        int want = ds_asset_extract("grass.png", direct, (int)sizeof(direct));
+        assert(got == want && got > 0);
+        assert(memcmp(out, direct, (size_t)got) == 0);
+    }
+    /* And the archive survives a round trip through the import path. */
+    {
+        static unsigned char round[PACK_ZIP_MAX];
+        char listed[PACKS_LIST_MAX];
+        memcpy(round, pack_export_zip, (size_t)size);
+        assert(zip_list(round, size, listed, (int)sizeof(listed)) == count);
+    }
+    puts("texture pack export: real .zip with every texture and gift sticker OK");
+}
+
+/* Quiet ambient beds: one for the normal theme, one for the New Year theme,
+ * never during a fight, and they step aside for the disco loop and the jingle. */
+static void test_ambient_beds(void) {
+    double saved_state = game_state, saved_volume = music_volume, saved_dt = dt;
+    double saved_level = ambient_level, saved_ok = ambient_ok;
+    const char *saved_current = ambient_current;
+    double saved_winter = winter_theme, saved_mode = theme_mode, saved_chosen = theme_chosen;
+    int saved_playing = ambient_playing;
+    music_volume = 100; dt = 0.1;
+    winter_theme = 0;
+    theme_chosen = 1;
+    theme_mode = 0;
+    game_state = ST_LOBBY;
+    ambient_ok = 0; ambient_level = 0; ambient_current = NULL; ambient_playing = 0;
+    assert(strcmp(ambient_for_theme(), AMBIENT_ORDINARY) == 0);
+    assert(ambient_allowed() == 1);
+    update_ambient();
+    assert(ambient_ok == 1 && ambient_playing == 1 && ambient_current == AMBIENT_ORDINARY);
+    assert(ambient_level > 0 && ambient_level <= 1);
+    for (int i = 0; i < 40; i++)
+        update_ambient();
+    assert(fabs(ambient_level - 1) < 1e-9);
+    /* The bed is quiet on purpose: it is mixed well under the music. */
+    assert(fabs(ambient_vol - ambient_volume_pct / 100.0) < 1e-6);
+    assert(ambient_volume_pct <= 60);
+    /* New Year theme has its own bed (the theme only applies while the
+     * seasonal flag is on, so the test opens it like the live game). */
+    winter_theme = 1;
+    theme_mode = 1;
+    stub_christmas = 1;
+    assert(winter_theme_on() == 1);
+    assert(strcmp(ambient_for_theme(), AMBIENT_WINTER) == 0);
+    update_ambient();
+    assert(ambient_current == AMBIENT_WINTER);
+    /* A fight is silent apart from the effects. */
+    game_state = ST_SOLO;
+    assert(ambient_allowed() == 0);
+    for (int i = 0; i < 40; i++)
+        update_ambient();
+    assert(ambient_level == 0 && ambient_playing == 0);
+    game_state = ST_LOBBY;
+    winter_theme = saved_winter;
+    theme_mode = saved_mode; theme_chosen = saved_chosen;
+    stub_christmas = 0;
+    music_volume = saved_volume; dt = saved_dt;
+    ambient_level = saved_level; ambient_ok = saved_ok; ambient_current = saved_current;
+    ambient_playing = saved_playing; game_state = saved_state;
+    puts("ambient beds: normal and winter themes, quiet level, silent in a fight OK");
+}
+
 static void test_disco_music(void) {
     double saved_state = game_state, saved_event = event_mode, saved_finished = finished;
     double saved_volume = music_volume, saved_dt = dt, saved_ok = disco_ok, saved_level = disco_level;
-    double saved_lobby = music_level, saved_duel = seraphim_level;
+    double saved_lobby = music_level, saved_ambient = ambient_level;
     double saved_w = screen_w, saved_h = screen_h, saved_chat = chat_open;
     double saved_jingle_ok = christmas_jingle_ok, saved_jingle_tried = christmas_jingle_tried;
     const char *saved_lobby_track = lobby_music_current;
-    int saved_lp = lobby_playing, saved_sp = seraphim_playing, saved_wp = winter_playing;
+    int saved_lp = lobby_playing, saved_ap = ambient_playing, saved_wp = winter_playing;
+    double saved_ambient_ok = ambient_ok;
+    const char *saved_ambient_track = ambient_current;
     screen_w = 540; screen_h = 960; chat_open = 0;
     game_state = ST_SOLO; event_mode = 1; finished = 0;
     music_volume = 50; dt = 0.1; disco_ok = -1; disco_level = 0;
-    lobby_playing = 1; seraphim_playing = 1; winter_playing = 1;
+    lobby_playing = 1; ambient_playing = 1; winter_playing = 1;
+    ambient_ok = 1; ambient_current = AMBIENT_ORDINARY;
     lobby_music_current = LOBBY_MUSIC;
-    music_level = 1; seraphim_level = 1;
+    music_level = 1; ambient_level = 1;
     christmas_jingle_ok = 1; christmas_jingle_tried = 1;
     disco_loop_calls = 0; disco_loop_flag = 0;
     update_disco_music();
     assert(disco_ok == 1 && disco_playing == 1 && disco_loop_calls == 1 && disco_loop_flag == 1);
-    assert(lobby_playing == 0 && seraphim_playing == 0 && winter_playing == 0);
+    /* The disco loop cuts the lobby theme and the winter jingle at once; the
+     * ambient bed fades out over its own 1.2 s ramp and only then stops. */
+    assert(lobby_playing == 0 && winter_playing == 0);
     assert(disco_music_blocks() == 1);
-    update_music(); update_seraphim_music(); update_christmas_jingle();
-    assert(lobby_playing == 0 && seraphim_playing == 0 && winter_playing == 0);
+    update_music();
+    update_christmas_jingle();
+    assert(lobby_playing == 0 && winter_playing == 0);
+    for (int i = 0; i < 20; i++)
+        update_ambient();
+    assert(ambient_playing == 0 && ambient_level == 0);
     for (int i = 0; i < 100; i++) update_disco_music();
     assert(disco_loop_calls == 1); /* one mixer loop, not a restart every tick */
     assert(fabs(disco_vol - 0.5) < 1e-9 && fabs(disco_level - 1) < 1e-9);
@@ -2264,11 +2433,12 @@ static void test_disco_music(void) {
     assert(disco_should_play() == 1);
     game_state = saved_state; event_mode = saved_event; finished = saved_finished;
     music_volume = saved_volume; dt = saved_dt; disco_ok = saved_ok; disco_level = saved_level;
-    music_level = saved_lobby; seraphim_level = saved_duel;
+    music_level = saved_lobby; ambient_level = saved_ambient;
     screen_w = saved_w; screen_h = saved_h; chat_open = saved_chat;
     christmas_jingle_ok = saved_jingle_ok; christmas_jingle_tried = saved_jingle_tried;
     lobby_music_current = saved_lobby_track;
-    lobby_playing = saved_lp; seraphim_playing = saved_sp; winter_playing = saved_wp;
+    lobby_playing = saved_lp; ambient_playing = saved_ap; winter_playing = saved_wp;
+    ambient_ok = saved_ambient_ok; ambient_current = saved_ambient_track;
     disco_playing = 0;
     puts("disco music: our own bundled loop, volume, exclusive playback and fade OK");
 }
@@ -3509,11 +3679,11 @@ static void test_christmas_snowballs(void) {
     snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
 
     /* Exactly ebuC's projectile, except a bounce never adds damage and the
-     * hit uses its own reduced split damage. */
+     * hit uses its own flat damage, which is back at 0.5 per ball. */
     assert(XMAS_RADIUS == BALL_RADIUS && XMAS_SPEED == BALL_SPEED);
     assert(XMAS_MAX_BOUNCES == BALL_MAX_BOUNCES && XMAS_MAX_TIME == BALL_MAX_TIME);
     assert(XMAS_BOOM_RADIUS == BALL_BOOM_RADIUS);
-    assert(XMAS_DAMAGE == 0.2 && XMAS_COOLDOWN == 1.0);
+    assert(XMAS_DAMAGE == 0.5 && XMAS_COOLDOWN == 1.0);
     assert(christmas_pad_r() == battle_pad_r());   /* as big as block/ability */
     assert(XMAS_PUSH > 0 && XMAS_PUSH < 12.0);
 
@@ -4188,7 +4358,6 @@ int main(void) {
     assert(astra_zone_reach(2) > astra_zone_reach(1));
     assert(astra_strike_damage_for(3) > astra_strike_damage_for(2));
     assert(strcmp(WINTER_JINGLE, "winter_lobby.wav") == 0);
-    assert(strcmp(SERAPHIM_MUSIC, "duel.wav") == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
@@ -4570,7 +4739,7 @@ int main(void) {
     disco_loop_calls = 0;
     disco_vol = 0;
     lobby_playing = 1;
-    seraphim_playing = 0;
+    ambient_playing = 0;
     game_state = ST_ONLINE;
     finished = 0;
     event_mode = 1;
@@ -4602,42 +4771,17 @@ int main(void) {
         update_disco_music();
     }
     assert(disco_playing == 0);
-    /* Azum vs Astra battle music: starts immediately in Solo and Online, cuts
-     * lobby music cleanly, reaches battle volume, and stops outside the matchup. */
-    seraphim_ok = 0;
-    seraphim_playing = 0;
-    seraphim_vol = 0;
-    lobby_playing = 1;
+    /* Azum against Astra has no separate duel theme any more: the fight is
+     * silent apart from the effects, and no removed track is referenced. */
     game_state = ST_SOLO;
     player_class = CLASS_AZUM;
     enemy_class = CLASS_ASTRA;
-    assert(seraphim_should_play() == 1);
-    update_seraphim_music();
-    assert(seraphim_ok == 1 && seraphim_playing == 1 && lobby_playing == 0 && seraphim_vol > 0.2);
-    for (int f = 0; f < 20; f++)
-        update_seraphim_music();
-    assert(seraphim_vol > 0.8);
-    player_class = CLASS_ASTRA;
-    enemy_class = CLASS_AZUM;
-    assert(seraphim_should_play() == 1);
-    enemy_class = CLASS_ORDINARY;
-    assert(seraphim_should_play() == 0);
-    for (int f = 0; f < 80; f++)
-        update_seraphim_music();
-    assert(seraphim_playing == 0);
-    game_state = ST_ONLINE;
-    player_class = CLASS_AZUM;
-    arr_set(remotes, 1 * remote_fields, 1);
-    arr_set(remotes, 1 * remote_fields + 10, CLASS_ASTRA);
-    assert(seraphim_should_play() == 1);
-    update_seraphim_music();
-    assert(seraphim_playing == 1);
-    arr_set(remotes, 1 * remote_fields, 0);
-    arr_set(remotes, 1 * remote_fields + 10, CLASS_ORDINARY);
+    ambient_level = 0;
+    update_ambient();
+    assert(ambient_playing == 0);
     game_state = ST_LOBBY;
-    for (int f = 0; f < 80; f++)
-        update_seraphim_music();
-    assert(seraphim_playing == 0);
+    player_class = CLASS_ORDINARY;
+    enemy_class = CLASS_ORDINARY;
     winter_theme = 1;
     warn_open = 0;
 
@@ -6353,6 +6497,8 @@ int main(void) {
     test_admin_keyboard();
     test_admin_commands();
     test_disco_music();
+    test_ambient_beds();
+    test_pack_export();
 
     /* Christmas theme and Battle Pass are available to all CCP moderators;
      * only the primary admin has the Gifts half of the CCP panel. */

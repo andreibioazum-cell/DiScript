@@ -428,7 +428,9 @@ const char *login_pass;
 char login_nick_buf[128];
 char login_pass_buf[128];
 const char *LOBBY_MUSIC;
-const char *SERAPHIM_MUSIC;
+const char *AMBIENT_ORDINARY;
+const char *AMBIENT_WINTER;
+double ambient_volume_pct;
 const char *BUTTON_CLICK_SOUND;
 double button_click_ok;
 /* Active UI theme: 1 = new purple gradient, 0 = classic flat rose. */

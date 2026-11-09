@@ -43,9 +43,14 @@ jobs:
           test -f build/pc/dist/assets/fonts/ComicRelief-Regular.ttf
           test -f build/pc/dist/assets/sounds/tracks/lobby.wav
           test -f build/pc/dist/assets/sounds/tracks/winter_lobby.wav
-          test -f build/pc/dist/assets/sounds/tracks/duel.wav
+          test -f build/pc/dist/assets/sounds/tracks/ambient_lobby.wav
+          test -f build/pc/dist/assets/sounds/tracks/ambient_winter.wav
           test -f build/pc/dist/assets/sounds/tracks/disco_01_roller_rink_sunset.wav
           test -f build/pc/dist/assets/sounds/sfx/punch.wav
+          # A bare .exe has to work on its own: the asset tree is appended to it.
+          python3 tools/embed_assets.py build/pc/assets build/pc/CubicBattle4.exe
+          tail -c 8 build/pc/CubicBattle4.exe | grep -q CB4EMBED
+          cp build/pc/CubicBattle4.exe build/pc/dist/
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 
       - name: Publish Windows .exe to Release

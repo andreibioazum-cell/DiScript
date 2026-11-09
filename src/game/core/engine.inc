@@ -33,86 +33,6 @@ static void start_music(void) {
     } else {
         ds_log("init: no lobby music (%s)", lobby_music_current);
     }
-    seraphim_ok = snd_load(SERAPHIM_MUSIC);
-    if (seraphim_ok == 1) {
-        seraphim_level = 0;
-        ds_log("init: duel theme ready (%s)", SERAPHIM_MUSIC);
-    } else {
-        ds_log("init: no duel theme (%s)", SERAPHIM_MUSIC);
-    }
-}
-
-/* Azum-vs-Astra matchup: the original 45 s duel theme (not the old song). */
-static int seraphim_is_astra(double cls) {
-    return class_is_astra(cls) == 1 || cls == 5;
-}
-
-static int seraphim_should_play(void) {
-    if (game_state != ST_SOLO && game_state != ST_ONLINE) {
-        return 0;
-    }
-    if (game_state == ST_SOLO) {
-        if ((player_class == CLASS_AZUM && seraphim_is_astra(enemy_class)) ||
-            (seraphim_is_astra(player_class) && enemy_class == CLASS_AZUM)) {
-            return 1;
-        }
-        return 0;
-    }
-    /* Check local and remote slots for an Azum-vs-Astra online matchup. */
-    {
-        int has_azum = 0;
-        int has_astra = 0;
-        if (player_class == CLASS_AZUM) has_azum = 1;
-        if (seraphim_is_astra(player_class)) has_astra = 1;
-        double s = 0;
-        while (s < max_players) {
-            if (net_player_online(s) == 1) {
-                double c = net_player_class(s);
-                if (c == CLASS_AZUM) has_azum = 1;
-                if (seraphim_is_astra(c)) has_astra = 1;
-            }
-            if (arr_get(remotes, s * remote_fields) == 1) {
-                double rc = arr_get(remotes, s * remote_fields + 10);
-                if (rc == CLASS_AZUM) has_azum = 1;
-                if (seraphim_is_astra(rc)) has_astra = 1;
-            }
-            s = s + 1;
-        }
-        if (has_azum == 1 && has_astra == 1) return 1;
-        return 0;
-    }
-}
-
-static void update_seraphim_music(void) {
-    /* The disco loop owns the mix while it plays. */
-    if (disco_music_blocks() == 1) {
-        return;
-    }
-    double target_vol = clamp(music_volume / 100 * 1.65, 0, 1);
-    if (seraphim_should_play() == 1) {
-        if (seraphim_ok == 0) {
-            seraphim_ok = snd_load(SERAPHIM_MUSIC);
-            if (seraphim_ok == 0) return;
-        }
-        if (lobby_music_current != NULL && snd_playing(lobby_music_current) == 1) {
-            snd_stop(lobby_music_current);
-            music_level = 0;
-        }
-        if (snd_playing(SERAPHIM_MUSIC) == 0) {
-            seraphim_level = 0.25;
-            snd_volume(SERAPHIM_MUSIC, target_vol * seraphim_level);
-            snd_loop(SERAPHIM_MUSIC);
-        }
-        seraphim_level = clamp(seraphim_level + dt / seraphim_fade_in, 0, 1);
-        snd_volume(SERAPHIM_MUSIC, target_vol * seraphim_level);
-        return;
-    }
-    if (seraphim_ok == 0) return;
-    seraphim_level = clamp(seraphim_level - dt / seraphim_fade_out, 0, 1);
-    snd_volume(SERAPHIM_MUSIC, target_vol * seraphim_level);
-    if (seraphim_level <= 0 && snd_playing(SERAPHIM_MUSIC) == 1) {
-        snd_stop(SERAPHIM_MUSIC);
-    }
 }
 
 static void logic_init(void) {
@@ -148,6 +68,68 @@ static void logic_init(void) {
     ds_log("init: ready");
 }
 
+/* Quiet ambient bed under the menus: the ordinary bed on the normal theme, the
+ * winter bed on the New Year theme. It fades out for a fight, for the winter
+ * jingle (which is the New Year lobby's own music) and for the disco loop. */
+static const char *ambient_for_theme(void) {
+    return winter_theme_on() == 1 ? AMBIENT_WINTER : AMBIENT_ORDINARY;
+}
+
+static int ambient_allowed(void) {
+    if (game_state == ST_SOLO || game_state == ST_ONLINE) {
+        return 0;
+    }
+    if (disco_music_blocks() == 1) {
+        return 0;
+    }
+    if (winter_theme_on() == 1 && christmas_music_active() == 1) {
+        return 0;
+    }
+    return 1;
+}
+
+static void update_ambient(void) {
+    double target = clamp(music_volume / 100.0 * ambient_volume_pct / 100.0, 0, 1);
+    if (ambient_allowed() == 1) {
+        const char *want = ambient_for_theme();
+        if (ambient_current == NULL || strcmp(ambient_current, want) != 0) {
+            if (ambient_current != NULL && snd_playing(ambient_current) == 1) {
+                snd_stop(ambient_current);
+            }
+            ambient_current = want;
+            ambient_level = 0;
+            ambient_ok = snd_load(ambient_current);
+            if (ambient_ok != 1) {
+                ds_log("ambient: no bed (%s)", ambient_current);
+                return;
+            }
+            ds_log("ambient: bed ready (%s)", ambient_current);
+        }
+        if (ambient_ok != 1) {
+            return;
+        }
+        if (snd_playing(ambient_current) == 0) {
+            ambient_level = 0;
+            snd_volume(ambient_current, 0);
+            if (snd_loop(ambient_current) == 0) {
+                ambient_ok = 0;
+                return;
+            }
+        }
+        ambient_level = clamp(ambient_level + dt / 1.2, 0, 1);
+        snd_volume(ambient_current, target * ambient_level);
+        return;
+    }
+    if (ambient_ok != 1 || ambient_level <= 0 || ambient_current == NULL) {
+        return;
+    }
+    ambient_level = clamp(ambient_level - dt / 1.2, 0, 1);
+    snd_volume(ambient_current, target * ambient_level);
+    if (ambient_level <= 0 && snd_playing(ambient_current) == 1) {
+        snd_stop(ambient_current);
+    }
+}
+
 static void update_music(void) {
     if (disco_music_blocks() == 1) {
         return;
@@ -180,7 +162,7 @@ static void logic_update(void) {
     update_transition();
     update_disco_music();
     update_music();
-    update_seraphim_music();
+    update_ambient();
     reload_textures();
     tick_achievement_toast();
     gift_shimmer_tick();
@@ -258,6 +240,7 @@ static void draw_screen(void) {
 
 static void logic_draw(void) {
     draw_screen();
+    draw_countdown();
     if (packs_open == 1) {
         if (packs_fs_open == 1)
             draw_fs_picker();
