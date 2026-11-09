@@ -203,6 +203,7 @@ double online_ready;
 double max_players;
 double pi;
 double azum_second_life_damage_reduction;
+double azum_max_hit_damage;
 double azum_speed_bonus;
 double azum_attack_heal;
 double ordinary_damage_bonus;

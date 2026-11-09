@@ -440,7 +440,6 @@ static void draw_game(void) {
     draw_status_aura(enemy->x, enemy->y, enemy->size, poison_rgb, poison_rim, poison_a);
     draw_status_aura(enemy->x, enemy->y, enemy->size, stun_rgb, stun_rim, stun_a);
     draw_snow();
-    draw_santa_letter();
         /* Draw arena vignette before HUD elements. */
         draw_screen_fx();
     double w = screen_w / 4;

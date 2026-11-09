@@ -6,7 +6,7 @@ static double packs_sel = -1;
 static double packs_fs_open;
 static void fs_open_picker(void);
 
-static const char *tr_packs_btn(void) { return packs_tr("ПАКИ", "PACKS"); }
+static const char *tr_packs_btn(void) { return packs_tr("Паки", "PACKS"); }
 static const char *tr_packs_title(void) { return packs_tr("Текстурпаки", "Texture packs"); }
 static const char *tr_packs_none(void) {
     return packs_tr("Паков нет. Импорт или папка packs.", "No packs. Import one or use the packs folder.");
