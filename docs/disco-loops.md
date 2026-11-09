@@ -7,10 +7,11 @@ Everything lives in one place, split by purpose:
 
 ```
 assets/audio/
-  tracks/            music (4 files)
+  tracks/            music (6 files)
     lobby.wav        game: ordinary lobby theme, 70 s
     winter_lobby.wav game: New Year lobby theme, 70 s
-    duel.wav         game: Azum vs Astra duel theme, 45 s
+    ambient_lobby.wav / ambient_winter.wav
+                     game: quiet menu beds under the two themes, 32 s
     disco_01_roller_rink_sunset.wav
                      game: the disco event (event 1), 30 s loop
   sfx/               nine one-shot sounds (punch, dash, grab, gift, station,
@@ -34,7 +35,7 @@ level dip.
 It is the **first** of the loops written for the project and the only one that
 stayed: the event needs one tune, and this is the one picked for it. The game
 plays it from `src/game/fx/disco_music.inc` while a fight runs with event 1
-("disco"): the lobby, winter and duel themes fade out, the loop fades in over
+("disco"): the lobby theme and the menu ambient bed fade out, the loop fades in over
 0.35 s and loops until the fight ends.
 
 The loop also replaces the third-party recording that `main` still bundles

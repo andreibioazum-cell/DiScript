@@ -238,8 +238,8 @@ static void draw_fs_picker(void) {
     button_scaled(tr_fs_packs(), packs_action_x(2), fs_btn_y(1), packs_action_w(), btn_h, 0.5);
     button_scaled(tr_fs_system(), packs_action_x(0), fs_btn_y(2), packs_action_w(), btn_h, 0.5);
     button_scaled(tr_fs_close(), packs_action_x(1), fs_btn_y(2), packs_action_w(), btn_h, 0.5);
-    packs_msg_t = tick_down(packs_msg_t);
-    if (packs_msg_t > 0 && packs_msg[0])
+    packs_tick_msg();
+    if (packs_msg[0])
         ctext_scaled(packs_msg, cy + 104, RGB(184,184,200), 0.42);
 }
 

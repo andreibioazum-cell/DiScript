@@ -10,7 +10,7 @@
 #define XMAS_MAX_BOUNCES BALL_MAX_BOUNCES
 #define XMAS_MAX_TIME BALL_MAX_TIME
 #define XMAS_COOLDOWN 1.0
-#define XMAS_DAMAGE 0.2               /* reduced split damage */
+#define XMAS_DAMAGE 0.5               /* damage per snowball, same as it was before the cut */
 #define XMAS_PUSH 7.0                 /* a tiny nudge, ebuC has none */
 #define XMAS_BOOM_RADIUS BALL_BOOM_RADIUS
 #define XMAS_TRAIL BALL_TRAIL

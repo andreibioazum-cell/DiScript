@@ -141,6 +141,41 @@ static int kb_call_void_method(const char *name) {
 
 void ds_set_activity(void *act) { kb_activity = (ANativeActivity *)act; }
 
+/* Wall clock for the New Year countdown: the Java bridge hands over the device
+ * time in milliseconds, in seconds here. A missing bridge returns 0 and the
+ * badge simply stays hidden. */
+static long kb_call_long_method(const char *name) {
+    int attached = 0;
+    long result = 0;
+    JNIEnv *env = kb_get_env(&attached);
+    if (!env || !kb_activity || !kb_activity->clazz)
+        return 0;
+    if ((*env)->PushLocalFrame(env, 4) != 0) {
+        kb_release_env(attached);
+        return 0;
+    }
+    jclass cls = (*env)->GetObjectClass(env, kb_activity->clazz);
+    jmethodID method = cls ? (*env)->GetMethodID(env, cls, name, "()J") : NULL;
+    if (method) {
+        jlong value = (*env)->CallLongMethod(env, kb_activity->clazz, method);
+        if (!(*env)->ExceptionCheck(env))
+            result = (long)value;
+    }
+    if ((*env)->ExceptionCheck(env))
+        (*env)->ExceptionClear(env);
+    (*env)->PopLocalFrame(env, NULL);
+    kb_release_env(attached);
+    return result;
+}
+
+long ds_wall_clock(void) {
+    long ms = kb_call_long_method("gameWallClockMillis");
+    if (ms <= 0) {
+        return 0;
+    }
+    return ms / 1000L;
+}
+
 static void kb_sync_editor(void) {
     char copy[KB_BUF];
     pthread_mutex_lock(&kb_mutex);

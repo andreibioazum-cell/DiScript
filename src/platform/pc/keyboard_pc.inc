@@ -1,4 +1,5 @@
 /* Single-threaded PC keyboard state implementing runtime keyboard hooks. */
+#include <time.h>
 #define KB_BUF 512
 
 /* Subset of Android keycodes handled by keyboard_handle_key(). */
@@ -20,6 +21,8 @@ static BackspaceRepeat kb_del_repeat = {0, 0};
 static uint64_t kb_clock_ms = 0;
 
 void ds_set_activity(void *act) { (void)act; }
+
+long ds_wall_clock(void) { return (long)time(NULL); }
 
 int keyboard_uses_editor(void) { return kb_show; }
 

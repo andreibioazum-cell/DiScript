@@ -7,6 +7,7 @@ static void play_button_click(void);
 static void start_music(void);
 static void logic_init(void);
 static void update_music(void);
+static void update_ambient(void);
 static void update_warning(void);
 static void update_studio(void);
 static void tick_achievement_toast(void);

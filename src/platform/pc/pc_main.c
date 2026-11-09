@@ -371,6 +371,17 @@ static void pc_seed_random(int fixed) {
 #endif
 }
 
+/* Headless runs have no system dialog. CB4_SAVE_TO points the save hook at a
+ * file, which is how the texture pack export is tested end to end. */
+static int pc_dialog_save_env(const char *name, char *dst, int cap) {
+    const char *wanted = getenv("CB4_SAVE_TO");
+    (void)name;
+    if (!wanted || !*wanted)
+        return 0;
+    snprintf(dst, (size_t)cap, "%s", wanted);
+    return 1;
+}
+
 static void pc_boot(const PcArgs *args) {
     char data_dir[512];
     char assets_dir[1200];
@@ -382,6 +393,8 @@ static void pc_boot(const PcArgs *args) {
         ds_pick_save_hook = pc_dialog_save;
     }
 #endif
+    if (args->headless != 0 && getenv("CB4_SAVE_TO") != NULL)
+        ds_pick_save_hook = pc_dialog_save_env;
     pc_seed_random(args->headless);
     pc_resolve_assets(args->assets, assets_dir, sizeof(assets_dir));
     pc_assets_set_root(assets_dir);

@@ -103,13 +103,14 @@ def main() -> int:
                                 env(t, 0.50, 0.02) * (0.45 * math.sin(2 * math.pi * (180 + 2440 * t) * t) +
                                                       0.18 * math.sin(2 * math.pi * (720 + 9760 * t) * t))))
 
-        # Button click: a short crisp tick. It used to be the one sound in the
-        # repository without a generator, so it is synthesised here now: a tiny
-        # pitched blip plus a softened noise transient, 45 ms, no tail.
+        # Button click: the familiar soft ui blip - a warm 1.7 kHz tone that
+        # falls away over 45 ms - and only a whisper of noise on the very start.
+        # It used to be exactly this until the sound set was rebuilt; this time
+        # the file is generated, so it no longer comes from an old upload.
     def click(t: float, i: int) -> float:
-        blip = 0.55 * math.sin(2 * math.pi * (1450 - 1800 * t) * t)
-        transient = 0.30 * nz(t * 5.3) * math.exp(-t * 240)
-        return math.sin(math.pi * min(1.0, t / 0.045)) * (blip + transient)
+        tone = 0.95 * math.sin(2 * math.pi * 1700 * t) * math.exp(-t * 62)
+        head = 0.22 * nz(t * 4.1) * math.exp(-t * 180)
+        return math.sin(math.pi * min(1.0, t / 0.045)) * (tone + head)
     save("button_click.wav", synth(0.045, click))
 
         # Zombie punch: the same push as the normal punch plus a growl - a saw

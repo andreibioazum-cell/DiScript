@@ -12,15 +12,24 @@ static const char *tr_packs_none(void) {
     return packs_tr("Паков нет. Импорт или папка packs.", "No packs. Import one or use the packs folder.");
 }
 static const char *tr_packs_hint(void) {
-    return packs_tr("Любой файл игры можно заменить: textures/, sounds/, fonts/",
-                    "Any game file can be replaced: textures/, sounds/, fonts/");
+    return packs_tr("Свой пак: Экспорт -> .zip, правь PNG, Импорт",
+                    "Make a pack: Export -> .zip, edit the PNGs, Import");
 }
 static const char *tr_packs_off(void) { return packs_tr("Обычные", "Built-in"); }
 static const char *tr_packs_import(void) { return packs_tr("Импорт", "Import"); }
+static const char *tr_packs_export(void) { return packs_tr("Экспорт", "Export"); }
 static const char *tr_packs_refresh(void) { return packs_tr("Обновить", "Refresh"); }
 static const char *tr_packs_close(void) { return packs_tr("Закрыть", "Close"); }
 static const char *tr_packs_nopicker(void) {
     return packs_tr("Системный выбор файла недоступен", "No system file picker here");
+}
+
+/* The hint under the title is a timed message: it must disappear on its own. */
+static void packs_tick_msg(void) {
+    pack_export_tick();
+    packs_msg_t = tick_down(packs_msg_t);
+    if (packs_msg_t <= 0)
+        packs_msg[0] = 0;
 }
 
 static double packs_card_w(void) { return fit_w(620); }
@@ -104,11 +113,12 @@ static void draw_packs(void) {
     double cx = packs_card_x(), cy = packs_card_y(), cw = packs_card_w(), ch = packs_card_h();
     double rows = packs_rows_visible(), i;
     double total = (double)packs_count + 1;
+    packs_tick_msg();
     rect(0, 0, screen_w, screen_h, 0xCC000000);
     roundrect(cx, cy, cw, ch, 18, card_bg);
     ctext_scaled(tr_packs_title(), cy + 18, text_color, 0.7);
     ctext_scaled(tr_packs_hint(), cy + 56, RGB(152,152,176), 0.4);
-    ctext_scaled(packs_msg[0] ? packs_msg : "", cy + 74, RGB(184,184,200), 0.4);
+    ctext_scaled(packs_msg, cy + 74, RGB(184,184,200), 0.4);
     draw_packs_row(0, tr_packs_off(), packs_active[0] ? 0 : 1);
     i = 0;
     while (i < (double)packs_count && i < rows - 1) {
@@ -126,7 +136,8 @@ static void draw_packs(void) {
     button_scaled(tr_packs_refresh(), packs_action_x(1), packs_actions_y(0), packs_action_w(), btn_h, 0.44);
     button_scaled(">", packs_action_x(2), packs_actions_y(0), packs_action_w(), btn_h, 0.5);
     button_scaled(tr_packs_import(), packs_action_x(0), packs_actions_y(1), packs_action_w(), btn_h, 0.44);
-    button_scaled(tr_packs_close(), packs_action_x(1), packs_actions_y(1), packs_action_w(), btn_h, 0.44);
+    button_scaled(tr_packs_export(), packs_action_x(1), packs_actions_y(1), packs_action_w(), btn_h, 0.44);
+    button_scaled(tr_packs_close(), packs_action_x(2), packs_actions_y(1), packs_action_w(), btn_h, 0.44);
 }
 
 static void touch_packs(double x, double y, double action, double id) {
@@ -170,6 +181,11 @@ static void touch_packs(double x, double y, double action, double id) {
         return;
     }
     if (hit_button(x, y, packs_action_x(1), packs_actions_y(1), packs_action_w(), btn_h) == 1) {
+        play_button_click();
+        pack_export_save();
+        return;
+    }
+    if (hit_button(x, y, packs_action_x(2), packs_actions_y(1), packs_action_w(), btn_h) == 1) {
         play_button_click();
         packs_close_screen();
     }

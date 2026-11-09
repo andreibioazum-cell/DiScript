@@ -132,24 +132,32 @@ static int zip_list(const unsigned char *zip, int zip_len, char *dst, int cap) {
     return n;
 }
 
+/* Standard CRC-32 (the one every unzip tool checks). It used to start from
+ * RGB(255,255,255), i.e. 0x00FFFFFF instead of 0xFFFFFFFF, so archives we built
+ * came out with a wrong checksum on every entry. */
 static unsigned int zip_crc32(const unsigned char *data, int len) {
-    unsigned int crc = RGB(255,255,255);
+    unsigned int crc = 0xFFFFFFFFu;
     int i, k;
     for (i = 0; i < len; i++) {
         crc ^= data[i];
         for (k = 0; k < 8; k++)
             crc = (crc >> 1) ^ (0xEDB88320u & (0u - (crc & 1u)));
     }
-    return crc ^ RGB(255,255,255);
+    return crc ^ 0xFFFFFFFFu;
 }
 
-/* Build a stored (uncompressed) archive. Returns the byte count or -1. */
+/* Build a stored (uncompressed) archive. Returns the byte count or -1.
+ * `out` must be its own buffer: the headers are written from the start of it
+ * while the entry payloads are copied after them. */
 static int zip_build(const ZipEntry *entries, int count, unsigned char *out, int cap) {
     int i, p = 0, cd_start, cd_len;
     for (i = 0; i < count; i++) {
         int nl = (int)strlen(entries[i].name);
         int len = (int)entries[i].len;
-        if (nl <= 0 || nl >= ZIP_MAX_NAME || len < 0)
+        const unsigned char *data = entries[i].data;
+        if (nl <= 0 || nl >= ZIP_MAX_NAME || len < 0 || (len > 0 && !data))
+            return -1;
+        if (len > 0 && data >= out && data < out + cap)
             return -1;
         if (p + 30 + nl + len > cap)
             return -1;

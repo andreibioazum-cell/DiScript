@@ -428,7 +428,10 @@ login_btn_gap = 22;
 login_nick = "";
 login_pass = "";
 LOBBY_MUSIC = "lobby.wav";
-SERAPHIM_MUSIC = "duel.wav";
+/* Quiet ambient beds under the two menu themes (own level, own fade). */
+AMBIENT_ORDINARY = "ambient_lobby.wav";
+AMBIENT_WINTER = "ambient_winter.wav";
+ambient_volume_pct = 55;
 BUTTON_CLICK_SOUND = "button_click.wav";
 button_click_ok = 0;
 
