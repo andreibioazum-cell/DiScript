@@ -321,6 +321,12 @@ static void touch_settings(double x, double y) {
         reports_open();
         return;
     }
+    /* Complaint about another player. Works for everyone; the panel itself
+     * shows "nobody else here" when the room is empty. */
+    if (hit_settings_row(x, y, 7) == 1) {
+        report_pick_open_panel();
+        return;
+    }
 }
 
 static void touch_levels(double x, double y, double action) {

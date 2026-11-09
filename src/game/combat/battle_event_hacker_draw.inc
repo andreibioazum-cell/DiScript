@@ -119,8 +119,24 @@ static const char *hack_ban_denied(void) {
 static const char *hack_ban_exit(void) {
     return "Azum: exit";
 }
+/* The ban dialogue lives in ONE console. Every line wraps inside the frame, so
+ * nothing spills over the border and no stray glyph is left outside it. */
+#define HACK_BAN_ROWS 12
+static double hack_ban_pad(void) { return 8; }
+static double hack_ban_w(void) {
+    double sc = hack_text_sc();
+    double need = fmax(fmax(text_ink_width(hack_ban_l1()), text_ink_width(hack_ban_l2())),
+                       fmax(fmax(text_ink_width(hack_ban_reconnect()), text_ink_width(hack_ban_denied())),
+                            text_ink_width(hack_ban_exit()))) *
+                 sc;
+    /* The frame is as wide as the longest line and never wider than the screen;
+     * longer lines simply wrap inside it. */
+    return clamp(need + 2 * hack_ban_pad() + 16, 240, screen_w - 16);
+}
+static double hack_ban_x(void) { return (screen_w - hack_ban_w()) / 2; }
+static double hack_ban_y(void) { return screen_h * 0.28; }
 static double hack_ban_verdict_end(void) {
-    return HACK_BLACK_DUR + (utf8_len(hack_ban_l1()) + utf8_len(hack_ban_l2())) / HACK_BAN_CPS + 2.2;
+    return HACK_BLACK_DUR + (utf8_len(hack_ban_l1()) / HACK_BAN_CPS) * 2 + 0.9;
 }
 static double hack_ban_reply_end(void) {
     return hack_ban_verdict_end() + utf8_len(hack_ban_reconnect()) / HACK_CMD_CPS + 0.35 +
@@ -256,11 +272,12 @@ static double hack_draw_term(double win, double x, double y, double erased) {
         uint32_t ink = 0xFF000000u | (unsigned)(who == HACK_WHO_WARN ? HACK_INK_WARN :
                                               who == HACK_WHO_AZUM ? HACK_INK_AZUM : HACK_INK_HACK);
         const char *label = hack_line_label(who);
-        text_scaled(label, x + pad, cy, ink, sc * 0.8);
+        /* Baseline per row: without the ink top the wrapped rows overlap. */
+        text_scaled(label, x + pad, cy - text_ink_top(label) * sc * 0.8, ink, sc * 0.8);
         double k = first;
         while (k < got) {
             const char *span = dial_slice(vis, starts[li][(int)k], lens[li][(int)k]);
-            text_scaled(span, x + pad + lab_w[li], cy, ink, sc);
+            text_scaled(span, x + pad + lab_w[li], cy - text_ink_top(span) * sc, ink, sc);
             cy = cy + step;
             k = k + 1;
         }
@@ -484,12 +501,11 @@ static void draw_hacker_ban(void) {
     double sc = hack_text_sc();
     double step = hack_line_step(sc);
     double head = hack_term_head();
-    double pad = 8;
-    double w = clamp(fmax(text_ink_width(hack_ban_l1()), text_ink_width(hack_ban_denied())) * sc + 2 * pad + 16,
-                     240, screen_w - 16);
-    double body = 5 * step + 2 * pad;
-    double x = (screen_w - w) / 2;
-    double y = screen_h * 0.28;
+    double pad = hack_ban_pad();
+    double w = hack_ban_w();
+    double x = hack_ban_x();
+    double y = hack_ban_y();
+    const char *title = hack_platform == HACK_PLAT_PC ? "C:\\Azum\\ban.exe" : "shell@kb4:/ # ban";
     double click = hack_ban_click_at();
     if (u >= click) {
         /* Azum clicks X: content vanishes, the frame collapses and fades. */
@@ -500,29 +516,83 @@ static void draw_hacker_ban(void) {
             return;
         }
         roundrect(x, y, w, h, 4, (a << 24) | HACK_TERM_BAR_AZUM);
-        hack_term_chrome(x, y, w, fmax(head * (1 - k), 2), 1,
-                         hack_platform == HACK_PLAT_PC ? "C:\\Azum\\ban.exe" : "shell@kb4:/ # ban");
+        hack_term_chrome(x, y, w, fmax(head * (1 - k), 2), 1, title);
         return;
     }
-    hack_term_frame(x, y, w, head + body, head, 1,
-                    hack_platform == HACK_PLAT_PC ? "C:\\Azum\\ban.exe" : "shell@kb4:/ # ban");
+    /* Every line wraps inside the same margins, so the frame is drawn once with
+     * the height of the wrapped text: nothing hangs over the console border. */
+    const char *lines[5];
+    double starts[5][HACK_WRAP_MAX];
+    double lens[5][HACK_WRAP_MAX];
+    double rows[5];
+    double ink[5];
+    double cps[5];
+    double when[5];
+    double t = HACK_BLACK_DUR;
+    lines[0] = hack_ban_l1();
+    lines[1] = hack_ban_l2();
+    lines[2] = hack_ban_reconnect();
+    lines[3] = hack_ban_denied();
+    lines[4] = hack_ban_exit();
+    ink[0] = 0xFFFFFFFFu;
+    ink[1] = 0xFFB8C0C8u;
+    ink[2] = 0xFFFF6B6Bu;
+    ink[3] = 0xFFFFD54Au;
+    ink[4] = 0xFF7CFC7Cu;
+    cps[0] = HACK_BAN_CPS;
+    cps[1] = HACK_BAN_CPS;
+    cps[2] = HACK_CMD_CPS;
+    cps[3] = HACK_BAN_CPS;
+    cps[4] = HACK_BAN_CPS;
+    double total = 0;
+    int i = 0;
+    while (i < 5) {
+        when[i] = t;
+        rows[i] = dial_wrap(lines[i], w - 2 * pad, sc, starts[i], lens[i], HACK_WRAP_MAX);
+        if (rows[i] < 1) {
+            rows[i] = 1;
+            starts[i][0] = 0;
+            lens[i][0] = str_len(lines[i]);
+        }
+        total = total + rows[i];
+        /* The next line waits for this one to finish typing, row by row. */
+        t = t + utf8_len(lines[i]) / cps[i] + 0.3;
+        i = i + 1;
+    }
+    double shown = total < HACK_BAN_ROWS ? total : HACK_BAN_ROWS;
+    double body = shown * step + 2 * pad;
+    hack_term_frame(x, y, w, head + body, head, 1, title);
     double cy = y + head + pad;
-    double t1 = HACK_BLACK_DUR;
-    double t2 = t1 + utf8_len(hack_ban_l1()) / HACK_BAN_CPS + 0.25;
-    double t3 = hack_ban_verdict_end();
-    double t4 = t3 + utf8_len(hack_ban_reconnect()) / HACK_CMD_CPS + 0.35;
-    double t5 = hack_ban_reply_end();
-    hack_ban_type(hack_ban_l1(), t1, HACK_BAN_CPS, 0xFFFFFFFFu, x + pad, cy, sc, step);
-    hack_ban_type(hack_ban_l2(), t2, HACK_BAN_CPS, 0xFFB8C0C8u, x + pad, cy + step, sc, step);
-    hack_ban_type(hack_ban_reconnect(), t3, HACK_CMD_CPS, 0xFFFF6B6Bu, x + pad, cy + 2 * step, sc, step);
-    hack_ban_type(hack_ban_denied(), t4, HACK_BAN_CPS, 0xFFFFD54Au, x + pad, cy + 3 * step, sc, step);
-    hack_ban_type(hack_ban_exit(), t5, HACK_BAN_CPS, 0xFF7CFC7Cu, x + pad, cy + 4 * step, sc, step);
+    i = 0;
+    while (i < 5) {
+        double n = clamp((u - when[i]) * cps[i], 0, utf8_len(lines[i]));
+        if (n <= 0) {
+            i = i + 1;
+            continue;
+        }
+        const char *vis = utf8_prefix(lines[i], n);
+        double k = 0;
+        while (k < rows[i]) {
+            const char *span = dial_slice(vis, starts[i][(int)k], lens[i][(int)k]);
+            /* Baselines follow the font's own ink top, so wrapped rows never
+             * overlap each other. */
+            text_scaled(span, x + pad, cy - text_ink_top(span) * sc, ink[i], sc);
+            /* The caret sits at the end of the row that is still being typed. */
+            if (n < utf8_len(lines[i]) && k == rows[i] - 1 && fmod(event_t * 3, 2) < 1) {
+                double cw = text_ink_width(span) * sc;
+                rect(x + pad + cw + 1, cy - text_ink_top(span) * sc, 5 * sc + 2, step * 0.72, ink[i]);
+            }
+            cy = cy + step;
+            k = k + 1;
+        }
+        i = i + 1;
+    }
     /* After "exit", a small cursor travels to the close glyph and clicks it. */
     double exit_end = hack_ban_exit_end();
     if (u >= exit_end) {
         double k = clamp((u - exit_end) / 0.75, 0, 1);
         double sx = x + pad + text_ink_width(hack_ban_exit()) * sc + 8;
-        double sy = cy + 4 * step + step * 0.4;
+        double sy = cy - step + step * 0.4;
         double tx = x + w - 5;
         double ty = y + head / 2;
         double cx = lerp(sx, tx, k);
@@ -534,6 +604,7 @@ static void draw_hacker_ban(void) {
         line(cx, cy2, cx - 5, cy2 + 7, 2, 0xFFFFFFFFu);
     }
 }
+
 
 /* Pure black for the whole long hold; only the last second fades back. */
 static void draw_hacker_blackout(void) {
@@ -583,14 +654,10 @@ static void draw_hacker_event(void) {
         return;
     }
     if (hack_t < hack_rain_at()) {
+        /* One console, opened top-left: both speakers type into it. */
         double x0 = clamp(hack_term_x[0], 4, screen_w - hack_term_w() - 4);
         double y0 = clamp(hack_term_y[0], 4, screen_h - hack_term_head() - 40);
         hack_draw_term(0, x0, y0, 0);
-        if (hack_second_open() == 1) {
-            double x1 = clamp(hack_term_x[1], 4, screen_w - hack_term_w() - 4);
-            double y1 = clamp(hack_term_y[1], 4, screen_h - hack_term_head() - 40);
-            hack_draw_term(1, x1, y1, 0);
-        }
     }
     draw_hacker_cane_hud();
 }

@@ -14,7 +14,9 @@ ROOT = Path(__file__).resolve().parent
 ASSET_GROUPS = (
     ("textures", Path()),
     ("fonts", Path("fonts")),
-    ("audio", Path("sounds")),
+    # Music and sound effects live in their own folders inside the audio tree.
+    ("audio/tracks", Path("sounds/tracks")),
+    ("audio/sfx", Path("sounds/sfx")),
     ("hack", Path("hack")),
 )
 

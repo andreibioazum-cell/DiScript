@@ -24,38 +24,26 @@ for that component.
 
 ## 3. Музыка и звуки
 
-- Оригинальные темы: `assets/audio/lobbymusic.wav`, `winter_jingle.wav`,
-  `duel_theme.wav` и короткие звуки эффектов — созданы генераторами проекта;
-  лицензия проекта (`LICENSE`).
-- **Диско:** `assets/audio/disco_medusae_kevin_macleod.mp3` и исходник
-  `third_party/music/Disco Medusae - Kevin MacLeod.mp3` —
-  **«Disco Medusae», Kevin MacLeod (incompetech.com)**, ISRC USUAN1500041.
-  Лицензия **CC BY 4.0**: https://creativecommons.org/licenses/by/4.0/
-  Официальный источник:
-  https://incompetech.com/music/royalty-free/index.html?isrc=USUAN1500041
-  Изменения: полная запись перекодирована в stereo MP3 32 kbps, 22050 Гц
-  (885 568 байт); предыдущая обработка зеркала и контрольные суммы описаны в
-  `third_party/music/README.md`. Это опубликованная запись, не генерация ИИ.
-  Атрибуция: `assets/audio/Disco-Medusae-NOTICE.txt`; полный текст лицензии:
-  `assets/audio/licenses/Disco-Medusae-CC-BY-4.0.txt`. Автор не подразумевает
-  endorsement проекта. Ограничения проприетарной лицензии проекта не заменяют
-  и не отменяют разрешения CC BY 4.0 для этой записи.
+- Файлы: `assets/audio/tracks/*.wav` (темы и диско-луп) и
+  `assets/audio/sfx/*.wav` (короткие звуки)
+- Автор: правообладатель проекта, `Дима Густенёв (Dimasi4ek229)`
+- Как сделано: всё синтезировано генераторами `tools/generate_music.py`,
+  `tools/generate_disco_loops.py` и `tools/gen_ability_sounds.py`; сэмплов,
+  записей и чужих мелодий нет ни в одном файле
+- Лицензия: проприетарная, та же, что у проекта (см. `LICENSE`); права на
+  музыку и звуки принадлежат правообладателю
+- Уведомление об авторских правах встроено в каждый WAV-файл: чанк RIFF
+  `LIST/INFO` с полями `IART`, `ICOP`, `ICMT` (см. `tools/audio_rights.py`),
+  поэтому принадлежность файла видна даже вне игры
+- Сторонних музыкальных произведений в проекте нет: трек «Disco Medusae»
+  (Kevin MacLeod, CC BY 4.0) из основной ветки в этот набор не входит
 
-## 4. minimp3
-
-- Файлы: `third_party/minimp3.h`, `third_party/minimp3-LICENSE.txt`
-- Автор: lieff и участники проекта minimp3
-- Лицензия: CC0 1.0 / public domain (текст рядом с заголовочным файлом)
-- Назначение: декодирование сжатого MP3-трека диско в PCM при загрузке
-- Источник: https://github.com/lieff/minimp3, commit
-  `ea99364f61c14656440e8d77e9c233ccf3124633`
-
-## 5. Платформенные библиотеки
+## 4. Платформенные библиотеки
 
 - Android NDK (libandroid, liblog, libEGL, libvulkan): условия Android NDK
 - Java/Kotlin-код платформы: стандартная библиотека Android
 
-## 6. Сервисы
+## 5. Сервисы
 
 - Google Firebase Realtime Database и Firebase Authentication используются как
   облачное хранилище и сервис входа; обработка данных описана в

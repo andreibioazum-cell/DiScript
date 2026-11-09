@@ -113,6 +113,9 @@ static void draw_settings(void) {
         button_scaled(rj, menu_x(), settings_row_y(6), menu_btn_w(), settings_btn_h(),
                       fit_text_scale(rj, menu_btn_w() - 24, 0.65));
     }
+    /* Whoever plays: a complaint about another player is filed from here. */
+    button_scaled(tr_report_pick(), menu_x(), settings_row_y(7), menu_btn_w(), settings_btn_h(),
+                  fit_text_scale(tr_report_pick(), menu_btn_w() - 24, 0.8));
 }
 
 static void draw_card_look(double look, double x, double y, double scale) {

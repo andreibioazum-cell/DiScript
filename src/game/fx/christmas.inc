@@ -113,7 +113,7 @@ static void update_christmas_jingle(void) {
         christmas_jingle_tried = 1;
         christmas_jingle_ok = snd_load(WINTER_JINGLE);
         if (christmas_jingle_ok == 0) {
-            ds_log("christmas: no bundled winter_jingle.wav, the vibe stays visual-only");
+            ds_log("christmas: no bundled winter_lobby.wav, the vibe stays visual-only");
         }
     }
     if (christmas_jingle_ok == 0) {

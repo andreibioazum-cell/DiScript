@@ -27,6 +27,16 @@ RU:
 Игра может распространяться правообладателем для игроков бесплатно; это не
 даёт прав на её исходный код.
 
+МУЗЫКА И ЗВУКИ. Вся музыка и все звуковые эффекты игры (файлы
+`assets/audio/tracks/*.wav` и `assets/audio/sfx/*.wav`) созданы для проекта и
+принадлежат правообладателю на тех же условиях, что и код. Они синтезированы
+генераторами проекта из математики, записанной в этом репозитории: ни одного
+сэмпла, скачанной записи или чужой мелодии в них нет. Уведомление об авторских
+правах встроено в каждый WAV-файл (чанк RIFF `LIST/INFO`), поэтому
+принадлежность файла можно установить и вне игры. Использовать музыку и звуки
+отдельно от игры - в своих видео, играх, сборках или иных проектах - можно
+только с письменного разрешения правообладателя.
+
 EN:
 
 This source code and all related materials (code, graphics, music, texts,
@@ -48,6 +58,17 @@ expressly permitted by this license is prohibited.
 
 The game may be distributed by the copyright holder to players free of
 charge; that does not grant any rights to its source code.
+
+MUSIC AND SOUNDS. All music and sound effects of the game (the files
+`assets/audio/tracks/*.wav` and `assets/audio/sfx/*.wav`) were made for the
+project and belong to the copyright holder on the same terms as the code. They
+are synthesised by the project's generators from the maths recorded in this
+repository: they contain no sample, no downloaded recording and no borrowed
+melody. A copyright notice is embedded in every WAV file (a RIFF `LIST/INFO`
+chunk), so the ownership of a file can be established outside the game as well.
+Using the music or the sounds apart from the game - in your own videos, games,
+builds or other projects - requires the written permission of the rights
+holder.
 
 RU (продолжение):
 

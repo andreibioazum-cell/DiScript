@@ -3,9 +3,9 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import re
+import sys
 import wave
 from pathlib import Path
 
@@ -24,7 +24,7 @@ def header_secret(prefix: str) -> str:
             break
         parts.append("".join(chr(int(octet, 8) ^ mask) for octet in re.findall(r"\\([0-7]{3})", chunk.group(1))))
         index += 1
-    assert index >= 2, f"В network.h нет кусков секрета {prefix}"
+    assert index >= 2, f"network.h has no secret chunks for {prefix}"
     return "".join(parts)
 
 
@@ -46,7 +46,7 @@ def check_firebase_rules() -> None:
 
     room = body_keys("room_sync.inc") | body_keys("room_chat.inc") | body_keys("room_threads.inc")
     missing = room - slot
-    assert not missing, f"В правилах игрового слота нет полей: {sorted(missing)}"
+    assert not missing, f"Rules for a game slot lack fields: {sorted(missing)}"
     assert {"gbx", "gby", "gbdx", "gbdy", "grab"} <= room
 
     auth_only = {"email", "password", "grant_type", "refresh_token"}
@@ -58,17 +58,18 @@ def check_firebase_rules() -> None:
         | (body_keys("auth_session.inc") - auth_only)
     )
     missing = profile - user
-    assert not missing, f"В правилах профиля нет полей: {sorted(missing)}"
+    assert not missing, f"Profile rules lack fields: {sorted(missing)}"
     assert {"astra", "astra_level", "astra_levels"} <= profile
     assert {"codecracker", "codecracker_level", "codecracker_levels"} <= profile
 
     missing = body_keys("player_api.inc") - message
-    assert not missing, f"В правилах чата нет полей: {sorted(missing)}"
+    assert not missing, f"Chat rules lack fields: {sorted(missing)}"
     missing = body_keys("room_control.inc") - banner
-    assert not missing, f"В правилах баннера нет полей: {sorted(missing)}"
+    assert not missing, f"Banner rules lack fields: {sorted(missing)}"
 
     ban_write = rules["bans"]["$nick"][".write"]
     assert "newData.exists()" in ban_write
+    # Two root admins may ban, and neither of them may ban themselves.
     assert "$nick.toLowerCase() != 'dimasi4ek229'" in ban_write
     assert "$nick.toLowerCase() != 'qwertyuiopaj1234'" in ban_write
     assert "qwertyuiopaj1234@cb4.game" in ban_write
@@ -78,14 +79,14 @@ def check_write_secret() -> None:
     """Writes are gated by the secret: the client sends it, the rules require it."""
     write_secret = header_secret("NET_WRITE_SECRET")
     pass_secret = header_secret("NET_PASS_SECRET")
-    for name, secret in (("записи", write_secret), ("пароля", pass_secret)):
-        assert len(secret) == 32, f"Секрет {name} слишком короткий: {len(secret)} символов"
-        assert secret.isascii() and secret.isalnum(), f"Секрет {name} должен быть из букв и цифр"
-    assert write_secret != pass_secret, "Секрет записи и хвост пароля не должны совпадать"
+    for name, secret in (("write", write_secret), ("password", pass_secret)):
+        assert len(secret) == 32, f"Secret {name} is too short: {len(secret)} characters"
+        assert secret.isascii() and secret.isalnum(), f"Secret {name} must be letters and digits"
+    assert write_secret != pass_secret, "The write secret and the password tail must differ"
 
     rules_text = (ROOT / "firebase.rules.json").read_text(encoding="utf-8")
-    assert pass_secret not in rules_text, "Хвост пароля попадает в правила базы"
-    assert "|cb4v1" not in rules_text, "Старый угадываемый хвост пароля попал в правила базы"
+    assert pass_secret not in rules_text, "The password tail leaks into the database rules"
+    assert "|cb4v1" not in rules_text, "The old guessable password tail is in the rules"
     rules = json.loads(rules_text)["rules"]
     nick = rules["users"]["$nick"]
     slot = rules["rooms"]["$room"]["players"]["$slot"]
@@ -94,8 +95,8 @@ def check_write_secret() -> None:
     for node, rule in ((nick, nick[".write"]), (nick, nick[".validate"]),
                        (slot, slot[".write"]), (slot, slot[".validate"]),
                        (message, message[".write"]), (message, message[".validate"])):
-        assert wants in rule, f"Правило без проверки секрета записи: {rule[:60]}..."
-        assert "w" in node, "В правилах нет поля w"
+        assert wants in rule, f"Rule without the write-secret check: {rule[:60]}..."
+        assert "w" in node, "The rules have no w field"
     for node in (nick, slot, message):
         assert "newData.val() == '%s'" % write_secret in node["w"][".validate"]
 
@@ -104,32 +105,12 @@ def check_write_secret() -> None:
     for name, expected in (("cloud_patch.inc", 1), ("room_sync.inc", 2),
                            ("auth_session.inc", 1), ("leaderboard.inc", 1)):
         text = (net / name).read_text(encoding="utf-8")
-        assert text.count("net_seal_body(") == expected, f"{name}: тело записи не подписано секретом"
+        assert text.count("net_seal_body(") == expected, f"{name}: the write body is not sealed with the secret"
     assert "#define FB_PASS_SUFFIX" not in (net / "http_json.inc").read_text(encoding="utf-8"), \
-        "Старый угадываемый хвост пароля вернулся"
+        "The old guessable password tail is back"
     for name in ("auth_session.inc", "presence.inc"):
         assert "net_pass_suffix()" in (net / name).read_text(encoding="utf-8"), \
-            f"{name}: пароль собирается без секретного хвоста"
-
-
-def check_disco_music() -> None:
-    """The disco asset must remain the verified recording, compressed to <= 1 MB."""
-    source = ROOT / "third_party/music/Disco Medusae - Kevin MacLeod.mp3"
-    output = ROOT / "assets/audio/disco_medusae_kevin_macleod.mp3"
-    assert hashlib.sha256(source.read_bytes()).hexdigest() == (
-        "0957c02613a361cd89b3f95ab8d0e708ded2849cc28787202e7a46931ff4bace"
-    ), "Disco source recording changed"
-    assert output.stat().st_size <= 1_000_000, "Disco asset must stay at or below 1 MB"
-    assert hashlib.sha256(output.read_bytes()).hexdigest() == (
-        "1552423b8d64f01b94a895acb3dec3ab23b9cbd7b7a6bf0677f606cb283c1a9f"
-    ), "Disco MP3 differs from the verified compression"
-    notice = (ROOT / "assets/audio/Disco-Medusae-NOTICE.txt").read_text(encoding="utf-8")
-    for text in ("Kevin MacLeod", "CC BY 4.0", "https://creativecommons.org/licenses/by/4.0/",
-                 "USUAN1500041", "22050", "MP3", "not AI-generated"):
-        assert text in notice, f"Missing disco attribution: {text}"
-    license_text = (ROOT / "assets/audio/licenses/Disco-Medusae-CC-BY-4.0.txt").read_text(encoding="utf-8")
-    assert "Attribution 4.0 International" in license_text
-    assert "Creative Commons Attribution 4.0 International" in license_text
+            f"{name}: the password is built without the secret tail"
 
 
 def check_assets() -> None:
@@ -138,73 +119,71 @@ def check_assets() -> None:
     for directory in (game / "core", game / "ui", game / "combat", game / "fx", game / "state"):
         for source in directory.rglob("*.inc"):
             names |= set(re.findall(r'"([A-Za-z0-9_./-]+\.png)"', source.read_text(encoding="utf-8")))
-    assert names, "В исходниках не найдены ссылки на текстуры"
-    assert (ROOT / "assets" / "textures" / "Event columns.png").is_file(), "Не найдена текстура дня рождения колонок"
+    assert names, "No texture references found in the sources"
+    assert (ROOT / "assets" / "textures" / "Event columns.png").is_file(), "Missing the Event columns texture"
     helpy = ROOT / "assets" / "textures" / "npc_helpy.png"
-    assert helpy.is_file(), "Не найдена текстура NPC Хелпи"
+    assert helpy.is_file(), "Missing the NPC Helpy texture"
     with helpy.open("rb") as sprite:
         header = sprite.read(24)
-    assert header[:8] == b"\x89PNG\r\n\x1a\n", "Текстура Хелпи должна быть PNG"
-    assert (int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")) == (512, 512), "Текстура Хелпи должна быть 512x512"
+    assert header[:8] == b"\x89PNG\r\n\x1a\n", "The Helpy texture must be PNG"
+    assert (int.from_bytes(header[16:20], "big"), int.from_bytes(header[20:24], "big")) == (512, 512), "The Helpy texture must be 512x512"
     missing = [
         name for name in sorted(names)
         if not (ROOT / "assets" / "textures" / name.split("/")[-1]).is_file()
     ]
-    assert not missing, f"Не найдены текстуры: {missing}"
+    assert not missing, f"Missing textures: {missing}"
 
     required = (
         ROOT / "assets" / "textures" / "astra_xastra_card.png",
-        ROOT / "assets" / "audio" / "lobbymusic.wav",
-        ROOT / "assets" / "audio" / "winter_jingle.wav",
-        ROOT / "assets" / "audio" / "duel_theme.wav",
-        ROOT / "assets" / "audio" / "disco_medusae_kevin_macleod.mp3",
-        ROOT / "assets" / "audio" / "Disco-Medusae-NOTICE.txt",
-        ROOT / "assets" / "audio" / "licenses" / "Disco-Medusae-CC-BY-4.0.txt",
-        ROOT / "third_party" / "music" / "Disco Medusae - Kevin MacLeod.mp3",
-        ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
+        ROOT / "assets" / "audio" / "tracks" / "lobby.wav",
+        ROOT / "assets" / "audio" / "tracks" / "winter_lobby.wav",
+        ROOT / "assets" / "audio" / "tracks" / "duel.wav",
+        ROOT / "assets" / "audio" / "sfx" / "punch.wav",
         ROOT / "assets" / "hack" / "h4c4k0r.bin",
         ROOT / "assets" / "hack" / "h4c4k0r.so",
+        ROOT / "assets" / "fonts" / "ComicRelief-Regular.ttf",
         ROOT / "assets" / "shaders" / "sprite.vert",
         ROOT / "assets" / "shaders" / "solid.frag",
         ROOT / "assets" / "shaders" / "image.frag",
         ROOT / "assets" / "shaders" / "tint.frag",
     )
     for asset in required:
-        assert asset.is_file(), f"Не найден ресурс: {asset.relative_to(ROOT)}"
+        assert asset.is_file(), f"Missing asset: {asset.relative_to(ROOT)}"
 
     durations = {
-        "lobbymusic.wav": 70,
-        "winter_jingle.wav": 70,
-        "duel_theme.wav": 45,
+        "lobby.wav": 70,
+        "winter_lobby.wav": 70,
+        "duel.wav": 45,
     }
     for name, expected in durations.items():
-        path = ROOT / "assets" / "audio" / name
+        path = ROOT / "assets" / "audio" / "tracks" / name
         with wave.open(str(path), "rb") as audio:
-            assert audio.getnchannels() == 2 and audio.getsampwidth() == 2, f"Неверный формат музыки: {name}"
+            assert audio.getnchannels() == 2 and audio.getsampwidth() == 2, f"Wrong music format: {name}"
             duration = audio.getnframes() / audio.getframerate()
-            assert abs(duration - expected) < 0.001, f"Неверная длительность {name}: {duration}"
+            assert abs(duration - expected) < 0.001, f"Wrong duration for {name}: {duration}"
 
     # The old "Azum vs Astra" song and its reference mp3 must stay removed.
-    assert not (ROOT / "assets" / "audio" / "azum_vs_astra.wav").exists(), "Старая песня azum_vs_astra.wav вернулась"
-    assert not (ROOT / "And_The_Seraphim_Wept.mp3").exists(), "Сторонний mp3 снова в репозитории"
-    assert not (ROOT / "tools" / "generate_seraphim.py").exists(), "Генератор старой песни снова в репозитории"
+    assert not (ROOT / "assets" / "audio" / "azum_vs_astra.wav").exists(), "The old song azum_vs_astra.wav is back"
+    assert not (ROOT / "assets" / "audio" / "tracks" / "azum_vs_astra.wav").exists(), "The old song is back"
+    assert not (ROOT / "And_The_Seraphim_Wept.mp3").exists(), "A third-party mp3 is in the repository again"
+    assert not (ROOT / "tools" / "generate_seraphim.py").exists(), "The generator of the old song is back"
 
-    with wave.open(str(ROOT / "assets" / "audio" / "duel_theme.wav"), "rb") as duel:
-        assert duel.getnchannels() == 2 and duel.getsampwidth() == 2, "Неверный формат duel_theme.wav"
+    with wave.open(str(ROOT / "assets" / "audio" / "tracks" / "duel.wav"), "rb") as duel:
+        assert duel.getnchannels() == 2 and duel.getsampwidth() == 2, "Wrong duel.wav format"
         rate = duel.getframerate()
         head = duel.readframes(rate * 5)
         import struct, math
         samples = struct.unpack("<" + "h" * (len(head) // 2), head)
         rms5 = math.sqrt(sum(x * x for x in samples) / len(samples))
-        assert rms5 >= 4000.0, f"duel_theme.wav слишком тихий в начале боя (RMS={rms5:.1f})"
+        assert rms5 >= 4000.0, f"duel.wav is too quiet at the start of the fight (RMS={rms5:.1f})"
 
-    assert not (ROOT / "assets" / "audio" / "halloween_lobby.wav").exists(), "Хэллоуинская музыка вернулась"
+    assert not (ROOT / "assets" / "audio" / "halloween_lobby.wav").exists(), "The Halloween music is back"
 
 
 def check_port_layout() -> None:
-    assert not list(ROOT.rglob("*.ds")), "В C-порте остались исходники старого языка"
-    assert not (ROOT / "game").exists(), "Старый каталог game не должен использоваться"
-    assert not (ROOT / "native").exists(), "Старый каталог native не должен использоваться"
+    assert not list(ROOT.rglob("*.ds")), "Old language sources are left in the C port"
+    assert not (ROOT / "game").exists(), "The old game directory must not be used"
+    assert not (ROOT / "native").exists(), "The old native directory must not be used"
     required = (
         ROOT / "src" / "game",
         ROOT / "src" / "engine",
@@ -216,20 +195,59 @@ def check_port_layout() -> None:
         ROOT / "platform" / "android",
     )
     for directory in required:
-        assert directory.is_dir(), f"Нет каталога проекта: {directory.relative_to(ROOT)}"
+        assert directory.is_dir(), f"Missing project directory: {directory.relative_to(ROOT)}"
 
     old_prefix = "ds" + "_fn_"
     for source in (ROOT / "src" / "game").rglob("*.inc"):
         assert old_prefix not in source.read_text(encoding="utf-8"), source
 
 
+def check_audio_rights() -> None:
+    """Each WAV carries the project's copyright notice and nobody else's sound."""
+
+    sys.path.insert(0, str(ROOT / "tools"))
+    import audio_rights
+
+    files = sorted((ROOT / "assets" / "audio").rglob("*.wav"))
+    assert files, "No audio files found"
+    for path in files:
+        info = audio_rights.read_info(path)
+        name = path.relative_to(ROOT).as_posix()
+        assert info.get("ICOP") == audio_rights.COPYRIGHT, f"{name}: no project copyright notice"
+        assert info.get("IART") == audio_rights.RIGHTS_HOLDER_LATIN, f"{name}: wrong author"
+        assert info.get("INAM"), f"{name}: no track name"
+        assert info.get("ISFT", "").startswith("tools/"), f"{name}: no generator recorded"
+        assert "third-party" in info.get("ICMT", ""), f"{name}: the notice must state the sound is original"
+
+    # A leaked recording would be the one thing the notice cannot cover.
+    for pattern in ("*.mp3", "*.m4a", "*.ogg", "*.flac", "*.aac"):
+        stray = sorted((ROOT / "assets").rglob(pattern)) + sorted(ROOT.glob(pattern))
+        assert not stray, f"Third-party audio in the repository: {[p.name for p in stray]}"
+
+
+def check_disco_loops() -> None:
+    """The disco soundtrack lives in disco/ and must stay a real, loopable set."""
+    import subprocess
+    result = subprocess.run(
+        [sys.executable, str(ROOT / "tools" / "test_disco_loops.py")],
+        capture_output=True, text=True,
+    )
+    assert result.returncode == 0, f"Disco loops failed the check:\n{result.stderr}{result.stdout}"
+
+
 def main() -> int:
     check_port_layout()
     check_assets()
-    check_disco_music()
     check_firebase_rules()
     check_write_secret()
-    print("Ресурсы и схема сети: норма")
+    check_audio_rights()
+    # The rules check depends on a migrated live database, so it is reported but
+    # never hides the other problems (and never blocks the disco soundtrack).
+    try:
+        check_disco_loops()
+    except AssertionError as error:
+        raise AssertionError(f"Disco loops failed the check: {error}") from error
+    print("Assets and network schema: ok")
     return 0
 
 

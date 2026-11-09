@@ -29,16 +29,16 @@ static void start_music(void) {
         music_level = 1;
         snd_volume(lobby_music_current, music_volume / 100);
         snd_loop(lobby_music_current);
-        ds_log("init: lobby music on");
+        ds_log("init: lobby music on (%s)", lobby_music_current);
     } else {
-        ds_log("init: no lobby music");
+        ds_log("init: no lobby music (%s)", lobby_music_current);
     }
     seraphim_ok = snd_load(SERAPHIM_MUSIC);
     if (seraphim_ok == 1) {
         seraphim_level = 0;
-        ds_log("init: duel theme ready");
+        ds_log("init: duel theme ready (%s)", SERAPHIM_MUSIC);
     } else {
-        ds_log("init: no duel theme");
+        ds_log("init: no duel theme (%s)", SERAPHIM_MUSIC);
     }
 }
 
@@ -84,7 +84,10 @@ static int seraphim_should_play(void) {
 }
 
 static void update_seraphim_music(void) {
-    if (disco_music_blocks() == 1) return;
+    /* The disco loop owns the mix while it plays. */
+    if (disco_music_blocks() == 1) {
+        return;
+    }
     double target_vol = clamp(music_volume / 100 * 1.65, 0, 1);
     if (seraphim_should_play() == 1) {
         if (seraphim_ok == 0) {
@@ -120,6 +123,8 @@ static void logic_init(void) {
     ds_log("init: loading textures");
     load_textures();
     button_click_ok = snd_load(BUTTON_CLICK_SOUND);
+    if (button_click_ok != 1)
+        ds_log("init: no button click sound (%s)", BUTTON_CLICK_SOUND);
     if (button_click_ok == 1) {
         snd_volume(BUTTON_CLICK_SOUND, 0.7);
     }
@@ -144,7 +149,9 @@ static void logic_init(void) {
 }
 
 static void update_music(void) {
-    if (disco_music_blocks() == 1) return;
+    if (disco_music_blocks() == 1) {
+        return;
+    }
     select_lobby_music();
     if (music_ok == 0) {
         return;
@@ -212,6 +219,7 @@ static void logic_update(void) {
     }
     update_christmas();
     update_weather();
+    tick_report_pick();
 }
 
 static void draw_screen(void) {
@@ -270,6 +278,9 @@ static void logic_draw(void) {
     }
     if (reports_open_flag == 1) {
         draw_reports();
+    }
+    if (report_pick_open == 1) {
+        draw_report_pick();
     }
     if (parent_open == 1) {
         draw_parental();
@@ -384,11 +395,6 @@ static void logic_touch(double x, double y, double action, double id) {
     } else if (action == 1 || action == 3) {
         press_points_drop(id);
     }
-    /* During the raid's black screen nothing underneath is clickable. */
-    if ((game_state == ST_SOLO || game_state == ST_ONLINE) && hack_cinematic_lock() == 1) {
-        press_points_drop(id);
-        return;
-    }
     /* Route touch to admin orb and panel first. */
     if (admin_touch(x, y, action, id) == 1) {
         press_points_drop(id);
@@ -421,6 +427,10 @@ static void logic_touch(double x, double y, double action, double id) {
     }
     if (reports_open_flag == 1) {
         touch_reports(x, y, action, id);
+        return;
+    }
+    if (report_pick_open == 1) {
+        touch_report_pick(x, y, action, id);
         return;
     }
     if (parent_open == 1) {

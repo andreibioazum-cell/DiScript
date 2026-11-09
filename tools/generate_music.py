@@ -1,19 +1,18 @@
 #!/usr/bin/env python3
-"""Writes the three original project themes with no third-party libraries.
-
-The external Kevin MacLeod disco recording is deliberately excluded; rebuild
-it with tools/import_disco_music.py, never with note synthesis.
+"""Writes every in-game music track with no third-party libraries.
 
 All tracks are 22.05 kHz stereo 16-bit PCM WAV:
 
-  * ``lobbymusic.wav``    - 70 s ordinary lobby theme (4 developed sections)
-  * ``winter_jingle.wav`` - 70 s New Year lobby theme (4 developed sections)
-  * ``duel_theme.wav``    - 45 s Azum-vs-Astra duel theme (24 bars @ 128 BPM)
+  * ``lobby.wav``        - 70 s ordinary lobby theme (4 developed sections)
+  * ``winter_lobby.wav`` - 70 s New Year lobby theme (4 developed sections)
+  * ``duel.wav``         - 45 s Azum-vs-Astra duel theme (24 bars @ 128 BPM)
+
+All three are written to ``assets/audio/tracks`` next to the eight disco loops.
 
 The old ``azum_vs_astra.wav`` imitation of "And The Seraphim Wept" and its
-reference mp3 are gone; ``duel_theme.wav`` is a completely original, brighter
+reference mp3 are gone; ``duel.wav`` is a completely original, brighter
 composition. Run ``python3 tools/generate_music.py`` to rebuild all three;
-pass one or more of those file names to rebuild only those.
+pass one or more file names to rebuild only those.
 """
 
 from __future__ import annotations
@@ -22,10 +21,13 @@ from array import array
 import math
 from pathlib import Path
 import sys
-import wave
+
+sys.path.insert(0, str(Path(__file__).resolve().parent))
+
+import audio_rights  # noqa: E402
 
 ROOT = Path(__file__).resolve().parents[1]
-AUDIO = ROOT / "assets" / "audio"
+AUDIO = ROOT / "assets" / "audio" / "tracks"
 RATE = 22050
 TAU = math.tau
 _noise_state = 0x6A09E667
@@ -209,12 +211,8 @@ def write_track(path: Path, left: array, right: array, fade_in: float, fade_out:
     for i in range(frames):
         pcm.append(int(max(-32767, min(32767, left[i] * scale * 32767))))
         pcm.append(int(max(-32767, min(32767, right[i] * scale * 32767))))
-    path.parent.mkdir(parents=True, exist_ok=True)
-    with wave.open(str(path), "wb") as output:
-        output.setnchannels(2)
-        output.setsampwidth(2)
-        output.setframerate(RATE)
-        output.writeframes(pcm.tobytes())
+    audio_rights.write_wav(path, 2, RATE, pcm.tobytes(), path.stem,
+                          "tools/generate_music.py")
     print(f"{path.relative_to(ROOT)}: {frames / RATE:.2f} с")
 
 
@@ -320,6 +318,24 @@ def winter_track() -> tuple[array, array]:
     return left, right
 
 
+DUEL_BEAT = 60.0 / 128.0
+DUEL_SLOT = DUEL_BEAT * 4
+DUEL_SLOTS = (
+    (57, (57, 60, 64), (76, 72, 69, 72)), (57, (57, 60, 64), (76, 79, 81, 79)),
+    (53, (53, 57, 60), (72, 74, 77, 74)), (55, (55, 59, 62), (74, 76, 79, 77)),
+    (57, (57, 60, 64), (81, 79, 76, 72)), (57, (57, 60, 64), (84, 81, 79, 76)),
+    (48, (48, 52, 55), (79, 76, 72, 76)), (55, (55, 59, 62), (83, 79, 74, 79)),
+    (57, (57, 60, 64), (76, 77, 79, 81)), (52, (52, 55, 59), (79, 76, 72, 74)),
+    (53, (53, 57, 60), (81, 84, 81, 77)), (55, (55, 59, 62), (79, 83, 86, 83)),
+    (57, (57, 60, 64), (84, 81, 79, 76)), (52, (52, 55, 59), (76, 79, 83, 79)),
+    (53, (53, 57, 60), (77, 81, 84, 81)), (55, (55, 59, 62), (79, 83, 86, 88)),
+    (57, (57, 60, 64), (88, 84, 81, 84)), (57, (57, 60, 64), (86, 84, 81, 79)),
+    (48, (48, 52, 55), (84, 81, 76, 81)), (55, (55, 59, 62), (83, 84, 86, 83)),
+    (57, (57, 60, 64), (81, 84, 88, 84)), (52, (52, 55, 59), (79, 83, 86, 83)),
+    (53, (53, 57, 60), (84, 81, 77, 81)), (57, (57, 60, 64), (88, 84, 81, 76)),
+)
+
+
 def duel_track() -> tuple[array, array]:
     left, right = stereo(45.0)
     beat = DUEL_BEAT
@@ -378,14 +394,11 @@ def duel_track() -> tuple[array, array]:
 
 def main(argv: list[str] | None = None) -> int:
     tracks = (
-        ("lobbymusic.wav", lobby_track, 0.025, 0.025),
-        ("winter_jingle.wav", winter_track, 0.025, 0.025),
-        ("duel_theme.wav", duel_track, 0.02, 0.06),
+        ("lobby.wav", lobby_track, 0.025, 0.025),
+        ("winter_lobby.wav", winter_track, 0.025, 0.025),
+        ("duel.wav", duel_track, 0.02, 0.06),
     )
     wanted = set(argv or [])
-    unknown = wanted - {name for name, _, _, _ in tracks}
-    if unknown:
-        raise ValueError(f"Not generated project music: {sorted(unknown)}; use import_disco_music.py for the disco recording")
     for name, builder, fade_in, fade_out in tracks:
         if wanted and name not in wanted:
             continue

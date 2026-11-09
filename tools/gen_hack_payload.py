@@ -42,7 +42,7 @@ COMMANDS = (
 )
 BUTTON_COUNT = 14   # menu buttons that rain down as physical cover
 CANE_COUNT = 10     # exactly ten Ded Moroz canes in the compensation rain
-CANE_CANDY = 3      # candies ("на чай") per collected cane
+CANE_CANDY = 3      # candies per collected cane
 
 
 def payload(magic: bytes, platform: int) -> bytes:

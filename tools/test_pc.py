@@ -565,7 +565,7 @@ def test_ball(assets: Path) -> None:
 
 
 def test_ult_mode_switch(assets: Path) -> None:
-    """The little button above the ult of "буК": dispenser or ball.
+    """The little button above the ult of the ebuC class: dispenser or ball.
 
     The pad itself never charges anything: in dispenser mode a press fires the
     usual super at once, however long the finger stays. Switching the button
@@ -687,12 +687,7 @@ def test_admin_commands_and_disco(assets: Path) -> None:
         strip = b"".join(pixels[y * stride:(y + 1) * stride] for y in range(height - 681, height - 608))
         colors = bmp_colors(strip, width, 73, step=1)
         check("flat gray event buttons match the mockup palette", colors.get(b"\x33\x33\x33", 0) > 3000, str(colors.get(b"\x33\x33\x33", 0)))
-    if disco.is_file():
-        width, height, pixels = read_bmp(disco)
-        stride = (width * 3 + 3) // 4 * 4
-        footer = b"".join(pixels[y * stride:(y + 1) * stride] for y in range(height - 80, height - 32))
-        colors = bmp_colors(footer, width, 48, step=1)
-        check("disco author/licence footer is visible", colors.get(b"\xff\xff\xff", 0) > 30, str(colors.get(b"\xff\xff\xff", 0)))
+    # Our own loop carries no third-party credit line: nothing to draw there.
 
 
 def test_hacker_raid_cinematic(assets: Path) -> None:

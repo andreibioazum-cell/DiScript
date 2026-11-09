@@ -2249,11 +2249,7 @@ static void test_disco_music(void) {
     music_volume = 20;
     update_disco_music();
     assert(fabs(disco_vol - 0.2) < 1e-9);
-    adm_reset_log();
-    draw_disco_credit();
-    assert(adm_has_text("Disco Medusae") == 1 && adm_has_text("Kevin MacLeod") == 1);
-    assert(adm_has_text("CC BY 4.0") == 1);
-    assert(disco_credit_hit(screen_w / 2, screen_h - 40) == 1);
+    /* Our own loop needs no third-party credit overlay in battle. */
     event_mode = 0;
     assert(disco_should_play() == 0 && disco_music_blocks() == 1);
     for (int i = 0; i < 6; i++) update_disco_music();
@@ -2266,8 +2262,6 @@ static void test_disco_music(void) {
     assert(disco_should_play() == 0);
     finished = 0;
     assert(disco_should_play() == 1);
-    assert(strcmp(legal_line(LEGAL_PAGES - 1, 4), "https://creativecommons.org/licenses/by/4.0/") == 0);
-    assert(strstr(legal_line(LEGAL_PAGES - 1, 1), "Kevin MacLeod") != NULL);
     game_state = saved_state; event_mode = saved_event; finished = saved_finished;
     music_volume = saved_volume; dt = saved_dt; disco_ok = saved_ok; disco_level = saved_level;
     music_level = saved_lobby; seraphim_level = saved_duel;
@@ -2276,7 +2270,7 @@ static void test_disco_music(void) {
     lobby_music_current = saved_lobby_track;
     lobby_playing = saved_lp; seraphim_playing = saved_sp; winter_playing = saved_wp;
     disco_playing = 0;
-    puts("disco music: real bundled track, loop, volume, exclusive playback, fade and credits OK");
+    puts("disco music: our own bundled loop, volume, exclusive playback and fade OK");
 }
 
 /* Promo 2027: the success text is a private copy, not a pointer into the
@@ -2796,6 +2790,36 @@ static void test_hacker_event(void) {
     assert(hack_payload_ok == 1 && hack_payload_bytes == 39);
     assert(hack_cmd_n == 8 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);
     assert(str_len(hack_junk_label(0)) > 0 && str_len(hack_junk_label(9)) > 0);
+    /* The junk buttons are written in Title Case, never in capitals: the first
+     * word is capitalised and the rest of the words are not shouted. */
+    {
+        static const char *const junk_ru[10] = {"Выйти в меню", "Купить премиум", "Настройки звука",
+                                                "Выбор карты", "Удалить Cubic Battle", "Получить 1 000 000 звёзд",
+                                                "Настройки", "Магазин", "Достижения", "Аккаунт"};
+        double saved_lang = language;
+        language = 1;
+        for (i = 0; i < 10; i++) {
+            assert(strcmp(hack_junk_label((double)i), junk_ru[(int)i]) == 0);
+            /* No capitals beyond the first letter of each word. */
+            const char *lab = hack_junk_label((double)i);
+            int ci = 0, caps = 0;
+            while (lab[ci] != 0) {
+                /* Cyrillic A-Z live in D0 90..D0 AF, lowercase in D0 B0..D1 BF. */
+                if (lab[ci] == (char)0xD0 && (unsigned char)lab[ci + 1] >= 0x90 &&
+                    (unsigned char)lab[ci + 1] <= 0xAF) {
+                    caps++;
+                } else if (lab[ci] >= 'A' && lab[ci] <= 'Z') {
+                    caps++;
+                }
+                ci++;
+            }
+            assert(caps <= 4); /* only the first letters of the words */
+        }
+        language = 0;
+        assert(strcmp(hack_junk_label(0), "Quit to menu") == 0);
+        assert(strcmp(hack_junk_label(4), "Delete Cubic Battle") == 0);
+        language = saved_lang;
+    }
     draw_hacker_event();
     draw_hacker_world();
 
@@ -2811,8 +2835,11 @@ static void test_hacker_event(void) {
     assert(hack_cmd_idx == 8 && hack_cloud_on == 1 && hack_tornado_on == 1);
     assert(hack_second_open() == 0); /* cloud is visible first */
     for (i = 0; i < 80; i++) update_hacker_event(); /* t ~= 47 */
-    assert(hack_second_open() == 1);
-    assert(hack_line_start(11) >= HACK_SECOND_AT);
+    /* The console is merged: Azum's answer joins the hacker's own window, so
+     * there is no second terminal to wait for. */
+    assert(hack_second_open() == 0);
+    assert(hack_line_win(11) == 0 && hack_line_win(10) == 0);
+    assert(hack_line_start(11) >= hack_line_start(0));
     /* Props are inert: the real event stays 7 and no reward/plate state ran. */
     assert(event_mode == HACK_EVENT && plates_phase == 0);
     draw_hacker_event();
@@ -2834,19 +2861,16 @@ static void test_hacker_event(void) {
     assert(hack_touch(bx + bw / 2, by + bh / 2, 0, 1) == 1);
     assert(arr_get(hack_buttons, HB_PRESS) > 0);
 
-    /* Both consoles drag by their title bars and release cleanly. */
+    /* The merged console drags by its title bar and releases cleanly. */
     {
-        int win;
-        for (win = 0; win <= 1; win++) {
-            double wx = hack_term_x[win];
-            double wy = hack_term_y[win];
-            assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
-            hack_touch(wx + 62, wy + 43, 2, 9);
-            hack_touch(wx + 62, wy + 43, 1, 9);
-            assert(fabs(hack_term_x[win] - (wx + 50)) < 1e-6);
-            assert(fabs(hack_term_y[win] - (wy + 40)) < 1e-6);
-            assert(hack_drag_win == -1);
-        }
+        double wx = hack_term_x[0];
+        double wy = hack_term_y[0];
+        assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
+        hack_touch(wx + 62, wy + 43, 2, 9);
+        hack_touch(wx + 62, wy + 43, 1, 9);
+        assert(fabs(hack_term_x[0] - (wx + 50)) < 1e-6);
+        assert(fabs(hack_term_y[0] - (wy + 40)) < 1e-6);
+        assert(hack_drag_win == -1);
     }
     draw_hacker_event();
     draw_hacker_world();
@@ -2976,13 +3000,14 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(ball.vx - 0.6 * BALL_SPEED) < 1e-6 && fabs(ball.vy + 0.8 * BALL_SPEED) < 1e-6);
     ball_reset();
 
-    /* Solo enemies now deal full class damage instead of the old 20% cut. */
+    /* Solo enemies deal 80% of their class damage, as they did before the
+     * short-lived 100% buff. */
     assert(fabs(enemy_dash_damage - 2.8) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 1.00) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 1.00) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 1.00) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 1.00) < 1e-9);
-    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.00) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 0.80) < 1e-9);
+    assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
     /* ebuC ball bounce scaling: 0.15 base dmg, +2.8 on first bounce, x1.28 gain and x1.04 speed per bounce. */
@@ -4162,8 +4187,8 @@ int main(void) {
     assert(astra_cd_for(1) < astra_cd_for(0));
     assert(astra_zone_reach(2) > astra_zone_reach(1));
     assert(astra_strike_damage_for(3) > astra_strike_damage_for(2));
-    assert(strcmp(WINTER_JINGLE, "winter_jingle.wav") == 0);
-    assert(strcmp(SERAPHIM_MUSIC, "duel_theme.wav") == 0);
+    assert(strcmp(WINTER_JINGLE, "winter_lobby.wav") == 0);
+    assert(strcmp(SERAPHIM_MUSIC, "duel.wav") == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
@@ -4177,7 +4202,7 @@ int main(void) {
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 20.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
-    assert(enemy_damage_mult_for(CLASS_ORDINARY) == 1.0); /* enemies deal full class damage now */
+    assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
     assert(max_level == 4 && level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 &&
            level_cost(2) == 70 && level_cost(3) == 90 && level_cost(4) == 110);
@@ -4536,6 +4561,47 @@ int main(void) {
     update_christmas_jingle();
     assert(winter_playing == 0);
     stub_login_status = 2;
+    /* Disco event: the game plays our own loop - never a third-party recording -
+     * and it cuts the lobby theme while the fight runs. */
+    assert(strcmp(DISCO_MUSIC, "disco_01_roller_rink_sunset.wav") == 0);
+    disco_ok = 0;
+    disco_level = 0;
+    disco_playing = 0;
+    disco_loop_calls = 0;
+    disco_vol = 0;
+    lobby_playing = 1;
+    seraphim_playing = 0;
+    game_state = ST_ONLINE;
+    finished = 0;
+    event_mode = 1;
+    assert(disco_should_play() == 1);
+    update_disco_music();
+    assert(disco_ok == 1 && disco_playing == 1 && lobby_playing == 0);
+    assert(disco_loop_calls == 1);
+    for (int f = 0; f < 30; f++) {
+        update_disco_music();
+    }
+    /* The loop is never restarted on a tick, only faded up once. */
+    assert(disco_loop_calls == 1 && disco_vol > 0.2);
+    assert(disco_music_blocks() == 1);
+    /* Outside the event nothing of it stays: the level falls to zero and stops. */
+    event_mode = 0;
+    for (int f = 0; f < 60; f++) {
+        update_disco_music();
+    }
+    assert(disco_level == 0 && disco_playing == 0 && disco_music_blocks() == 0);
+    /* Solo fight with event 1 plays it too. */
+    game_state = ST_SOLO;
+    event_mode = 1;
+    update_disco_music();
+    assert(disco_playing == 1);
+    event_mode = 0;
+    game_state = ST_LOBBY;
+    finished = 0;
+    for (int f = 0; f < 60; f++) {
+        update_disco_music();
+    }
+    assert(disco_playing == 0);
     /* Azum vs Astra battle music: starts immediately in Solo and Online, cuts
      * lobby music cleanly, reaches battle volume, and stops outside the matchup. */
     seraphim_ok = 0;
@@ -5775,6 +5841,44 @@ int main(void) {
         }
         assert(red_hit >= 2);
 
+        /* The cheat predicts the PLAYER's ball only: while the bot's ball is
+         * in flight - and while the bot ebuC is aiming a new one - the enemy
+         * path (amber 0x00FFD54F and its red danger segments) is never drawn. */
+        enemy_ball_fire();
+        assert(enemy_ball_active() == 1);
+        enemy_ball.bounces = 2; /* a path that would bounce across the screen */
+        adm_reset_log();
+        draw_enemy_ball();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            uint32_t c = adm_colors[ci] & 0x00FFFFFFu;
+            assert(c != 0x00FFD54Fu && c != 0x00FF2D2Du);
+        }
+        /* The ball body itself still shows: the path is what stays hidden. */
+        assert(adm_has_text(admin_cheat_label(6)) == 0);
+        enemy_ball_reset();
+        /* An aiming bot ebuC leaks nothing either, even with the cheat on. */
+        enemy_class = CLASS_EBUC;
+        enemy_ball_mode = 1;
+        enemy->angle = 1.2;
+        adm_reset_log();
+        draw_enemy_ball();
+        for (int ci = 0; ci < adm_color_n; ci++) {
+            uint32_t c = adm_colors[ci] & 0x00FFFFFFu;
+            assert(c != 0x00FFD54Fu && c != 0x00FF2D2Du);
+        }
+        /* ...and the player's own path is still drawn right next to it. */
+        adm_reset_log();
+        draw_ball();
+        {
+            int amber = 0;
+            for (int ci = 0; ci < adm_color_n; ci++)
+                if ((adm_colors[ci] & 0x00FFFFFFu) == 0x00FFD54Fu)
+                    amber++;
+            assert(amber == 0 && adm_color_n > 0);
+        }
+        enemy_class = CLASS_ORDINARY;
+        enemy_ball_mode = 0;
+
         admin_press_cheat(6);
         assert(admin_cheat_ball_path() == 0);
         cheat_stain = 0;
@@ -6566,6 +6670,8 @@ int main(void) {
          * now Admin commands, while Gifts stays exclusive to the primary. */
         assert(admin_commands_allowed() == 1 && admin_tab_slots() == 2);
         admin_tab = 1;
+        /* No gift tab, but the events tab is a real second tab: the left half
+         * returns to the modifier switches, the right half opens events. */
         admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
         assert(admin_tab == 2);
         adm_reset_log();
@@ -6633,7 +6739,7 @@ int main(void) {
         assert(admin_modifiers_allowed() == 1 && admin_gifts_allowed() == 0);
         admin_panel_open = 1;
         admin_tab = 1;
-        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
         assert(admin_tab == 0);
         adm_reset_log();
         admin_draw();
@@ -6645,7 +6751,7 @@ int main(void) {
         game_state = ST_LOBBY;
         admin_panel_open = 1;
         admin_tab = 1;
-        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.75, admin_content_top() + 8);
+        admin_panel_press(admin_panel_x() + admin_panel_w() * 0.25, admin_content_top() + 8);
         assert(admin_tab == 0);
         adm_reset_log();
         language = 1;
@@ -7384,6 +7490,108 @@ int main(void) {
         snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
     }
     puts("wheel quest: public button, one spin per six wins, capped at 999");
+
+    /* Complaints: one row at a time is picked, the ban/done buttons sit in the
+     * middle of the row, and the online panel reports a real player. */
+    {
+        double saved_state = game_state;
+        double saved_slot = stub_net_slot;
+        stub_report_n = 0;
+        stub_login_status = 2;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "Tester");
+        stub_online[0] = 1;
+        snprintf(stub_nicks[0], sizeof(stub_nicks[0]), "Tester");
+        stub_online[1] = 1;
+        snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "Rude");
+        stub_online[2] = 0;
+        stub_online[3] = 0;
+        stub_net_slot = 0;
+        net_report_send("Rude", "rude", "main");
+        net_report_send("Rude", "rude", "main");
+        assert(net_reports_count() == 2);
+
+        reports_open_flag = 1;
+        reports_sel = -1;
+        /* The pair of buttons is centred: equal free space on both sides. */
+        double pair = 2 * reports_btn_w() + reports_btn_gap();
+        assert(fabs(reports_ban_x() - (screen_w - pair) / 2) < 1e-9);
+        /* The gap between the two buttons is centred on the screen as well. */
+        assert(fabs((reports_ban_x() + reports_btn_w() + reports_btn_gap() / 2) - screen_w / 2) < 1e-9);
+        assert(reports_ban_x() > reports_card_x() && reports_done_x() + reports_btn_w() <
+               reports_card_x() + reports_card_w());
+        /* Nothing is picked yet: a tap where the buttons would be only picks the
+         * row, it never bans or deletes anything. */
+        touch_reports(reports_ban_x() + 4, reports_btn_y(reports_row_y(0)) + 4, 0, 1);
+        assert(net_reports_count() == 2 && reports_sel == 0);
+        touch_reports(reports_card_x() + 40, reports_row_y(0) + 20, 0, 1);
+        assert(reports_sel == -1);
+        /* One tap picks exactly the first row. */
+        touch_reports(reports_card_x() + 40, reports_row_y(0) + 20, 0, 1);
+        assert(reports_sel == 0);
+        /* A tap on the second row moves the selection: still a single row. */
+        touch_reports(reports_card_x() + 40, reports_row_y(1) + 20, 0, 1);
+        assert(reports_sel == 1);
+        /* Tapping the picked row again drops the selection. */
+        touch_reports(reports_card_x() + 40, reports_row_y(1) + 20, 0, 1);
+        assert(reports_sel == -1);
+        /* Buttons only work on the picked row. */
+        touch_reports(reports_card_x() + 40, reports_row_y(0) + 20, 0, 1);
+        assert(reports_sel == 0);
+        /* Tap the middle of "Готово": it must clear that complaint and drop the pick. */
+        touch_reports(reports_done_x() + reports_btn_w() / 2, reports_btn_y(reports_row_y(0)) + reports_btn_h() / 2,
+                      0, 1);
+        assert(net_reports_count() == 1 && reports_sel == -1);
+        reports_open_flag = 0;
+        reports_sel = -1;
+
+        /* New Year theme: every part of the overlay switches to the frosty
+         * palette instead of keeping the purple card colours. */
+        stub_link = 1;
+        stub_christmas = 0;
+        theme_mode = 0;
+        theme_chosen = 0;
+        uint32_t plain_panel = reports_blue_panel();
+        uint32_t plain_row = reports_blue_row();
+        stub_christmas = 1;
+        assert(winter_theme_on() == 1);
+        uint32_t ice_panel = reports_blue_panel();
+        uint32_t ice_row = reports_blue_row();
+        assert(plain_panel != ice_panel && plain_row != ice_row);
+        /* Ice is blue-dominant: the blue channel is the strongest one. */
+        assert(((ice_panel >> 16) & 255) < (ice_panel & 255));
+        assert(((ice_row >> 16) & 255) < (ice_row & 255));
+        assert(reports_blue_ring() != card_ring);
+        stub_christmas = 0;
+
+        /* Online complaint panel: one player picked by a tap, one report sent. */
+        game_state = ST_ONLINE;
+        stub_report_n = 0;
+        report_pick_open = 0;
+        assert(report_pick_btn_hit(report_pick_btn_x() + report_pick_btn_w() / 2,
+                                   report_pick_btn_y() + report_pick_btn_h() / 2) == 1);
+        assert(game_state == ST_ONLINE);
+        report_pick_open_panel();
+        assert(report_pick_open == 1 && report_pick_slot_sel == -1);
+        assert(report_pick_count() == 1);
+        assert(report_pick_slot(0) == 1);
+        /* Send does nothing until a player is picked. */
+        report_pick_send();
+        assert(net_reports_count() == 0);
+        touch_report_pick(report_pick_x() + 40, report_pick_rows_top() + 10, 0, 1);
+        assert(report_pick_slot_sel == 1);
+        touch_report_pick(report_pick_chip_x(2) + report_pick_chip_w() / 2, report_pick_chips_y() + 16, 0, 1);
+        assert(report_pick_reason == 2);
+        touch_report_pick(report_pick_send_x() + report_pick_action_w() / 2, report_pick_actions_y() + 23, 0, 1);
+        assert(net_reports_count() == 1 && report_pick_slot_sel == -1);
+        assert(report_pick_sent_t > 0);
+        touch_report_pick(report_pick_close_x() + btn_w / 2, report_pick_close_y() + 22, 0, 1);
+        assert(report_pick_open == 0);
+        stub_report_n = 0;
+        stub_online[1] = 0;
+        game_state = saved_state;
+        stub_net_slot = saved_slot;
+    }
+    puts("complaints: single pick, centred buttons, blue theme, online report");
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

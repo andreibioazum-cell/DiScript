@@ -30,7 +30,5 @@ cb4_shot.bmp
 cb4.log
 cb4_data/
 
-## Telegram-бот (bot/cb4_bot.py): локальная база и секреты не в git
-bot_data.db
-bot/*.local.py
+## Local secrets never go to git
 .env

@@ -24,12 +24,49 @@
 
 ## Музыка
 
-Три оригинальные темы (лобби, новогодняя и дуэль Азума против Астры) собираются
-из нот скриптом `python3 tools/generate_music.py`. Для диско используется
-настоящая опубликованная запись **«Disco Medusae» — Kevin MacLeod**, CC BY 4.0;
-она лежит в игре, зацикливается во время события и не требует интернета.
-Автор и лицензия видны в бою и правовом разделе. Подробности и происхождение
-файла: [docs/music.md](docs/music.md).
+Вся музыка оригинальная и лежит в одном месте, `assets/audio/tracks/`:
+
+* `lobby.wav` - обычная тема лобби, **70 секунд**;
+* `winter_lobby.wav` - новогодняя тема лобби, **70 секунд**;
+* `duel.wav` - тема боя Азума против Астры, **45 секунд**;
+* `disco_01_roller_rink_sunset.wav` - диско-ивент (событие 1) в бою, **30
+  секунд**, бесшовная петля.
+
+Короткие звуки ударов, способностей и кнопок лежат отдельно, в
+`assets/audio/sfx/`. При сборке `stage_assets.py` раскладывает это как
+`sounds/tracks/` и `sounds/sfx/` - так музыку и эффекты читает игра и на
+Android, и на ПК.
+
+```
+python3 tools/generate_music.py          # три темы, из нот
+python3 tools/generate_disco_loops.py    # диско-луп для ивента, из нот же
+```
+
+Никаких сэмплов, сторонних библиотек или чужих мелодий: всё считается кодом.
+
+**Права:** вся музыка и все звуки созданы для проекта и принадлежат
+правообладателю, `Дима Густенёв (Dimasi4ek229)`, на тех же условиях, что и код
+(см. [LICENSE](LICENSE)). Уведомление об авторских правах встроено в каждый
+WAV-файл - чанк RIFF `LIST/INFO` (`tools/audio_rights.py`), его проверяет
+`tools/test_resources.py`. Подробности: [docs/music.md](docs/music.md) и
+[docs/disco-loops.md](docs/disco-loops.md).
+
+## Диско-луп (1 трек на 30 секунд)
+
+Диско-ивент играет один **оригинальный** луп: `disco_01_roller_rink_sunset.wav`,
+30 секунд, A minor, 120 BPM. Темп подобран так, что 30 секунд укладываются в
+целое число тактов, стык всегда попадает на первую долю, а хвосты нот
+заворачиваются в начало файла, поэтому петля идёт без щелчка и провала.
+
+* **Пересобрать:** `python3 tools/generate_disco_loops.py`
+  (`--list` покажет темпы и число тактов).
+* **Проверить:** `python3 tools/test_disco_loops.py` - формат, длительность,
+  целые такты, отсутствие щелчка на стыке, уровень.
+* **Посмотреть:** `python3 tools/disco_preview.py` рисует осциллограмму лупа в
+  `docs/disco-preview.png`.
+
+Список с тональностями и BPM, а также устройство синтеза:
+[docs/disco-loops.md](docs/disco-loops.md).
 
 ## Установка APK
 
@@ -47,27 +84,12 @@ APK лежит в релизе `latest-build`: `CubicBattle4.apk`, рядом ф
 
 В левом верхнем углу лобби есть кнопка **Паки**. Текстурпак - это `.zip` или
 папка в `<данные игры>/packs/<имя>/`, где лежат файлы с теми же именами, что в
-`assets`: `textures/`, `sounds/`, `fonts/`. Включённый пак подменяет любую
-картинку, звук и шрифт игры без пересборки: выбор хранится в
+`assets`: `textures/`, `sounds/tracks/`, `sounds/sfx/`, `fonts/`. Включённый
+пак подменяет любую картинку, звук и шрифт игры без пересборки: выбор хранится в
 `packs/active.txt` и применяется сразу, картинки перечитываются на месте.
 Импорт идёт через файловый менеджер телефона (SAF); на ПК - через встроенный
 проводник. Паки делает сам игрок, поэтому распространять в них материалы игры
 нельзя (см. [LICENSE](LICENSE)).
-
-## Telegram-бот
-
-`bot/cb4_bot.py` - бот-компаньон: кубки раз в час, новости, премиум и
-админ-команды. Токен берётся из `CB4_BOT_TOKEN`, база - локальная SQLite.
-
-```
-pip install -r bot/requirements.txt
-export CB4_BOT_TOKEN="123456:AA..."
-python3 bot/cb4_bot.py
-```
-
-У игрока `Sanch` ник золотой, поэтому премиум в боте у него уже есть - заявку он
-не подаёт и звёзды не платит. Подробности и канон имени класса `буК` (род. `буКа`,
-англ. `ebuC` / `ebuC's`) - в [bot/README.md](bot/README.md).
 
 ## Веб-панель админа
 
@@ -139,8 +161,8 @@ and a keyboard-to-touch bridge. Details: [docs/pc-version.md](docs/pc-version.md
 
 The lobby has a small **Packs** button in the top-left corner. A texture pack is
 a `.zip` or a folder in `<game data>/packs/<name>/` holding files named like the
-ones in `assets`: `textures/`, `sounds/`, `fonts/`. The active pack replaces any
-picture, sound or font of the game without a rebuild: the choice is kept in
+ones in `assets`: `textures/`, `sounds/tracks/`, `sounds/sfx/`, `fonts/`. The
+active pack replaces any picture, sound or font of the game without a rebuild: the choice is kept in
 `packs/active.txt` and applied at once, textures are reloaded in place. Import
 goes through the phone file manager (SAF) on Android and through the built-in
 file manager on PC. Packs are made by players, so they must not redistribute the
@@ -148,11 +170,10 @@ game materials (see [LICENSE](LICENSE)).
 
 ## Music
 
-Three original project themes are rebuilt from notes with
-`python3 tools/generate_music.py`. Disco uses a real published recording,
-**“Disco Medusae” by Kevin MacLeod**, under CC BY 4.0. It is bundled for offline
-play, loops during the event, and shows author/license credits in battle and
-in the legal viewer. Provenance and conversion details: [docs/music.md](docs/music.md).
+Three original tracks: the ordinary and New Year lobby themes are **70 seconds**
+each, and the new Azum-vs-Astra duel theme is **45 seconds**. The old
+`azum_vs_astra.wav` song and its source mp3 are gone; every track is rebuilt
+from notes with `python3 tools/generate_music.py`. Details: [docs/music.md](docs/music.md).
 
 ## Web admin panel
 
