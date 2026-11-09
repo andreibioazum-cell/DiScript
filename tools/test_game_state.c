@@ -2524,25 +2524,41 @@ static void test_azum_buff(void) {
     puts("flash sale: -10% on all prices and purchase OK");
 }
 
-/* A high-damage ability must not erase either Azum life in two hits. */
-static void test_azum_hit_cap(void) {
+/* A high-damage ability must not erase Santa or either Azum life in two hits. */
+static void test_heavy_hit_cap(void) {
     game_reset();
     reset_battle();
     game_state = ST_SOLO;
     finished = 0;
-    assert(fabs(azum_max_hit_damage - 5.0) < 1e-9);
+    assert(fabs(max_hit_damage - 5.0) < 1e-9);
 
+    /* Santa proves that the protection is global, rather than Azum-only. */
+    player_class = CLASS_SANTA;
+    player_level = 0;
+    player->max_hp = player->hp = 20;
+    player_block = 0;
+    revive_prot = 0;
+    for (int i = 0; i < 3; i++)
+        take_damage(100);
+    assert(fabs(player->hp - 5.0) < 1e-9 && finished == 0);
+
+    enemy_class = CLASS_SANTA;
+    enemy->max_hp = enemy->hp = 20;
+    enemy_block_left = 0;
+    enemy_block_cd = 1;
+    enemy_revive_prot = 0;
+    for (int i = 0; i < 3; i++)
+        enemy_apply_damage(100);
+    assert(fabs(enemy->hp - 5.0) < 1e-9 && finished == 0);
+
+    /* Azum gets the same ceiling before and after the revive. */
     player_class = CLASS_AZUM;
     player_level = 1;
     player->max_hp = player->hp = azum_hp;
-    player_block = 0;
-    revive_prot = 0;
     azum_revived = 0;
     for (int i = 0; i < 3; i++)
         take_damage(100);
     assert(fabs(player->hp - 5.0) < 1e-9 && azum_revived == 0);
-
-    /* The revive's own damage reduction is resolved before the same cap. */
     player->hp = player->max_hp;
     azum_revived = 1;
     revive_prot = 0;
@@ -2554,12 +2570,10 @@ static void test_azum_hit_cap(void) {
     enemy->max_hp = enemy->hp = azum_hp;
     enemy_block_left = 0;
     enemy_block_cd = 1;
-    enemy_revive_prot = 0;
     enemy_revived = 0;
     for (int i = 0; i < 3; i++)
         enemy_apply_damage(100);
     assert(fabs(enemy->hp - 5.0) < 1e-9 && enemy_revived == 0);
-
     enemy->hp = enemy->max_hp;
     enemy_revived = 1;
     enemy_revive_prot = 0;
@@ -2569,7 +2583,7 @@ static void test_azum_hit_cap(void) {
         enemy_apply_damage(100);
     assert(fabs(enemy->hp - 5.0) < 1e-9 && finished == 0);
     game_state = ST_LOBBY;
-    puts("Azum: a single heavy hit is capped at 5 HP for both lives and sides");
+    puts("damage cap: every fighter keeps a life after three huge hits");
 }
 
 /* CodeCracker ult: nothing circles the cube - no disc, no ring, no arcs, no
@@ -3287,7 +3301,7 @@ static void test_eax229_and_rooms(void) {
         enemy->x = ball.x;
         enemy->y = ball.y;
         ball_tick();
-        assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+        assert(ball.active == 0 && fabs(enemy->hp - (20.0 - fmin(ball_damage_for(2), max_hit_damage))) < 1e-6);
 
         /* Expiry burst damages enemies inside BALL_BOOM_RADIUS (150) while sparing distant ones. */
         assert(fabs(BALL_BOOM_RADIUS - 150.0) < 1e-6 && BALL_BOOM_RADIUS > super_radius * 1.14);
@@ -3304,7 +3318,7 @@ static void test_eax229_and_rooms(void) {
         enemy->y = 360;
         ball_tick();
         assert(ball.active == 0 && ball.boom_t > 0);
-        assert(fabs(enemy->hp - (20.0 - ball_damage_for(4))) < 1e-6);
+        assert(fabs(enemy->hp - (20.0 - fmin(ball_damage_for(4), max_hit_damage))) < 1e-6);
 
         ball_reset();
         ball.active = 1;
@@ -3343,7 +3357,7 @@ static void test_eax229_and_rooms(void) {
         player->x = rb_x[1];
         player->y = rb_y[1];
         remote_bricks_tick();
-        assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+        assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - fmin(ball_damage_for(2), max_hit_damage))) < 1e-6);
 
         /* Online expiry blast: clips player within BALL_BOOM_RADIUS when rb_t expires. */
         player->hp = 20;
@@ -3358,7 +3372,7 @@ static void test_eax229_and_rooms(void) {
         player->y = 360;
         remote_bricks_tick();
         assert(rb_on[1] == 0 && rb_boom_t[1] > 0);
-        assert(fabs(player->hp - (20.0 - ball_damage_for(3))) < 1e-6);
+        assert(fabs(player->hp - (20.0 - fmin(ball_damage_for(3), max_hit_damage))) < 1e-6);
         stub_online[1] = 0;
         stub_brick[1] = 0;
         game_state = ST_LOBBY;
@@ -5706,7 +5720,7 @@ int main(void) {
     dt = saved_dt_astra;
     for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
-    assert(fabs(player->hp - (10.0 - astra_strike_damage_for(3))) < 1e-6);
+    assert(fabs(player->hp - (10.0 - fmin(astra_strike_damage_for(3), max_hit_damage))) < 1e-6);
     player_stun = 0;
     stub_level[1] = 0;
     stub_grab[1] = 0;
@@ -6509,7 +6523,7 @@ int main(void) {
     test_start_gate();
     test_promo_message();
     test_azum_buff();
-    test_azum_hit_cap();
+    test_heavy_hit_cap();
     test_class_stars();
     test_codecracker_fx();
     test_fps_meter();

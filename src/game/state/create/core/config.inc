@@ -204,9 +204,9 @@ online_ready = 0;
 max_players = 4;
 pi = 3.1415926535;
 azum_second_life_damage_reduction = 0.10;
-/* A complete Azum life cannot disappear to one oversized ability. This cap is
- * applied after shields, blocks and second-life mitigation on both sides. */
-azum_max_hit_damage = 5.0;
+/* A complete HP bar cannot disappear to one oversized ability. This cap is
+ * applied after shields, blocks and class-specific mitigation on both sides. */
+max_hit_damage = 5.0;
 azum_speed_bonus = 0.03;
 /* Combat ability damage and healing parameters. */
 azum_attack_heal = 0.20;

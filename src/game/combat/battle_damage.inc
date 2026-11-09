@@ -60,9 +60,9 @@ static double take_damage(double dmg) {
     if (player_class == CLASS_AZUM && azum_revived >= 1 && player_level >= 1) {
         real = real * (1 - clamp(azum_second_life_damage_reduction, 0, 0.9));
     }
-    /* Keep either Azum life from vanishing in two oversized hits. */
-    if (player_class == CLASS_AZUM && real > azum_max_hit_damage) {
-        real = azum_max_hit_damage;
+    /* A complete life bar needs more than two oversized hits to disappear. */
+    if (real > max_hit_damage) {
+        real = max_hit_damage;
     }
     if (real > 0) {
         player_hurt_a = 1;

@@ -120,10 +120,10 @@ static double enemy_apply_damage(double dmg) {
     if (enemy_class == CLASS_EBUC) {
         dmg = enemy_shield_absorb(dmg);
     }
-    /* Match the player-side safeguard: an Azum life needs at least four
+    /* Match the player-side safeguard: any full life needs more than two
      * unblocked damaging hits, even against a high-damage ability. */
-    if (enemy_class == CLASS_AZUM && dmg > azum_max_hit_damage) {
-        dmg = azum_max_hit_damage;
+    if (dmg > max_hit_damage) {
+        dmg = max_hit_damage;
     }
     if (dmg > 0) {
         enemy_hurt_a = 1;
