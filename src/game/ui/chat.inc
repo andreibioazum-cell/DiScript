@@ -41,6 +41,85 @@ static double is_admin(void) {
 
 static char admin_passwd_target_buf[24];
 
+/* Reporting is deliberately a chat command, not a row, menu, or battle
+ * button.  The short private notice confirms what happened without posting a
+ * fake system message to everyone in the room. */
+static char chat_notice[128];
+static double chat_notice_t;
+static double chat_notice_bad;
+
+static void chat_set_notice(const char *text, double bad) {
+    snprintf(chat_notice, sizeof(chat_notice), "%s", text ? text : "");
+    chat_notice_t = 3.0;
+    chat_notice_bad = bad;
+}
+
+static const char *chat_report_hint(void) {
+    return language == 1 ? "Сообщение · /жалоба Ник причина" : "Message · /report Nick reason";
+}
+
+static const char *chat_skip_spaces(const char *text) {
+    while (text && (*text == ' ' || *text == '\t'))
+        text++;
+    return text;
+}
+
+/* Return the text after a report command, or NULL for an ordinary chat line.
+ * Both command spellings work in either game language so a room can switch
+ * languages without changing the report syntax. */
+static const char *chat_report_payload(const char *text) {
+    const char *commands[] = {"/report", "/жалоба"};
+    size_t i;
+    if (!text)
+        return NULL;
+    for (i = 0; i < sizeof(commands) / sizeof(commands[0]); i++) {
+        size_t n = strlen(commands[i]);
+        if (strncmp(text, commands[i], n) == 0 &&
+            (text[n] == 0 || text[n] == ' ' || text[n] == '\t'))
+            return text + n;
+    }
+    return NULL;
+}
+
+/* Handle /report Nick reason and /жалоба Ник причина.  A handled command is
+ * never sent to public chat. */
+static double chat_report_command(const char *text) {
+    const char *payload = chat_report_payload(text);
+    const char *reason_start;
+    char nick[24];
+    char reason[128];
+    size_t n = 0;
+    if (!payload)
+        return 0;
+    payload = chat_skip_spaces(payload);
+    while (payload[n] && payload[n] != ' ' && payload[n] != '\t') {
+        if (n + 1 >= sizeof(nick)) {
+            chat_set_notice(language == 1 ? "Слишком длинный ник" : "Nickname is too long", 1);
+            return 1;
+        }
+        nick[n] = payload[n];
+        n++;
+    }
+    nick[n] = 0;
+    reason_start = chat_skip_spaces(payload + n);
+    if (n == 0 || !reason_start || !*reason_start) {
+        chat_set_notice(language == 1 ? "Формат: /жалоба Ник причина" : "Format: /report Nick reason", 1);
+        return 1;
+    }
+    if (str_eq(nick, net_login_nick()) == 1) {
+        chat_set_notice(language == 1 ? "Нельзя пожаловаться на себя" : "You cannot report yourself", 1);
+        return 1;
+    }
+    snprintf(reason, sizeof(reason), "%s", chat_clean(reason_start));
+    if (!reason[0]) {
+        chat_set_notice(language == 1 ? "Укажите причину жалобы" : "Add a report reason", 1);
+        return 1;
+    }
+    net_report_send(nick, reason, net_current_room());
+    chat_set_notice(language == 1 ? "Жалоба отправлена" : "Report sent", 0);
+    return 1;
+}
+
 static const char *admin_actor_nick(void) {
     return admin_nick_of(admin_slot(net_login_nick()));
 }
@@ -51,6 +130,11 @@ static void chat_send(void) {
     }
     chat_sync_input();
     if (str_len(chat_input) == 0) {
+        return;
+    }
+    if (chat_report_command(chat_input) == 1) {
+        chat_input = "";
+        keyboard_clear();
         return;
     }
     if (is_admin() == 1) {
@@ -97,6 +181,9 @@ static double chat_is_sticker_msg(const char *msg) {
 }
 
 static void chat_update(void) {
+    if (chat_notice_t > 0) {
+        chat_notice_t = fmax(0, chat_notice_t - dt);
+    }
     if (game_state != 5 || chat_open == 0) {
         return;
     }
@@ -133,54 +220,7 @@ static double chat_btn_h(void) {
     return btn_h;
 }
 
-/* Selected message for a complaint: the snapshot keeps it valid even when
- * new lines push the buffer around. */
-static double chat_sel;
-static char chat_sel_nick[24];
-static char chat_sel_text[128];
-static double chat_row_y[16];
-static double chat_row_idx[16];
-static double chat_row_n;
-
-static double chat_line_h(void) { return 28; }
-
-static void chat_select_clear(void) {
-    chat_sel = 0;
-    chat_sel_nick[0] = 0;
-    chat_sel_text[0] = 0;
-}
-
-static void chat_select(double idx) {
-    const char *nick = net_chat_uid(idx);
-    const char *text = net_chat_text(idx);
-    if (!nick || !*nick || !text || !*text || chat_is_sticker_msg(text) == 1)
-        return;
-    if (str_eq(nick, net_login_nick()) == 1) {
-        return; /* you cannot report yourself */
-    }
-    snprintf(chat_sel_nick, sizeof(chat_sel_nick), "%s", nick);
-    snprintf(chat_sel_text, sizeof(chat_sel_text), "%s", chat_clean(text));
-    chat_sel = 1;
-}
-
-static void chat_report(void) {
-    if (chat_sel != 1 || !chat_sel_nick[0] || !chat_sel_text[0]) {
-        chat_select_clear();
-        return;
-    }
-    net_report_send(chat_sel_nick, chat_sel_text, net_current_room());
-    chat_select_clear();
-}
-
-static double chat_report_x(void) { return screen_w - 46; }
-static double chat_row_h(void) { return 22; }
-
-static double chat_sel_bar_y(void) { return chat_input_y() - 46; }
-static double chat_sel_btn_w(void) { return 86; }
-static double chat_sel_send_x(void) { return 16 + (screen_w - 32) - 2 * chat_sel_btn_w() - 6; }
-static double chat_sel_cancel_x(void) { return chat_sel_send_x() + chat_sel_btn_w() + 6; }
-
-/* Shorten a message so "nick: text" stays left of the "!" report button. */
+/* Keep message text inside the chat column. */
 static const char *chat_clip_msg(const char *nick, const char *rest, double w, double scale) {
     static char out[192];
     size_t len = strlen(rest);
@@ -244,6 +284,7 @@ static void draw_chat(void) {
     double ly = chat_msg_top();
     double line_h = 28;
     double maxl = chat_visible_limit();
+    double notice_h = chat_notice_t > 0 ? 34 : 0;
     if (net_chat_count() > maxl) {
         net_chat_trim(maxl);
     }
@@ -257,42 +298,26 @@ static void draw_chat(void) {
     } else {
         double idx = start;
         double yy = ly;
-        double bottom = iy - (chat_sel == 1 ? 52 : 8);
-        chat_row_n = 0;
+        double bottom = iy - notice_h - 8;
         while (idx < total) {
             if (yy + line_h > bottom) {
                 idx = total;
             } else {
                 if (chat_is_sticker_msg(net_chat_text(idx)) == 0) {
-                    if (chat_row_n < 16) {
-                        chat_row_y[(int)chat_row_n] = yy;
-                        chat_row_idx[(int)chat_row_n] = idx;
-                        chat_row_n = chat_row_n + 1;
-                    }
-                    if (chat_sel == 1 && str_eq(chat_sel_nick, net_chat_uid(idx)) == 1)
-                        roundrect(lx - 6, yy - 4, lw + 12, line_h, 8, RGB(58,53,96));
                     const char *who = parent_nick(net_chat_uid(idx));
                     const char *rest = ds_concat(": ", chat_clean(net_chat_text(idx)));
-                    /* Keep the line clear of the "!" button on the right edge. */
-                    const char *shown_msg = chat_clip_msg(who, rest, chat_report_x() - lx - 10, 0.5);
+                    const char *shown_msg = chat_clip_msg(who, rest, lw - 8, 0.5);
                     draw_nick_msg(who, shown_msg, lx, yy, text_color, 0.5);
-                    if (str_eq(net_chat_uid(idx), net_login_nick()) == 0)
-                        button_scaled_face("!", chat_report_x(), yy - 3, 28, 26, 0.5, RGB(192,48,74));
                     yy = yy + line_h;
                 }
                 idx = idx + 1;
             }
         }
     }
-    if (chat_sel == 1) {
-        const char *label = ds_concat(language == 1 ? "Жалоба на " : "Report ", chat_sel_nick);
-        roundrect(lx, chat_sel_bar_y(), lw, 38, 10, RGB(46,42,70));
-        text_scaled(label, lx + 12, chat_sel_bar_y() + 10, text_color,
-                    fit_text_scale(label, lw - 2 * chat_sel_btn_w() - 40, 0.5));
-        button_scaled(language == 1 ? "Жалоба" : "Report", chat_sel_send_x(), chat_sel_bar_y() + 2,
-                      chat_sel_btn_w(), 34, 0.45);
-        button_scaled(language == 1 ? "Отмена" : "Cancel", chat_sel_cancel_x(), chat_sel_bar_y() + 2,
-                      chat_sel_btn_w(), 34, 0.45);
+    if (chat_notice_t > 0) {
+        text_scaled(chat_notice, lx, iy - 24,
+                    chat_notice_bad == 1 ? RGB(255,154,154) : RGB(190,240,200),
+                    fit_text_scale(chat_notice, lw, 0.48));
     }
     roundrect(lx, iy, lw - 122, ih, 10, card_bg);
     chat_sync_input();
@@ -301,7 +326,8 @@ static void draw_chat(void) {
         shown = ds_concat(chat_input, "|");
     }
     if (str_len(chat_input) == 0 && keyboard_visible() == 0) {
-        text_in_field(tr_type_message(), lx + 10, iy, ih, text_color, 0.55);
+        const char *hint = chat_report_hint();
+        text_in_field(hint, lx + 10, iy, ih, text_color, fit_text_scale(hint, lw - 142, 0.55));
     } else if (str_len(shown) == 0) {
         text_in_field("|", lx + 10, iy, ih, text_color, 0.55);
     } else {
@@ -340,41 +366,6 @@ static double touch_chat(double x, double y, double action) {
         chat_send();
         keyboard_hide();
         return 1;
-    }
-    if (chat_sel == 1) {
-        if (hit_button(x, y, chat_sel_send_x(), chat_sel_bar_y() + 2, chat_sel_btn_w(), 34) == 1) {
-            chat_report();
-            return 1;
-        }
-        if (hit_button(x, y, chat_sel_cancel_x(), chat_sel_bar_y() + 2, chat_sel_btn_w(), 34) == 1) {
-            chat_select_clear();
-            return 1;
-        }
-    }
-    /* The "!" button next to a message files the complaint in one tap. */
-    {
-        double i = 0;
-        while (i < chat_row_n) {
-            double ry = chat_row_y[(int)i];
-            if (x >= chat_report_x() && hit_rect(x, y, chat_report_x(), ry - 3, 28, 26) == 1) {
-                chat_select(chat_row_idx[(int)i]);
-                chat_report();
-                return 1;
-            }
-            i = i + 1;
-        }
-    }
-    /* Tapping a message picks it for a complaint. */
-    {
-        double i = 0;
-        while (i < chat_row_n) {
-            double ry = chat_row_y[(int)i];
-            if (y >= ry - 4 && y < ry + chat_line_h() && x > 8 && x < chat_report_x() - 4) {
-                chat_select(chat_row_idx[(int)i]);
-                return 1;
-            }
-            i = i + 1;
-        }
     }
     keyboard_hide();
     return 1;

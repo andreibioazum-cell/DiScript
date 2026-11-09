@@ -169,7 +169,6 @@ static void logic_update(void) {
     update_button_press();
     admin_tick();
     if (game_state == ST_LOBBY) {
-        lobby_ball_tick();
         cube_npc_bob_t = cube_npc_bob_t + dt;
         cube_npc_tick();
         if (cube_npc_dialogue_active == 1) {
@@ -201,7 +200,6 @@ static void logic_update(void) {
     }
     update_christmas();
     update_weather();
-    tick_report_pick();
 }
 
 static void draw_screen(void) {
@@ -258,12 +256,6 @@ static void logic_draw(void) {
     /* Draw legal documents modal above notices and screens. */
     if (docs_open == 1) {
         draw_docs();
-    }
-    if (reports_open_flag == 1) {
-        draw_reports();
-    }
-    if (report_pick_open == 1) {
-        draw_report_pick();
     }
     if (parent_open == 1) {
         draw_parental();
@@ -407,14 +399,6 @@ static void logic_touch(double x, double y, double action, double id) {
     }
     if (game_state != ST_ROOMS || acct_open != 0 || docs_open == 1 || warn_open == 1 || studio_open == 1) {
         rooms_scroll_reset();
-    }
-    if (reports_open_flag == 1) {
-        touch_reports(x, y, action, id);
-        return;
-    }
-    if (report_pick_open == 1) {
-        touch_report_pick(x, y, action, id);
-        return;
     }
     if (parent_open == 1) {
         touch_parental(x, y, action, id);
