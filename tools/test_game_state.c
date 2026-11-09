@@ -2236,8 +2236,14 @@ static void test_mobile_countdown(void) {
  * stored with a CRC a normal unzip tool accepts. */
 static void test_pack_export(void) {
     int size, count = 0, seen_png = 0, seen_gift = 0, seen_guide = 0;
+    double saved_language = language;
     char names[2048];
     char *cursor;
+    language = 1;
+    assert(strcmp(tr_packs_btn(), "Паки") == 0);
+    language = 0;
+    assert(strcmp(tr_packs_btn(), "PACKS") == 0);
+    language = saved_language;
     if (ds_asset_list("", names, (int)sizeof(names)) == 0) {
         puts("texture pack export: skipped (no asset folder in the harness)");
         return;
