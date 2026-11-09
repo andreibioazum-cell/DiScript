@@ -3,14 +3,14 @@
  * drives everything from glitch to clean victory. */
 
 /* Menu junk the avalanche drops: real menu rows plus the hacker's fantasies. */
-static const char *hack_junk_ru[10] = {"ВЫЙТИ В МЕНЮ",   "КУПИТЬ ПРЕМИУМ",  "НАСТРОЙКИ ЗВУКА",
-                                       "ВЫБОР КАРТЫ",   "УДАЛИТЬ КУБИК БАТЛ", "ПОЛУЧИТЬ 1000000 ЗВЕЗД",
-                                       "НАСТРОЙКИ",     "МАГАЗИН",         "ДОСТИЖЕНИЯ",
-                                       "АККАУНТ"};
-static const char *hack_junk_en[10] = {"QUIT TO MENU",    "BUY PREMIUM",     "SOUND SETTINGS",
-                                       "MAP SELECT",      "DELETE CUBIC BATTLE", "GET 1000000 STARS",
-                                       "SETTINGS",        "SHOP",            "ACHIEVEMENTS",
-                                       "ACCOUNT"};
+static const char *hack_junk_ru[10] = {"Выйти в меню",   "Купить премиум",  "Настройки звука",
+                                       "Выбор карты",   "Удалить Cubic Battle", "Получить 1 000 000 звёзд",
+                                       "Настройки",     "Магазин",         "Достижения",
+                                       "Аккаунт"};
+static const char *hack_junk_en[10] = {"Quit to menu",    "Buy premium",     "Sound settings",
+                                       "Map select",      "Delete Cubic Battle", "Get 1,000,000 stars",
+                                       "Settings",        "Shop",            "Achievements",
+                                       "Account"};
 
 static const char *hack_junk_label(double idx) {
     int i = (int)idx;

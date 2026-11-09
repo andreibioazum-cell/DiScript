@@ -234,16 +234,20 @@ static void hack_fire_cmd(double id, double kind, double life) {
 }
 
 /* Hacker uses window 0; Azum's replies use the delayed window 1. */
+/* One console for the whole raid: Azum answers in the hacker's own window, so
+ * the screen never splits into two terminals. */
 static double hack_line_win(double i) {
     int k = (int)i;
     if (k < 0 || k >= (int)HACK_LINES) {
         return 0;
     }
-    return hack_script[k].who == HACK_WHO_AZUM ? 1 : 0;
+    return 0;
 }
 
+/* The console is merged, so there is no second window to wait for. Kept as a
+ * function because the draw layer and the tests still ask about it. */
 static double hack_second_open(void) {
-    return hack_active == 1 && hack_cloud_on == 1 && hack_cloud_t >= 4.0 && hack_t >= HACK_SECOND_AT;
+    return 0;
 }
 
 /* Ban dialogue lives in the draw layer but its timing is shared with logic. */
@@ -274,7 +278,8 @@ static double hack_drag_touch(double x, double y, double action, double id) {
         return 1;
     }
     if (hack_drag_win < 0 && action == 0 && hack_active == 1 && hack_t < hack_rain_at()) {
-        int win = hack_second_open() == 1 ? 1 : 0;
+        /* Merged console: there is only window 0 to drag. */
+        int win = 0;
         while (win >= 0) {
             if (hit_rect(x, y, hack_term_x[win], hack_term_y[win], w, head) == 1) {
                 hack_drag_win = win;

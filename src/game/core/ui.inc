@@ -113,6 +113,16 @@ static void draw_efy_gradient_nick(const char *nick, double x, double y, double 
 
 static void draw_styled_nick(const char *nick, double x, double y, uint32_t base, double scale) {
     uint32_t col = admin_color_of(nick, base);
+    /* The primary admin's nick keeps a dark outline, so the red stays readable
+     * on the bright lobby and above the cubes. */
+    if (nick_has_outline(nick) == 1) {
+        double d = scale * 0.09 + 1;
+        uint32_t ink = nick_outline_color(nick);
+        text_scaled(nick, x - d, y, ink, scale);
+        text_scaled(nick, x + d, y, ink, scale);
+        text_scaled(nick, x, y - d, ink, scale);
+        text_scaled(nick, x, y + d, ink, scale);
+    }
     if (admin_nick_equal(nick, "Efy") == 1) {
         draw_efy_gradient_nick(nick, x, y, scale);
         return;

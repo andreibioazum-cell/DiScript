@@ -2790,6 +2790,36 @@ static void test_hacker_event(void) {
     assert(hack_payload_ok == 1 && hack_payload_bytes == 39);
     assert(hack_cmd_n == 8 && hack_btn_total == 14 && hack_cane_total == 10 && hack_cane_candy == 3);
     assert(str_len(hack_junk_label(0)) > 0 && str_len(hack_junk_label(9)) > 0);
+    /* The junk buttons are written in Title Case, never in capitals: the first
+     * word is capitalised and the rest of the words are not shouted. */
+    {
+        static const char *const junk_ru[10] = {"Выйти в меню", "Купить премиум", "Настройки звука",
+                                                "Выбор карты", "Удалить Cubic Battle", "Получить 1 000 000 звёзд",
+                                                "Настройки", "Магазин", "Достижения", "Аккаунт"};
+        double saved_lang = language;
+        language = 1;
+        for (i = 0; i < 10; i++) {
+            assert(strcmp(hack_junk_label((double)i), junk_ru[(int)i]) == 0);
+            /* No capitals beyond the first letter of each word. */
+            const char *lab = hack_junk_label((double)i);
+            int ci = 0, caps = 0;
+            while (lab[ci] != 0) {
+                /* Cyrillic A-Z live in D0 90..D0 AF, lowercase in D0 B0..D1 BF. */
+                if (lab[ci] == (char)0xD0 && (unsigned char)lab[ci + 1] >= 0x90 &&
+                    (unsigned char)lab[ci + 1] <= 0xAF) {
+                    caps++;
+                } else if (lab[ci] >= 'A' && lab[ci] <= 'Z') {
+                    caps++;
+                }
+                ci++;
+            }
+            assert(caps <= 4); /* only the first letters of the words */
+        }
+        language = 0;
+        assert(strcmp(hack_junk_label(0), "Quit to menu") == 0);
+        assert(strcmp(hack_junk_label(4), "Delete Cubic Battle") == 0);
+        language = saved_lang;
+    }
     draw_hacker_event();
     draw_hacker_world();
 
@@ -2805,8 +2835,11 @@ static void test_hacker_event(void) {
     assert(hack_cmd_idx == 8 && hack_cloud_on == 1 && hack_tornado_on == 1);
     assert(hack_second_open() == 0); /* cloud is visible first */
     for (i = 0; i < 80; i++) update_hacker_event(); /* t ~= 47 */
-    assert(hack_second_open() == 1);
-    assert(hack_line_start(11) >= HACK_SECOND_AT);
+    /* The console is merged: Azum's answer joins the hacker's own window, so
+     * there is no second terminal to wait for. */
+    assert(hack_second_open() == 0);
+    assert(hack_line_win(11) == 0 && hack_line_win(10) == 0);
+    assert(hack_line_start(11) >= hack_line_start(0));
     /* Props are inert: the real event stays 7 and no reward/plate state ran. */
     assert(event_mode == HACK_EVENT && plates_phase == 0);
     draw_hacker_event();
@@ -2828,19 +2861,16 @@ static void test_hacker_event(void) {
     assert(hack_touch(bx + bw / 2, by + bh / 2, 0, 1) == 1);
     assert(arr_get(hack_buttons, HB_PRESS) > 0);
 
-    /* Both consoles drag by their title bars and release cleanly. */
+    /* The merged console drags by its title bar and releases cleanly. */
     {
-        int win;
-        for (win = 0; win <= 1; win++) {
-            double wx = hack_term_x[win];
-            double wy = hack_term_y[win];
-            assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
-            hack_touch(wx + 62, wy + 43, 2, 9);
-            hack_touch(wx + 62, wy + 43, 1, 9);
-            assert(fabs(hack_term_x[win] - (wx + 50)) < 1e-6);
-            assert(fabs(hack_term_y[win] - (wy + 40)) < 1e-6);
-            assert(hack_drag_win == -1);
-        }
+        double wx = hack_term_x[0];
+        double wy = hack_term_y[0];
+        assert(hack_touch(wx + 12, wy + 3, 0, 9) == 1);
+        hack_touch(wx + 62, wy + 43, 2, 9);
+        hack_touch(wx + 62, wy + 43, 1, 9);
+        assert(fabs(hack_term_x[0] - (wx + 50)) < 1e-6);
+        assert(fabs(hack_term_y[0] - (wy + 40)) < 1e-6);
+        assert(hack_drag_win == -1);
     }
     draw_hacker_event();
     draw_hacker_world();
