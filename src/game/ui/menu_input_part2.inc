@@ -168,7 +168,7 @@ static double menu_button_hit(double x, double y) {
         return hit_promo_corner(x, y);
     }
     if (game_state == ST_SETTINGS) {
-        while (i <= 4) {
+        while (i < SETTINGS_ROWS) {
             if (hit_settings_row(x, y, i) == 1) return 1;
             i = i + 1;
         }

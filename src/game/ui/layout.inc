@@ -46,8 +46,10 @@ static double hit_menu_row(double px, double py, double i) {
 
 static double settings_stride(void) {
     double s = menu_stride();
-    /* Fit all settings rows below menu_top() on short screens. */
-    double fit = (screen_h - 16 - menu_top()) / SETTINGS_ROWS;
+    /* Keep the normal button gap whenever six rows fit.  On a very short
+     * display reduce the gap first, rather than shrinking the buttons while
+     * there is still vertical room for them. */
+    double fit = (screen_h - 16 - settings_top() - btn_h) / (SETTINGS_ROWS - 1);
     if (fit < s) {
         s = fit;
     }

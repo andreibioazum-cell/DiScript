@@ -267,11 +267,13 @@ static void packs_import_zip(const unsigned char *data, int len, const char *sou
  * the pack reader expects. */
 
 #define PACK_EXPORT_MAX (6 * 1024 * 1024)
-#define PACK_EXPORT_FILES 64
+#define PACK_EXPORT_PNG_MAX 64
+#define PACK_EXPORT_FILES (PACK_EXPORT_PNG_MAX + 1)
 #define PACK_EXPORT_LIST 16384
 #define PACK_CHUNK_MAX (1024 * 1024)
 #define PACK_EXPORT_NAME_MAX 96
 #define PACK_EXPORT_FILE "cb4_textures.zip"
+#define PACK_EXPORT_GUIDE_FILE "TEXTURE_NAMES.txt"
 
 /* Raw texture bytes and the archive are two buffers on purpose: zip_build
  * writes the local headers from the start of its output, so it must not share
@@ -284,6 +286,56 @@ static double pack_export_wait;
 static ZipEntry pack_export_entries[PACK_EXPORT_FILES];
 static char pack_export_names[PACK_EXPORT_FILES][PACK_EXPORT_NAME_MAX];
 static char pack_export_sources[PACK_EXPORT_FILES][PACK_EXPORT_NAME_MAX];
+
+/* This file travels inside every exported archive. The filename, not a sprite's
+ * appearance, is what connects it to a fighter and a pose. */
+static const unsigned char pack_export_guide[] =
+    "CUBIC BATTLE 4 TEXTURE PACK - FILE NAMES\n"
+    "==========================================\n\n"
+    "Keep every filename exactly as written. The filename selects the character\n"
+    "and pose; the PNG pixels only change its appearance.\n\n"
+    "FIGHTER SPRITES\n"
+    "ordinary.png                 Ordinary Cube - idle\n"
+    "ordinary_punch.png           Ordinary Cube - punch\n"
+    "ordinary_gold.png            Pumpkin Cube special skin - idle\n"
+    "ordinary_gold_punch.png      Pumpkin Cube special skin - punch\n"
+    "azum.png                     Azum - idle\n"
+    "azum_punch.png               Azum - punch\n"
+    "zombie_azum.png              Azum Zombie skin - idle\n"
+    "zombie_azum_punch.png        Azum Zombie skin - punch\n"
+    "santa.png                    Santa - idle\n"
+    "santa_punch.png              Santa - punch\n"
+    "ebuc.png                     buK / ebuC - idle\n"
+    "ebuc_punch.png               buK / ebuC - punch\n"
+    "ebuc_elf.png                 Elf buK skin - idle\n"
+    "ebuc_elf_punch.png           Elf buK skin - punch\n"
+    "astra.png                    Astra - idle\n"
+    "astra_punch.png              Astra - punch\n\n"
+    "ABILITY AND WORLD SPRITES\n"
+    "dispenser.png                buK dispenser\n"
+    "ebuc_elf_dispenser.png       Elf buK dispenser\n"
+    "grass.png                    arena ground\n"
+    "snow.png                     snow ground\n"
+    "snowflake.png                Santa snowflake projectile\n"
+    "candy.png                    candy pickup\n"
+    "Event columns.png            Columns event image\n"
+    "npc_cube.png                 lobby cube NPC\n"
+    "npc_helpy.png                lobby Helpy NPC\n\n"
+    "SHOP CARD IMAGES\n"
+    "ordinary_card.png, azum_card.png, zombie_azum_card.png, santa_card.png\n"
+    "ebuc_card.png, ebuc_elf_card.png, astra_card.png, astra_xastra_card.png\n"
+    "codecracker_card.png         class-card renders only, not battle sprites\n\n"
+    "GIFT STICKERS\n"
+    "gift_bear.png, gift_cake.png, gift_emerald.png, gift_poop.png, gift_rocket.png\n\n"
+    "EXAMPLE: to give the Ordinary Cube Santa art, copy BOTH files:\n"
+    "  santa.png       -> ordinary.png\n"
+    "  santa_punch.png -> ordinary_punch.png\n"
+    "Do not edit ordinary_gold.png or ordinary_gold_punch.png for that job: they\n"
+    "belong only to the separate Pumpkin skin.\n\n"
+    "IMPORT SAFETY\n"
+    "Importing enables this custom pack only. It never overwrites the game's\n"
+    "built-in textures. In the Packs screen choose Built-in / Obychnye to turn\n"
+    "the custom pack off and return to normal textures.\n";
 
 /* Remember one PNG by the name the loader asks for it. */
 static int pack_export_add(int used, const char *source) {
@@ -307,7 +359,7 @@ static int pack_export_build(void) {
         return -1;
     }
     /* Listing lines are "f|<name>|" / "d|<name>|". */
-    while (listing[p] && used < PACK_EXPORT_FILES) {
+    while (listing[p] && used < PACK_EXPORT_PNG_MAX) {
         char kind = listing[p], name[160];
         int k = 0;
         p = p + 2;
@@ -336,16 +388,27 @@ static int pack_export_build(void) {
         if (total + size > PACK_EXPORT_MAX)
             break;
         memcpy(pack_export_data + total, pack_chunk, (size_t)size);
-        pack_export_entries[i].name = pack_export_names[i];
-        pack_export_entries[i].data = pack_export_data + total;
-        pack_export_entries[i].len = (unsigned int)size;
+        pack_export_entries[count].name = pack_export_names[i];
+        pack_export_entries[count].data = pack_export_data + total;
+        pack_export_entries[count].len = (unsigned int)size;
         total = total + size;
-        count = i + 1;
+        count = count + 1;
     }
     if (total <= 0) {
         packs_msg_set(packs_tr("Текстуры не читаются", "Cannot read the textures"));
         return -1;
     }
+    /* Add a filename guide after the PNGs. It is a normal text file and is
+     * ignored by the texture loader when the archive is imported. */
+    if (count >= PACK_EXPORT_FILES) {
+        packs_msg_set(packs_tr("Слишком много текстур", "Too many textures"));
+        return -1;
+    }
+    snprintf(pack_export_names[count], PACK_EXPORT_NAME_MAX, "%s", PACK_EXPORT_GUIDE_FILE);
+    pack_export_entries[count].name = pack_export_names[count];
+    pack_export_entries[count].data = pack_export_guide;
+    pack_export_entries[count].len = (unsigned int)(sizeof(pack_export_guide) - 1);
+    count = count + 1;
     if (!pack_export_zip) {
         pack_export_zip = (unsigned char *)malloc(PACK_EXPORT_MAX);
         if (!pack_export_zip) {
