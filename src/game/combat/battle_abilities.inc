@@ -5,7 +5,7 @@ static void universe_collapse(double dmg) {
     if (game_state != ST_ONLINE) {
         enemy_apply_damage_at(dmg, universe_x, universe_y);
     }
-    take_damage(dmg);
+    take_damage(dmg * player_damage_mult_for(player_class));
 }
 
 static void universe_collapse_remote(double dmg, double sx, double sy) {
@@ -22,7 +22,7 @@ static void tick_universe(void) {
     universe_t = universe_t + dt;
     if (universe_t >= ebuc_universe_collapse_time) {
         universe_active = 0;
-        universe_collapse(ebuc_universe_damage_for(player_level) * owned_summon_damage_for(player_class));
+        universe_collapse(ebuc_universe_damage_for(player_level));
     }
 }
 
@@ -119,7 +119,7 @@ static void update_remote_universe(void) {
                     double uy = arr_get(remote_universe, b + 3);
                     arr_set(remote_universe, b + 1, 0);
                     double rlevel = net_player_level(s);
-                    universe_collapse_remote(ebuc_universe_damage_for(rlevel), ux, uy);
+                    universe_collapse_remote(ebuc_universe_damage_for(rlevel) * player_damage_mult_for(CLASS_EBUC), ux, uy);
                     if (finished != 0) {
                         return;
                     }
@@ -175,7 +175,8 @@ static double remote_dash_apply_hit(double slot, double leg) {
     if (target == 0) {
         remote_dash_set(slot, DASH_HIT_DONE, 1);
         if (revive_prot <= 0) {
-            take_damage_at(azum_dash_damage_for(), remote_dash_get(slot, DASH_X), remote_dash_get(slot, DASH_Y));
+            take_damage_at(azum_dash_damage_for() * player_damage_mult_for(CLASS_AZUM),
+                           remote_dash_get(slot, DASH_X), remote_dash_get(slot, DASH_Y));
             stun_player(azum_dash_stun);
             ds_log("remote dash hit player");
             if (finished != 0) {
@@ -184,7 +185,7 @@ static double remote_dash_apply_hit(double slot, double leg) {
         }
     } else if (target >= 1 && target <= turret_max) {
         remote_dash_set(slot, DASH_HIT_DONE, 1);
-        damage_turret(target - 1, azum_dash_damage_for());
+        damage_turret(target - 1, azum_dash_damage_for() * player_damage_mult_for(CLASS_AZUM));
     }
     return 0;
 }

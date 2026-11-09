@@ -31,6 +31,9 @@ static void enemy_destroy_turret(double i) {
 }
 
 static void enemy_damage_turret(double i, double dmg) {
+    /* Enemy-owned stations take the same restored player attack scale as the
+     * fighter they protect. */
+    dmg = dmg * player_damage_mult_for(player_class);
     if (enemy_turret_alive(i) == 0) {
         return;
     }

@@ -103,7 +103,8 @@ static void codecracker_tick_online(void) {
                 arr_get(codecracker_touch_cds, max_players + s) <= 0) {
                 arr_set(codecracker_touch_cds, max_players + s, codecracker_touch_cd);
                 if (revive_prot <= 0 &&
-                    take_damage_at(codecracker_bite_damage(net_player_level(s)),
+                    take_damage_at(codecracker_bite_damage(net_player_level(s)) *
+                                   player_damage_mult_for(CLASS_CODECRACKER),
                                    arr_get(remotes, b + 1), arr_get(remotes, b + 2)) == 1) {
                     return;
                 }

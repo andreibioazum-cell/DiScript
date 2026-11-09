@@ -94,6 +94,9 @@ static double enemy_block_covers(void) {
 }
 
 static double enemy_apply_damage(double dmg) {
+    /* Every local-player attack, including turret counters and status damage,
+     * uses the same restored 80% scale as the solo opponent. */
+    dmg = dmg * player_damage_mult_for(player_class);
     if (finished != 0) {
         dmg_from_k = 0;
         return 1;

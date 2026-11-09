@@ -232,7 +232,7 @@ static void xmas_remote_burst(int s) {
     if (player != NULL && player->hp > 0 && finished == 0 && revive_prot <= 0 &&
         ball_hits_fighter_r(r->x, r->y, XMAS_BOOM_RADIUS, player->x, player->y, player->angle,
                             player_scale) == 1) {
-        take_damage_at(XMAS_DAMAGE, r->x, r->y);
+        take_damage_at(XMAS_DAMAGE * player_damage_mult_for(CLASS_EBUC), r->x, r->y);
         xmas_push_away(&player->x, &player->y, player->size, r->x, r->y);
     }
 }

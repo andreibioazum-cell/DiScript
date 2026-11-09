@@ -102,7 +102,7 @@ static double update_remote_grab(double slot) {
             arr_set(rgrab_box_a, slot, 1);
             if (revive_prot <= 0) {
                 stun_player(astra_strike_stun_for(lv));
-                if (take_damage_at(astra_strike_damage_for(lv), gx, gy) == 1) {
+                if (take_damage_at(astra_strike_damage_for(lv) * player_damage_mult_for(CLASS_ASTRA), gx, gy) == 1) {
                     remote_grab_stop(slot);
                     return 1;
                 }
@@ -110,7 +110,7 @@ static double update_remote_grab(double slot) {
         } else if (target >= 1 && target <= turret_max) {
             remote_grab_set(slot, GRAB_CAUGHT, 1);
             arr_set(rgrab_box_a, slot, 1);
-            damage_turret(target - 1, astra_strike_damage_for(lv));
+            damage_turret(target - 1, astra_strike_damage_for(lv) * player_damage_mult_for(CLASS_ASTRA));
             thud_seq = thud_seq + 1;
             net_publish_thud(thud_seq);
         }

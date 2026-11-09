@@ -120,6 +120,7 @@ static void update_remote_punches(void) {
                     double rdmg = astra_ability_punch_damage_net(rcls, net_player_level(s),
                                                             arr_get(remotes, s * remote_fields + 11));
                     double rlevel = net_player_level(s);
+                    rdmg = rdmg * player_damage_mult_for(rcls);
                     if (target == 0) {
                         if (revive_prot <= 0) {
                             take_damage_at(rdmg, arr_get(remotes, s * remote_fields + 1),
@@ -163,7 +164,7 @@ static void update_remote_thuds(void) {
             if (gen != prev) {
                 arr_set(remote_thuds, s, gen);
                 if (gen > 0 && revive_prot <= 0 && finished == 0) {
-                    take_damage(turret_counter_damage);
+                    take_damage(turret_counter_damage * player_damage_mult_for(CLASS_EBUC));
                     ds_log("turret thud from %g, hp %g", s, player->hp);
                 }
             }

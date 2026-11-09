@@ -195,10 +195,7 @@ static void open_leaderboard(void) {
 }
 
 static void touch_lobby(double x, double y, double action, double id) {
-    if (lobby_ball_touch(x, y, action, id) == 1) {
-        press_points_drop(id);
-        return;
-    }
+    (void)id;
     if (action != 0) {
         return;
     }
@@ -315,16 +312,6 @@ static void touch_settings(double x, double y) {
     if (hit_settings_row(x, y, 5) == 1) {
         play_button_click();
         parental_open();
-        return;
-    }
-    if (is_admin() == 1 && hit_settings_row(x, y, 6) == 1) {
-        reports_open();
-        return;
-    }
-    /* Complaint about another player. Works for everyone; the panel itself
-     * shows "nobody else here" when the room is empty. */
-    if (hit_settings_row(x, y, 7) == 1) {
-        report_pick_open_panel();
         return;
     }
 }

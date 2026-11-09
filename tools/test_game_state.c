@@ -1445,96 +1445,6 @@ static void test_account_screen(void) {
     puts("account: menu, password change checks, sign-out, delete needs password + full swipe right");
 }
 
-static void test_lobby_ball(void) {
-    int saved_w = screen_w, saved_h = screen_h;
-    double saved_state = game_state, saved_dt = dt;
-    screen_w = 720;
-    screen_h = 1280;
-    game_state = ST_LOBBY;
-    acct_open = 0;
-    docs_open = warn_open = studio_open = 0;
-    dt = 1.0 / 60.0;
-    lobby_ball_initialized = 0;
-    lobby_ball_pointer = -1;
-    lobby_ball_vx = lobby_ball_vy = 0;
-    lobby_ball_tick();
-    assert(lobby_ball_initialized == 1);
-    assert(lobby_ball_ceiling() == 0 && fabs(lobby_ball_min_y() - lobby_ball_r) < 1e-9);
-    assert(fabs(lobby_ball_y - (lobby_ball_floor() - lobby_ball_r)) < 1e-9);
-
-    double x = lobby_ball_x, y = lobby_ball_y;
-    assert(lobby_ball_touch(x, y, 0, 91) == 1 && lobby_ball_pointer == 91);
-    assert(lobby_ball_touch(x, y, 1, 91) == 1);
-    assert(lobby_ball_phrase == 0 && lobby_ball_speech_t > 0);
-
-    x = lobby_ball_x;
-    y = lobby_ball_y;
-    assert(lobby_ball_touch(x, y, 0, 93) == 1);
-    assert(lobby_ball_touch(x + 45, y - 35, 2, 93) == 1);
-    assert(fabs(lobby_ball_x - (x + 45)) < 1e-9);
-    assert(lobby_ball_touch(x + 45, y - 35, 1, 93) == 1);
-    assert(lobby_ball_vx > 1000 && lobby_ball_vy < -1000);
-    double before_y = lobby_ball_y;
-    dt = 0.05;
-    lobby_ball_tick();
-    assert(lobby_ball_y < before_y);
-
-    /* An upward full-force throw hits the visible ceiling and rebounds. */
-    lobby_ball_x = lobby_ball_default_x();
-    lobby_ball_y = lobby_ball_min_y() + 2;
-    lobby_ball_vy = -2200;
-    int ceiling_bounced = 0;
-    for (int i = 0; i < 24; i++) {
-        lobby_ball_tick();
-        assert(lobby_ball_y >= lobby_ball_min_y() - 1e-9);
-        if (lobby_ball_vy > 0) ceiling_bounced = 1;
-    }
-    assert(ceiling_bounced == 1);
-
-    lobby_ball_x = lobby_ball_default_x();
-    lobby_ball_y = lobby_ball_max_y() - 4;
-    lobby_ball_vy = 150;
-    lobby_ball_tick();
-    assert(lobby_ball_y <= lobby_ball_max_y() && lobby_ball_vy < 0);
-    lobby_ball_y = lobby_ball_min_y();
-    assert(lobby_ball_bubble_y() < 0); /* hide it instead of overlapping at the very top */
-    lobby_ball_y = lobby_ball_max_y();
-    assert(lobby_ball_bubble_y() + 39 <= lobby_ball_y - lobby_ball_r + 1e-9);
-
-    /* The engine routes full pointer gestures from lobby to the physics toy. */
-    t_dir = 0;
-    admin_panel_open = 0;
-    docs_open = warn_open = studio_open = 0;
-    acct_open = 0;
-    press_points_clear();
-    lobby_ball_x = lobby_ball_default_x();
-    lobby_ball_y = lobby_ball_floor() - lobby_ball_r;
-    lobby_ball_vx = lobby_ball_vy = 0;
-    x = lobby_ball_x;
-    y = lobby_ball_y;
-    logic_touch(x, y, 0, 94);
-    logic_touch(x + 35, y - 28, 2, 94);
-    logic_touch(x + 35, y - 28, 1, 94);
-    assert(lobby_ball_pointer < 0 && lobby_ball_vx > 0 && lobby_ball_vy < 0);
-    press_points_clear();
-    adm_reset_log();
-    lobby_ball_draw();
-    for (int ci = 0; ci < adm_color_n; ci++) {
-        assert(adm_colors[ci] != 0x77FFFFFFu); /* no glossy white spot */
-        assert(adm_colors[ci] != 0x55302650u); /* no floating shadow */
-        assert(adm_colors[ci] != 0x665D5D5Du); /* no visible lobby rails */
-        assert(adm_colors[ci] != 0xFFFFFFFFu); /* dark speech bubble, no white UI chip */
-    }
-    lobby_ball_initialized = 0;
-    lobby_ball_pointer = -1;
-    lobby_ball_vx = lobby_ball_vy = 0;
-    dt = saved_dt;
-    game_state = saved_state;
-    screen_w = saved_w;
-    screen_h = saved_h;
-    puts("lobby ball: velocity-based throw, fixed face, ceiling/floor/side rebounds OK");
-}
-
 /* Gifts: two columns, the shop on the left fits whole, the collection on the
  * right scrolls smoothly. A card is one PNG plus a caption in its rarity
  * colour; cards have no buttons - a tap selects, the actions sit below the
@@ -2278,11 +2188,54 @@ static void test_admin_commands(void) {
     puts("admin commands tab: mockup layout, clipped end, thumb/wheel/drag and permissions OK");
 }
 
+/* Android exposes System.currentTimeMillis() as ds_wall_clock(). Verify the
+ * timer's UTC+4 target, minute rounding, and deliberately label-free text. */
+static void test_mobile_countdown(void) {
+    long saved_clock = stub_wall_clock;
+    long saved_minute = countdown_last_minute;
+    double saved_language = language, saved_last_language = countdown_last_language;
+    double saved_ok = countdown_ok;
+    char saved_text[COUNTDOWN_TEXT_MAX];
+    snprintf(saved_text, sizeof(saved_text), "%s", countdown_text);
+
+    assert(countdown_target() == 1798747200L); /* 2026-12-31 20:00 UTC = UTC+4 midnight */
+    language = 1;
+    stub_wall_clock = countdown_target() - (52L * 24L * 60L + 4L * 60L + 55L) * 60L;
+    countdown_last_minute = -1;
+    countdown_text[0] = 0;
+    countdown_build();
+    assert(strcmp(countdown_text, "52 д. 4 ч. 55 мин.") == 0);
+    assert(strstr(countdown_text, "Нового") == NULL);
+
+    stub_wall_clock = countdown_target() - 1;
+    countdown_last_minute = -1;
+    countdown_build();
+    assert(strcmp(countdown_text, "0 д. 0 ч. 1 мин.") == 0);
+    stub_wall_clock = countdown_target();
+    countdown_last_minute = -1;
+    countdown_build();
+    assert(strcmp(countdown_text, "0 д. 0 ч. 0 мин.") == 0);
+
+    language = 0;
+    stub_wall_clock = countdown_target() - 60;
+    countdown_last_minute = -1;
+    countdown_build();
+    assert(strcmp(countdown_text, "0 d. 0 h. 1 min.") == 0);
+
+    stub_wall_clock = saved_clock;
+    countdown_last_minute = saved_minute;
+    language = saved_language;
+    countdown_last_language = saved_last_language;
+    countdown_ok = saved_ok;
+    snprintf(countdown_text, sizeof(countdown_text), "%s", saved_text);
+    puts("mobile countdown: UTC+4 target, per-minute rounding, timer-only text OK");
+}
+
 /* The exporter must hand out a real .zip: the packs screen tells players to
  * unzip it, repaint the PNGs and import it again, so every entry has to be
  * stored with a CRC a normal unzip tool accepts. */
 static void test_pack_export(void) {
-    int size, count = 0, seen_png = 0, seen_gift = 0;
+    int size, count = 0, seen_png = 0, seen_gift = 0, seen_guide = 0;
     char names[2048];
     char *cursor;
     if (ds_asset_list("", names, (int)sizeof(names)) == 0) {
@@ -2300,17 +2253,22 @@ static void test_pack_export(void) {
         char *nl = strchr(cursor, '\n');
         if (nl)
             *nl = 0;
-        /* Flat names: the pack loader looks assets up by their bare name. */
+        /* Flat names: the pack loader looks assets up by their bare name.
+         * The one text entry explains those names to a pack author. */
         assert(strchr(cursor, '/') == NULL);
-        assert(packs_ends_with(cursor, ".png") == 1);
-        if (strncmp(cursor, "gift_", 5) == 0)
-            seen_gift = 1;
-        else
-            seen_png = 1;
+        if (strcmp(cursor, PACK_EXPORT_GUIDE_FILE) == 0) {
+            seen_guide = 1;
+        } else {
+            assert(packs_ends_with(cursor, ".png") == 1);
+            if (strncmp(cursor, "gift_", 5) == 0)
+                seen_gift = 1;
+            else
+                seen_png = 1;
+        }
         assert(zip_find(pack_export_zip, size, cursor, NULL, NULL, NULL, NULL) == 1);
         cursor = nl ? nl + 1 : NULL;
     }
-    assert(seen_png == 1 && seen_gift == 1);
+    assert(seen_png == 1 && seen_gift == 1 && seen_guide == 1);
     /* The built-in textures are the base of a pack: reading one back gives the
      * same bytes as the file it was copied from. */
     {
@@ -2321,6 +2279,18 @@ static void test_pack_export(void) {
         assert(got == want && got > 0);
         assert(memcmp(out, direct, (size_t)got) == 0);
     }
+    /* The guide identifies each fighter/pose filename and makes the
+     * Ordinary-to-Santa swap explicit without touching Pumpkin skin files. */
+    {
+        static unsigned char guide[8192];
+        int got = zip_extract(pack_export_zip, size, PACK_EXPORT_GUIDE_FILE, guide, (int)sizeof(guide) - 1);
+        assert(got > 0);
+        guide[got] = 0;
+        assert(strstr((const char *)guide, "ordinary.png                 Ordinary Cube - idle") != NULL);
+        assert(strstr((const char *)guide, "ordinary_gold.png            Pumpkin Cube special skin - idle") != NULL);
+        assert(strstr((const char *)guide, "santa_punch.png -> ordinary_punch.png") != NULL);
+        assert(strstr((const char *)guide, "never overwrites the game's") != NULL);
+    }
     /* And the archive survives a round trip through the import path. */
     {
         static unsigned char round[PACK_ZIP_MAX];
@@ -2328,7 +2298,7 @@ static void test_pack_export(void) {
         memcpy(round, pack_export_zip, (size_t)size);
         assert(zip_list(round, size, listed, (int)sizeof(listed)) == count);
     }
-    puts("texture pack export: real .zip with every texture and gift sticker OK");
+    puts("texture pack export: real .zip, names guide, textures and gift stickers OK");
 }
 
 /* Quiet ambient beds: one for the normal theme, one for the New Year theme,
@@ -3170,7 +3140,7 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(ball.vx - 0.6 * BALL_SPEED) < 1e-6 && fabs(ball.vy + 0.8 * BALL_SPEED) < 1e-6);
     ball_reset();
 
-    /* Solo enemies deal 80% of their class damage, as they did before the
+    /* Both sides deal 80% of their class damage, as they did before the
      * short-lived 100% buff. */
     assert(fabs(enemy_dash_damage - 2.8) < 1e-9);
     assert(fabs(enemy_damage_mult_for(CLASS_AZUM) - 0.80) < 1e-9);
@@ -3178,6 +3148,8 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_EBUC) - 0.80) < 1e-9);
     assert(fabs(enemy_damage_mult_for(CLASS_SANTA) - 0.80) < 1e-9);
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 0.80) < 1e-9);
+    assert(fabs(player_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
+    assert(fabs(player_damage_mult_for(CLASS_CODECRACKER) - 0.80) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
     /* ebuC ball bounce scaling: 0.15 base dmg, +2.8 on first bounce, x1.28 gain and x1.04 speed per bounce. */
@@ -3244,7 +3216,7 @@ static void test_eax229_and_rooms(void) {
         for (int f = 0; f < 30 && ball.active == 1; f++)
             ball_tick();
         assert(ball.active == 0 && ball.bounces == 0);
-        assert(fabs(enemy->hp - 19.85) < 1e-6);
+        assert(fabs(enemy->hp - (20.0 - ball_damage_for(0) * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
 
         /* Wall bounce: speed multiplies by 1.04 on each bounce, damage grows. */
         enemy->x = 900;
@@ -3263,7 +3235,7 @@ static void test_eax229_and_rooms(void) {
         enemy->x = ball.x;
         enemy->y = ball.y;
         ball_tick();
-        assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+        assert(ball.active == 0 && fabs(enemy->hp - (20.0 - ball_damage_for(2) * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
 
         /* Expiry burst damages enemies inside BALL_BOOM_RADIUS (150) while sparing distant ones. */
         assert(fabs(BALL_BOOM_RADIUS - 150.0) < 1e-6 && BALL_BOOM_RADIUS > super_radius * 1.14);
@@ -3280,7 +3252,7 @@ static void test_eax229_and_rooms(void) {
         enemy->y = 360;
         ball_tick();
         assert(ball.active == 0 && ball.boom_t > 0);
-        assert(fabs(enemy->hp - (20.0 - ball_damage_for(4))) < 1e-6);
+        assert(fabs(enemy->hp - (20.0 - ball_damage_for(4) * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
 
         ball_reset();
         ball.active = 1;
@@ -3319,7 +3291,7 @@ static void test_eax229_and_rooms(void) {
         player->x = rb_x[1];
         player->y = rb_y[1];
         remote_bricks_tick();
-        assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2))) < 1e-6);
+        assert(rb_on[1] == 0 && fabs(player->hp - (20.0 - ball_damage_for(2) * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
 
         /* Online expiry blast: clips player within BALL_BOOM_RADIUS when rb_t expires. */
         player->hp = 20;
@@ -3334,7 +3306,7 @@ static void test_eax229_and_rooms(void) {
         player->y = 360;
         remote_bricks_tick();
         assert(rb_on[1] == 0 && rb_boom_t[1] > 0);
-        assert(fabs(player->hp - (20.0 - ball_damage_for(3))) < 1e-6);
+        assert(fabs(player->hp - (20.0 - ball_damage_for(3) * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
         stub_online[1] = 0;
         stub_brick[1] = 0;
         game_state = ST_LOBBY;
@@ -3767,7 +3739,7 @@ static void test_christmas_snowballs(void) {
         christmas_tick();
         k++;
     }
-    assert(fabs(enemy->hp - (20.0 - XMAS_DAMAGE)) < 1e-9);
+    assert(fabs(enemy->hp - (20.0 - XMAS_DAMAGE * PLAYER_OTHER_DAMAGE_MULT)) < 1e-9);
     assert(enemy->x > player->x + 45);   /* knocked away, but only slightly */
 
     /* Free aim: tapping the top of the big pad throws straight up, even
@@ -4372,6 +4344,7 @@ int main(void) {
            player_max_hp_for(CLASS_SANTA) == 20 * round_hp_mult());
     assert(fabs(azum_hp - 20.0) < 1e-9 && astra_hp == 20 && ebuc_hp == 24 && enemy_base_hp == 20);
     assert(fabs(enemy_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
+    assert(fabs(player_damage_mult_for(CLASS_ORDINARY) - 0.80) < 1e-9);
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
     assert(max_level == 4 && level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 &&
            level_cost(2) == 70 && level_cost(3) == 90 && level_cost(4) == 110);
@@ -5447,7 +5420,7 @@ int main(void) {
         }
         assert(astra_caught == 1 && astra_hits_done == 1 && astra_box_a > 0);
         assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
-        assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+        assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
         astra_release(1);
         dt = saved_dt;
     }
@@ -5490,7 +5463,7 @@ int main(void) {
     assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_SPECIAL), ORDINARY_CARD_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ORDINARY, SKIN_NORMAL), ORDINARY_CARD_TEX) == 0);
     assert(strcmp(skin_name_for(CLASS_ASTRA, SKIN_SPECIAL), "Xastra") == 0);
-    assert(strcmp(skin_name_for(CLASS_ORDINARY, SKIN_SPECIAL), "Золотой") == 0);
+    assert(strcmp(skin_name_for(CLASS_ORDINARY, SKIN_SPECIAL), "Тыква") == 0);
     assert(strcmp(class_card_tex(CLASS_CODECRACKER, SKIN_NORMAL), CODECRACKER_CARD_TEX) == 0);
     assert(strcmp(dice_cube_tex(DICE_CUBE_CODECRACKER), CODECRACKER_CARD_TEX) == 0);
     {
@@ -5604,7 +5577,7 @@ int main(void) {
     assert(player_punching_now() == 1 && fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60 && astra_state != 0; frame++)
         tick_astra();
-    assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+    assert(fabs(enemy->hp - (10.0 - ASTRA_STRIKE_DAMAGE * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
     assert(enemy_throw_t == 0);
     enemy->stun = 0;
 
@@ -5663,7 +5636,7 @@ int main(void) {
     assert(fabs(player_stun - ASTRA_STRIKE_STUN) < 1e-9);
     for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
-    assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+    assert(fabs(player->hp - (10.0 - ASTRA_STRIKE_DAMAGE * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
     assert(pgrab_active == 0 && pthrow_t == 0);
     player_stun = 0;
 
@@ -5682,7 +5655,7 @@ int main(void) {
     dt = saved_dt_astra;
     for (int frame = 0; frame < 60; frame++)
         update_remote_grabs();
-    assert(fabs(player->hp - (10.0 - astra_strike_damage_for(3))) < 1e-6);
+    assert(fabs(player->hp - (10.0 - astra_strike_damage_for(3) * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
     player_stun = 0;
     stub_level[1] = 0;
     stub_grab[1] = 0;
@@ -6497,6 +6470,7 @@ int main(void) {
     test_admin_keyboard();
     test_admin_commands();
     test_disco_music();
+    test_mobile_countdown();
     test_ambient_beds();
     test_pack_export();
 
@@ -6607,7 +6581,7 @@ int main(void) {
         enemy->angle = pi;
         enemy_block_left = 0.5;
         enemy_apply_damage_at(4.0, 400, 400);
-        assert(fabs(enemy->hp - 19.0) < 1e-9);
+        assert(fabs(enemy->hp - 19.2) < 1e-9);
         enemy_block_left = 0;
 
         /* 2a) Astra super activates immediately on press as a 0.4 s purple shield
@@ -6750,7 +6724,7 @@ int main(void) {
             assert(enemy->stun == 0);
             tick_astra();
             assert(player_punching_now() == 1 && fighter_pose_of(FLOOK_ME, player_punching_now()) == 1);
-            assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE)) < 1e-6);
+            assert(fabs(enemy->stun - ASTRA_STRIKE_STUN) < 1e-9 && fabs(enemy->hp - (20.0 - ASTRA_STRIKE_DAMAGE * PLAYER_OTHER_DAMAGE_MULT)) < 1e-6);
             for (int f = 0; f < 60 && astra_state != 0; f++)
                 tick_astra();
             assert(astra_state == 0 && fabs(astra_cd - astra_cd_for(0)) < 1e-9);
@@ -7556,7 +7530,6 @@ int main(void) {
     test_christmas_snowballs();
     test_offline_ordinary();
     test_admin_theme_clears_christmas();
-    test_lobby_ball();
     test_admin_auto_block();
     test_admin_auto_block_astra();
     test_admin_auto_block_skill();
@@ -7654,107 +7627,33 @@ int main(void) {
     }
     puts("wheel quest: public button, one spin per six wins, capped at 999");
 
-    /* Complaints: one row at a time is picked, the ban/done buttons sit in the
-     * middle of the row, and the online panel reports a real player. */
+    /* Complaints are submitted only through a private chat command; neither
+     * command text nor feedback is posted as a public room message. */
     {
-        double saved_state = game_state;
-        double saved_slot = stub_net_slot;
+        double saved_lang = language;
+        double saved_login = stub_login_status;
+        char saved_nick[sizeof(stub_login_nick)];
+        snprintf(saved_nick, sizeof(saved_nick), "%s", stub_login_nick);
         stub_report_n = 0;
+        language = 0;
         stub_login_status = 2;
-        snprintf(stub_login_nick, sizeof(stub_login_nick), "Tester");
-        stub_online[0] = 1;
-        snprintf(stub_nicks[0], sizeof(stub_nicks[0]), "Tester");
-        stub_online[1] = 1;
-        snprintf(stub_nicks[1], sizeof(stub_nicks[1]), "Rude");
-        stub_online[2] = 0;
-        stub_online[3] = 0;
-        stub_net_slot = 0;
-        net_report_send("Rude", "rude", "main");
-        net_report_send("Rude", "rude", "main");
-        assert(net_reports_count() == 2);
-
-        reports_open_flag = 1;
-        reports_sel = -1;
-        /* The pair of buttons is centred: equal free space on both sides. */
-        double pair = 2 * reports_btn_w() + reports_btn_gap();
-        assert(fabs(reports_ban_x() - (screen_w - pair) / 2) < 1e-9);
-        /* The gap between the two buttons is centred on the screen as well. */
-        assert(fabs((reports_ban_x() + reports_btn_w() + reports_btn_gap() / 2) - screen_w / 2) < 1e-9);
-        assert(reports_ban_x() > reports_card_x() && reports_done_x() + reports_btn_w() <
-               reports_card_x() + reports_card_w());
-        /* Nothing is picked yet: a tap where the buttons would be only picks the
-         * row, it never bans or deletes anything. */
-        touch_reports(reports_ban_x() + 4, reports_btn_y(reports_row_y(0)) + 4, 0, 1);
-        assert(net_reports_count() == 2 && reports_sel == 0);
-        touch_reports(reports_card_x() + 40, reports_row_y(0) + 20, 0, 1);
-        assert(reports_sel == -1);
-        /* One tap picks exactly the first row. */
-        touch_reports(reports_card_x() + 40, reports_row_y(0) + 20, 0, 1);
-        assert(reports_sel == 0);
-        /* A tap on the second row moves the selection: still a single row. */
-        touch_reports(reports_card_x() + 40, reports_row_y(1) + 20, 0, 1);
-        assert(reports_sel == 1);
-        /* Tapping the picked row again drops the selection. */
-        touch_reports(reports_card_x() + 40, reports_row_y(1) + 20, 0, 1);
-        assert(reports_sel == -1);
-        /* Buttons only work on the picked row. */
-        touch_reports(reports_card_x() + 40, reports_row_y(0) + 20, 0, 1);
-        assert(reports_sel == 0);
-        /* Tap the middle of "Готово": it must clear that complaint and drop the pick. */
-        touch_reports(reports_done_x() + reports_btn_w() / 2, reports_btn_y(reports_row_y(0)) + reports_btn_h() / 2,
-                      0, 1);
-        assert(net_reports_count() == 1 && reports_sel == -1);
-        reports_open_flag = 0;
-        reports_sel = -1;
-
-        /* New Year theme: every part of the overlay switches to the frosty
-         * palette instead of keeping the purple card colours. */
-        stub_link = 1;
-        stub_christmas = 0;
-        theme_mode = 0;
-        theme_chosen = 0;
-        uint32_t plain_panel = reports_blue_panel();
-        uint32_t plain_row = reports_blue_row();
-        stub_christmas = 1;
-        assert(winter_theme_on() == 1);
-        uint32_t ice_panel = reports_blue_panel();
-        uint32_t ice_row = reports_blue_row();
-        assert(plain_panel != ice_panel && plain_row != ice_row);
-        /* Ice is blue-dominant: the blue channel is the strongest one. */
-        assert(((ice_panel >> 16) & 255) < (ice_panel & 255));
-        assert(((ice_row >> 16) & 255) < (ice_row & 255));
-        assert(reports_blue_ring() != card_ring);
-        stub_christmas = 0;
-
-        /* Online complaint panel: one player picked by a tap, one report sent. */
-        game_state = ST_ONLINE;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "Tester");
+        assert(chat_report_command("/report Rude rude") == 1);
+        assert(net_reports_count() == 1 && str_eq(chat_notice, "Report sent") == 1);
+        assert(chat_report_command("/report Tester rude") == 1);
+        assert(net_reports_count() == 1 && str_eq(chat_notice, "You cannot report yourself") == 1);
+        assert(chat_report_command("/report Rude") == 1);
+        assert(net_reports_count() == 1 && str_eq(chat_notice, "Format: /report Nick reason") == 1);
+        assert(chat_report_command("ordinary room message") == 0);
+        language = 1;
+        assert(chat_report_command("/жалоба Грубиян оскорбления") == 1);
+        assert(net_reports_count() == 2 && str_eq(chat_notice, "Жалоба отправлена") == 1);
+        language = saved_lang;
+        stub_login_status = saved_login;
+        snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", saved_nick);
         stub_report_n = 0;
-        report_pick_open = 0;
-        assert(report_pick_btn_hit(report_pick_btn_x() + report_pick_btn_w() / 2,
-                                   report_pick_btn_y() + report_pick_btn_h() / 2) == 1);
-        assert(game_state == ST_ONLINE);
-        report_pick_open_panel();
-        assert(report_pick_open == 1 && report_pick_slot_sel == -1);
-        assert(report_pick_count() == 1);
-        assert(report_pick_slot(0) == 1);
-        /* Send does nothing until a player is picked. */
-        report_pick_send();
-        assert(net_reports_count() == 0);
-        touch_report_pick(report_pick_x() + 40, report_pick_rows_top() + 10, 0, 1);
-        assert(report_pick_slot_sel == 1);
-        touch_report_pick(report_pick_chip_x(2) + report_pick_chip_w() / 2, report_pick_chips_y() + 16, 0, 1);
-        assert(report_pick_reason == 2);
-        touch_report_pick(report_pick_send_x() + report_pick_action_w() / 2, report_pick_actions_y() + 23, 0, 1);
-        assert(net_reports_count() == 1 && report_pick_slot_sel == -1);
-        assert(report_pick_sent_t > 0);
-        touch_report_pick(report_pick_close_x() + btn_w / 2, report_pick_close_y() + 22, 0, 1);
-        assert(report_pick_open == 0);
-        stub_report_n = 0;
-        stub_online[1] = 0;
-        game_state = saved_state;
-        stub_net_slot = saved_slot;
     }
-    puts("complaints: single pick, centred buttons, blue theme, online report");
+    puts("complaints: chat command only; private success and validation notices");
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

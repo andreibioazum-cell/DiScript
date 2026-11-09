@@ -190,7 +190,7 @@ static void rb_burst(int s, double x, double y) {
     rb_boom_t[s] = boom_time;
     if (finished == 0 && revive_prot <= 0 &&
         ball_hits_fighter_r(x, y, BALL_BOOM_RADIUS, player->x, player->y, player->angle, player_scale) == 1) {
-        take_damage_at(ball_damage_for(b), x, y);
+        take_damage_at(ball_damage_for(b) * player_damage_mult_for(CLASS_EBUC), x, y);
     }
 }
 
