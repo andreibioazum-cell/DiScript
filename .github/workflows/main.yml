@@ -49,16 +49,7 @@ jobs:
           test -f build/pc/dist/assets/sounds/sfx/punch.wav
           # A bare .exe has to work on its own: the asset tree is appended to it.
           python3 tools/embed_assets.py build/pc/assets build/pc/CubicBattle4.exe
-          # The trailer is 28 bytes: magic, count, index size, index offset.
-          python3 - <<'PY_E'
-import struct
-with open("build/pc/CubicBattle4.exe", "rb") as handle:
-    handle.seek(-28, 2)
-    magic, count, index_size, index_offset = struct.unpack("<8sIQQ", handle.read())
-assert magic == b"CB4EMBED", magic
-assert count > 0 and index_size > 0
-print(f"embedded assets: {count} files, index {index_size} bytes")
-PY_E
+          python3 tools/check_embedded_assets.py build/pc/CubicBattle4.exe
           cp build/pc/CubicBattle4.exe build/pc/dist/
           (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
 
