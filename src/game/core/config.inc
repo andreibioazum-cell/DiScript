@@ -167,21 +167,6 @@ static double admin_head_color_of(const char *nick, double base) {
     return base;
 }
 
-/* The primary admin (Dimasi4ek229) keeps a dark outline around his nickname so
- * it stays readable on the bright lobby and above the battle. The other admins
- * only get their colour and shimmer, as before. */
-static double nick_has_outline(const char *nick) {
-    if (!nick) {
-        return 0;
-    }
-    return admin_nick_equal(nick, ADMIN_NICK) == 1 ? 1 : 0;
-}
-
-/* Outline ink for an outlined nickname: the nick's own colour, darkened. */
-static double nick_outline_color(const char *nick) {
-    return shade(admin_color_of(nick, 0xFFFFFF), 0.22);
-}
-
 static double nick_shimmers(const char *nick) {
     if (admin_nick_equal(nick, ADMIN_NICK) == 1 ||
         admin_nick_equal(nick, SANCH_NICK) == 1 ||

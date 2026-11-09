@@ -22,7 +22,7 @@ static void tick_universe(void) {
     universe_t = universe_t + dt;
     if (universe_t >= ebuc_universe_collapse_time) {
         universe_active = 0;
-        universe_collapse(ebuc_universe_damage_for(player_level));
+        universe_collapse(ebuc_universe_damage_for(player_level) * owned_summon_damage_for(player_class));
     }
 }
 

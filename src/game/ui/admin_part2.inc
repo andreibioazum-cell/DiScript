@@ -280,13 +280,17 @@ static void admin_draw_ball(void) {
     double iw = text_ink_width(lab);
     double ih = text_ink_height(lab);
     double sc = 0.5;
-    /* Draw opaque outer border around orb. */
-    circle(cx, cy, r + 3, admin_off());
-    circle(cx, cy, r, admin_body());
-    ring(cx, cy, r, clamp(r * 0.11, 2, 3), admin_frame());
+    /* Black orb, then the outline ring, then black again: the ring floats inside
+     * the dark body instead of covering it, so the orb stays black with a thin
+     * white circle rather than a white blob. */
+    circle(cx, cy, r, admin_off());
+    circle(cx, cy, r - 1.5, admin_body());
+    circle(cx, cy, r * 0.80, admin_frame());
+    circle(cx, cy, r * 0.80 - 1.5, admin_body());
     if (iw > 0 && ih > 0) {
-        double sw = (r * 1.5) / iw;
-        double sh = (r * 0.95) / ih;
+        /* The label stays inside the inner black disc, clear of the ring. */
+        double sw = (r * 1.15) / iw;
+        double sh = (r * 0.70) / ih;
         sc = sw < sh ? sw : sh;
     }
     double tw = text_ink_width(lab) * sc;
@@ -325,7 +329,8 @@ static void admin_draw_gifts(void) {
         admin_btn(label, px, y + i * (rh + admin_gap()), w, rh, admin_gift_choice == i, 0.55);
     }
     double target_y = y + NET_GIFT_TYPE_COUNT * (rh + admin_gap());
-    roundrect(px, target_y, w, rh, 12, 0x333333);
+    roundrect(px, target_y, w, rh, 12, 0x1A1A1A);
+    roundrect_outline(px, target_y, w, rh, 12, 2, admin_frame());
     const char *target_label = admin_gift_target[0] ? admin_gift_target : (language == 1 ? "Ник получателя" : "Recipient nickname");
     text_in_box(target_label, px + 8, target_y, w - 16, rh, admin_frame(), 0.55);
     const char *grant = admin_gift_busy == 1 ? (language == 1 ? "Выдаём..." : "Granting...") : admin_gift_busy == 2 ? (language == 1 ? "Подарок выдан!" : "Gift granted!") : admin_gift_busy == 3 ? (language == 1 ? "Ошибка, нажмите для повтора" : "Failed - tap to retry") : (language == 1 ? "Выдать подарок" : "Grant gift");
@@ -344,7 +349,10 @@ static void admin_draw_panel(void) {
     roundrect(px, py, pw, ph, 14, admin_body());
     roundrect(px, py, pw, hh, 14, admin_header());
     rect(px, py + hh / 2, pw, hh / 2, admin_header());
-    line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_on());
+    /* The white frame runs around the whole panel and under the header, so the
+     * window reads as one outlined box on the dark lobby. */
+    roundrect_outline(px, py, pw, ph, 14, 2, admin_frame());
+    line(px + 12, py + hh - 1, px + pw - 12, py + hh - 1, 2, admin_frame());
     text_in_field(title, px + 16, py, hh, admin_frame(), fit_text_scale(title, title_w, hh / 58.0));
     double cxx = px + pw - hh * 0.55;
     double cr = hh * 0.3;

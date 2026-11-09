@@ -5583,7 +5583,24 @@ int main(void) {
     assert(admin_ball_x > 0 && admin_ball_y > 0);
     assert(fabs(adm_last_circle_x - admin_ball_x) < 0.001);
     assert(fabs(adm_last_circle_y - admin_ball_y) < 0.001);
-    assert(fabs(adm_last_circle_r - admin_ball_r()) < 0.001);
+    /* Black body, then the outline ring, then black again: the ring sits inside
+     * the orb, and the last disc drawn is the black middle again, so it is
+     * smaller than the whole orb. The orb itself is still the biggest circle. */
+    assert(adm_last_circle_r > 0 && adm_last_circle_r < admin_ball_r());
+    /* The ring in the middle is white, framed by the black body on both sides,
+     * but the "CCP" label is drawn after it - so the white disc is the fourth
+     * from the end of the drawing order. */
+    {
+        int white_in_middle = 0;
+        for (int i = 1; i + 1 < adm_color_n; i++) {
+            if ((adm_colors[i] & 0xFFFFFF) == 0xFFFFFF &&
+                (adm_colors[i - 1] & 0xFFFFFF) == 0 && (adm_colors[i + 1] & 0xFFFFFF) == 0) {
+                white_in_middle = 1;
+                break;
+            }
+        }
+        assert(white_in_middle == 1);
+    }
     /* The menu button got smaller, wears the short panel name and is a black
      * disc with a white rim. */
     assert(admin_ball_r() >= 15 && admin_ball_r() <= 26);

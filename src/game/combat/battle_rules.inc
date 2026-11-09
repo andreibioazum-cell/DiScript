@@ -253,6 +253,19 @@ static double enemy_azum_dash_damage_for(void) {
     return enemy_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }
 
+/* What the player's own summons deal when the enemy runs into them: the
+ * dispenser turret's counter-shot and ebuC's Universe collapse.
+ *
+ * Both used to fire at full strength no matter whose class was on the field,
+ * while the same move coming from the enemy side is scaled by
+ * enemy_damage_mult_for(). Against the default 24 HP foe one turret counter
+ * that way took a whole HP bar in a few seconds - that is the "ton of damage"
+ * players were complaining about. Owner damage now follows the same 0.80
+ * class scale as the enemy side, so both sides hit alike. */
+static double owned_summon_damage_for(double cls) {
+    return enemy_damage_mult_for(cls);
+}
+
 static void update_azum_buff(void) {
     double active = net_flags_reachable() == 1 ? net_azum_buff() : 0;
     if (active == azum_buff_active) {

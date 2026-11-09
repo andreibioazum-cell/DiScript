@@ -1,6 +1,4 @@
 static double admin_slot(const char *nick);
-static double nick_has_outline(const char *nick);
-static double nick_outline_color(const char *nick);
 static double admin_playing(void);
 static double admin_modifiers_allowed(void);
 static double christmas_admin_allowed(void);
