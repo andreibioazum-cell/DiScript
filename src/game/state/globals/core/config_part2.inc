@@ -82,6 +82,8 @@ const char *AZUM_TEX;
 const char *AZUM_PUNCH_TEX;
 const char *SANTA_TEX;
 const char *SANTA_PUNCH_TEX;
+const char *SANTA_ARCTIC_TEX;
+const char *SANTA_ARCTIC_PUNCH_TEX;
 const char *CANDY_TEX;
 const char *EVENT_COLUMNS_TEX;
 const char *SNOWFLAKE_TEX;
@@ -115,6 +117,8 @@ const char *ASTRA_XASTRA_CARD_TEX;
 const char *CODECRACKER_CARD_TEX;
 const char *ASTRA_TEX;
 const char *ASTRA_PUNCH_TEX;
+const char *ASTRA_BASE_TEX;
+const char *ASTRA_BASE_PUNCH_TEX;
 double astra_ability_ok;
 double ST_BPASS;
 /* Player walk acceleration and braking durations. */

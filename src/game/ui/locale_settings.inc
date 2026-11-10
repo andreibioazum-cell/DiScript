@@ -33,3 +33,25 @@ static const char *tr_theme_label(void) {
     }
     return "Theme: Ordinary";
 }
+
+
+static const char *tr_graphics_mode_name(double mode) {
+    if (mode == 1) {
+        return "MSAA";
+    }
+    if (mode == 2) {
+        return "SMAA";
+    }
+    return language == 1 ? "Пикселизация" : "Pixelation";
+}
+
+static const char *tr_graphics_mode_label(void) {
+    if (language == 1) {
+        if (graphics_mode == 1) return "Графика: MSAA";
+        if (graphics_mode == 2) return "Графика: SMAA";
+        return "Графика: Пикселизация";
+    }
+    if (graphics_mode == 1) return "Graphics: MSAA";
+    if (graphics_mode == 2) return "Graphics: SMAA";
+    return "Graphics: Pixelation";
+}

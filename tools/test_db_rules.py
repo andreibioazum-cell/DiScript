@@ -82,7 +82,7 @@ def main() -> int:
     profile = rules["users"]["$nick"]
     # The CodeCracker keeps a level branch of its own, so the profile has to
     # accept its two fields - and it has to accept the packed skin flags
-    # (azum_skin carries the existing and ordinary-cube skin bits, 0..63), or a save with a skin is rejected.
+    # (azum_skin carries all packed skin bits, 0..127), or a save with a skin is rejected.
     # The game allows levels up to max_level = 4, so the profile rules must too,
     # otherwise a level 4 save is rejected and the cloud keeps the old value.
     for key in ("codecracker_level", "codecracker_levels", "level", "levels",
@@ -93,9 +93,14 @@ def main() -> int:
             print(f"profile rule for {key} is missing or too narrow: {rule}", file=sys.stderr)
             return 1
     skin_rule = profile.get("azum_skin", {}).get(".validate", "")
-    if "<= 63" not in skin_rule:
+    if "<= 127" not in skin_rule:
         print(f"azum_skin rule rejects the packed skin flags: {skin_rule}", file=sys.stderr)
         return 1
+    for key in ("candies", "santa", "bp", "bpx"):
+        rule = profile.get(key, {}).get(".validate", "")
+        if "newData.val() == data.val()" not in rule or "newData.val() == 0" not in rule:
+            print(f"{key} rule does not keep new rewards admin-only: {rule}", file=sys.stderr)
+            return 1
     for key, maximum in (("wheel_spins", "999"), ("wheel_wins", "5")):
         rule = profile.get(key, {}).get(".validate", "")
         if f"<= {maximum}" not in rule:

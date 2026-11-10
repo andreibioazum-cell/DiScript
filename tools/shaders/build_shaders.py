@@ -16,6 +16,7 @@ SHADERS = [
     ("solid_frag", "solid.frag"),
     ("image_frag", "image.frag"),
     ("tint_frag", "tint.frag"),
+    ("smaa_frag", "smaa.frag"),
 ]
 
 

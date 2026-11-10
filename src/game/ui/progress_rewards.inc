@@ -132,6 +132,9 @@ static double skin_flags(void) {
     if (ordinary_gold_skin == SKIN_SPECIAL) {
         f = f + 32;
     }
+    if (santa_skin == SKIN_SPECIAL) {
+        f = f + 64;
+    }
     return f;
 }
 
@@ -157,6 +160,9 @@ static void progress_normalize(void) {
     if (astra_skin < SKIN_NORMAL || astra_skin >= SKIN_COUNT || class_owned_of(CLASS_ASTRA) == 0) {
         astra_skin = SKIN_NORMAL;
     }
+    if (santa_skin < SKIN_NORMAL || santa_skin >= SKIN_COUNT || class_owned_of(CLASS_SANTA) == 0) {
+        santa_skin = SKIN_NORMAL;
+    }
     ordinary_gold_owned = ordinary_gold_owned == 1 ? 1 : 0;
     if (ordinary_gold_owned == 0) ordinary_gold_skin = SKIN_NORMAL;
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
@@ -176,11 +182,10 @@ static void progress_normalize(void) {
         set_class_progress(cls, lv, un);
         order = order + 1;
     }
-    if (bpass_rewards_allowed() == 1 && bp_claimed >= 7) {
+    if (bpass_allowed() == 1 && bp_claimed >= 7) {
         set_class_owned(CLASS_SANTA, 1);
     }
-    if (player_class == CLASS_SANTA && dev_access() == 0 && (bpass_rewards_allowed() == 0 || bp_claimed < 7)) {
-        /* Restrict Santa selection unless developer access or tier 7 is active. */
+    if (player_class == CLASS_SANTA && class_owned_of(CLASS_SANTA) == 0) {
         player_class = CLASS_ORDINARY;
     }
     if (class_id_valid(player_class) == 0 || class_owned_of(player_class) == 0) {
@@ -225,6 +230,7 @@ static void progress_from_storage(void) {
     astra_skin = floor(skins / 4) - floor(skins / 8) * 2;
     ordinary_gold_owned = floor(skins / 16) - floor(skins / 32) * 2;
     ordinary_gold_skin = floor(skins / 32) - floor(skins / 64) * 2;
+    santa_skin = floor(skins / 64) - floor(skins / 128) * 2;
     if (azum_skin == SKIN_ZOMBIE && has_achievement(ACH_LEGENDS) == 0) {
         grant_achievement(ACH_LEGENDS);
     }
@@ -256,6 +262,7 @@ static void progress_reset_on_signout(void) {
     azum_skin = SKIN_NORMAL;
     ebuc_skin = SKIN_NORMAL;
     astra_skin = SKIN_NORMAL;
+    santa_skin = SKIN_NORMAL;
     ordinary_gold_skin = SKIN_NORMAL;
     ordinary_gold_owned = 0;
     wheel_spins = 0;
@@ -287,6 +294,11 @@ static void settings_from_storage(void) {
     if (theme_mode < 0 || theme_mode > 1)
         theme_mode = 0;
     theme_chosen = net_load_theme_chosen();
+    graphics_mode = net_load_graphics_mode();
+    if (graphics_mode < 0 || graphics_mode > 2)
+        graphics_mode = 0;
+    graphics_menu_open = 0;
+    ds_graphics_set_quality_mode((int)graphics_mode);
     apply_theme();
 }
 
@@ -296,4 +308,5 @@ static void save_settings(void) {
     net_save_new_theme(new_theme);
     net_save_theme_mode(theme_mode);
     net_save_theme_chosen(theme_chosen);
+    net_save_graphics_mode(graphics_mode);
 }

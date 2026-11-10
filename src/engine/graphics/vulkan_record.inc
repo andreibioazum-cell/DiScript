@@ -216,8 +216,207 @@ static void ds_vk_record_draws(VkCommandBuffer cmd) {
     }
 }
 
+static int ds_vk_create_renderpass(void) {
+    VkAttachmentDescription atts[2] = {0};
+    VkAttachmentReference color = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkAttachmentReference resolve = {1, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkSubpassDescription sub = {0};
+    VkSubpassDependency dep = {0};
+    VkRenderPassCreateInfo ri = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+
+    atts[0].format = vk_sw_format;
+    atts[0].samples = vk_msaa_samples;
+    atts[0].loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
+    atts[0].storeOp = vk_msaa_samples == VK_SAMPLE_COUNT_1_BIT ? VK_ATTACHMENT_STORE_OP_STORE
+                                                                 : VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    atts[0].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    atts[0].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    atts[0].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    atts[0].finalLayout = vk_msaa_samples == VK_SAMPLE_COUNT_1_BIT
+                              ? (ds_vk_smaa_enabled() ? VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL
+                                                      : VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL)
+                              : VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL;
+
+    sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    sub.colorAttachmentCount = 1;
+    sub.pColorAttachments = &color;
+    ri.attachmentCount = 1;
+    ri.pAttachments = atts;
+    if (vk_msaa_samples != VK_SAMPLE_COUNT_1_BIT) {
+        atts[1].format = vk_sw_format;
+        atts[1].samples = VK_SAMPLE_COUNT_1_BIT;
+        atts[1].loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        atts[1].storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+        atts[1].stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+        atts[1].stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+        atts[1].initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+        atts[1].finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+        sub.pResolveAttachments = &resolve;
+        ri.attachmentCount = 2;
+    }
+    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dep.dstSubpass = 0;
+    dep.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dep.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    ri.sType = VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO;
+    ri.subpassCount = 1;
+    ri.pSubpasses = &sub;
+    ri.dependencyCount = 1;
+    ri.pDependencies = &dep;
+    int ok = ds_vk_check_result(vkCreateRenderPass(vk_device, &ri, NULL, &vk_renderpass), "vkCreateRenderPass");
+    if (ok)
+        vk_rp_format = vk_sw_format;
+    return ok;
+}
+
+static int ds_vk_create_smaa_renderpass(void) {
+    if (!ds_vk_smaa_enabled())
+        return 1;
+    VkAttachmentDescription att = {0};
+    att.format = vk_sw_format;
+    att.samples = VK_SAMPLE_COUNT_1_BIT;
+    att.loadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
+    att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
+    att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
+    att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
+    att.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
+    VkAttachmentReference ref = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
+    VkSubpassDescription sub = {0};
+    sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
+    sub.colorAttachmentCount = 1;
+    sub.pColorAttachments = &ref;
+    VkSubpassDependency dep = {0};
+    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
+    dep.dstSubpass = 0;
+    dep.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
+    dep.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
+    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
+    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    VkRenderPassCreateInfo ri = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
+    ri.attachmentCount = 1;
+    ri.pAttachments = &att;
+    ri.subpassCount = 1;
+    ri.pSubpasses = &sub;
+    ri.dependencyCount = 1;
+    ri.pDependencies = &dep;
+    return ds_vk_check_result(vkCreateRenderPass(vk_device, &ri, NULL, &vk_smaa_renderpass),
+                              "vkCreateRenderPass(smaa)");
+}
+
+static void ds_vk_destroy_smaa_renderpass(void) {
+    if (vk_device && vk_smaa_renderpass != VK_NULL_HANDLE)
+        vkDestroyRenderPass(vk_device, vk_smaa_renderpass, NULL);
+    vk_smaa_renderpass = VK_NULL_HANDLE;
+}
+
+static void ds_vk_destroy_all_pipelines(void) {
+    if (!vk_device)
+        return;
+    if (vk_pipe_solid != VK_NULL_HANDLE)
+        vkDestroyPipeline(vk_device, vk_pipe_solid, NULL);
+    if (vk_pipe_replace != VK_NULL_HANDLE)
+        vkDestroyPipeline(vk_device, vk_pipe_replace, NULL);
+    if (vk_pipe_image != VK_NULL_HANDLE)
+        vkDestroyPipeline(vk_device, vk_pipe_image, NULL);
+    if (vk_pipe_tint != VK_NULL_HANDLE)
+        vkDestroyPipeline(vk_device, vk_pipe_tint, NULL);
+    if (vk_pipe_smaa != VK_NULL_HANDLE)
+        vkDestroyPipeline(vk_device, vk_pipe_smaa, NULL);
+    vk_pipe_solid = vk_pipe_replace = vk_pipe_image = vk_pipe_tint = vk_pipe_smaa = VK_NULL_HANDLE;
+}
+
+static int ds_vk_create_all_pipelines(void) {
+    VkShaderModule frag_solid = VK_NULL_HANDLE, frag_image = VK_NULL_HANDLE, frag_tint = VK_NULL_HANDLE;
+    VkShaderModule frag_smaa = VK_NULL_HANDLE;
+    int ok =
+        ds_vk_create_shader_module(ds_spirv_solid_frag, sizeof(ds_spirv_solid_frag) / sizeof(uint32_t), &frag_solid) &&
+        ds_vk_create_shader_module(ds_spirv_image_frag, sizeof(ds_spirv_image_frag) / sizeof(uint32_t), &frag_image) &&
+        ds_vk_create_shader_module(ds_spirv_tint_frag, sizeof(ds_spirv_tint_frag) / sizeof(uint32_t), &frag_tint) &&
+        ds_vk_create_pipeline(frag_solid, vk_layout_solid, 1, vk_renderpass, vk_msaa_samples, &vk_pipe_solid) &&
+        ds_vk_create_pipeline(frag_solid, vk_layout_solid, 0, vk_renderpass, vk_msaa_samples, &vk_pipe_replace) &&
+        ds_vk_create_pipeline(frag_image, vk_layout_image, 1, vk_renderpass, vk_msaa_samples, &vk_pipe_image) &&
+        ds_vk_create_pipeline(frag_tint, vk_layout_tint, 1, vk_renderpass, vk_msaa_samples, &vk_pipe_tint);
+    if (ok && ds_vk_smaa_enabled()) {
+        ok = ds_vk_create_shader_module(ds_spirv_smaa_frag, sizeof(ds_spirv_smaa_frag) / sizeof(uint32_t), &frag_smaa) &&
+             ds_vk_create_pipeline(frag_smaa, vk_layout_image, 0, vk_smaa_renderpass, VK_SAMPLE_COUNT_1_BIT,
+                                   &vk_pipe_smaa);
+    }
+    if (frag_solid != VK_NULL_HANDLE)
+        vkDestroyShaderModule(vk_device, frag_solid, NULL);
+    if (frag_image != VK_NULL_HANDLE)
+        vkDestroyShaderModule(vk_device, frag_image, NULL);
+    if (frag_tint != VK_NULL_HANDLE)
+        vkDestroyShaderModule(vk_device, frag_tint, NULL);
+    if (frag_smaa != VK_NULL_HANDLE)
+        vkDestroyShaderModule(vk_device, frag_smaa, NULL);
+    return ok;
+}
+
+static int ds_vk_rebuild_pipelines(void) {
+    if (vk_device)
+        vkDeviceWaitIdle(vk_device);
+    ds_vk_destroy_offscreen();
+    ds_vk_destroy_all_pipelines();
+    if (vk_renderpass != VK_NULL_HANDLE)
+        vkDestroyRenderPass(vk_device, vk_renderpass, NULL);
+    vk_renderpass = VK_NULL_HANDLE;
+    ds_vk_destroy_smaa_renderpass();
+    if (!ds_vk_create_renderpass())
+        return 0;
+    if (!ds_vk_create_smaa_renderpass())
+        return 0;
+    return ds_vk_create_all_pipelines();
+}
+
+static void ds_vk_record_smaa(VkCommandBuffer cmd, DsVkFrame *f, uint32_t first_index) {
+    if (!ds_vk_smaa_enabled() || vk_smaa_fb == VK_NULL_HANDLE || vk_smaa_desc == VK_NULL_HANDLE ||
+        vk_pipe_smaa == VK_NULL_HANDLE)
+        return;
+    VkImageMemoryBarrier source_ready = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
+    source_ready.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    source_ready.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
+    source_ready.srcAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
+    source_ready.dstAccessMask = VK_ACCESS_SHADER_READ_BIT;
+    source_ready.oldLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    source_ready.newLayout = VK_IMAGE_LAYOUT_SHADER_READ_ONLY_OPTIMAL;
+    source_ready.image = vk_off_image;
+    source_ready.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
+    source_ready.subresourceRange.levelCount = 1;
+    source_ready.subresourceRange.layerCount = 1;
+    vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT, VK_PIPELINE_STAGE_FRAGMENT_SHADER_BIT, 0, 0,
+                         NULL, 0, NULL, 1, &source_ready);
+
+    VkClearValue clear;
+    clear.color = (VkClearColorValue){{0.0f, 0.0f, 0.0f, 1.0f}};
+    VkRenderPassBeginInfo ri = {VK_STRUCTURE_TYPE_RENDER_PASS_BEGIN_INFO};
+    ri.renderPass = vk_smaa_renderpass;
+    ri.framebuffer = vk_smaa_fb;
+    ri.renderArea.extent.width = vk_off_w;
+    ri.renderArea.extent.height = vk_off_h;
+    ri.clearValueCount = 1;
+    ri.pClearValues = &clear;
+    vkCmdBeginRenderPass(cmd, &ri, VK_SUBPASS_CONTENTS_INLINE);
+    VkViewport vp = {0.0f, 0.0f, (float)vk_off_w, (float)vk_off_h, 0.0f, 1.0f};
+    VkRect2D sc = {{0, 0}, {vk_off_w, vk_off_h}};
+    VkDeviceSize zero = 0;
+    float pc[4] = {2.0f / (float)vk_off_w, 2.0f / (float)vk_off_h, -1.0f, -1.0f};
+    vkCmdSetViewport(cmd, 0, 1, &vp);
+    vkCmdSetScissor(cmd, 0, 1, &sc);
+    vkCmdBindVertexBuffers(cmd, 0, 1, &f->vbuf, &zero);
+    vkCmdBindIndexBuffer(cmd, f->ibuf, 0, VK_INDEX_TYPE_UINT16);
+    vkCmdBindPipeline(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_pipe_smaa);
+    vkCmdPushConstants(cmd, vk_layout_image, VK_SHADER_STAGE_VERTEX_BIT, 0, sizeof(pc), pc);
+    vkCmdBindDescriptorSets(cmd, VK_PIPELINE_BIND_POINT_GRAPHICS, vk_layout_image, 0, 1, &vk_smaa_desc, 0, NULL);
+    vkCmdDrawIndexed(cmd, 6, 1, first_index, 0, 0);
+    vkCmdEndRenderPass(cmd);
+}
+
 static void ds_vk_record_present_blit(VkCommandBuffer cmd) {
     VkImage sw_image = vk_sw_images[vk_sw_index];
+    VkImage source = ds_vk_smaa_enabled() ? vk_smaa_image : vk_off_image;
     VkImageMemoryBarrier to_dst = {VK_STRUCTURE_TYPE_IMAGE_MEMORY_BARRIER};
     to_dst.srcQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
     to_dst.dstQueueFamilyIndex = VK_QUEUE_FAMILY_IGNORED;
@@ -243,12 +442,14 @@ static void ds_vk_record_present_blit(VkCommandBuffer cmd) {
         bl.dstOffsets[1].x = (int32_t)vk_sw_extent.width;
         bl.dstOffsets[1].y = (int32_t)vk_sw_extent.height;
         bl.dstOffsets[1].z = 1;
-
-        /* Blit with nearest filtering to preserve sharp pixel edges. */
-        vkCmdBlitImage(cmd, vk_off_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sw_image,
-                       VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &bl, VK_FILTER_NEAREST);
+        /* At native 1:1 there is nothing to resample. Keep it exact; the
+         * selected MSAA/SMAA path has already smoothed the rendered scene.
+         * A resized smooth frame uses linear sampling instead. */
+        int scaled = vk_off_w != vk_sw_extent.width || vk_off_h != vk_sw_extent.height;
+        VkFilter filter = vk_render_mode != 0 && scaled ? VK_FILTER_LINEAR : VK_FILTER_NEAREST;
+        vkCmdBlitImage(cmd, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sw_image, VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL,
+                       1, &bl, filter);
     } else {
-
         VkImageCopy cp;
         memset(&cp, 0, sizeof(cp));
         cp.srcSubresource.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
@@ -258,7 +459,7 @@ static void ds_vk_record_present_blit(VkCommandBuffer cmd) {
         cp.extent.width = vk_off_w < vk_sw_extent.width ? vk_off_w : vk_sw_extent.width;
         cp.extent.height = vk_off_h < vk_sw_extent.height ? vk_off_h : vk_sw_extent.height;
         cp.extent.depth = 1;
-        vkCmdCopyImage(cmd, vk_off_image, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sw_image,
+        vkCmdCopyImage(cmd, source, VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL, sw_image,
                        VK_IMAGE_LAYOUT_TRANSFER_DST_OPTIMAL, 1, &cp);
     }
     VkImageMemoryBarrier to_present = to_dst;
@@ -268,83 +469,4 @@ static void ds_vk_record_present_blit(VkCommandBuffer cmd) {
     to_present.dstAccessMask = 0;
     vkCmdPipelineBarrier(cmd, VK_PIPELINE_STAGE_TRANSFER_BIT, VK_PIPELINE_STAGE_BOTTOM_OF_PIPE_BIT, 0, 0, NULL, 0, NULL,
                          1, &to_present);
-}
-
-static int ds_vk_create_renderpass(void) {
-    VkAttachmentDescription att = {0};
-    att.format = vk_sw_format;
-    att.samples = VK_SAMPLE_COUNT_1_BIT;
-    att.loadOp = VK_ATTACHMENT_LOAD_OP_CLEAR;
-    att.storeOp = VK_ATTACHMENT_STORE_OP_STORE;
-    att.stencilLoadOp = VK_ATTACHMENT_LOAD_OP_DONT_CARE;
-    att.stencilStoreOp = VK_ATTACHMENT_STORE_OP_DONT_CARE;
-    att.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    att.finalLayout = VK_IMAGE_LAYOUT_TRANSFER_SRC_OPTIMAL;
-    VkAttachmentReference ref = {0, VK_IMAGE_LAYOUT_COLOR_ATTACHMENT_OPTIMAL};
-    VkSubpassDescription sub = {0};
-    sub.pipelineBindPoint = VK_PIPELINE_BIND_POINT_GRAPHICS;
-    sub.colorAttachmentCount = 1;
-    sub.pColorAttachments = &ref;
-
-    VkSubpassDependency dep = {0};
-    dep.srcSubpass = VK_SUBPASS_EXTERNAL;
-    dep.dstSubpass = 0;
-    dep.srcStageMask = VK_PIPELINE_STAGE_TRANSFER_BIT;
-    dep.srcAccessMask = VK_ACCESS_TRANSFER_READ_BIT;
-    dep.dstStageMask = VK_PIPELINE_STAGE_COLOR_ATTACHMENT_OUTPUT_BIT;
-    dep.dstAccessMask = VK_ACCESS_COLOR_ATTACHMENT_WRITE_BIT;
-    VkRenderPassCreateInfo ri = {VK_STRUCTURE_TYPE_RENDER_PASS_CREATE_INFO};
-    ri.attachmentCount = 1;
-    ri.pAttachments = &att;
-    ri.subpassCount = 1;
-    ri.pSubpasses = &sub;
-    ri.dependencyCount = 1;
-    ri.pDependencies = &dep;
-    int ok = ds_vk_check_result(vkCreateRenderPass(vk_device, &ri, NULL, &vk_renderpass), "vkCreateRenderPass");
-    if (ok)
-        vk_rp_format = vk_sw_format;
-    return ok;
-}
-
-static int ds_vk_create_all_pipelines(void) {
-    VkShaderModule frag_solid = VK_NULL_HANDLE, frag_image = VK_NULL_HANDLE, frag_tint = VK_NULL_HANDLE;
-    int ok =
-        ds_vk_create_shader_module(ds_spirv_solid_frag, sizeof(ds_spirv_solid_frag) / sizeof(uint32_t), &frag_solid) &&
-        ds_vk_create_shader_module(ds_spirv_image_frag, sizeof(ds_spirv_image_frag) / sizeof(uint32_t), &frag_image) &&
-        ds_vk_create_shader_module(ds_spirv_tint_frag, sizeof(ds_spirv_tint_frag) / sizeof(uint32_t), &frag_tint) &&
-        ds_vk_create_pipeline(frag_solid, vk_layout_solid, 1, &vk_pipe_solid) &&
-        ds_vk_create_pipeline(frag_solid, vk_layout_solid, 0, &vk_pipe_replace) &&
-        ds_vk_create_pipeline(frag_image, vk_layout_image, 1, &vk_pipe_image) &&
-        ds_vk_create_pipeline(frag_tint, vk_layout_tint, 1, &vk_pipe_tint);
-
-    if (frag_solid != VK_NULL_HANDLE)
-        vkDestroyShaderModule(vk_device, frag_solid, NULL);
-    if (frag_image != VK_NULL_HANDLE)
-        vkDestroyShaderModule(vk_device, frag_image, NULL);
-    if (frag_tint != VK_NULL_HANDLE)
-        vkDestroyShaderModule(vk_device, frag_tint, NULL);
-    return ok;
-}
-
-static int ds_vk_rebuild_pipelines(void) {
-    if (vk_device)
-        vkDeviceWaitIdle(vk_device);
-    if (vk_pipe_solid != VK_NULL_HANDLE)
-        vkDestroyPipeline(vk_device, vk_pipe_solid, NULL);
-    if (vk_pipe_replace != VK_NULL_HANDLE)
-        vkDestroyPipeline(vk_device, vk_pipe_replace, NULL);
-    if (vk_pipe_image != VK_NULL_HANDLE)
-        vkDestroyPipeline(vk_device, vk_pipe_image, NULL);
-    if (vk_pipe_tint != VK_NULL_HANDLE)
-        vkDestroyPipeline(vk_device, vk_pipe_tint, NULL);
-    vk_pipe_solid = vk_pipe_replace = vk_pipe_image = vk_pipe_tint = VK_NULL_HANDLE;
-    if (vk_renderpass != VK_NULL_HANDLE)
-        vkDestroyRenderPass(vk_device, vk_renderpass, NULL);
-    vk_renderpass = VK_NULL_HANDLE;
-    ds_vk_destroy_offscreen();
-    if (!ds_vk_create_renderpass())
-        return 0;
-    if (!ds_vk_create_all_pipelines())
-        return 0;
-    return 1;
 }

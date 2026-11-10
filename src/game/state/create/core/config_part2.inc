@@ -80,6 +80,8 @@ AZUM_TEX = "azum.png";
 AZUM_PUNCH_TEX = "azum_punch.png";
 SANTA_TEX = "santa.png";
 SANTA_PUNCH_TEX = "santa_punch.png";
+SANTA_ARCTIC_TEX = "santa_arctic.png";
+SANTA_ARCTIC_PUNCH_TEX = "santa_arctic_punch.png";
 CANDY_TEX = "candy.png";
 EVENT_COLUMNS_TEX = "Event columns.png";
 SNOWFLAKE_TEX = "snowflake.png";
@@ -115,6 +117,8 @@ ASTRA_XASTRA_CARD_TEX = "astra_xastra_card.png";
 CODECRACKER_CARD_TEX = "codecracker_card.png";
 ASTRA_TEX = "astra.png";
 ASTRA_PUNCH_TEX = "astra_punch.png";
+ASTRA_BASE_TEX = "astra_base.png";
+ASTRA_BASE_PUNCH_TEX = "astra_base_punch.png";
 astra_ability_ok = 0;
 ST_BPASS = 16;
 /* Acceleration and braking durations in seconds. */

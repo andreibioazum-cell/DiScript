@@ -173,7 +173,8 @@ static void update_dice_event(void) {
                 if (v >= dice_cube_lifetime) {
                     arr_set(dice_cubes, b, 0);
                 } else if (dist(arr_get(dice_cubes, b + 5), arr_get(dice_cubes, b + 6), player->x, player->y) <
-                           player->size * 0.65 + 26) {
+                               player->size * 0.65 + 26 &&
+                           candy_awards_allowed() == 1) {
                     double prize = dice_prize_of(arr_get(dice_cubes, b + 1));
                     candies = candies + prize;
                     save_progress();

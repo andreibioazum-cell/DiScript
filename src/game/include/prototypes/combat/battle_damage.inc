@@ -1,4 +1,3 @@
-static void damage_taken_shake(double dmg);
 static double block_covers(void);
 static double take_damage(double dmg);
 static double take_damage_at(double dmg, double sx, double sy);

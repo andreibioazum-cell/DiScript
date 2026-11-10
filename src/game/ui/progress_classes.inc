@@ -152,6 +152,9 @@ static double class_skin_of(double cls) {
     if (cls == CLASS_ASTRA) {
         return astra_skin;
     }
+    if (cls == CLASS_SANTA) {
+        return santa_skin;
+    }
     if (cls == CLASS_ORDINARY) {
         return ordinary_gold_skin;
     }
@@ -174,6 +177,9 @@ static double skin_unlocked_for(double cls, double skin) {
     if (cls == CLASS_ASTRA && class_owned_of(CLASS_ASTRA) == 1) {
         return 1;
     }
+    if (cls == CLASS_SANTA && class_owned_of(CLASS_SANTA) == 1) {
+        return 1;
+    }
     if (cls == CLASS_ORDINARY && ordinary_gold_owned == 1) {
         return 1;
     }
@@ -183,14 +189,19 @@ static double skin_unlocked_for(double cls, double skin) {
 static double skin_unlocked(double skin) { return skin_unlocked_for(player_class, skin); }
 
 static const char *skin_name_for(double cls, double skin) {
-    if (skin != SKIN_SPECIAL || (cls != CLASS_EBUC && cls != CLASS_AZUM && cls != CLASS_ASTRA && cls != CLASS_ORDINARY)) {
+    if (skin != SKIN_SPECIAL ||
+        (cls != CLASS_EBUC && cls != CLASS_AZUM && cls != CLASS_ASTRA && cls != CLASS_SANTA &&
+         cls != CLASS_ORDINARY)) {
         return tr_skin_normal();
+    }
+    if (cls == CLASS_SANTA) {
+        return language == 1 ? "Арктический" : "Arctic";
     }
     if (cls == CLASS_ASTRA) {
         return tr_skin_astra();
     }
     if (cls == CLASS_ORDINARY) {
-        return language == 1 ? "Золотой" : "Gold";
+        return language == 1 ? "Тыква" : "Pumpkin";
     }
     if (cls == CLASS_EBUC) {
         return tr_skin_elf();
@@ -210,6 +221,9 @@ static const char *skin_hint_for(double cls) {
     if (cls == CLASS_ASTRA) {
         return tr_skin_astra_hint();
     }
+    if (cls == CLASS_SANTA) {
+        return language == 1 ? "Доступен владельцу Деда Мороза" : "Available with Santa";
+    }
     return tr_skin_legends_hint();
 }
 
@@ -228,6 +242,8 @@ static void pick_skin(double skin) {
         ebuc_skin = skin;
     } else if (player_class == CLASS_ASTRA) {
         astra_skin = skin;
+    } else if (player_class == CLASS_SANTA) {
+        santa_skin = skin;
     } else if (player_class == CLASS_ORDINARY) {
         ordinary_gold_skin = skin;
         ordinary_gold_owned = 1;
@@ -238,10 +254,11 @@ static void pick_skin(double skin) {
 }
 
 static double class_visible(double cls) {
-    if (cls == CLASS_SANTA && dev_access() == 0 && (bpass_rewards_allowed() == 0 || bp_claimed < 7)) {
-        return 0;
+    if (cls != CLASS_SANTA) {
+        return 1;
     }
-    return 1;
+    /* Legacy owners keep Santa. New access is shown only to admins. */
+    return class_owned_of(CLASS_SANTA) == 1 || bpass_allowed() == 1 ? 1 : 0;
 }
 
 static double class_at_order(double i) {
@@ -431,6 +448,9 @@ static void pick_class(double cls) {
     if (class_id_valid(cls) == 0 || class_visible(cls) == 0) {
         return;
     }
+    if (cls == CLASS_SANTA && class_owned_of(cls) == 0 && admin_playing() == 0) {
+        return;
+    }
     if (class_owned_of(cls) == 1) {
         select_class(cls);
         return;
@@ -457,9 +477,6 @@ static void pick_class(double cls) {
         if (cups < 0) cups = 0;
     }
     set_class_owned(cls, 1);
-    if (cls == CLASS_ASTRA) {
-        astra_skin = SKIN_SPECIAL;
-    }
     select_class(cls);
     ds_log("bought class %g", cls);
 }

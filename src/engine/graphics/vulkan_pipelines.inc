@@ -5,8 +5,8 @@ static int ds_vk_create_shader_module(const uint32_t *code, size_t words, VkShad
     return ds_vk_check_result(vkCreateShaderModule(vk_device, &ci, NULL, out), "vkCreateShaderModule");
 }
 
-static int ds_vk_create_pipeline(VkShaderModule frag, VkPipelineLayout layout, int blend, VkPipeline *out) {
-
+static int ds_vk_create_pipeline(VkShaderModule frag, VkPipelineLayout layout, int blend, VkRenderPass renderpass,
+                                 VkSampleCountFlagBits samples, VkPipeline *out) {
     VkPipelineShaderStageCreateInfo stages[2] = {0};
     stages[0].sType = VK_STRUCTURE_TYPE_PIPELINE_SHADER_STAGE_CREATE_INFO;
     stages[0].stage = VK_SHADER_STAGE_VERTEX_BIT;
@@ -48,7 +48,7 @@ static int ds_vk_create_pipeline(VkShaderModule frag, VkPipelineLayout layout, i
     rs.lineWidth = 1.0f;
 
     VkPipelineMultisampleStateCreateInfo ms = {VK_STRUCTURE_TYPE_PIPELINE_MULTISAMPLE_STATE_CREATE_INFO};
-    ms.rasterizationSamples = VK_SAMPLE_COUNT_1_BIT;
+    ms.rasterizationSamples = samples;
 
     VkPipelineDepthStencilStateCreateInfo dss = {VK_STRUCTURE_TYPE_PIPELINE_DEPTH_STENCIL_STATE_CREATE_INFO};
 
@@ -84,7 +84,7 @@ static int ds_vk_create_pipeline(VkShaderModule frag, VkPipelineLayout layout, i
     pi.pColorBlendState = &cbs;
     pi.pDynamicState = &dy;
     pi.layout = layout;
-    pi.renderPass = vk_renderpass;
+    pi.renderPass = renderpass;
     pi.subpass = 0;
     int ok = ds_vk_check_result(vkCreateGraphicsPipelines(vk_device, VK_NULL_HANDLE, 1, &pi, NULL, out),
                                 "vkCreateGraphicsPipelines");
@@ -93,12 +93,9 @@ static int ds_vk_create_pipeline(VkShaderModule frag, VkPipelineLayout layout, i
     return ok;
 }
 
-static int ds_vk_ensure_offscreen(uint32_t w, uint32_t h, VkFormat format) {
-    if (vk_off_image != VK_NULL_HANDLE && vk_off_w == w && vk_off_h == h && vk_off_format == format)
-        return 1;
-    if (vk_device)
-        vkDeviceWaitIdle(vk_device);
-    ds_vk_destroy_offscreen();
+static int ds_vk_create_offscreen_image(uint32_t w, uint32_t h, VkFormat format, VkSampleCountFlagBits samples,
+                                        VkImageUsageFlags usage, VkImage *image, VkDeviceMemory *memory,
+                                        VkImageView *view, const char *label) {
     VkImageCreateInfo ii = {VK_STRUCTURE_TYPE_IMAGE_CREATE_INFO};
     ii.imageType = VK_IMAGE_TYPE_2D;
     ii.format = format;
@@ -107,65 +104,113 @@ static int ds_vk_ensure_offscreen(uint32_t w, uint32_t h, VkFormat format) {
     ii.extent.depth = 1;
     ii.mipLevels = 1;
     ii.arrayLayers = 1;
-    ii.samples = VK_SAMPLE_COUNT_1_BIT;
+    ii.samples = samples;
     ii.tiling = VK_IMAGE_TILING_OPTIMAL;
-    ii.usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    ii.usage = usage;
     ii.initialLayout = VK_IMAGE_LAYOUT_UNDEFINED;
-    if (!ds_vk_check_result(vkCreateImage(vk_device, &ii, NULL, &vk_off_image), "vkCreateImage(offscreen)"))
+    if (!ds_vk_check_result(vkCreateImage(vk_device, &ii, NULL, image), label))
         return 0;
     VkMemoryRequirements mr;
-    vkGetImageMemoryRequirements(vk_device, vk_off_image, &mr);
-    if (!ds_vk_alloc_device_memory(mr, &vk_off_mem)) {
-        ds_vk_destroy_offscreen();
+    vkGetImageMemoryRequirements(vk_device, *image, &mr);
+    if (!ds_vk_alloc_device_memory(mr, memory))
         return 0;
-    }
-    if (!ds_vk_check_result(vkBindImageMemory(vk_device, vk_off_image, vk_off_mem, 0),
-                            "vkBindImageMemory(offscreen)")) {
-        ds_vk_destroy_offscreen();
+    if (!ds_vk_check_result(vkBindImageMemory(vk_device, *image, *memory, 0), "vkBindImageMemory(offscreen)"))
         return 0;
-    }
     VkImageViewCreateInfo vi = {VK_STRUCTURE_TYPE_IMAGE_VIEW_CREATE_INFO};
-    vi.image = vk_off_image;
+    vi.image = *image;
     vi.viewType = VK_IMAGE_VIEW_TYPE_2D;
     vi.format = format;
     vi.subresourceRange.aspectMask = VK_IMAGE_ASPECT_COLOR_BIT;
     vi.subresourceRange.levelCount = 1;
     vi.subresourceRange.layerCount = 1;
-    if (!ds_vk_check_result(vkCreateImageView(vk_device, &vi, NULL, &vk_off_view), "vkCreateImageView(offscreen)")) {
-        ds_vk_destroy_offscreen();
-        return 0;
+    return ds_vk_check_result(vkCreateImageView(vk_device, &vi, NULL, view), "vkCreateImageView(offscreen)");
+}
+
+static void ds_vk_destroy_offscreen_image(VkImage *image, VkDeviceMemory *memory, VkImageView *view) {
+    if (!vk_device)
+        return;
+    if (*view != VK_NULL_HANDLE)
+        vkDestroyImageView(vk_device, *view, NULL);
+    if (*image != VK_NULL_HANDLE)
+        vkDestroyImage(vk_device, *image, NULL);
+    if (*memory != VK_NULL_HANDLE)
+        vkFreeMemory(vk_device, *memory, NULL);
+    *image = VK_NULL_HANDLE;
+    *memory = VK_NULL_HANDLE;
+    *view = VK_NULL_HANDLE;
+}
+
+static int ds_vk_ensure_offscreen(uint32_t w, uint32_t h, VkFormat format) {
+    if (vk_off_image != VK_NULL_HANDLE && vk_off_w == w && vk_off_h == h && vk_off_format == format)
+        return 1;
+    if (vk_device)
+        vkDeviceWaitIdle(vk_device);
+    ds_vk_destroy_offscreen();
+
+    VkImageUsageFlags resolve_usage = VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT;
+    if (ds_vk_smaa_enabled())
+        resolve_usage |= VK_IMAGE_USAGE_SAMPLED_BIT;
+    if (!ds_vk_create_offscreen_image(w, h, format, VK_SAMPLE_COUNT_1_BIT, resolve_usage, &vk_off_image, &vk_off_mem,
+                                      &vk_off_view, "vkCreateImage(offscreen)"))
+        goto fail;
+    if (vk_msaa_samples != VK_SAMPLE_COUNT_1_BIT &&
+        !ds_vk_create_offscreen_image(w, h, format, vk_msaa_samples, VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT,
+                                      &vk_msaa_image, &vk_msaa_mem, &vk_msaa_view, "vkCreateImage(msaa)"))
+        goto fail;
+
+    VkImageView scene_attachments[2];
+    uint32_t scene_attachment_count = 1;
+    scene_attachments[0] = vk_off_view;
+    if (vk_msaa_samples != VK_SAMPLE_COUNT_1_BIT) {
+        scene_attachments[0] = vk_msaa_view;
+        scene_attachments[1] = vk_off_view;
+        scene_attachment_count = 2;
     }
     VkFramebufferCreateInfo fi = {VK_STRUCTURE_TYPE_FRAMEBUFFER_CREATE_INFO};
     fi.renderPass = vk_renderpass;
-    fi.attachmentCount = 1;
-    fi.pAttachments = &vk_off_view;
+    fi.attachmentCount = scene_attachment_count;
+    fi.pAttachments = scene_attachments;
     fi.width = w;
     fi.height = h;
     fi.layers = 1;
-    if (!ds_vk_check_result(vkCreateFramebuffer(vk_device, &fi, NULL, &vk_off_fb), "vkCreateFramebuffer")) {
-        ds_vk_destroy_offscreen();
-        return 0;
+    if (!ds_vk_check_result(vkCreateFramebuffer(vk_device, &fi, NULL, &vk_off_fb), "vkCreateFramebuffer"))
+        goto fail;
+
+    if (ds_vk_smaa_enabled()) {
+        if (!ds_vk_create_offscreen_image(w, h, format, VK_SAMPLE_COUNT_1_BIT,
+                                          VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT | VK_IMAGE_USAGE_TRANSFER_SRC_BIT,
+                                          &vk_smaa_image, &vk_smaa_mem, &vk_smaa_view, "vkCreateImage(smaa)"))
+            goto fail;
+        if (!ds_vk_new_descriptor_set(vk_off_view, &vk_smaa_desc))
+            goto fail;
+        fi.renderPass = vk_smaa_renderpass;
+        fi.attachmentCount = 1;
+        fi.pAttachments = &vk_smaa_view;
+        if (!ds_vk_check_result(vkCreateFramebuffer(vk_device, &fi, NULL, &vk_smaa_fb),
+                                "vkCreateFramebuffer(smaa)"))
+            goto fail;
     }
     vk_off_w = w;
     vk_off_h = h;
     vk_off_format = format;
     return 1;
+fail:
+    ds_vk_destroy_offscreen();
+    return 0;
 }
 
 static void ds_vk_destroy_offscreen(void) {
     if (!vk_device)
         return;
+    if (vk_smaa_fb != VK_NULL_HANDLE)
+        vkDestroyFramebuffer(vk_device, vk_smaa_fb, NULL);
+    vk_smaa_fb = VK_NULL_HANDLE;
+    vk_smaa_desc = VK_NULL_HANDLE;
+    ds_vk_destroy_offscreen_image(&vk_smaa_image, &vk_smaa_mem, &vk_smaa_view);
     if (vk_off_fb != VK_NULL_HANDLE)
         vkDestroyFramebuffer(vk_device, vk_off_fb, NULL);
-    if (vk_off_view != VK_NULL_HANDLE)
-        vkDestroyImageView(vk_device, vk_off_view, NULL);
-    if (vk_off_image != VK_NULL_HANDLE)
-        vkDestroyImage(vk_device, vk_off_image, NULL);
-    if (vk_off_mem != VK_NULL_HANDLE)
-        vkFreeMemory(vk_device, vk_off_mem, NULL);
     vk_off_fb = VK_NULL_HANDLE;
-    vk_off_view = VK_NULL_HANDLE;
-    vk_off_image = VK_NULL_HANDLE;
-    vk_off_mem = VK_NULL_HANDLE;
+    ds_vk_destroy_offscreen_image(&vk_msaa_image, &vk_msaa_mem, &vk_msaa_view);
+    ds_vk_destroy_offscreen_image(&vk_off_image, &vk_off_mem, &vk_off_view);
     vk_off_w = vk_off_h = 0;
 }

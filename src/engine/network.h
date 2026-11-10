@@ -278,6 +278,8 @@ double net_load_theme_mode(void);
 void net_save_theme_mode(double mode);
 double net_load_theme_chosen(void);
 void net_save_theme_chosen(double on);
+double net_load_graphics_mode(void);
+void net_save_graphics_mode(double mode);
 
 void settings_mark_legal(void);
 double settings_legal_ts(void);

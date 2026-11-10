@@ -36,6 +36,7 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
     int minx, maxx, miny, maxy, x, y;
     GeoVert t;
     int solid, opaque_col;
+    int software_msaa;
 
     area = (double)pc_edge(a.x, a.y, b.x, b.y, c.x, c.y);
     if (area > -1e-6 && area < 1e-6)
@@ -88,6 +89,7 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
 
     solid = pipeline == 0 && a.c == b.c && a.c == c.c;
     opaque_col = solid && (a.c >> 24) == 0xff;
+    software_msaa = ds_graphics_quality_mode() == 1;
 
     u0 = u1 = u2 = v0 = v1 = v2 = 0.0;
     if (pipeline != 0) {
@@ -116,7 +118,26 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
         }
         for (x = minx; x <= maxx; x++) {
             unsigned sa, sr, sg, sb;
-            if (rw0 < -1e-6 || rw1 < -1e-6 || (1.0 - rw0 - rw1) < -1e-6) {
+            int covered = 4;
+            if (software_msaa) {
+                /* Four sub-pixel coverage samples are a real software MSAA
+                 * resolve for triangle edges. Interior pixels still take the
+                 * fast opaque path. */
+                static const float sample[4][2] = {{0.25f, 0.25f}, {0.75f, 0.25f},
+                                                    {0.25f, 0.75f}, {0.75f, 0.75f}};
+                covered = 0;
+                for (int q = 0; q < 4; q++) {
+                    double q0 = (double)pc_edge(b.x, b.y, c.x, c.y, (float)x + sample[q][0],
+                                                (float)y + sample[q][1]) * inv;
+                    double q1 = (double)pc_edge(c.x, c.y, a.x, a.y, (float)x + sample[q][0],
+                                                (float)y + sample[q][1]) * inv;
+                    if (q0 >= -1e-6 && q1 >= -1e-6 && 1.0 - q0 - q1 >= -1e-6)
+                        covered++;
+                }
+            } else if (rw0 < -1e-6 || rw1 < -1e-6 || (1.0 - rw0 - rw1) < -1e-6) {
+                covered = 0;
+            }
+            if (covered == 0) {
                 rw0 += dw0dx;
                 rw1 += dw1dx;
                 r += drdx;
@@ -130,18 +151,20 @@ static void pc_tri(int pipeline, const uint32_t *tex, int tw, int th, GeoVert a,
                 continue;
             }
             if (solid) {
-                if (opaque_col) {
+                unsigned alpha = (unsigned)((((a.c >> 24) & 0xffu) * (unsigned)covered + 2u) / 4u);
+                if (opaque_col && covered == 4) {
                     /* Vertex colors are already packed r | g<<8 | b<<16 | a<<24. */
                     row[x] = a.c | 0xff000000u;
                 } else {
                     pc_blend_pixel(&row[x], (unsigned)(a.c & 0xff), (unsigned)((a.c >> 8) & 0xff),
-                                   (unsigned)((a.c >> 16) & 0xff), (unsigned)((a.c >> 24) & 0xff));
+                                   (unsigned)((a.c >> 16) & 0xff), alpha);
                 }
             } else {
                 sr = (unsigned)(r + 0.5f);
                 sg = (unsigned)(g + 0.5f);
                 sb = (unsigned)(bb + 0.5f);
                 sa = (unsigned)(al + 0.5f);
+                sa = (sa * (unsigned)covered + 2u) / 4u;
                 if (pipeline != 0) {
                     unsigned txi = (unsigned)(uu * (float)tw);
                     unsigned tyi = (unsigned)(vv * (float)th);
@@ -438,4 +461,5 @@ static void pc_render_frame(void) {
         }
         pc_draw_range(pipeline, tex, tw, th, is, geo_in - is);
     }
+    pc_smaa_filter();
 }

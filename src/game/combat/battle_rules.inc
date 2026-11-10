@@ -9,6 +9,9 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_SANTA) {
         pair.idle = SANTA_TEX;
         pair.punch = SANTA_PUNCH_TEX;
+    } else if (look == LOOK_SANTA_ARCTIC) {
+        pair.idle = SANTA_ARCTIC_TEX;
+        pair.punch = SANTA_ARCTIC_PUNCH_TEX;
     } else if (look == LOOK_EBUC) {
         pair.idle = EBUC_TEX;
         pair.punch = EBUC_PUNCH_TEX;
@@ -18,6 +21,9 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_ASTRA) {
         pair.idle = ASTRA_TEX;
         pair.punch = ASTRA_PUNCH_TEX;
+    } else if (look == LOOK_ASTRA_BASE) {
+        pair.idle = ASTRA_BASE_TEX;
+        pair.punch = ASTRA_BASE_PUNCH_TEX;
     } else if (look == LOOK_GOLD) {
         pair.idle = ORDINARY_GOLD_TEX;
         pair.punch = ORDINARY_GOLD_PUNCH_TEX;
@@ -59,6 +65,12 @@ static double class_look(double cls, double skin) {
     }
     if (cls == CLASS_ASTRA && skin == SKIN_SPECIAL) {
         return LOOK_ASTRA;
+    }
+    if (cls == CLASS_ASTRA) {
+        return LOOK_ASTRA_BASE;
+    }
+    if (cls == CLASS_SANTA && skin == SKIN_SPECIAL) {
+        return LOOK_SANTA_ARCTIC;
     }
     if (cls == CLASS_ORDINARY && skin == SKIN_SPECIAL) {
         return LOOK_GOLD;
@@ -236,13 +248,10 @@ static double azum_dash_damage_for(void) {
     return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }
 
-/* Enemies deal a fraction of their class damage: the old 20% cut.
- * ENEMY_OTHER_DAMAGE_MULT scales every enemy hit in solo and against bots -
- * punch, dash, strike, turret counter and ball. It was raised to 1.00 for a
- * while and that made every class feel like it dealt a ton of damage, so it
- * stays at the lower value. Do not tune it per class: one value keeps solo
- * and online fights on the same scale. */
-#define ENEMY_OTHER_DAMAGE_MULT 0.80
+/* Enemy attacks use the same class damage as the player.  Keeping this one
+ * multiplier makes punches, dashes, strikes, counters and balls agree; 1.00
+ * removes the old hidden 20% solo-enemy penalty. */
+#define ENEMY_OTHER_DAMAGE_MULT 1.00
 
 static double enemy_damage_mult_for(double cls) {
     (void)cls;
@@ -258,10 +267,8 @@ static double enemy_azum_dash_damage_for(void) {
  *
  * Both used to fire at full strength no matter whose class was on the field,
  * while the same move coming from the enemy side is scaled by
- * enemy_damage_mult_for(). Against the default 24 HP foe one turret counter
- * that way took a whole HP bar in a few seconds - that is the "ton of damage"
- * players were complaining about. Owner damage now follows the same 0.80
- * class scale as the enemy side, so both sides hit alike. */
+ * enemy_damage_mult_for(). Owner damage follows the same full class scale as
+ * the enemy side, so matching moves hit for matching damage. */
 static double owned_summon_damage_for(double cls) {
     return enemy_damage_mult_for(cls);
 }

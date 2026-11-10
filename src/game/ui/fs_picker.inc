@@ -205,7 +205,10 @@ static void draw_fs_list(void) {
         double y = fs_list_y() + i * fs_row_h();
         if (fs_entry(i, name, sizeof(name), &is_dir) != 1)
             break;
-        roundrect(cx + 20, y, packs_card_w() - 40, fs_row_h() - 6, 10, is_dir ? RGB(74,58,120) : RGB(53,53,74));
+        /* Folder and archive rows follow the current palette as well, so the
+         * New Year import browser stays blue instead of falling back to purple. */
+        roundrect(cx + 20, y, packs_card_w() - 40, fs_row_h() - 6, 10,
+                  is_dir ? shade(ui_purple, 0.78) : shade(card_bg, 1.08));
         text_scaled(name, cx + 34, y + 8, text_color, 0.48);
         i = i + 1;
     }
@@ -217,7 +220,8 @@ static void draw_fs_picker(void) {
     const char *path = fs_dir;
     double page_max = (fs_count > 0) ? (double)((fs_count - 1) / (int)rows) : 0;
     char page[24];
-    rect(0, 0, screen_w, screen_h, 0xCC000000);
+    /* Keep the import browser on the same themed gradient as the pack list. */
+    screen_fill();
     roundrect(cx, cy, cw, ch, 18, card_bg);
     ctext_scaled(tr_fs_title(), cy + 18, text_color, 0.7);
     if (str_len(path) > 42)

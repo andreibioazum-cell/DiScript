@@ -120,15 +120,12 @@ static double enemy_apply_damage(double dmg) {
     if (enemy_class == CLASS_EBUC) {
         dmg = enemy_shield_absorb(dmg);
     }
-    if (dmg > 0) {
-        enemy_hurt_a = 1;
-        damage_taken_shake(dmg);
-    /* Chance to raise guard after taking a hit. */
-    if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
-            rand() % 100 < 10) {
-            enemy_block_left = 0.4 + (rand() % 100) / 100.0 * 0.3;
-        }
+    /* Match the player-side safeguard: any full life needs more than two
+     * unblocked damaging hits, even against a high-damage ability. */
+    if (dmg > max_hit_damage) {
+        dmg = max_hit_damage;
     }
+    /* Damage updates HP directly without a hit reaction effect. */
     enemy->hp = enemy->hp - dmg;
     if (enemy->hp < 0) {
         enemy->hp = 0;

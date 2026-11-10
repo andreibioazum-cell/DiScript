@@ -1,4 +1,4 @@
-/* Battle screen FX: edge vignette, damage flash, and motion-blur tracking. */
+/* Battle screen FX: edge vignette and motion-blur tracking. */
 
 /* Draw non-overlapping concentric edge vignette bands around the arena. */
 static void draw_vignette(void) {
@@ -31,7 +31,7 @@ static void draw_vignette(void) {
     }
 }
 
-/* Peak red damage-flash opacity; skip zero alpha since engine treats 0 as opaque. */
+/* Peak red hit-feedback opacity; an alpha of zero is opaque to the renderer. */
 #define HURT_FLASH_ALPHA 0.07
 #define HURT_FLASH_RGB 0xB04848
 

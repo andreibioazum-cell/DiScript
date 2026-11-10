@@ -84,7 +84,6 @@ dmg_from_y = 0;
 dmg_from_k = 0;
 enemy_block_left = 0;
 enemy_block_cd = 0;
-enemy_hurt_a = 0;
 dash_active = 0;
 dash_t = 0;
 dash_dx = 0;

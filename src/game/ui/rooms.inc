@@ -255,7 +255,8 @@ static void draw_rooms(void) {
         rooms_field_draw(tr_rooms_pass(), rooms_pass, "", rooms_form_y(1), rooms_field == 2);
         button_scaled(tr_rooms_create(), rooms_x(), rooms_btn_y(), rooms_w(), btn_h, 0.65);
     } else {
-        ctext_scaled(ds_concat(ds_concat(tr_rooms_title(), ": "), rooms_selected), rooms_form_y(0) - 40, text_color, 0.6);
+        /* Keep the password prompt neutral: do not repeat “Rooms: <name>”
+         * above the field while joining a protected room. */
         rooms_field_draw(tr_rooms_pass_req(), rooms_pass, "", rooms_form_y(0), rooms_field == 2);
         button_scaled(tr_rooms_join(), rooms_x(), rooms_btn_y() - 96, rooms_w(), btn_h, 0.65);
     }

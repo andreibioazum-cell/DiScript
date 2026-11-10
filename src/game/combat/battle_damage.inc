@@ -1,11 +1,6 @@
-/* Trigger camera shake proportional to landed damage. */
-static void damage_taken_shake(double dmg) {
-    double amp = 3 + dmg * 1.2;
-    if (amp > 7) {
-        amp = 7;
-    }
-    ds_gfx_shake(amp, 0.12);
-}
+/* A brief red full-screen flash gives the local player hit feedback without
+ * restoring fighter tinting or camera shake. */
+#define PLAYER_HURT_FLASH_FADE 0.15
 
 /* Return 1 when raised shield faces the incoming damage source. */
 static double block_covers(void) {
@@ -60,9 +55,12 @@ static double take_damage(double dmg) {
     if (player_class == CLASS_AZUM && azum_revived >= 1 && player_level >= 1) {
         real = real * (1 - clamp(azum_second_life_damage_reduction, 0, 0.9));
     }
+    /* A complete life bar needs more than two oversized hits to disappear. */
+    if (real > max_hit_damage) {
+        real = max_hit_damage;
+    }
     if (real > 0) {
         player_hurt_a = 1;
-        damage_taken_shake(real);
     }
     player->hp = clamp(player->hp - real, 0, player->max_hp);
     if (player->hp <= 0) {
@@ -171,8 +169,7 @@ static void tick_revive(void) {
 }
 
 static void tick_hurt_fades(void) {
-    player_hurt_a = fade_down_a(player_hurt_a, hurt_fade);
-    enemy_hurt_a = fade_down_a(enemy_hurt_a, hurt_fade);
+    player_hurt_a = fade_down_a(player_hurt_a, PLAYER_HURT_FLASH_FADE);
 }
 
 static void tick_alert_hold(void) {

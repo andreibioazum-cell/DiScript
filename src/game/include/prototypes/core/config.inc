@@ -9,6 +9,7 @@ static double seasonal_content_allowed(void);
 static double admin_gifts_allowed(void);
 static double admin_hack_event_allowed(void);
 static double bpass_allowed(void);
+static double candy_awards_allowed(void);
 static double bpass_rewards_allowed(void);
 static const char *admin_nick_of(double slot);
 static double admin_color_of(const char *nick, double base);

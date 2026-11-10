@@ -6,7 +6,7 @@ static double packs_sel = -1;
 static double packs_fs_open;
 static void fs_open_picker(void);
 
-static const char *tr_packs_btn(void) { return packs_tr("ПАКИ", "PACKS"); }
+static const char *tr_packs_btn(void) { return packs_tr("Паки", "PACKS"); }
 static const char *tr_packs_title(void) { return packs_tr("Текстурпаки", "Texture packs"); }
 static const char *tr_packs_none(void) {
     return packs_tr("Паков нет. Импорт или папка packs.", "No packs. Import one or use the packs folder.");
@@ -103,7 +103,9 @@ static void packs_import_press(void) {
 
 static void draw_packs_row(double row, const char *label, int active) {
     double x = packs_card_x() + 20, y = packs_row_y(row), w = packs_card_w() - 40;
-    roundrect(x, y, w, packs_row_h() - 8, 12, active ? RGB(123,47,216) : card_bg);
+    /* Selection follows the active palette: blue in the New Year theme,
+     * instead of retaining a hard-coded purple strip. */
+    roundrect(x, y, w, packs_row_h() - 8, 12, active ? ui_purple : card_bg);
     text_scaled(label, x + 16, y + 12, text_color, 0.5);
     if (active == 1)
         text_scaled(">", x + w - 30, y + 12, text_color, 0.5);
@@ -114,7 +116,10 @@ static void draw_packs(void) {
     double rows = packs_rows_visible(), i;
     double total = (double)packs_count + 1;
     packs_tick_msg();
-    rect(0, 0, screen_w, screen_h, 0xCC000000);
+    /* Texture packs is a complete themed screen, not a dark overlay over the
+     * lobby.  This keeps the ordinary gradient visible and the New Year view
+     * distinctly frosty blue. */
+    screen_fill();
     roundrect(cx, cy, cw, ch, 18, card_bg);
     ctext_scaled(tr_packs_title(), cy + 18, text_color, 0.7);
     ctext_scaled(tr_packs_hint(), cy + 56, RGB(152,152,176), 0.4);
@@ -122,7 +127,8 @@ static void draw_packs(void) {
     draw_packs_row(0, tr_packs_off(), packs_active[0] ? 0 : 1);
     i = 0;
     while (i < (double)packs_count && i < rows - 1) {
-        draw_packs_row(i + 1, packs_names[(int)(i + packs_scroll)], strcmp(packs_names[(int)(i + packs_scroll)], packs_active) == 0);
+        draw_packs_row(i + 1, packs_label_of((int)(i + packs_scroll)),
+                       strcmp(packs_names[(int)(i + packs_scroll)], packs_active) == 0);
         i = i + 1;
     }
     if (packs_count == 0 && rows > 2)

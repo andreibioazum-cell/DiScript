@@ -66,6 +66,9 @@ jobs:
               --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
               --prerelease || true
           fi
+          # The latest-build tag is reused; point its release at the source that
+          # produced the assets so the GitHub page never looks like an old build.
+          gh release edit "$TAG" --target "${{ github.sha }}" >/dev/null
           sha256sum CubicBattle4-Windows.zip build/pc/CubicBattle4.exe > windows.sha256
           cat windows.sha256
           REPO="${{ github.repository }}"
@@ -240,6 +243,9 @@ jobs:
               --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
               --prerelease || true
           fi
+          # The latest-build tag is reused; point its release at the source that
+          # produced the assets so the GitHub page never looks like an old build.
+          gh release edit "$TAG" --target "${{ github.sha }}" >/dev/null
           SIZE="$(stat -c%s CubicBattle4.apk)"
           SHA="$(sha256sum CubicBattle4.apk | cut -d' ' -f1)"
           printf '%s  CubicBattle4.apk\n' "$SHA" > CubicBattle4.apk.sha256

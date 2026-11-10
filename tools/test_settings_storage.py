@@ -61,6 +61,7 @@ HARNESS = r'''
 #include <assert.h>
 #include <stdio.h>
 #include <string.h>
+#define RGB(r,g,b) ((unsigned int)(r) << 16 | (unsigned int)(g) << 8 | (unsigned int)(b))
 #include "engine/network.c"
 
 int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
@@ -80,16 +81,23 @@ static int run_write(const char *dir) {
     assert(net_load_language() == 1);
     assert(net_load_hitboxes() == 0);
 
+    net_save_graphics_mode(2);
+    assert(net_load_graphics_mode() == 2);
+
     net_save_music_volume(35);
     assert(net_load_music_volume() == 35);
     net_save_music_volume(150);
     assert(net_load_music_volume() == 100);
+    net_save_graphics_mode(2);
+    assert(net_load_graphics_mode() == 2);
+
     net_save_music_volume(35);
     assert(net_load_music_volume() == 35);
 
     assert(settings_sync_with_cloud(CLOUD_PROFILE) == 1);
     assert(net_load_language() == 1);
     assert(net_load_hitboxes() == 0);
+    assert(net_load_graphics_mode() == 2);
     assert(net_load_music_volume() == 35);
 
     assert(net_load_new_theme() == 1);
@@ -112,11 +120,12 @@ static int run_read(const char *dir) {
     net_set_data_path(dir);
     assert(net_load_language() == 1);
     assert(net_load_hitboxes() == 0);
+    assert(net_load_graphics_mode() == 2);
     assert(net_load_music_volume() == 35);
     assert(net_load_new_theme() == 0);
-    assert(net_load_theme_mode() == 2);
+    assert(net_load_theme_mode() == 0);
     assert(net_load_theme_chosen() == 1);
-    puts("native read: a fresh process restores language, hitboxes, music volume and theme");
+    puts("native read: a fresh process restores language, hitboxes, graphics mode, music volume and theme");
     return 0;
 }
 
@@ -138,6 +147,7 @@ static int run_legacy(const char *dir) {
     assert(net_load_hitboxes() == 0);
 
     assert(net_load_music_volume() == 70);
+    assert(net_load_graphics_mode() == 0);
     assert(net_load_new_theme() == 1); /* files from before the toggle: new theme */
     net_save_settings(0, 1);
     assert(net_load_language() == 0);
@@ -150,7 +160,7 @@ static int run_legacy(const char *dir) {
  * it already counts as an explicit theme choice. */
 static int run_old_style(const char *dir) {
     net_set_data_path(dir);
-    assert(net_load_theme_mode() == 2);
+    assert(net_load_theme_mode() == 0); /* removed mode 2 is safely clamped */
     assert(net_load_theme_chosen() == 1);
     puts("native old style: a saved theme counts as an explicit choice");
     return 0;
@@ -330,8 +340,9 @@ def main():
         assert "lang 1" in saved and "hitboxes 0" in saved, saved
         assert "musicvol 35" in saved, saved
         assert "theme 0" in saved, saved
-        assert "style 2" in saved, saved
+        assert "style 0" in saved, saved
         assert "chosen 1" in saved, saved
+        assert "graphics 2" in saved, saved
         assert "mod" not in saved, saved
         subprocess.run([*run, "read", str(data)], check=True)
 

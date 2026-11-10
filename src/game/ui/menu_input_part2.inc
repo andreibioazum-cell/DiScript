@@ -168,11 +168,20 @@ static double menu_button_hit(double x, double y) {
         return hit_promo_corner(x, y);
     }
     if (game_state == ST_SETTINGS) {
-        while (i <= 4) {
+        /* Match touch_settings: a compact display can overlap this floating
+         * control with a regular row, and the regular row wins. */
+        while (i < SETTINGS_ROWS) {
             if (hit_settings_row(x, y, i) == 1) return 1;
             i = i + 1;
         }
-        return 0;
+        if (graphics_menu_open == 1) {
+            double mode = 0;
+            while (mode < 3) {
+                if (hit_settings_graphics_choice(x, y, mode) == 1) return 1;
+                mode = mode + 1;
+            }
+        }
+        return hit_settings_graphics(x, y);
     }
     if (game_state == ST_CLASSES) {
         if (back_hit(x, y) == 1 || hit_levels_btn(x, y) == 1 || hit_skins_btn(x, y) == 1) return 1;

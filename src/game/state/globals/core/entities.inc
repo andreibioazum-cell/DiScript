@@ -60,6 +60,7 @@ double ppoison_a;
 double poison_a;
 double player_stun;
 double pstun_a;
+/* Red full-screen flash after the local player takes damage. */
 double player_hurt_a;
 /* Motion blur: how far the fighter moved during the last frame. */
 double mb_px;
@@ -87,7 +88,6 @@ double dmg_from_y;
 double dmg_from_k;
 double enemy_block_left;
 double enemy_block_cd;
-double enemy_hurt_a;
 double dash_active;
 double dash_t;
 double dash_dx;

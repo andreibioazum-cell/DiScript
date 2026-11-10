@@ -137,7 +137,7 @@ static void award_battle_result(double result) {
         } else if (event_mode == 6) {
             cups = cups + 35;
         }
-        if (candies_on() == 1) {
+        if (candies_on() == 1 && candy_awards_allowed() == 1) {
             candies = candies + candy_win;
         }
         if (bpass_allowed() == 1) {
@@ -239,7 +239,6 @@ static void draw_player_body_layer(void) {
     draw_fighter_body(px, py, player->angle, look, punching);
     double self_tint = codecracker_tint_local();
     draw_fighter_tint(px, py, player->angle, look, punching, player_scale, self_tint);
-    draw_fighter_hurt(px, py, player->angle, look, punching, player_scale, player_hurt_a);
     draw_guard(player->x, player->y, player->angle, player_block, player_scale);
     draw_purple_guard(player->x, player->y, astra_parry_active(), player_scale);
 }
@@ -299,7 +298,6 @@ static void draw_enemy_body(void) {
     } else {
         tex(ex - ehw, ey - ehw, look_tex(look, punching), sprite_a(enemy->angle), es);
     }
-    draw_fighter_hurt(ex, ey, enemy->angle, look, punching, enemy_scale, enemy_hurt_a);
     draw_guard(enemy->x, enemy->y, enemy->angle, enemy_block_left > 0, enemy_scale);
     draw_purple_guard(enemy->x, enemy->y, class_is_astra(enemy_class) == 1 && egrab_parry_t > 0, enemy_scale);
 }
@@ -440,14 +438,12 @@ static void draw_game(void) {
     draw_status_aura(enemy->x, enemy->y, enemy->size, poison_rgb, poison_rim, poison_a);
     draw_status_aura(enemy->x, enemy->y, enemy->size, stun_rgb, stun_rim, stun_a);
     draw_snow();
-    draw_santa_letter();
         /* Draw arena vignette before HUD elements. */
         draw_screen_fx();
     double w = screen_w / 4;
     hud_bar(20, 20, w, 28, player->hp, player->max_hp, 0x7ED321, 0);
     hud_bar(screen_w - w - 20, 20, w, 28, enemy->hp, enemy->max_hp, 0xE94560, 0);
     draw_controls();
-        /* Red tint on damage - over everything, but very weak. */
     draw_hurt_flash();
     draw_fps_meter();
     draw_hacker_event();

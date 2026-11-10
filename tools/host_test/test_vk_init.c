@@ -227,7 +227,23 @@ void vkGetPhysicalDeviceProperties(VkPhysicalDevice d, VkPhysicalDevicePropertie
     memset(p, 0, sizeof *p);
     p->apiVersion = VK_API_VERSION_1_1;
     p->deviceType = VK_PHYSICAL_DEVICE_TYPE_INTEGRATED_GPU;
+    /* Exercise the actual MSAA allocation/pipeline path, not only the
+     * single-sample fallback used by a feature-poor fake GPU. */
+    p->limits.framebufferColorSampleCounts = VK_SAMPLE_COUNT_4_BIT;
     strcpy(p->deviceName, "FakeMali-G57");
+}
+VkResult vkGetPhysicalDeviceImageFormatProperties(VkPhysicalDevice d, VkFormat format, VkImageType type,
+                                                  VkImageTiling tiling, VkImageUsageFlags usage,
+                                                  VkImageCreateFlags flags, VkImageFormatProperties *p) {
+    (void)d;
+    (void)format;
+    (void)type;
+    (void)tiling;
+    (void)usage;
+    (void)flags;
+    memset(p, 0, sizeof *p);
+    p->sampleCounts = VK_SAMPLE_COUNT_4_BIT;
+    return VK_SUCCESS;
 }
 void vkGetPhysicalDeviceQueueFamilyProperties(VkPhysicalDevice d, uint32_t *count, VkQueueFamilyProperties *fams) {
     (void)d;
@@ -1042,6 +1058,19 @@ int AAsset_close(AAsset *a) {
     }
     return 0;
 }
+/* Asset directory enumeration is not used by this Vulkan harness, but the
+ * graphics translation unit references its Android declarations. */
+struct AAssetDir {};
+AAssetDir *AAssetManager_openDir(AAssetManager *mgr, const char *dirName) {
+    (void)mgr;
+    (void)dirName;
+    return NULL;
+}
+const char *AAssetDir_getNextFileName(AAssetDir *assetDir) {
+    (void)assetDir;
+    return NULL;
+}
+void AAssetDir_close(AAssetDir *assetDir) { (void)assetDir; }
 
 static int32_t g_win_w = 720, g_win_h = 1280;
 static uint32_t *g_win_pixels;
@@ -1113,6 +1142,7 @@ static struct {
     int creates_before_storm, creates_after_storm, creates_after_change;
     int creates_before_storm2, creates_after_storm2;
     int storm_ok, frame5_ok, frame6_ok;
+    int quality_modes_ok;
 
     unsigned paced_ms;
 } g_res;
@@ -1281,6 +1311,30 @@ static void *test_thread(void *arg) {
     g_res.frame3_ok = ds_graphics_begin_frame(&b);
     rect(0, 0, 10, 10, 0xff123456);
     ds_graphics_end_frame();
+
+    /* Switch all user-selectable quality modes at frame boundaries. The fake
+     * device advertises 4x support, so MSAA must get a separate multisample
+     * attachment; SMAA must get both its target and its post-process pipeline. */
+    g_res.quality_modes_ok = 1;
+    ds_graphics_set_quality_mode(1);
+    g_res.quality_modes_ok &= ds_graphics_begin_frame(&b);
+    rect(0, 0, 10, 10, 0xff123456);
+    ds_graphics_end_frame();
+    g_res.quality_modes_ok &= vk_render_mode == 1 && vk_msaa_samples == VK_SAMPLE_COUNT_4_BIT &&
+                              vk_msaa_image != VK_NULL_HANDLE;
+    ds_graphics_set_quality_mode(2);
+    g_res.quality_modes_ok &= ds_graphics_begin_frame(&b);
+    rect(0, 0, 10, 10, 0xff123456);
+    ds_graphics_end_frame();
+    g_res.quality_modes_ok &= vk_render_mode == 2 && vk_smaa_image != VK_NULL_HANDLE &&
+                              vk_smaa_fb != VK_NULL_HANDLE && vk_pipe_smaa != VK_NULL_HANDLE;
+    ds_graphics_set_quality_mode(0);
+    g_res.quality_modes_ok &= ds_graphics_begin_frame(&b);
+    rect(0, 0, 10, 10, 0xff123456);
+    ds_graphics_end_frame();
+    g_res.quality_modes_ok &= vk_render_mode == 0 && vk_msaa_image == VK_NULL_HANDLE &&
+                              vk_smaa_image == VK_NULL_HANDLE;
+
     g_res.off_w = vk_off_w;
     g_res.off_h = vk_off_h;
     g_res.log_w = vk_log_w;
@@ -1532,6 +1586,10 @@ int main(void) {
     if (!g_res.frame3_ok) {
         fail = 1;
         printf("FAIL: begin_frame of the third frame returned 0\n");
+    }
+    if (!g_res.quality_modes_ok) {
+        fail = 1;
+        printf("FAIL: pixelation, MSAA and SMAA did not rebuild usable render paths\n");
     }
     if (g_res.paced_ms < 40) {
         fail = 1;

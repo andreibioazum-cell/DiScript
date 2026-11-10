@@ -11,4 +11,3 @@ static void draw_shadow_blur_tex(double cx, double cy, double half_px, double sc
 static void draw_motion_ghosts(double x, double y, double dx, double dy, double half_px, double scale,
                                const char *name, double ang);
 static void draw_fighter_body(double x, double y, double ang, double look, double punching);
-static void draw_fighter_hurt(double x, double y, double ang, double look, double punching, double scale, double a);

@@ -285,15 +285,12 @@ static void admin_draw_ball(void) {
     double iw = text_ink_width(lab);
     double ih = text_ink_height(lab);
     double sc = 0.5;
-    /* Black orb, then the outline ring, then black again: the ring floats inside
-     * the dark body instead of covering it, so the orb stays black with a thin
-     * white circle rather than a white blob. */
+    /* The white outlined face stays visible: do not paint a second black disc
+     * over it after the outline. */
     circle(cx, cy, r, admin_off());
-    circle(cx, cy, r - 1.5, admin_body());
     circle(cx, cy, r * 0.80, admin_frame());
-    circle(cx, cy, r * 0.80 - 1.5, admin_body());
     if (iw > 0 && ih > 0) {
-        /* The label stays inside the inner black disc, clear of the ring. */
+        /* The label is drawn on the white face. */
         double sw = (r * 1.15) / iw;
         double sh = (r * 0.70) / ih;
         sc = sw < sh ? sw : sh;
@@ -301,7 +298,7 @@ static void admin_draw_ball(void) {
     double tw = text_ink_width(lab) * sc;
     double th = text_ink_height(lab) * sc;
     double tt = text_ink_top(lab) * sc;
-    text_scaled(lab, cx - tw / 2, cy - th / 2 - tt, admin_frame(), sc);
+    text_scaled(lab, cx - tw / 2, cy - th / 2 - tt, admin_body(), sc);
 }
 
 static void admin_draw_cheats(void) {

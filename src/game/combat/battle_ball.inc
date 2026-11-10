@@ -148,6 +148,8 @@ static void enemy_ball_fire(void) {
     ability_snd(STATION_SOUND);
 }
 
+/* ebuC's brick keeps its bounce-powered damage; only ordinary punches use
+ * the fixed three-snowball value. */
 static double ball_damage_for(double bounces) {
     double n = bounces < 0 ? 0 : floor(bounces);
     double dmg = BALL_BASE_DAMAGE;

@@ -122,13 +122,13 @@ static double admin_gifts_allowed(void) {
     return 0;
 }
 
-/* Return 1 when the online player has seasonal Battle Pass access. */
-static double bpass_allowed(void) {
-    return seasonal_content_allowed();
-}
+/* Battle Pass access is limited to signed-in admins before release. */
+static double bpass_allowed(void) { return admin_playing(); }
 
-/* Keep already-earned Battle Pass rewards visible when seasonal access is
- * off; Sanch's claimed Santa and candies persist even between events. */
+/* New candy gains are limited to signed-in admins before release. */
+static double candy_awards_allowed(void) { return admin_playing(); }
+
+/* Keep old seasonal reward state readable without granting new rewards. */
 static double bpass_rewards_allowed(void) {
     if (seasonal_content_allowed() == 1 || sanch_rewards_kept() == 1) {
         return 1;

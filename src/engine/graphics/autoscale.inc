@@ -1,7 +1,15 @@
 /* Native 1:1 render scale and periodic frame-time logging. */
 static int gfx_auto_scale = 1;
+/* Selected in the game settings.  Backends read this at a safe frame boundary. */
+static int gfx_quality_mode = 0;
 
 int ds_graphics_pixel_scale(void) { return gfx_auto_scale; }
+
+void ds_graphics_set_quality_mode(int mode) {
+    gfx_quality_mode = mode >= 0 && mode <= 2 ? mode : 0;
+}
+
+int ds_graphics_quality_mode(void) { return gfx_quality_mode; }
 
 #define GFX_REPORT_SEC 5.0
 

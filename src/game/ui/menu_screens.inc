@@ -69,7 +69,6 @@ static void draw_lobby(void) {
     }
     draw_lobby_nick();
     draw_lobby_money();
-    lobby_ball_draw();
     if (new_theme == 1) {
         draw_lobby_npc_dialogue();
     }
@@ -107,15 +106,18 @@ static void draw_settings(void) {
     button_scaled(tr_legal(), menu_x(), settings_row_y(4), menu_btn_w(), settings_btn_h(),
                   fit_text_scale(tr_legal(), menu_btn_w() - 24, 0.8));
     draw_parent_settings();
-    if (is_admin() == 1) {
-        const char *rj = ds_concat(language == 1 ? "Жалобы: " : "Reports: ",
-                                   ds_num_to_string(net_reports_count()));
-        button_scaled(rj, menu_x(), settings_row_y(6), menu_btn_w(), settings_btn_h(),
-                      fit_text_scale(rj, menu_btn_w() - 24, 0.65));
+    const char *graphics_label = tr_graphics_mode_label();
+    button_scaled(graphics_label, settings_graphics_x(), settings_graphics_y(), settings_graphics_w(), btn_h,
+                  fit_text_scale(graphics_label, settings_graphics_w() - 20, 0.7));
+    if (graphics_menu_open == 1) {
+        double mode = 0;
+        while (mode < 3) {
+            const char *choice = tr_graphics_mode_name(mode);
+            button_scaled(choice, settings_graphics_x(), settings_graphics_choice_y(mode), settings_graphics_w(), btn_h,
+                          fit_text_scale(choice, settings_graphics_w() - 20, 0.7));
+            mode = mode + 1;
+        }
     }
-    /* Whoever plays: a complaint about another player is filed from here. */
-    button_scaled(tr_report_pick(), menu_x(), settings_row_y(7), menu_btn_w(), settings_btn_h(),
-                  fit_text_scale(tr_report_pick(), menu_btn_w() - 24, 0.8));
 }
 
 static void draw_card_look(double look, double x, double y, double scale) {

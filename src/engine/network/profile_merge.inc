@@ -101,9 +101,9 @@ static int apply_user_json_keep_local(const char *resp) {
         restored = 1;
     }
     {
-        int merged_sk = (pg.azum_skin | (local_sk & 31)) & SKIN_FLAGS_MAX;
+        int merged_sk = (pg.azum_skin | (local_sk & 95)) & SKIN_FLAGS_MAX;
         if (dirty) {
-            merged_sk = (merged_sk & ~32) | (local_sk & 32);
+            merged_sk = (merged_sk & ~(32 | 64)) | (local_sk & (32 | 64));
         }
         if (merged_sk != pg.azum_skin) {
             pg.azum_skin = merged_sk;
