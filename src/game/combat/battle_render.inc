@@ -137,7 +137,7 @@ static void award_battle_result(double result) {
         } else if (event_mode == 6) {
             cups = cups + 35;
         }
-        if (candies_on() == 1) {
+        if (candies_on() == 1 && candy_awards_allowed() == 1) {
             candies = candies + candy_win;
         }
         if (bpass_allowed() == 1) {

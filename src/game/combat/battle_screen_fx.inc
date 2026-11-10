@@ -1,4 +1,4 @@
-/* Battle screen FX: edge vignette, damage flash, and motion-blur tracking. */
+/* Battle screen FX: edge vignette and motion-blur tracking. */
 
 /* Draw non-overlapping concentric edge vignette bands around the arena. */
 static void draw_vignette(void) {

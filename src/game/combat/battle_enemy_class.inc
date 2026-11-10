@@ -125,13 +125,7 @@ static double enemy_apply_damage(double dmg) {
     if (dmg > max_hit_damage) {
         dmg = max_hit_damage;
     }
-    if (dmg > 0) {
-        /* Chance to raise guard after taking a hit. */
-        if (enemy_block_left <= 0 && enemy_block_cd <= 0 && enemy->stun <= 0 && enemy->state == 0 &&
-            rand() % 100 < 10) {
-            enemy_block_left = 0.4 + (rand() % 100) / 100.0 * 0.3;
-        }
-    }
+    /* Damage updates HP directly without a hit reaction effect. */
     enemy->hp = enemy->hp - dmg;
     if (enemy->hp < 0) {
         enemy->hp = 0;

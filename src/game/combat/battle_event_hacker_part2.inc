@@ -350,8 +350,9 @@ static void hack_tick_canes(void) {
                 continue;
             }
         }
-        if (finished == 0 && dist(arr_get(hack_canes, b + HC_X), arr_get(hack_canes, b + HC_Y), player->x,
-                                  player->y) < player->size * 0.6 + 24) {
+        if (finished == 0 && candy_awards_allowed() == 1 &&
+            dist(arr_get(hack_canes, b + HC_X), arr_get(hack_canes, b + HC_Y), player->x, player->y) <
+                player->size * 0.6 + 24) {
             hack_cane_got = hack_cane_got + 1;
             candies = candies + hack_cane_candy;
             save_progress();

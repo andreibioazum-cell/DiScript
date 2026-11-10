@@ -63,7 +63,7 @@ static void bp_grant(double t) {
         cups = cups + 60;
     } else if (t == 6) {
         cups = cups + 100;
-    } else if (t == 7) {
+    } else if (t == 7 && admin_playing() == 1) {
         set_class_owned(CLASS_SANTA, 1);
     }
 }

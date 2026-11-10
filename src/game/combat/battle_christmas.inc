@@ -1,8 +1,4 @@
-/* Christmas snowballs: when the root Christmas flag is 1 every class can
- * throw ebuC's bouncing projectile. Speed, radius, bounce acceleration,
- * lifetime, trail and the burst are exactly ebuC's (battle_ball.inc). The one
- * deliberate difference: a bounce never adds damage - the ball always deals
- * BALL_BASE_DAMAGE, no matter how many walls it touched. */
+/* Christmas snowballs use ebuC projectile movement with flat damage. */
 
 #define XMAS_SPEED BALL_SPEED
 #define XMAS_RADIUS BALL_RADIUS

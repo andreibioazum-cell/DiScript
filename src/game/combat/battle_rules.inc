@@ -9,6 +9,9 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_SANTA) {
         pair.idle = SANTA_TEX;
         pair.punch = SANTA_PUNCH_TEX;
+    } else if (look == LOOK_SANTA_ARCTIC) {
+        pair.idle = SANTA_ARCTIC_TEX;
+        pair.punch = SANTA_ARCTIC_PUNCH_TEX;
     } else if (look == LOOK_EBUC) {
         pair.idle = EBUC_TEX;
         pair.punch = EBUC_PUNCH_TEX;
@@ -18,6 +21,9 @@ static FighterSpritePair look_sprite_pair(double look) {
     } else if (look == LOOK_ASTRA) {
         pair.idle = ASTRA_TEX;
         pair.punch = ASTRA_PUNCH_TEX;
+    } else if (look == LOOK_ASTRA_BASE) {
+        pair.idle = ASTRA_BASE_TEX;
+        pair.punch = ASTRA_BASE_PUNCH_TEX;
     } else if (look == LOOK_GOLD) {
         pair.idle = ORDINARY_GOLD_TEX;
         pair.punch = ORDINARY_GOLD_PUNCH_TEX;
@@ -59,6 +65,12 @@ static double class_look(double cls, double skin) {
     }
     if (cls == CLASS_ASTRA && skin == SKIN_SPECIAL) {
         return LOOK_ASTRA;
+    }
+    if (cls == CLASS_ASTRA) {
+        return LOOK_ASTRA_BASE;
+    }
+    if (cls == CLASS_SANTA && skin == SKIN_SPECIAL) {
+        return LOOK_SANTA_ARCTIC;
     }
     if (cls == CLASS_ORDINARY && skin == SKIN_SPECIAL) {
         return LOOK_GOLD;

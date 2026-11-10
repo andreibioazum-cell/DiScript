@@ -122,7 +122,8 @@ static void draw_packs(void) {
     draw_packs_row(0, tr_packs_off(), packs_active[0] ? 0 : 1);
     i = 0;
     while (i < (double)packs_count && i < rows - 1) {
-        draw_packs_row(i + 1, packs_names[(int)(i + packs_scroll)], strcmp(packs_names[(int)(i + packs_scroll)], packs_active) == 0);
+        draw_packs_row(i + 1, packs_label_of((int)(i + packs_scroll)),
+                       strcmp(packs_names[(int)(i + packs_scroll)], packs_active) == 0);
         i = i + 1;
     }
     if (packs_count == 0 && rows > 2)

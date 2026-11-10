@@ -16,8 +16,10 @@ from test_settings_storage import ANDROID_LOG_H, JNI_H
 
 HARNESS = r'''
 #include <assert.h>
+#include <stdint.h>
 #include <stdio.h>
 #include <string.h>
+#define RGB(r,g,b) ((uint32_t)(r) << 16 | (uint32_t)(g) << 8 | (uint32_t)(b))
 #include "engine/network.c"
 
 int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
@@ -372,6 +374,9 @@ static int run_reinstall_levels(const char *dir) {
     assert(net_load_azum_skin() == 7);
     assert(SKIN_OF_CLASS(7, 1) == 1 && SKIN_OF_CLASS(7, 3) == 1 && SKIN_OF_CLASS(7, 4) == 1);
     assert(SKIN_OF_CLASS(7, 6) == 0);
+    apply_user_json(
+        "{\"nick\":\"tester\",\"cups\":200,\"candies\":10,\"cls\":2,\"santa\":1,\"azum_skin\":127}");
+    assert(net_load_azum_skin() == 127 && SKIN_OF_CLASS(127, 2) == 1);
 
     /* Partial cloud profile with top-level levels restores active Astra/CodeCracker branch. */
     apply_user_json(
@@ -476,14 +481,18 @@ int main(int argc, char **argv) {
 
 def check_balance_rules():
     rules_text = (ROOT / "firebase.rules.json").read_text(encoding="utf-8")
-    assert "qwertyuiopaj1234" not in rules_text.lower()
+    assert "qwertyuiopaj1234@cb4.game" in rules_text.lower()
     rules = json.loads(rules_text)["rules"]
-    for key in ("cups", "candies"):
-        rule = rules["users"]["$nick"][key][".validate"]
-        assert "data.val() + 1000" in rule, f"{key}: no per-write growth cap"
-        assert "dimasi4ek229@cb4.game" in rule, \
-            f"{key}: administrator cannot correct a balance"
-        assert rule.count("(") == rule.count(")")
+    cups_rule = rules["users"]["$nick"]["cups"][".validate"]
+    assert "data.val() + 1000" in cups_rule, "cups: no per-write growth cap"
+    assert "dimasi4ek229@cb4.game" in cups_rule and "qwertyuiopaj1234@cb4.game" in cups_rule, \
+        "cups: administrator cannot correct a balance"
+    assert cups_rule.count("(") == cups_rule.count(")")
+    candy_rule = rules["users"]["$nick"]["candies"][".validate"]
+    assert "newData.val() == data.val()" in candy_rule, "candies: non-admin balance can change"
+    assert "dimasi4ek229@cb4.game" in candy_rule and "qwertyuiopaj1234@cb4.game" in candy_rule, \
+        "candies: administrator cannot correct a balance"
+    assert candy_rule.count("(") == candy_rule.count(")")
 
 
 def check_class_rules():

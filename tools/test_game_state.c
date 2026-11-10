@@ -2247,7 +2247,7 @@ static void test_mobile_countdown(void) {
  * unzip it, repaint the PNGs and import it again, so every entry has to be
  * stored with a CRC a normal unzip tool accepts. */
 static void test_pack_export(void) {
-    int size, count = 0, seen_png = 0, seen_gift = 0, seen_guide = 0;
+    int size, count = 0, seen_png = 0, seen_gift = 0, seen_guide = 0, seen_name = 0;
     double saved_language = language;
     char names[2048];
     char *cursor;
@@ -2276,6 +2276,8 @@ static void test_pack_export(void) {
         assert(strchr(cursor, '/') == NULL);
         if (strcmp(cursor, PACK_EXPORT_GUIDE_FILE) == 0) {
             seen_guide = 1;
+        } else if (strcmp(cursor, PACK_EXPORT_NAME_FILE) == 0) {
+            seen_name = 1;
         } else {
             assert(packs_ends_with(cursor, ".png") == 1);
             if (strncmp(cursor, "gift_", 5) == 0)
@@ -2286,7 +2288,7 @@ static void test_pack_export(void) {
         assert(zip_find(pack_export_zip, size, cursor, NULL, NULL, NULL, NULL) == 1);
         cursor = nl ? nl + 1 : NULL;
     }
-    assert(seen_png == 1 && seen_gift == 1 && seen_guide == 1);
+    assert(seen_png == 1 && seen_gift == 1 && seen_guide == 1 && seen_name == 1);
     /* The built-in textures are the base of a pack: reading one back gives the
      * same bytes as the file it was copied from. */
     {
@@ -2307,7 +2309,15 @@ static void test_pack_export(void) {
         assert(strstr((const char *)guide, "ordinary.png                 Ordinary Cube - idle") != NULL);
         assert(strstr((const char *)guide, "ordinary_gold.png            Pumpkin Cube special skin - idle") != NULL);
         assert(strstr((const char *)guide, "santa_punch.png -> ordinary_punch.png") != NULL);
+        assert(strstr((const char *)guide, "PACK_NAME.txt stores the name") != NULL);
         assert(strstr((const char *)guide, "never overwrites the game's") != NULL);
+    }
+    {
+        static unsigned char label[64];
+        int got = zip_extract(pack_export_zip, size, PACK_EXPORT_NAME_FILE, label, (int)sizeof(label) - 1);
+        assert(got > 0);
+        label[got] = 0;
+        assert(strcmp((const char *)label, "Обычный\n") == 0);
     }
     /* And the archive survives a round trip through the import path. */
     {
@@ -2752,8 +2762,14 @@ static void test_dice_alone_and_bubbles(void) {
     arr_set(dice_cubes, 6, 300);
     double candies_before = candies;
     update_dice_event();
+    assert(candies == candies_before && arr_get(dice_cubes, 0) == 1);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    astra_ability_refresh();
+    update_dice_event();
     assert(candies == candies_before + dice_prize_of(cube));
     assert(arr_get(dice_cubes, 0) == 0);
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", "tester");
+    astra_ability_refresh();
     event_mode = 0;
     dt = 1.0; /* the cube round survives a short blink, then stops */
     update_dice_event();
@@ -3108,6 +3124,8 @@ static void test_hacker_event(void) {
     for (i = 0; i < 160; i++) update_hacker_event(); /* verdict / close */
     assert(hack_ban_t > HACK_BLACK_DUR);
     draw_hacker_event();
+    snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
+    astra_ability_refresh();
     candy_before = candies;
     got_before = (int)hack_cane_got;
     n = 0;
@@ -3232,20 +3250,12 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.00) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
-    /* ebuC ball bounce scaling: 0.15 base dmg, +2.8 on first bounce, x1.28 gain and x1.04 speed per bounce. */
-    assert(fabs(ball_damage_for(0) - 0.15) < 1e-9);
-    for (int b = 0; b < 10; b++) {
-        assert(ball_damage_for(b + 1) > ball_damage_for(b));
+    /* ebuC ball bounces add speed only. Each projectile stays at 0.5 damage. */
+    assert(fabs(BALL_DAMAGE - 0.5) < 1e-9);
+    assert(fabs(ball_damage_for(-1) - BALL_DAMAGE) < 1e-9);
+    for (int b = 0; b <= 10; b++) {
+        assert(fabs(ball_damage_for(b) - BALL_DAMAGE) < 1e-9);
     }
-    assert(fabs(ball_damage_for(1) - 2.95) < 1e-9);
-    assert(fabs(ball_damage_for(2) - 6.534) < 1e-9);
-    for (int b = 1; b < 10; b++) {
-        double prev_gain = ball_damage_for(b) - ball_damage_for(b - 1);
-        double next_gain = ball_damage_for(b + 1) - ball_damage_for(b);
-        assert(fabs(next_gain - prev_gain * 1.28) < 1e-9);
-    }
-    assert(fabs(ball_damage_for(4) - 16.9935456) < 1e-9);
-    assert(fabs(ball_damage_for(10) - (0.15 + 2.8 * (pow(1.28, 10) - 1.0) / 0.28)) < 1e-9);
     assert(fabs(station_beam_pull - 26.0) < 1e-9 && fabs(station_beam_min - 54.0) < 1e-9);
     {
         /* ebuC's dispenser beam renders before ebuC's body layer in Solo. */
@@ -3298,7 +3308,7 @@ static void test_eax229_and_rooms(void) {
         assert(ball.active == 0 && ball.bounces == 0);
         assert(fabs(enemy->hp - (20.0 - ball_damage_for(0))) < 1e-6);
 
-        /* Wall bounce: speed multiplies by 1.04 on each bounce, damage grows. */
+        /* Wall bounce: speed multiplies by 1.04 while damage stays flat. */
         enemy->x = 900;
         enemy->y = 600;
         enemy->hp = 20;
@@ -3346,7 +3356,7 @@ static void test_eax229_and_rooms(void) {
         ball_tick();
         assert(ball.active == 0 && fabs(enemy->hp - 20.0) < 1e-6);
 
-        /* Online remote brick: same +4% speed per bounce, bounce damage, and expiry blast. */
+        /* Online remote brick: same +4% speed per bounce and flat expiry damage. */
         game_state = ST_ONLINE;
         stub_net_slot = 0;
         stub_online[1] = 1;
@@ -3754,19 +3764,19 @@ static void test_christmas_snowballs(void) {
     assert(christmas_snowballs_on() == 0 && christmas_pad_hit(10, 10) == 0);
     assert(winter_theme_on() == 0);
 
-    /* Christmas: 1 enables New Year visuals, candies, snowballs and Battle Pass for everyone. */
+    /* Christmas enables visuals, candy pickups, and snowballs for everyone. */
     stub_christmas = 1;
     assert(christmas_snowballs_on() == 1 && christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 1);
     assert(active_theme_mode() == 1 && winter_theme_on() == 1 && christmas_active() == 1);
-    assert(candies_on() == 1 && bpass_allowed() == 1);
+    assert(candies_on() == 1 && bpass_allowed() == 0 && candy_awards_allowed() == 0);
     /* A saved visual choice still works without disabling the global event. */
     theme_chosen = 1;
     theme_mode = 0;
     assert(winter_theme_on() == 0 && christmas_active() == 0);
-    assert(christmas_snowballs_on() == 1 && candies_on() == 1 && bpass_allowed() == 1);
+    assert(christmas_snowballs_on() == 1 && candies_on() == 1 && bpass_allowed() == 0);
     stub_login_status = 2;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "Player2");
-    assert(seasonal_content_allowed() == 1 && candies_on() == 1 && bpass_allowed() == 1);
+    assert(seasonal_content_allowed() == 1 && candies_on() == 1 && bpass_allowed() == 0);
 
     game_state = ST_SOLO;
     finished = 0;
@@ -3842,12 +3852,13 @@ static void test_christmas_snowballs(void) {
     assert(xmas_balls[0].active == 1 && xmas_balls[0].vy < 0 && fabs(xmas_balls[0].vx) < 1e-6);
     christmas_reset();
 
-    /* The global New Year event now includes every account, including Sanch. */
+    /* The global New Year event keeps its visuals for every account, including Sanch. */
     stub_login_status = 2;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "Sanch");
     assert(christmas_snowballs_on() == 1 && winter_theme_on() == 0);
     assert(christmas_pad_hit(christmas_pad_x(), christmas_pad_y()) == 1);
-    assert(bpass_allowed() == 1 && candies_on() == 1 && bpass_rewards_allowed() == 1);
+    assert(bpass_allowed() == 0 && candies_on() == 1 && bpass_rewards_allowed() == 1);
+    assert(candy_awards_allowed() == 0);
     christmas_reset();
     {
         double shot_before = xmas_balls[0].shot;
@@ -4419,12 +4430,23 @@ int main(void) {
     assert(strcmp(WINTER_JINGLE, "winter_lobby.wav") == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ORDINARY, 1, SKIN_NORMAL), PUNCH_TEX) == 0);
-    assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ORDINARY_TEX) == 0);
+    /* Astra has its own battle sprite. The existing xAstra sprite and card stay unchanged. */
+    assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_NORMAL), ASTRA_BASE_TEX) == 0);
+    assert(strcmp(fighter_sprite(CLASS_ASTRA, 1, SKIN_NORMAL), ASTRA_BASE_PUNCH_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 0, SKIN_SPECIAL), ASTRA_TEX) == 0);
     assert(strcmp(fighter_sprite(CLASS_ASTRA, 1, SKIN_SPECIAL), ASTRA_PUNCH_TEX) == 0);
-    FighterSpritePair astra_pair = look_sprite_pair(LOOK_ASTRA);
-    assert(strcmp(astra_pair.idle, ASTRA_TEX) == 0 && strcmp(astra_pair.punch, ASTRA_PUNCH_TEX) == 0);
+    FighterSpritePair astra_pair = look_sprite_pair(LOOK_ASTRA_BASE);
+    assert(strcmp(astra_pair.idle, ASTRA_BASE_TEX) == 0 && strcmp(astra_pair.punch, ASTRA_BASE_PUNCH_TEX) == 0);
     assert(strcmp(class_card_tex(CLASS_ASTRA, SKIN_NORMAL), ASTRA_CARD_TEX) == 0);
+    /* Normal Santa stays unchanged. Arctic Santa is a separate skin pair. */
+    assert(strcmp(fighter_sprite(CLASS_SANTA, 0, SKIN_NORMAL), SANTA_TEX) == 0);
+    assert(strcmp(fighter_sprite(CLASS_SANTA, 1, SKIN_NORMAL), SANTA_PUNCH_TEX) == 0);
+    assert(strcmp(fighter_sprite(CLASS_SANTA, 0, SKIN_SPECIAL), SANTA_ARCTIC_TEX) == 0);
+    assert(strcmp(fighter_sprite(CLASS_SANTA, 1, SKIN_SPECIAL), SANTA_ARCTIC_PUNCH_TEX) == 0);
+    FighterSpritePair arctic_pair = look_sprite_pair(LOOK_SANTA_ARCTIC);
+    assert(strcmp(arctic_pair.idle, SANTA_ARCTIC_TEX) == 0 &&
+           strcmp(arctic_pair.punch, SANTA_ARCTIC_PUNCH_TEX) == 0);
+    assert(strcmp(class_card_tex(CLASS_SANTA, SKIN_SPECIAL), SANTA_CARD_TEX) == 0);
     assert(class_has_super(CLASS_ASTRA) == 1 && player_max_hp_for(CLASS_ASTRA) == astra_hp * round_hp_mult());
     /* Base HP pools: Ordinary/Santa 20, Azum 20, Astra 20 (*0.95 = 19), ebuC 24. */
     assert(player_max_hp_for(CLASS_ORDINARY) == 20 * round_hp_mult() &&
@@ -5403,8 +5425,8 @@ int main(void) {
     assert(classes_scroll < scroll_after_drag && player_class == selected_before_swipe);
     double had_astra_access = astra_ability_ok;
     astra_ability_ok = 0;
-    assert(classes_visible_count() == 5 && classes_scroll_needed() == 0); /* Santa is developer-only; CodeCracker is public */
-    assert(classes_swipe_zone(swipe_x, swipe_y) == 0);
+    assert(classes_visible_count() == 6 && classes_scroll_needed() == 1); /* Legacy Santa remains visible. */
+    assert(classes_swipe_zone(swipe_x, swipe_y) == 1);
     astra_ability_ok = had_astra_access;
     codecracker_refresh();
     classes_scroll = 0;
@@ -5529,7 +5551,7 @@ int main(void) {
     flash_sale_active = 0;
     assert(skin_unlocked_for(CLASS_ASTRA, SKIN_SPECIAL) == 0);
     pick_class(CLASS_ASTRA);
-    assert(class_owned_of(CLASS_ASTRA) == 1 && astra_skin == SKIN_SPECIAL);
+    assert(class_owned_of(CLASS_ASTRA) == 1 && astra_skin == SKIN_NORMAL);
     assert(player_class == CLASS_ASTRA && cups == 0);
     set_class_owned(CLASS_ASTRA, saved_astra_owned);
     astra_skin = saved_astra_skin;
@@ -5572,8 +5594,7 @@ int main(void) {
     }
     assert(fabs(class_hp_of(CLASS_ASTRA) - astra_hp * 0.95 * round_hp_mult()) < 1e-9);
     /* The card keeps only its description; no rating graphic is drawn. */
-    /* No developer account still hides only developer-only Santa; CodeCracker
-     * is public in the shop for 475 cups with "MOL Edits..." description. */
+    /* CodeCracker is public in the shop for 475 cups with "MOL Edits..." description. */
     stub_login_nick[0] = 'x';
     stub_login_nick[1] = 0;
     astra_ability_refresh();
@@ -5597,19 +5618,19 @@ int main(void) {
     set_class_owned(CLASS_CODECRACKER, 0);
     player_class = CLASS_ORDINARY;
     assert(class_skin_of(CLASS_ASTRA) == SKIN_SPECIAL && current_skin() == SKIN_NORMAL);
-    /* A guest cannot use stored seasonal rewards, but the primary CCP admin can. */
+    /* Legacy Santa and candy balances remain usable after the admin-only gate. */
     candies = 37;
     set_class_owned(CLASS_SANTA, 1);
     player_class = CLASS_SANTA;
     progress_normalize();
-    assert(player_class == CLASS_ORDINARY);
+    assert(player_class == CLASS_SANTA);
     assert(candies == 37 && class_owned_of(CLASS_SANTA) == 1);
     double saved_season_status = stub_login_status;
     char saved_season_nick[sizeof(stub_login_nick)];
     snprintf(saved_season_nick, sizeof(saved_season_nick), "%s", stub_login_nick);
     stub_login_status = 0;
     astra_ability_refresh();
-    assert(class_visible(CLASS_SANTA) == 0 && candies_on() == 0);
+    assert(class_visible(CLASS_SANTA) == 1 && candies_on() == 0);
     stub_login_status = 2;
     snprintf(stub_login_nick, sizeof(stub_login_nick), "%s", ADMIN_NICK);
     astra_ability_refresh();
@@ -6920,9 +6941,9 @@ int main(void) {
         assert(admin_tab == 0);
         admin_panel_open = 0;
 
-        /* Without the global flag, Sanch has ordinary visuals and no event,
-         * while earned rewards remain. The live Christmas flag then grants
-         * candies and Battle Pass to him like every other online player. */
+        /* Without the global flag, Sanch has ordinary visuals and no event.
+         * Stored rewards remain, but the live event does not grant new candy
+         * awards or Battle Pass access to non-admin accounts. */
         double saved_global_xmas = stub_christmas;
         stub_christmas = 0;
         stub_login_status = 2;
@@ -6948,8 +6969,8 @@ int main(void) {
         theme_chosen = 1;
         theme_mode = 0; /* chosen ordinary visuals do not hide the live event */
         assert(seasonal_content_allowed() == 1 && winter_theme_on() == 0);
-        assert(bpass_allowed() == 1 && bpass_rewards_allowed() == 1 && candies_on() == 1);
-        assert(christmas_snowballs_on() == 1);
+        assert(bpass_allowed() == 0 && bpass_rewards_allowed() == 1 && candies_on() == 1);
+        assert(candy_awards_allowed() == 0 && christmas_snowballs_on() == 1);
         stub_christmas = 0;
         theme_mode = saved_theme_mode_sanch;
         theme_chosen = saved_theme_chosen_sanch;
@@ -7641,6 +7662,9 @@ int main(void) {
     assert(strcmp(look_punch_tex(LOOK_GOLD), ORDINARY_GOLD_PUNCH_TEX) == 0);
     assert(look_ready(LOOK_GOLD) == 1);
     assert((int)skin_flags() == 48);
+    santa_skin = SKIN_SPECIAL;
+    assert((int)skin_flags() == 112);
+    santa_skin = SKIN_NORMAL;
     ordinary_gold_owned = 0;
     ordinary_gold_skin = SKIN_NORMAL;
     {

@@ -124,7 +124,7 @@ static void plates_collect_candies(void) {
                 }
             } else if (dist(arr_get(plates_candies, b + 4), arr_get(plates_candies, b + 5), player->x, player->y) <
                        player->size * 0.65 + 18) {
-                if (candies_on() == 1) {
+                if (candies_on() == 1 && candy_awards_allowed() == 1) {
                     candies = candies + candy_give;
                 }
                 plates_dirty = 1;
