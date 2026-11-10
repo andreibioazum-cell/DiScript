@@ -2557,6 +2557,15 @@ static void test_heavy_hit_cap(void) {
     game_state = ST_SOLO;
     finished = 0;
     assert(fabs(max_hit_damage - 5.0) < 1e-9);
+    player->max_hp = player->hp = 20;
+    player_block = 0;
+    player_hurt_a = 0;
+    assert(take_damage(1) == 0 && player_hurt_a == 1);
+    adm_reset_log();
+    draw_hurt_flash();
+    assert(adm_color_n > 0 && (adm_colors[adm_color_n - 1] & 0xFFFFFFu) == HURT_FLASH_RGB);
+    tick_hurt_fades();
+    assert(player_hurt_a < 1 && player_hurt_a > 0);
 
     /* Santa proves that the protection is global, rather than Azum-only.
      * Start through the real battle setup too: Ded Moroz must get the full
@@ -3254,12 +3263,15 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.00) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
-    /* ebuC ball bounces add speed only. Each projectile is three snowballs. */
-    assert(fabs(BALL_DAMAGE - 1.5) < 1e-9 && fabs(BALL_DAMAGE - XMAS_DAMAGE * 3) < 1e-9);
-    assert(fabs(ball_damage_for(-1) - BALL_DAMAGE) < 1e-9);
-    for (int b = 0; b <= 10; b++) {
-        assert(fabs(ball_damage_for(b) - BALL_DAMAGE) < 1e-9);
-    }
+    /* ebuC's brick keeps its original bounce-powered damage; three snowballs
+     * is the ordinary punch damage, not the brick's damage. */
+    assert(fabs(punch_damage - XMAS_DAMAGE * 3) < 1e-9);
+    assert(fabs(BALL_BASE_DAMAGE - 0.15) < 1e-9);
+    assert(fabs(ball_damage_for(-1) - BALL_BASE_DAMAGE) < 1e-9);
+    assert(fabs(ball_damage_for(0) - BALL_BASE_DAMAGE) < 1e-9);
+    assert(fabs(ball_damage_for(1) - (BALL_BASE_DAMAGE + BALL_BOUNCE_DAMAGE)) < 1e-9);
+    assert(fabs(ball_damage_for(2) -
+                (BALL_BASE_DAMAGE + BALL_BOUNCE_DAMAGE + BALL_BOUNCE_DAMAGE * BALL_BOUNCE_DAMAGE_GROW)) < 1e-9);
     assert(fabs(station_beam_pull - 26.0) < 1e-9 && fabs(station_beam_min - 54.0) < 1e-9);
     {
         /* ebuC's dispenser beam renders before ebuC's body layer in Solo. */
@@ -4460,7 +4472,7 @@ int main(void) {
     assert(fabs(class_hp_of(CLASS_ASTRA) - 19.0) < 1e-9);
     assert(max_level == 4 && level_base_cost == 50 && level_cost_step == 20 && level_cost(1) == 50 &&
            level_cost(2) == 70 && level_cost(3) == 90 && level_cost(4) == 110);
-    assert(punch_damage == 1 && santa_damage == 0.25 && ebuc_damage == 1.0);
+    assert(punch_damage == 1.5 && santa_damage == 0.25 && ebuc_damage == 1.0);
     assert(ebuc_universe_damage >= ebuc_hp);
     azum_tex_ok = azum_punch_tex_ok = 1;
     azum_zombie_tex_ok = azum_zombie_punch_tex_ok = 1;

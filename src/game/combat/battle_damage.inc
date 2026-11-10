@@ -1,3 +1,7 @@
+/* A brief red full-screen flash gives the local player hit feedback without
+ * restoring fighter tinting or camera shake. */
+#define PLAYER_HURT_FLASH_FADE 0.15
+
 /* Return 1 when raised shield faces the incoming damage source. */
 static double block_covers(void) {
     if (dmg_from_k == 0) {
@@ -54,6 +58,9 @@ static double take_damage(double dmg) {
     /* A complete life bar needs more than two oversized hits to disappear. */
     if (real > max_hit_damage) {
         real = max_hit_damage;
+    }
+    if (real > 0) {
+        player_hurt_a = 1;
     }
     player->hp = clamp(player->hp - real, 0, player->max_hp);
     if (player->hp <= 0) {
@@ -159,6 +166,10 @@ static void tick_revive(void) {
             revive_prot = 0;
         }
     }
+}
+
+static void tick_hurt_fades(void) {
+    player_hurt_a = fade_down_a(player_hurt_a, PLAYER_HURT_FLASH_FADE);
 }
 
 static void tick_alert_hold(void) {

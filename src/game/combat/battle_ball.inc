@@ -4,7 +4,9 @@
 #define BALL_BOUNCE_ACCEL 1.04
 #define BALL_RADIUS 24.0
 #define BALL_BOOM_RADIUS 150.0
-#define BALL_DAMAGE 1.5 /* three times one 0.5-damage snowball */
+#define BALL_BASE_DAMAGE 0.15
+#define BALL_BOUNCE_DAMAGE 2.8
+#define BALL_BOUNCE_DAMAGE_GROW 1.28
 #define BALL_MAX_BOUNCES 10.0
 #define BALL_MAX_TIME 8.0
 #define BALL_TRAIL 12
@@ -146,10 +148,19 @@ static void enemy_ball_fire(void) {
     ability_snd(STATION_SOUND);
 }
 
-/* Bounces change the path and speed, never the fixed three-snowball damage. */
+/* ebuC's brick keeps its bounce-powered damage; only ordinary punches use
+ * the fixed three-snowball value. */
 static double ball_damage_for(double bounces) {
-    (void)bounces;
-    return BALL_DAMAGE;
+    double n = bounces < 0 ? 0 : floor(bounces);
+    double dmg = BALL_BASE_DAMAGE;
+    double step = BALL_BOUNCE_DAMAGE;
+    double i = 0;
+    while (i < n) {
+        dmg = dmg + step;
+        step = step * BALL_BOUNCE_DAMAGE_GROW;
+        i = i + 1;
+    }
+    return dmg;
 }
 
 static void ult_ball_burst(UltBall *b, int is_enemy) {

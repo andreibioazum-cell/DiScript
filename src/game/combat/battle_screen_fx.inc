@@ -31,6 +31,18 @@ static void draw_vignette(void) {
     }
 }
 
+/* Peak red hit-feedback opacity; an alpha of zero is opaque to the renderer. */
+#define HURT_FLASH_ALPHA 0.07
+#define HURT_FLASH_RGB 0xB04848
+
+static void draw_hurt_flash(void) {
+    unsigned a = (unsigned)(int)(HURT_FLASH_ALPHA * player_hurt_a * 255.0 + 0.5);
+    if (a < 1) {
+        return;
+    }
+    rect(0, 0, screen_w, screen_h, (((uint32_t)a) << 24) | HURT_FLASH_RGB);
+}
+
 /* Draw pre-HUD screen FX. */
 static void draw_screen_fx(void) {
     draw_vignette();

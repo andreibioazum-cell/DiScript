@@ -61,6 +61,7 @@ ppoison_a = 0;
 poison_a = 0;
 player_stun = 0;
 pstun_a = 0;
+player_hurt_a = 0;
 mb_px = 0;
 mb_py = 0;
 mb_ex = 0;

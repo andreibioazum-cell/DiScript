@@ -391,6 +391,7 @@ static void update_online(void) {
     tick_universe();
     tick_astra();
     tick_status_fades();
+    tick_hurt_fades();
     if (net_slot() >= 0) {
         if (online_ready == 0) {
             place_online();

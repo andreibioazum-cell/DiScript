@@ -444,6 +444,7 @@ static void draw_game(void) {
     hud_bar(20, 20, w, 28, player->hp, player->max_hp, 0x7ED321, 0);
     hud_bar(screen_w - w - 20, 20, w, 28, enemy->hp, enemy->max_hp, 0xE94560, 0);
     draw_controls();
+    draw_hurt_flash();
     draw_fps_meter();
     draw_hacker_event();
     if (finished == 1) {
