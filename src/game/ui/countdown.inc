@@ -1,21 +1,18 @@
-/* Corner countdown to the next New Year (1 January 2027).
+/* Minute-accurate countdown to New Year 2027 in Votkinsk (UTC+4).
  *
- * The badge sits in the bottom-right corner of the menu screens and reads the
- * device clock. ds_wall_clock() is the platform hook; when it cannot read a
- * clock (or the clock is set before 2026, which means it is simply wrong) the
- * badge stays hidden instead of counting from a bogus date. */
+ * ds_wall_clock() is UTC epoch time.  New Year in Votkinsk is therefore
+ * 2026-12-31 20:00 UTC, one hour before Moscow.  The display deliberately
+ * has no badge or panel: it is a small, plain line at the top of the lobby. */
 
 #define COUNTDOWN_YEAR 2027
+#define COUNTDOWN_UTC_OFFSET (4L * 60L * 60L)
 #define COUNTDOWN_MIN_CLOCK 1767225600L /* 2026-01-01T00:00:00Z; earlier means an unset clock */
-#define COUNTDOWN_TEXT_MAX 56
+#define COUNTDOWN_TEXT_MAX 72
 
 static char countdown_text[COUNTDOWN_TEXT_MAX];
 static double countdown_ok;
-static long countdown_last_day = -1;
-
-static double countdown_leap(long year) {
-    return (year % 4 == 0 && year % 100 != 0) || year % 400 == 0 ? 1 : 0;
-}
+static long countdown_last_minute = -1;
+static double countdown_last_language = -1;
 
 /* Days from 1970-01-01 to a civil date (Howard Hinnant's days_from_civil). */
 static double countdown_days_from_civil(long y, long m, long d) {
@@ -28,56 +25,49 @@ static double countdown_days_from_civil(long y, long m, long d) {
     return (double)(era * 146097L + doe - 719468L);
 }
 
-/* Whole local days from `now` to 1 January COUNTDOWN_YEAR, or -1 before the
- * clock is trustworthy. */
-static long countdown_days_left(long now) {
-    double days;
+/* 1 January 2027 at 00:00 in Votkinsk, expressed as a UTC epoch second. */
+static long countdown_target(void) {
+    return (long)(countdown_days_from_civil(COUNTDOWN_YEAR, 1, 1) * 86400.0) - COUNTDOWN_UTC_OFFSET;
+}
+
+/* Remaining minutes, rounded up so the countdown never reaches zero before
+ * midnight.  It still changes only once a minute. */
+static long countdown_minutes_left(long now) {
+    long target;
     if (now < COUNTDOWN_MIN_CLOCK) {
         return -1;
     }
-    days = countdown_days_from_civil(COUNTDOWN_YEAR, 1, 1) - (double)(now / 86400L);
-    if (days < 0) {
-        days = 0;
+    target = countdown_target();
+    if (now >= target) {
+        return 0;
     }
-    return (long)days;
+    return (target - now + 59L) / 60L;
 }
 
-/* "До Нового года 2027: 53 дня" / "New Year 2027 in 53 days". */
+/* A compact timer only - it deliberately does not say what it counts down to. */
 static void countdown_build(void) {
     long now = ds_wall_clock();
-    long left = countdown_days_left(now);
-    long day = now / 86400L;
-    long rest;
+    long left = countdown_minutes_left(now);
+    long minute = now / 60L;
+    long days, hours, minutes;
     if (left < 0) {
         countdown_ok = 0;
         countdown_text[0] = 0;
         return;
     }
     countdown_ok = 1;
-    if (day == countdown_last_day && countdown_text[0]) {
+    if (minute == countdown_last_minute && language == countdown_last_language && countdown_text[0]) {
         return;
     }
-    countdown_last_day = day;
-    rest = left % 100;
-    if (left == 0) {
-        snprintf(countdown_text, sizeof(countdown_text), "%s",
-                 language == 1 ? "С Новым годом!" : "Happy New Year!");
-    } else if (language == 1) {
-        const char *word = "дней";
-        if (rest < 11 || rest > 14) {
-            long tail = rest % 10;
-            if (tail == 1) {
-                word = "день";
-            } else if (tail >= 2 && tail <= 4) {
-                word = "дня";
-            }
-        }
-        snprintf(countdown_text, sizeof(countdown_text), "До Нового года %d: %ld %s",
-                 (int)COUNTDOWN_YEAR, left, word);
-    } else if (left == 1) {
-        snprintf(countdown_text, sizeof(countdown_text), "New Year %d in 1 day", (int)COUNTDOWN_YEAR);
+    countdown_last_minute = minute;
+    countdown_last_language = language;
+    days = left / (24L * 60L);
+    hours = (left / 60L) % 24L;
+    minutes = left % 60L;
+    if (language == 1) {
+        snprintf(countdown_text, sizeof(countdown_text), "%ld д. %ld ч. %ld мин.", days, hours, minutes);
     } else {
-        snprintf(countdown_text, sizeof(countdown_text), "New Year %d in %ld days", (int)COUNTDOWN_YEAR, left);
+        snprintf(countdown_text, sizeof(countdown_text), "%ld d. %ld h. %ld min.", days, hours, minutes);
     }
 }
 
@@ -85,34 +75,24 @@ static double countdown_font(void) {
     return clamp(screen_w / 1500.0, 0.30, 0.42);
 }
 
-static double countdown_w(void) {
-    return text_ink_width(countdown_text) * countdown_font() + 20;
-}
-
-static double countdown_h(void) {
-    return 28;
-}
-
 static double countdown_x(void) {
-    return screen_w - countdown_w() - 12;
+    return (screen_w - text_ink_width(countdown_text) * countdown_font()) / 2;
 }
 
 static double countdown_y(void) {
-    return screen_h - countdown_h() - 10;
+    /* Below the Packs, parent badge, and greeting, yet still in the top area. */
+    return 60;
 }
 
-/* Draw the badge in the bottom-right corner; it belongs to the menu screens,
- * never to a fight. */
+/* The countdown belongs to the lobby only.  It stays clear of gameplay and
+ * other menus, and it has no background behind it. */
 static void draw_countdown(void) {
-    if (game_state == ST_SOLO || game_state == ST_ONLINE) {
+    if (game_state != ST_LOBBY) {
         return;
     }
     countdown_build();
     if (countdown_ok == 0 || countdown_text[0] == 0) {
         return;
     }
-    roundrect(countdown_x(), countdown_y(), countdown_w(), countdown_h(), 9, 0xCC000000);
-    roundrect_outline(countdown_x(), countdown_y(), countdown_w(), countdown_h(), 9, 1.5, 0x66FFFFFF);
-    text_in_box(countdown_text, countdown_x() + 10, countdown_y(), countdown_w() - 20, countdown_h(),
-                0xFFFFFFFF, countdown_font());
+    text_scaled(countdown_text, countdown_x(), countdown_y(), 0xFFFFFFFF, countdown_font());
 }

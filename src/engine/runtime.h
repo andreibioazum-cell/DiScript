@@ -157,6 +157,9 @@ void ds_graphics_report_frame_interval(double seconds);
 /* Unclamped duration of the last presented frame in seconds (0 if unavailable). */
 double ds_frame_seconds(void);
 int ds_graphics_pixel_scale(void);
+/* 0 pixelation, 1 multisample antialiasing, 2 morphological antialiasing. */
+void ds_graphics_set_quality_mode(int mode);
+int ds_graphics_quality_mode(void);
 
 int ds_graphics_init(AAssetManager *assets, ANativeWindow *window);
 int ds_graphics_begin_frame(Buffer *buffer);

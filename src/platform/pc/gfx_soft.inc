@@ -5,6 +5,8 @@ static int pc_fb_w, pc_fb_h;
 static int pc_clip_x0, pc_clip_y0, pc_clip_x1, pc_clip_y1;
 static uint32_t *pc_font_tex;
 static int pc_font_w, pc_font_h;
+static uint32_t *pc_smaa_scratch;
+static size_t pc_smaa_cap;
 
 static void pc_set_clip(float x, float y, float w, float h) {
     if (w <= 0.0f || h <= 0.0f) {
@@ -53,6 +55,52 @@ static void ds_vk_note_failure(const char *what, int code) {
 }
 
 static void pc_render_frame(void);
+
+/* CPU version of the Vulkan SMAA pass. It runs only for the explicit SMAA
+ * setting; pixelation and MSAA retain their normal software path. */
+static unsigned pc_luma(uint32_t c) {
+    return ((c & 0xffu) * 54u + ((c >> 8) & 0xffu) * 183u + ((c >> 16) & 0xffu) * 19u) >> 8;
+}
+static uint32_t pc_lerp_pixel(uint32_t a, uint32_t b, unsigned amount) {
+    unsigned ia = 256u - amount;
+    unsigned r = ((a & 0xffu) * ia + (b & 0xffu) * amount) >> 8;
+    unsigned g = (((a >> 8) & 0xffu) * ia + ((b >> 8) & 0xffu) * amount) >> 8;
+    unsigned bl = (((a >> 16) & 0xffu) * ia + ((b >> 16) & 0xffu) * amount) >> 8;
+    unsigned al = (((a >> 24) & 0xffu) * ia + ((b >> 24) & 0xffu) * amount) >> 8;
+    return r | (g << 8) | (bl << 16) | (al << 24);
+}
+static void pc_smaa_filter(void) {
+    size_t n;
+    if (ds_graphics_quality_mode() != 2 || !pc_fb || pc_fb_w < 3 || pc_fb_h < 3)
+        return;
+    n = (size_t)pc_fb_w * (size_t)pc_fb_h;
+    if (pc_smaa_cap < n) {
+        uint32_t *next = (uint32_t *)realloc(pc_smaa_scratch, n * sizeof(*next));
+        if (!next)
+            return;
+        pc_smaa_scratch = next;
+        pc_smaa_cap = n;
+    }
+    memcpy(pc_smaa_scratch, pc_fb, n * sizeof(*pc_fb));
+    for (int y = 1; y + 1 < pc_fb_h; y++) {
+        for (int x = 1; x + 1 < pc_fb_w; x++) {
+            size_t at = (size_t)y * (size_t)pc_fb_w + (size_t)x;
+            uint32_t c = pc_smaa_scratch[at];
+            uint32_t n0 = pc_smaa_scratch[at - (size_t)pc_fb_w];
+            uint32_t s0 = pc_smaa_scratch[at + (size_t)pc_fb_w];
+            uint32_t w = pc_smaa_scratch[at - 1];
+            uint32_t e = pc_smaa_scratch[at + 1];
+            unsigned horizontal = pc_luma(w) > pc_luma(e) ? pc_luma(w) - pc_luma(e) : pc_luma(e) - pc_luma(w);
+            unsigned vertical = pc_luma(n0) > pc_luma(s0) ? pc_luma(n0) - pc_luma(s0) : pc_luma(s0) - pc_luma(n0);
+            unsigned edge = horizontal > vertical ? horizontal : vertical;
+            if (edge > 12) {
+                uint32_t tangent = horizontal > vertical ? pc_lerp_pixel(n0, s0, 128) : pc_lerp_pixel(w, e, 128);
+                unsigned amount = edge > 96 ? 77u : edge * 77u / 96u;
+                pc_fb[at] = pc_lerp_pixel(c, tangent, amount);
+            }
+        }
+    }
+}
 
 static int ds_vk_init_backend(ANativeWindow *window) {
     (void)window;
@@ -131,6 +179,9 @@ static void ds_vk_shutdown_backend(void) {
     free(pc_font_tex);
     pc_font_tex = NULL;
     pc_font_w = pc_font_h = 0;
+    free(pc_smaa_scratch);
+    pc_smaa_scratch = NULL;
+    pc_smaa_cap = 0;
     vk_font_desc = 0;
     vk_pending_font = 0;
 }

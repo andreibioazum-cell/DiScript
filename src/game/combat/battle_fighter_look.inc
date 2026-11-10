@@ -149,22 +149,6 @@ static void draw_fighter_body(double x, double y, double ang, double look, doubl
     tex(x - half_px, y - half_px, look_tex(look, punching), sprite_a(ang), sprite_scale);
 }
 
-static void draw_fighter_hurt(double x, double y, double ang, double look, double punching, double scale, double a) {
-    if (a <= 0) {
-        return;
-    }
-    double fa = floor(a * 255 * hurt_alpha);
-    if (fa < 1) {
-        return;
-    }
-    if (look == LOOK_NONE) {
-        return;
-    }
-    double half_px = 25 * cube_scale * scale;
-    tex_tint(x - half_px, y - half_px, look_tex(look, punching), sprite_a(ang), cube_scale * scale,
-             (((unsigned)(int)fa) << 24) | ((unsigned)(int)hurt_rgb));
-}
-
 /* Draw fighter sprite with optional flat color tint. */
 /* Draw a small cube trail behind the fighter during a dash.
  * Each cube uses the fighter's own sprite scaled down, fading behind. */

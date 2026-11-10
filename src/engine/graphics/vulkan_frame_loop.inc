@@ -176,7 +176,7 @@ static int ds_vk_init_backend(ANativeWindow *window) {
         ds_vk_shutdown_backend();
         return 0;
     }
-    if (!ds_vk_create_renderpass()) {
+    if (!ds_vk_create_renderpass() || !ds_vk_create_smaa_renderpass()) {
         ds_vk_shutdown_backend();
         return 0;
     }
@@ -227,16 +227,7 @@ static void ds_vk_shutdown_backend(void) {
         ds_vk_destroy_swapchain();
         ds_vk_destroy_frame_resources();
         ds_vk_destroy_offscreen();
-        if (vk_pipe_solid != VK_NULL_HANDLE)
-            vkDestroyPipeline(vk_device, vk_pipe_solid, NULL);
-        if (vk_pipe_image != VK_NULL_HANDLE)
-            vkDestroyPipeline(vk_device, vk_pipe_image, NULL);
-        if (vk_pipe_tint != VK_NULL_HANDLE)
-            vkDestroyPipeline(vk_device, vk_pipe_tint, NULL);
-        if (vk_pipe_replace != VK_NULL_HANDLE)
-            vkDestroyPipeline(vk_device, vk_pipe_replace, NULL);
-        vk_pipe_solid = vk_pipe_image = vk_pipe_tint = VK_NULL_HANDLE;
-        vk_pipe_replace = VK_NULL_HANDLE;
+        ds_vk_destroy_all_pipelines();
         if (vk_layout_solid != VK_NULL_HANDLE)
             vkDestroyPipelineLayout(vk_device, vk_layout_solid, NULL);
         if (vk_layout_image != VK_NULL_HANDLE)
@@ -247,6 +238,7 @@ static void ds_vk_shutdown_backend(void) {
         if (vk_renderpass != VK_NULL_HANDLE)
             vkDestroyRenderPass(vk_device, vk_renderpass, NULL);
         vk_renderpass = VK_NULL_HANDLE;
+        ds_vk_destroy_smaa_renderpass();
         if (vk_sampler != VK_NULL_HANDLE)
             vkDestroySampler(vk_device, vk_sampler, NULL);
         vk_sampler = VK_NULL_HANDLE;

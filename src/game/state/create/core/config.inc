@@ -12,6 +12,7 @@ ST_SKINS = 13;
 ST_PROMO = 14;
 ST_ROOMS = 15;
 ST_WHEEL = 17;
+graphics_mode = 0;
 game_state = 0;
 language = 1;
 t_dir = 0;
@@ -204,6 +205,9 @@ online_ready = 0;
 max_players = 4;
 pi = 3.1415926535;
 azum_second_life_damage_reduction = 0.10;
+/* A complete HP bar cannot disappear to one oversized ability. This cap is
+ * applied after shields, blocks and class-specific mitigation on both sides. */
+max_hit_damage = 5.0;
 azum_speed_bonus = 0.03;
 /* Combat ability damage and healing parameters. */
 azum_attack_heal = 0.20;
@@ -284,9 +288,6 @@ poison_rgb = 0x0000C853;
 poison_rim = 0x0069F0AE;
 stun_rgb = 0x00F9A825;
 stun_rim = 0x00FFD54F;
-hurt_rgb = 0x00FF2020;
-hurt_alpha = 0.75;
-hurt_fade = 0.15;
 ebuc_hp = 24;
 ebuc_station_hp = 5;
 ebuc_station_hp_bonus = 1;

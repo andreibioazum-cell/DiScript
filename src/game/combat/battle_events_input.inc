@@ -281,9 +281,7 @@ static void draw_online(void) {
     double w = screen_w / 3;
     hud_bar(20, 20, w, 28, player->hp, player->max_hp, 0x7ED321, 0);
     draw_controls();
-    draw_hurt_flash();
     draw_fps_meter();
-    draw_report_pick_button();
     draw_chat();
     draw_plates_hud();
     draw_columns_hud();
@@ -373,12 +371,6 @@ static void touch_game(double x, double y, double action, double id) {
             return;
         }
         if (chat_open == 1) {
-            return;
-        }
-        /* The complaint button sits above the arena, away from the pads. */
-        if (action == 0 && report_pick_btn_hit(x, y) == 1) {
-            report_pick_open_panel();
-            drop_joy();
             return;
         }
     }

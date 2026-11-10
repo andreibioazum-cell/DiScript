@@ -1,4 +1,3 @@
-static void damage_taken_shake(double dmg);
 static double block_covers(void);
 static double take_damage(double dmg);
 static double take_damage_at(double dmg, double sx, double sy);
@@ -7,5 +6,4 @@ static void stun_enemy(double t);
 static void stun_player(double t);
 static double try_revive(void);
 static void tick_revive(void);
-static void tick_hurt_fades(void);
 static void tick_alert_hold(void);

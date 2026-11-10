@@ -56,6 +56,17 @@ static int ds_vk_begin_frame_backend(uint32_t w, uint32_t h, uint32_t ow, uint32
             return 0;
     }
 
+    int wanted_mode = ds_graphics_quality_mode();
+    if (wanted_mode != vk_render_mode) {
+        vk_render_mode = wanted_mode;
+        vk_msaa_samples = vk_render_mode == 1 ? ds_vk_best_msaa_samples(vk_sw_format) : VK_SAMPLE_COUNT_1_BIT;
+        if (vk_render_mode == 1 && vk_msaa_samples == VK_SAMPLE_COUNT_1_BIT)
+            ds_log("graphics: MSAA unavailable on this GPU; keeping the smooth present filter");
+        if (!ds_vk_rebuild_pipelines())
+            return 0;
+        ds_log("graphics: quality mode %d (%s)", vk_render_mode,
+               vk_render_mode == 0 ? "pixelation" : vk_render_mode == 1 ? "MSAA" : "SMAA");
+    }
     if (vk_sw_format != vk_rp_format && !ds_vk_rebuild_pipelines())
         return 0;
 
@@ -117,16 +128,45 @@ static int ds_vk_begin_frame_backend(uint32_t w, uint32_t h, uint32_t ow, uint32
 
 static void ds_vk_end_frame_backend(void) {
     DsVkFrame *f = &vk_frames[vk_frame_cur];
-    if (ds_vk_build_geometry() && geo_in > 0 && ds_vk_frame_ensure_capacity(f, geo_vn, geo_in)) {
-        memcpy(f->vmap, geo_verts, geo_vn * sizeof(GeoVert));
-        memcpy(f->imap, geo_idx, geo_in * sizeof(uint16_t));
-
-        VkDeviceSize zero = 0;
-        vkCmdBindVertexBuffers(f->cmd, 0, 1, &f->vbuf, &zero);
-        vkCmdBindIndexBuffer(f->cmd, f->ibuf, 0, VK_INDEX_TYPE_UINT16);
-        ds_vk_record_draws(f->cmd);
+    uint32_t smaa_first = 0;
+    int have_smaa_quad = 0;
+    if (ds_vk_build_geometry()) {
+        size_t add_vertices = ds_vk_smaa_enabled() ? 4 : 0;
+        size_t add_indices = ds_vk_smaa_enabled() ? 6 : 0;
+        if ((geo_in > 0 || add_indices > 0) &&
+            ds_vk_frame_ensure_capacity(f, geo_vn + add_vertices, geo_in + add_indices)) {
+            if (geo_vn > 0)
+                memcpy(f->vmap, geo_verts, geo_vn * sizeof(GeoVert));
+            if (geo_in > 0)
+                memcpy(f->imap, geo_idx, geo_in * sizeof(uint16_t));
+            if (geo_in > 0) {
+                VkDeviceSize zero = 0;
+                vkCmdBindVertexBuffers(f->cmd, 0, 1, &f->vbuf, &zero);
+                vkCmdBindIndexBuffer(f->cmd, f->ibuf, 0, VK_INDEX_TYPE_UINT16);
+                ds_vk_record_draws(f->cmd);
+            }
+            if (ds_vk_smaa_enabled()) {
+                uint16_t base = (uint16_t)geo_vn;
+                GeoVert *v = f->vmap + geo_vn;
+                uint16_t *ind = f->imap + geo_in;
+                v[0] = (GeoVert){0.0f, 0.0f, 0.0f, 0.0f, 0xffffffffu};
+                v[1] = (GeoVert){(float)vk_off_w, 0.0f, 1.0f, 0.0f, 0xffffffffu};
+                v[2] = (GeoVert){(float)vk_off_w, (float)vk_off_h, 1.0f, 1.0f, 0xffffffffu};
+                v[3] = (GeoVert){0.0f, (float)vk_off_h, 0.0f, 1.0f, 0xffffffffu};
+                ind[0] = base;
+                ind[1] = (uint16_t)(base + 1);
+                ind[2] = (uint16_t)(base + 2);
+                ind[3] = base;
+                ind[4] = (uint16_t)(base + 2);
+                ind[5] = (uint16_t)(base + 3);
+                smaa_first = (uint32_t)geo_in;
+                have_smaa_quad = 1;
+            }
+        }
     }
     vkCmdEndRenderPass(f->cmd);
+    if (have_smaa_quad)
+        ds_vk_record_smaa(f->cmd, f, smaa_first);
     if (vk_swap == VK_NULL_HANDLE || vk_sw_index >= vk_sw_count || vk_off_image == VK_NULL_HANDLE)
         return;
     ds_vk_record_present_blit(f->cmd);

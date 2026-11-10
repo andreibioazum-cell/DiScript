@@ -3,7 +3,7 @@
 typedef struct {
     DSMutex lock;
     int loaded, has_file;
-    int language, hitboxes, musicvol, winter, theme, mode, chosen;
+    int language, hitboxes, musicvol, winter, theme, mode, chosen, graphics;
     int legal;
     int ppin, page; /* Parental control: device-only pin hash and age mode. */
     int pin2;       /* Extra account password: device-only hash, never leaves the phone. */
@@ -35,7 +35,7 @@ static void settings_read(void) {
     FILE *f;
         /* -1: no language in the file, use the phone language. */
     int language = -1, hitboxes = 1, musicvol = 70, has_file = 0;
-    int winter = 0, legal = 0, theme = 1, mode = 0, pdc = 0, pdv = 0;
+    int winter = 0, legal = 0, theme = 1, mode = 0, graphics = 0, pdc = 0, pdv = 0;
     int ppin = 0, page = 0, pin2 = 0;
     /* -1 = no saved choice yet; an old style line counts as a choice. */
     int chosen = -1;
@@ -82,6 +82,10 @@ static void settings_read(void) {
                 chosen = value;
                 continue;
             }
+            if (sscanf(line, "graphics %d", &value) == 1) {
+                graphics = value;
+                continue;
+            }
             if (sscanf(line, "legal %d", &value) == 1) {
                 legal = value;
                 continue;
@@ -119,6 +123,7 @@ static void settings_read(void) {
     st.theme = theme ? 1 : 0;
     st.mode = mode >= 0 && mode <= 1 ? mode : 0;
     st.chosen = chosen > 0 ? 1 : 0;
+    st.graphics = graphics >= 0 && graphics <= 2 ? graphics : 0;
     st.legal = legal;
     st.ppin = ppin > 0 ? ppin : 0;
     st.pin2 = pin2 > 0 ? pin2 : 0;
@@ -135,10 +140,10 @@ static void settings_write(void) {
     data_file_path(path, sizeof(path), SETTINGS_FILE);
     st_lock();
     snprintf(text, sizeof(text),
-             "lang %d\nhitboxes %d\nmusicvol %d\nwinter %d\ntheme %d\nstyle %d\nchosen %d\nlegal %d\n"
+             "lang %d\nhitboxes %d\nmusicvol %d\nwinter %d\ntheme %d\nstyle %d\nchosen %d\ngraphics %d\nlegal %d\n"
              "ppin %d\npin2 %d\npage %d\npdc %d\npdv %d\n",
-             st.language, st.hitboxes, st.musicvol, st.winter, st.theme, st.mode, st.chosen, st.legal, st.ppin, st.pin2,
-             st.page, st.pdc, st.pdv);
+             st.language, st.hitboxes, st.musicvol, st.winter, st.theme, st.mode, st.chosen, st.graphics, st.legal,
+             st.ppin, st.pin2, st.page, st.pdc, st.pdv);
     st.has_file = 1;
     st_unlock();
     file_write_atomic(path, text);
@@ -280,6 +285,26 @@ void net_save_theme_chosen(double on) {
     settings_read();
     st_lock();
     st.chosen = on ? 1 : 0;
+    st.loaded = 1;
+    st_unlock();
+    settings_write();
+}
+
+/* Rendering preference is device-local: a phone and a PC can support different
+ * antialiasing paths, so this is intentionally not synchronized to cloud. */
+double net_load_graphics_mode(void) {
+    double v;
+    settings_read();
+    st_lock();
+    v = (double)st.graphics;
+    st_unlock();
+    return v;
+}
+
+void net_save_graphics_mode(double mode) {
+    settings_read();
+    st_lock();
+    st.graphics = mode >= 0 && mode <= 2 ? (int)mode : 0;
     st.loaded = 1;
     st_unlock();
     settings_write();

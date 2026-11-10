@@ -1,6 +1,6 @@
-/* Player reports. Any signed-in player can flag one chat message; the list is
- * read only by the owner (admin) from the "Reports" screen. Stored in the same
- * database under /reports/<id>, so nothing new has to be deployed. */
+/* Player reports. A signed-in player files a report only with the typed chat
+ * command; records stay under /reports/<id> in the same database, so nothing
+ * new has to be deployed. */
 
 #define NET_REPORT_MAX 12
 #define NET_REPORT_TEXT 110
@@ -142,7 +142,7 @@ static void *rp_fetch_job(void *arg) {
     return NULL;
 }
 
-/* Refresh the list; the screen shows a spinner while rp_status == 1. */
+/* Refresh the report list; clients can display progress while rp_status == 1. */
 void net_reports_fetch(void) {
     DSThread t;
     if (rp_status == 1)

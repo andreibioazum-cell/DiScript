@@ -195,10 +195,7 @@ static void open_leaderboard(void) {
 }
 
 static void touch_lobby(double x, double y, double action, double id) {
-    if (lobby_ball_touch(x, y, action, id) == 1) {
-        press_points_drop(id);
-        return;
-    }
+    (void)id;
     if (action != 0) {
         return;
     }
@@ -289,6 +286,22 @@ static void touch_modes(double x, double y) {
 }
 
 static void touch_settings(double x, double y) {
+    if (graphics_menu_open == 1) {
+        double mode = 0;
+        while (mode < 3) {
+            if (hit_settings_graphics_choice(x, y, mode) == 1) {
+                graphics_mode = mode;
+                graphics_menu_open = 0;
+                ds_graphics_set_quality_mode((int)graphics_mode);
+                save_settings();
+                return;
+            }
+            mode = mode + 1;
+        }
+    }
+    /* Regular settings keep priority when a tiny display makes the floating
+     * corner overlap the column. */
+    graphics_menu_open = 0;
     if (hit_settings_row(x, y, 0) == 1) {
         start_transition(ST_LOBBY);
         return;
@@ -317,14 +330,8 @@ static void touch_settings(double x, double y) {
         parental_open();
         return;
     }
-    if (is_admin() == 1 && hit_settings_row(x, y, 6) == 1) {
-        reports_open();
-        return;
-    }
-    /* Complaint about another player. Works for everyone; the panel itself
-     * shows "nobody else here" when the room is empty. */
-    if (hit_settings_row(x, y, 7) == 1) {
-        report_pick_open_panel();
+    if (hit_settings_graphics(x, y) == 1) {
+        graphics_menu_open = 1;
         return;
     }
 }

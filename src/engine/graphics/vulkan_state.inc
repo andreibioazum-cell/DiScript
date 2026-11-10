@@ -83,10 +83,16 @@ static VkPipelineLayout vk_layout_tint;
 static VkPipeline vk_pipe_solid;
 static VkPipeline vk_pipe_image;
 static VkPipeline vk_pipe_tint;
+static VkPipeline vk_pipe_smaa;
 
 static VkPipeline vk_pipe_replace;
 static VkDescriptorSetLayout vk_desc_layout;
 static VkSampler vk_sampler;
+
+/* Rendering modes: pixelated nearest output, hardware MSAA, or a separate
+ * single-pass morphological AA resolve. */
+static int vk_render_mode;
+static VkSampleCountFlagBits vk_msaa_samples = VK_SAMPLE_COUNT_1_BIT;
 
 static VkImage vk_off_image;
 static VkDeviceMemory vk_off_mem;
@@ -94,6 +100,19 @@ static VkImageView vk_off_view;
 static VkFramebuffer vk_off_fb;
 static VkFormat vk_off_format = VK_FORMAT_R8G8B8A8_UNORM;
 static uint32_t vk_off_w, vk_off_h;
+
+/* Hardware-MSAA color attachment, resolved into vk_off_image. */
+static VkImage vk_msaa_image;
+static VkDeviceMemory vk_msaa_mem;
+static VkImageView vk_msaa_view;
+
+/* SMAA-like edge pass output and its input descriptor. */
+static VkRenderPass vk_smaa_renderpass;
+static VkImage vk_smaa_image;
+static VkDeviceMemory vk_smaa_mem;
+static VkImageView vk_smaa_view;
+static VkFramebuffer vk_smaa_fb;
+static VkDescriptorSet vk_smaa_desc;
 
 static uint32_t vk_log_w, vk_log_h;
 
@@ -164,3 +183,29 @@ static int ds_vk_request_frame_rate(ANativeWindow *window);
 static void ds_vk_release_frame_rate(void);
 static int ds_vk_ensure_offscreen(uint32_t w, uint32_t h, VkFormat format);
 static void ds_vk_destroy_offscreen(void);
+static int ds_vk_create_smaa_renderpass(void);
+static void ds_vk_destroy_smaa_renderpass(void);
+static void ds_vk_destroy_all_pipelines(void);
+static int ds_vk_rebuild_pipelines(void);
+
+static int ds_vk_smaa_enabled(void) { return vk_render_mode == 2; }
+
+static VkSampleCountFlagBits ds_vk_best_msaa_samples(VkFormat format) {
+    VkPhysicalDeviceProperties props;
+    VkImageFormatProperties image_props;
+    VkSampleCountFlags samples;
+    if (vk_phys == VK_NULL_HANDLE)
+        return VK_SAMPLE_COUNT_1_BIT;
+    /* Device-wide limits alone are not enough: the selected swapchain format
+     * must support samples for an optimal-tiled color attachment too. */
+    if (vkGetPhysicalDeviceImageFormatProperties(vk_phys, format, VK_IMAGE_TYPE_2D, VK_IMAGE_TILING_OPTIMAL,
+                                                 VK_IMAGE_USAGE_COLOR_ATTACHMENT_BIT, 0, &image_props) != VK_SUCCESS)
+        return VK_SAMPLE_COUNT_1_BIT;
+    vkGetPhysicalDeviceProperties(vk_phys, &props);
+    samples = props.limits.framebufferColorSampleCounts & image_props.sampleCounts;
+    if (samples & VK_SAMPLE_COUNT_4_BIT)
+        return VK_SAMPLE_COUNT_4_BIT;
+    if (samples & VK_SAMPLE_COUNT_2_BIT)
+        return VK_SAMPLE_COUNT_2_BIT;
+    return VK_SAMPLE_COUNT_1_BIT;
+}

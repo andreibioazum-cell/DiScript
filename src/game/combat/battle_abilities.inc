@@ -321,7 +321,6 @@ static void update_game(void) {
     tick_enemy_class();
     tick_hitbox_fades();
     tick_status_fades();
-    tick_hurt_fades();
     update_aim();
     /* Solo battles run events too: the server event when online, or the one
      * launched locally from the CCP admin commands tab while offline. The

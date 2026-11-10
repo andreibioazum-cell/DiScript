@@ -391,7 +391,6 @@ static void update_online(void) {
     tick_universe();
     tick_astra();
     tick_status_fades();
-    tick_hurt_fades();
     if (net_slot() >= 0) {
         if (online_ready == 0) {
             place_online();
@@ -415,7 +414,9 @@ static void update_online(void) {
         }
     }
     move_player();
-    separate_fighters(0);
+    /* There is no local bot in an online battle. Separating from the stale
+     * solo-enemy position created an invisible wall, so remote fighters stay
+     * non-solid on this client. */
     ice_tick();
     tick_dash();
     punch_left = tick_down(punch_left);

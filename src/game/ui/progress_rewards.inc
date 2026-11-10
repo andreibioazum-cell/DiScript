@@ -287,6 +287,11 @@ static void settings_from_storage(void) {
     if (theme_mode < 0 || theme_mode > 1)
         theme_mode = 0;
     theme_chosen = net_load_theme_chosen();
+    graphics_mode = net_load_graphics_mode();
+    if (graphics_mode < 0 || graphics_mode > 2)
+        graphics_mode = 0;
+    graphics_menu_open = 0;
+    ds_graphics_set_quality_mode((int)graphics_mode);
     apply_theme();
 }
 
@@ -296,4 +301,5 @@ static void save_settings(void) {
     net_save_new_theme(new_theme);
     net_save_theme_mode(theme_mode);
     net_save_theme_chosen(theme_chosen);
+    net_save_graphics_mode(graphics_mode);
 }

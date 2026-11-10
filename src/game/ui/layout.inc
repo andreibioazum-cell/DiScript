@@ -46,8 +46,10 @@ static double hit_menu_row(double px, double py, double i) {
 
 static double settings_stride(void) {
     double s = menu_stride();
-    /* Fit all settings rows below menu_top() on short screens. */
-    double fit = (screen_h - 16 - menu_top()) / SETTINGS_ROWS;
+    /* Keep the normal button gap whenever six rows fit.  On a very short
+     * display reduce the gap first, rather than shrinking the buttons while
+     * there is still vertical room for them. */
+    double fit = (screen_h - 16 - settings_top() - btn_h) / (SETTINGS_ROWS - 1);
     if (fit < s) {
         s = fit;
     }
@@ -273,6 +275,21 @@ static double promo_corner_y(void) { return screen_h - screen_margin - btn_h; }
 
 static double hit_promo_corner(double px, double py) {
     return hit_button(px, py, promo_corner_x(), promo_corner_y(), promo_corner_w(), btn_h);
+}
+
+/* The graphics selector deliberately mirrors the promo button: it stays out
+ * of the compact settings column and opens its three choices above itself. */
+static double settings_graphics_w(void) { return promo_corner_w(); }
+static double settings_graphics_x(void) { return screen_w - screen_margin - settings_graphics_w(); }
+static double settings_graphics_y(void) { return screen_h - screen_margin - btn_h; }
+static double settings_graphics_choice_y(double mode) {
+    return settings_graphics_y() - (3 - mode) * (btn_h + btn_gap);
+}
+static double hit_settings_graphics(double px, double py) {
+    return hit_button(px, py, settings_graphics_x(), settings_graphics_y(), settings_graphics_w(), btn_h);
+}
+static double hit_settings_graphics_choice(double px, double py, double mode) {
+    return hit_button(px, py, settings_graphics_x(), settings_graphics_choice_y(mode), settings_graphics_w(), btn_h);
 }
 
 /* Lobby bottom-right battle pass button width. */

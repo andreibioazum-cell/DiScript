@@ -236,13 +236,10 @@ static double azum_dash_damage_for(void) {
     return azum_dash_damage * (azum_buff_active == 1 ? 1.10 : 1);
 }
 
-/* Enemies deal a fraction of their class damage: the old 20% cut.
- * ENEMY_OTHER_DAMAGE_MULT scales every enemy hit in solo and against bots -
- * punch, dash, strike, turret counter and ball. It was raised to 1.00 for a
- * while and that made every class feel like it dealt a ton of damage, so it
- * stays at the lower value. Do not tune it per class: one value keeps solo
- * and online fights on the same scale. */
-#define ENEMY_OTHER_DAMAGE_MULT 0.80
+/* Enemy attacks use the same class damage as the player.  Keeping this one
+ * multiplier makes punches, dashes, strikes, counters and balls agree; 1.00
+ * removes the old hidden 20% solo-enemy penalty. */
+#define ENEMY_OTHER_DAMAGE_MULT 1.00
 
 static double enemy_damage_mult_for(double cls) {
     (void)cls;
@@ -258,10 +255,8 @@ static double enemy_azum_dash_damage_for(void) {
  *
  * Both used to fire at full strength no matter whose class was on the field,
  * while the same move coming from the enemy side is scaled by
- * enemy_damage_mult_for(). Against the default 24 HP foe one turret counter
- * that way took a whole HP bar in a few seconds - that is the "ton of damage"
- * players were complaining about. Owner damage now follows the same 0.80
- * class scale as the enemy side, so both sides hit alike. */
+ * enemy_damage_mult_for(). Owner damage follows the same full class scale as
+ * the enemy side, so matching moves hit for matching damage. */
 static double owned_summon_damage_for(double cls) {
     return enemy_damage_mult_for(cls);
 }
