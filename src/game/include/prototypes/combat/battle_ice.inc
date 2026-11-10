@@ -5,3 +5,5 @@ static void ice_avoid_vector(double x, double y, double *vx, double *vy);
 static double ice_bounce_ball(double *x, double *y, double rad, double *vx, double *vy);
 static void draw_ice(void);
 double ice_near_fighter(double x, double y, double gap);
+static double ice_blocks_punch(double px, double py, double pdx, double pdy, double reach, double width,
+                               double tx, double ty);

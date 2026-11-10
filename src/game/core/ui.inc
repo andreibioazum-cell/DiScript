@@ -269,18 +269,17 @@ static void draw_battle_back(void) {
 static double battle_back_hit(double x, double y) { return hit_button(x, y, battle_back_x(), battle_back_y(), btn_w, btn_h); }
 
 static void screen_fill(void) {
-    if (new_theme == 0) {
-        rect(0, 0, screen_w, screen_h, bg_screen);
-    } else {
-        double top = bg_screen;
-        double bottom = bg_gradient_bottom;
-        if (active_theme_mode() == 1 && christmas_active() == 1) {
-            top = christmas_bg_top;
-            bottom = christmas_bg_bottom;
-        }
-        rect(0, 0, screen_w, screen_h, top);
-        draw_bottom_gradient(top, bottom);
+    /* Every visual theme gets the same smooth background wash.  The classic
+     * ordinary theme used to bypass it entirely, which made full-screen
+     * screens such as Texture packs look flat. */
+    double top = bg_screen;
+    double bottom = bg_gradient_bottom;
+    if (active_theme_mode() == 1 && christmas_active() == 1) {
+        top = christmas_bg_top;
+        bottom = christmas_bg_bottom;
     }
+    rect(0, 0, screen_w, screen_h, top);
+    draw_bottom_gradient(top, bottom);
     /* Draw New Year snow beneath UI controls and modals. */
     draw_christmas_under_notices();
 }

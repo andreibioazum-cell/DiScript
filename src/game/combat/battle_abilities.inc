@@ -379,11 +379,15 @@ static void update_game(void) {
             }
             heal_after_attack();
         } else if (enemy_in_punch() == 1) {
-            /* Block punch if it overlaps with an ice block. */
-            if (ice_near_fighter(punch->x, punch->y, 30.0 + punch_reach) == 0) {
-                punch->hit = 1;
-            }
-            if (enemy_revive_prot <= 0) {
+            /* Consume this swing before resolving damage.  The old check used
+             * ice_near_fighter() with the punch origin, which is always next
+             * to the player and left hit at zero.  That reapplied the same
+             * punch every frame for its full animation. */
+            punch->hit = 1;
+            if (ice_blocks_punch(punch->x, punch->y, punch->dx, punch->dy, punch_reach, punch_width,
+                                 enemy->x, enemy->y) == 1) {
+                ds_log("punch blocked by ice");
+            } else if (enemy_revive_prot <= 0) {
                 if (player_class == 2 && santa_follow > 0) {
                     if (player_level >= 3) {
                         if (enemy->poison <= 0) {

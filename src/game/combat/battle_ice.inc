@@ -52,6 +52,27 @@ double ice_near_fighter(double x, double y, double gap) {
     return 0;
 }
 
+/* Return whether a real ice block is in front of the punch target.  This is
+ * deliberately separate from ice_near_fighter(), which only keeps randomly
+ * spawned blocks away from fighters. */
+static double ice_blocks_punch(double px, double py, double pdx, double pdy, double reach, double width,
+                               double tx, double ty) {
+    double target_at = along(px, py, pdx, pdy, tx, ty);
+    int i;
+    for (i = 0; i < ICE_MAX; i++) {
+        IceBlock *b = &ice_blocks[i];
+        if (b->on == 0 || target_is_forward(px, py, pdx, pdy, b->x, b->y) == 0) {
+            continue;
+        }
+        if (strip_hits_box(px, py, pdx, pdy, punch_forward_offset, punch_forward_offset + reach, width / 2,
+                           b->x, b->y, 0, b->r) == 1 &&
+            along(px, py, pdx, pdy, b->x, b->y) <= target_at) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
 static int ice_free_slot(void) {
     int i;
     for (i = 0; i < ICE_MAX; i++) {

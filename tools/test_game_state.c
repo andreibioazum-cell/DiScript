@@ -623,7 +623,9 @@ int snd_load(const char *name) {
     return name && *name;
 }
 char stub_last_snd[64] = "";
+static int stub_snd_play_count;
 int snd_play(const char *name) {
+    stub_snd_play_count++;
     if (name) {
         snprintf(stub_last_snd, sizeof(stub_last_snd), "%s", name);
     }
@@ -2622,6 +2624,130 @@ static void test_heavy_hit_cap(void) {
     assert(fabs(enemy->hp - 5.0) < 1e-9 && finished == 0);
     game_state = ST_LOBBY;
     puts("damage cap: every fighter keeps a life after three huge hits");
+}
+
+/* A punch must resolve once even in the New Year arena.  The old code used
+ * the fighter-spacing helper as an ice-block test; because the punch starts at
+ * the player, that helper always returned true and the same swing landed once
+ * every frame.  The packs entry point must also ignore the release event. */
+static void test_punch_and_packs_regressions(void) {
+    double hit;
+    int icy_card = 0, icy_selection = 0;
+
+    reset_battle();
+    game_state = ST_SOLO;
+    finished = 0;
+    event_mode = 0;
+    player_class = CLASS_ORDINARY;
+    player_level = 0;
+    enemy_class = CLASS_ORDINARY;
+    enemy_level = 0;
+    player->x = 100;
+    player->y = 80;
+    player->angle = 0;
+    player->max_hp = player->hp = 20;
+    astra_state = 0;
+    astra_ability_lunge_fx = astra_ability_lunge_tx = player->x;
+    astra_ability_lunge_fy = astra_ability_lunge_ty = player->y;
+    astra_ability_lunge_t = astra_ability_lunge_time;
+    enemy->x = 180;
+    enemy->y = 80;
+    enemy->angle = pi;
+    enemy->max_hp = enemy->hp = 20;
+    enemy->stun = 9;
+    enemy->state = 0;
+    enemy_block_left = 0;
+    enemy_revive_prot = 0;
+    player_block = 0;
+    player_stun = 0;
+    player_freeze = 0;
+    revive_prot = 0;
+    joy.dx = 0;
+    joy.dy = 0;
+    joy_id = -1;
+    player_vel_reset();
+    punch_cd = 1;
+    santa_follow = 0;
+    ice_reset();
+    punch->x = player->x;
+    punch->y = player->y;
+    punch->dx = 1;
+    punch->dy = 0;
+    punch->active = 1;
+    punch->hit = 0;
+    punch_left = punch_time;
+    dt = 0.01;
+    hit = astra_ability_self_damage();
+    assert(enemy_in_punch() == 1);
+    update_game();
+    assert(punch->hit == 1 && fabs(enemy->hp - (20 - hit)) < 1e-9);
+    for (int i = 0; i < 6; i++) {
+        update_game();
+        assert(fabs(enemy->hp - (20 - hit)) < 1e-9);
+    }
+
+    /* A genuine ice cube in front of the foe consumes the swing without
+     * hitting through it, and still can never cause repeated damage. */
+    enemy->hp = 20;
+    enemy->stun = 9;
+    ice_reset();
+    ice_blocks[0].on = 1;
+    ice_blocks[0].x = 145;
+    ice_blocks[0].y = 80;
+    ice_blocks[0].r = ICE_HALF;
+    ice_blocks[0].a = 1;
+    punch->active = 1;
+    punch->hit = 0;
+    punch_left = punch_time;
+    update_game();
+    assert(punch->hit == 1 && enemy->hp == 20);
+    ice_reset();
+
+    /* Packs opens on touch-down only.  Its release used to pass the lobby
+     * shortcut a second time, replaying the UI click. */
+    game_state = ST_LOBBY;
+    packs_open = 0;
+    packs_fs_open = 0;
+    acct_open = docs_open = warn_open = studio_open = parent_open = 0;
+    t_dir = 0;
+    button_click_ok = 1;
+    stub_snd_play_count = 0;
+    logic_touch(32, 32, 0, 901);
+    assert(packs_open == 1 && stub_snd_play_count == 1);
+    logic_touch(32, 32, 1, 901);
+    assert(packs_open == 1 && stub_snd_play_count == 1);
+    packs_close_screen();
+
+    /* The modal owns a full themed background.  Classic ordinary screens are
+     * now gradients too, while New Year uses blue card and selection colours. */
+    new_theme = 0;
+    theme_chosen = 1;
+    theme_mode = 0;
+    stub_christmas = 0;
+    stub_login_status = 0;
+    apply_theme();
+    ground_fills = 0;
+    draw_packs();
+    assert(ground_fills >= 1 + bg_gradient_h / 2);
+
+    new_theme = 1;
+    theme_chosen = 0;
+    stub_christmas = 1;
+    apply_theme();
+    assert(winter_theme_on() == 1 && (uint32_t)card_bg == RGB(30,65,92) &&
+           (uint32_t)ui_purple == RGB(62,127,181));
+    adm_reset_log();
+    ground_fills = 0;
+    draw_packs();
+    assert(ground_fills >= 1 + bg_gradient_h / 2);
+    for (int i = 0; i < adm_rr_color_n; i++) {
+        uint32_t rgb = adm_rr_colors[i] & 0xFFFFFFu;
+        if (rgb == RGB(30,65,92)) icy_card = 1;
+        if (rgb == RGB(62,127,181)) icy_selection = 1;
+    }
+    assert(icy_card == 1 && icy_selection == 1);
+    packs_close_screen();
+    puts("punch once + packs one-click and themed gradients OK");
 }
 
 /* CodeCracker ult: nothing circles the cube - no disc, no ring, no arcs, no
@@ -7795,6 +7921,7 @@ int main(void) {
         stub_report_n = 0;
     }
     puts("complaints: chat command only; private success and validation notices");
+    test_punch_and_packs_regressions();
     state_destroy();
     state_ready = 0;
     puts("Состояние полной C-версии: норма");

@@ -376,8 +376,8 @@ static void logic_touch(double x, double y, double action, double id) {
         return;
     }
     /* Texture pack button sits above the lobby screens and takes its touches first. */
-    if (game_state == ST_LOBBY && acct_open == 0 && docs_open == 0 && warn_open == 0 && studio_open == 0 &&
-        hit_packs_lobby_button(x, y) == 1) {
+    if (action == 0 && game_state == ST_LOBBY && packs_open == 0 && acct_open == 0 && docs_open == 0 &&
+        warn_open == 0 && studio_open == 0 && hit_packs_lobby_button(x, y) == 1) {
         play_button_click();
         packs_open_screen();
         press_points_drop(id);
