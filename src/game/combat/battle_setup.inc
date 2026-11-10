@@ -365,6 +365,10 @@ static void spawn_enemy(void) {
         enemy->strafe = 1;
     }
     enemy_pick_random_class();
+    /* Solo fighters start with the exact health pool of the enemy that was
+     * picked for this round. Online players keep their own published pool. */
+    player->max_hp = enemy->max_hp;
+    player->hp = enemy->hp;
     ds_log("enemy spawned instantly");
 }
 

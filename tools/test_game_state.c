@@ -2549,6 +2549,10 @@ static void test_azum_buff(void) {
 /* A high-damage ability must not erase Santa or either Azum life in two hits. */
 static void test_heavy_hit_cap(void) {
     game_reset();
+    /* A solo round copies the picked enemy's health pool to the player. */
+    player_class = CLASS_CODECRACKER;
+    init_game();
+    assert(fabs(player->max_hp - enemy->max_hp) < 1e-9 && fabs(player->hp - enemy->hp) < 1e-9);
     reset_battle();
     game_state = ST_SOLO;
     finished = 0;
@@ -3250,8 +3254,8 @@ static void test_eax229_and_rooms(void) {
     assert(fabs(enemy_damage_mult_for(CLASS_ASTRA) - 1.00) < 1e-9);
     assert(bot_speed < joy_speed && enemy_cooldown_min >= 0.20);
 
-    /* ebuC ball bounces add speed only. Each projectile stays at 0.5 damage. */
-    assert(fabs(BALL_DAMAGE - 0.5) < 1e-9);
+    /* ebuC ball bounces add speed only. Each projectile is three snowballs. */
+    assert(fabs(BALL_DAMAGE - 1.5) < 1e-9 && fabs(BALL_DAMAGE - XMAS_DAMAGE * 3) < 1e-9);
     assert(fabs(ball_damage_for(-1) - BALL_DAMAGE) < 1e-9);
     for (int b = 0; b <= 10; b++) {
         assert(fabs(ball_damage_for(b) - BALL_DAMAGE) < 1e-9);
