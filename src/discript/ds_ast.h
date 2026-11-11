@@ -23,7 +23,10 @@ typedef enum {
     EX_SLICE,
     EX_TERNARY,
     EX_LAMBDA,
-    EX_FMT
+    EX_FMT,
+    EX_COMPREH,  /* [expr for t in it if cond ...] / {k: v for ...} */
+    EX_COMPR_LOOP, /* clause of a comprehension: for target in expr */
+    EX_COMPR_IF    /* clause of a comprehension: if expr */
 } DSExprKind;
 
 typedef enum {
@@ -78,6 +81,22 @@ struct DSExprNode {
     int count;
     DSFuncProto *proto; /* lambda */
     DSInlineCache ic;   /* per-site inline cache for dot/index dispatch */
+    /* EX_COMPREH: `clause_count` clauses executed outermost-first.
+     * A clause of kind EX_COMPR_LOOP iterates `b`, binding `target`;
+     * a clause of kind EX_COMPR_IF keeps elements for which `a` is truthy.
+     * For comprehensions `a` is the element (or the key) and `b` the value. */
+    struct DSExprNode **clauses;
+    int clause_count;
+    struct DSExprNode *target;
+    struct DSExprNode *cond;
+    int is_dict_comprehension;
+    /* Slots rebound by the loop clauses, saved so a comprehension does not leak
+     * its loop variables into the enclosing function (Python semantics). */
+    struct DSExprNode **save_targets;
+    int save_count;
+    /* Resolution of the loop variables in the enclosing scope (module-level
+     * comprehensions use plain globals, functions use local slots). */
+    int save_scope;
 };
 
 typedef enum {

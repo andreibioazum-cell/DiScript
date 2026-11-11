@@ -396,6 +396,141 @@ static void assign_to(DSVM *vm, DSValue *slots, DSExprNode *target, DSValue valu
     }
 }
 
+/* ---- comprehensions -------------------------------------------------------
+ * `[expr for t in it if c for u in f]` and `{k: v for ...}` are evaluated by
+ * walking the clause list recursively: a loop clause opens an iterator and
+ * rebinds its target per element, a filter clause skips elements that fail.
+ * The result container is rooted for the whole walk because each iteration may
+ * allocate (and therefore collect). */
+typedef struct ComprehRun {
+    DSVM *vm;
+    DSValue *slots;
+    const DSExprNode *node;
+    DSValue out; /* the list or dict being filled */
+} ComprehRun;
+
+static void comp_run_clause(ComprehRun *r, int ci) {
+    const DSExprNode *n = r->node;
+    if (r->vm->has_error)
+        return;
+    if (ci >= n->clause_count) {
+        /* All clauses satisfied: produce one element. */
+        if (n->is_dict_comprehension) {
+            DSValue k = n->a->eval(r->vm, r->slots, n->a);
+            DSValue v = n->b->eval(r->vm, r->slots, n->b);
+            if (r->vm->has_error)
+                return;
+            ds_push_root(r->vm, k);
+            ds_push_root(r->vm, v);
+            ds_dict_set(r->vm, AS_DICT(r->out), k, v);
+            ds_pop_roots(r->vm, 2);
+        } else {
+            DSValue v = n->a->eval(r->vm, r->slots, n->a);
+            if (r->vm->has_error)
+                return;
+            ds_list_push(r->vm, AS_LIST(r->out), v);
+        }
+        return;
+    }
+    const DSExprNode *cl = n->clauses[ci];
+    if (cl->kind == EX_COMPR_IF) {
+        DSValue ok = cl->a->eval(r->vm, r->slots, cl->a);
+        if (r->vm->has_error)
+            return;
+        if (ds_is_truthy(ok))
+            comp_run_clause(r, ci + 1);
+        return;
+    }
+    DSValue iterable = cl->b->eval(r->vm, r->slots, cl->b);
+    if (r->vm->has_error)
+        return;
+    ds_push_root(r->vm, iterable);
+    DSIter it;
+    if (!ds_iter_open(r->vm, iterable, &it)) {
+        ds_pop_roots(r->vm, 1);
+        return;
+    }
+    for (;;) {
+        if (r->vm->stop_requested)
+            break;
+        DSValue item = DS_VAL_NIL;
+        int more = ds_iter_next(r->vm, &it, &item);
+        if (r->vm->has_error || !more)
+            break;
+        ds_push_root(r->vm, item);
+        assign_to(r->vm, r->slots, cl->target, item, cl->line);
+        ds_pop_roots(r->vm, 1);
+        if (r->vm->has_error)
+            break;
+        comp_run_clause(r, ci + 1);
+        if (r->vm->has_error)
+            break;
+    }
+    ds_pop_roots(r->vm, 1);
+}
+
+static DSValue ex_compreh(DSVM *vm, DSValue *slots, const DSExprNode *n) {
+    ComprehRun r;
+    r.vm = vm;
+    r.slots = slots;
+    r.node = n;
+    if (n->is_dict_comprehension) {
+        DSDict *d = ds_dict_new(vm, 0);
+        if (!d)
+            return DS_VAL_NIL;
+        r.out = ds_obj_val(d);
+    } else {
+        DSList *l = ds_list_new(vm, 0);
+        if (!l)
+            return DS_VAL_NIL;
+        r.out = ds_obj_val(l);
+    }
+    ds_push_root(vm, r.out);
+
+    /* Python semantics: a comprehension has its own scope, so the loop variables
+     * must not leak into (or clobber) the enclosing function's locals. */
+    DSValue saved[64];
+    int saved_slot[64];
+    DSString *saved_name[64];
+    int nsaved = 0;
+    DSModule *mod = (vm->frame_count > 0) ? vm->frames[vm->frame_count - 1].module : vm->main_module;
+    int at_module_level = (n->save_scope == NAME_GLOBAL);
+    for (int i = 0; i < n->save_count && nsaved < 64; i++) {
+        DSExprNode *t = n->save_targets[i];
+        if (!t || t->kind != EX_NAME)
+            continue;
+        if (at_module_level && mod && t->str) {
+            /* Module scope: the loop variable is a plain global. Use a silent
+             * lookup — the name usually does not exist yet, and ds_lookup_name()
+             * would raise "имя не определено" for it. */
+            DSValue prev = DS_VAL_NIL;
+            saved_slot[nsaved] = -1;
+            saved_name[nsaved] = t->str;
+            saved[nsaved] = (t->str && mod->dict && ds_dict_get_str(mod->dict, t->str, &prev)) ? prev : DS_VAL_NIL;
+            nsaved++;
+        } else if (t->scope == NAME_LOCAL) {
+            saved_slot[nsaved] = t->index;
+            saved_name[nsaved] = NULL;
+            saved[nsaved] = slots[t->index];
+            nsaved++;
+        }
+    }
+
+    if (n->clause_count > 0)
+        comp_run_clause(&r, 0);
+
+    for (int i = 0; i < nsaved; i++) {
+        if (saved_slot[i] >= 0)
+            slots[saved_slot[i]] = saved[i];
+        else if (mod && saved_name[i])
+            ds_store_name(vm, mod, saved_name[i], saved[i]);
+    }
+
+    ds_pop_roots(vm, 1);
+    return r.out;
+}
+
+
 static DSExecSignal st_assign(DSVM *vm, DSValue *slots, const DSStmtNode *n) {
     DSValue v = n->expr->eval(vm, slots, n->expr);
     if (vm->has_error)
@@ -844,6 +979,11 @@ typedef struct Scope {
     /* The upvalue chain of this function, so a deeply nested closure can insert
      * forwarding entries into every function between itself and the owner. */
     struct UpvalChain *chain;
+    /* Module scope only: comprehension variables that had to become slots so a
+     * nested comprehension could resolve them. */
+    DSString **forced_names;
+    int forced_count;
+    int forced_cap;
 } Scope;
 
 typedef struct UpvalChain {
@@ -916,6 +1056,13 @@ static void compile_expr(DSVM *vm, Scope *scope, UpvalChain *chain, DSExprNode *
 static void compile_function(DSVM *vm, Scope *outer, UpvalChain *outer_chain, DSFuncProto *fn);
 static void compile_stmt(DSVM *vm, Scope *scope, UpvalChain *chain, DSStmtNode *s);
 static void compile_block(DSVM *vm, Scope *scope, UpvalChain *chain, const DSStmtNode *block);
+
+static void declare_target_names(Scope *scope, DSExprNode *t);
+static int contains_compreh(const DSExprNode *e);
+static int scope_is_forced(Scope *s, DSString *name);
+static void force_local_target(Scope *scope, DSExprNode *t);
+static void compile_target(DSVM *vm, Scope *scope, UpvalChain *chain, DSExprNode *t);
+static void assign_to(DSVM *vm, DSValue *slots, DSExprNode *target, DSValue value, int line);
 
 /* Find `name` in an enclosing function and build the upvalue chain that carries
  * it down to `scope`.
@@ -1067,6 +1214,35 @@ static void compile_expr(DSVM *vm, Scope *scope, UpvalChain *chain, DSExprNode *
         compile_expr(vm, scope, chain, e->a);
         e->eval = ex_fmt;
         return;
+    case EX_COMPREH: {
+        /* Loop targets become locals of the enclosing function; the yielded
+         * expression and the filters see them. */
+        for (int i = 0; i < e->clause_count; i++) {
+            DSExprNode *cl = e->clauses[i];
+            if (cl->target)
+                declare_target_names(scope, cl->target);
+        }
+        compile_expr(vm, scope, chain, e->a);
+        if (e->is_dict_comprehension)
+            compile_expr(vm, scope, chain, e->b);
+        for (int i = 0; i < e->clause_count; i++) {
+            DSExprNode *cl = e->clauses[i];
+            if (cl->a)
+                compile_expr(vm, scope, chain, cl->a);
+            if (cl->b)
+                compile_expr(vm, scope, chain, cl->b);
+            if (cl->target)
+                compile_target(vm, scope, chain, cl->target);
+        }
+        /* Remember which locals to restore once the comprehension is done. */
+        e->save_count = e->clause_count;
+        e->save_targets = (DSExprNode **)calloc((size_t)e->clause_count + 1u, sizeof(DSExprNode *));
+        for (int i = 0; i < e->clause_count; i++)
+            e->save_targets[i] = e->clauses[i]->target;
+        e->save_scope = scope->is_function ? NAME_LOCAL : NAME_GLOBAL;
+        e->eval = ex_compreh;
+        return;
+    }
     case EX_LAMBDA:
         if (e->proto)
             compile_function(vm, scope, chain, e->proto);
@@ -1100,6 +1276,142 @@ static void compile_target(DSVM *vm, Scope *scope, UpvalChain *chain, DSExprNode
     default:
         compile_expr(vm, scope, chain, t);
         return;
+    }
+}
+
+/* Does this expression contain a comprehension? Used to decide whether a
+ * module-level comprehension's variables must live in slots (so that a nested
+ * comprehension can resolve them). */
+static int contains_compreh(const DSExprNode *e) {
+    if (!e)
+        return 0;
+    if (e->kind == EX_COMPREH)
+        return 1;
+    return contains_compreh(e->a) || contains_compreh(e->b) || contains_compreh(e->c);
+}
+
+/* Register a target name as a slot even in a module scope. */
+static int scope_is_forced(Scope *s, DSString *name) {
+    for (int i = 0; i < s->forced_count; i++)
+        if (s->forced_names[i] == name)
+            return 1;
+    return 0;
+}
+
+static void force_local_target(Scope *scope, DSExprNode *t) {
+    if (!t)
+        return;
+    if (t->kind == EX_COMPREH) {
+        for (int i = 0; i < t->clause_count; i++)
+            force_local_target(scope, t->clauses[i]->target);
+        force_local_target(scope, t->a);
+        force_local_target(scope, t->b);
+        return;
+    }
+    if (t->kind == EX_NAME) {
+        if (!t->str)
+            return;
+        if (scope_find(scope, t->str) < 0)
+            scope_add(scope, t->str);
+        if (!scope_is_forced(scope, t->str)) {
+            if (scope->forced_count == scope->forced_cap) {
+                int nc = scope->forced_cap ? scope->forced_cap * 2 : 8;
+                DSString **nn = (DSString **)realloc(scope->forced_names, (size_t)nc * sizeof(DSString *));
+                if (nn) {
+                    scope->forced_names = nn;
+                    scope->forced_cap = nc;
+                }
+            }
+            if (scope->forced_count < scope->forced_cap)
+                scope->forced_names[scope->forced_count++] = t->str;
+        }
+        return;
+    }
+    if (t->kind == EX_LIST) {
+        for (int i = 0; i < t->count; i++)
+            force_local_target(scope, t->items[i]);
+    }
+}
+
+
+/* Collect the loop variables of every module-level comprehension in a statement
+ * list (recursively into nested blocks) so that ordinary assignments to the same
+ * name compile to the same slot. Without this, `x = 1` would write the global
+ * while `[x for x in ...]` reads the slot. */
+static void prescan_compreh(DSExprNode *e, Scope *scope) {
+    if (!e || scope->is_function)
+        return;
+    if (e->kind == EX_COMPREH) {
+        for (int i = 0; i < e->clause_count; i++)
+            force_local_target(scope, e->clauses[i]->target);
+        prescan_compreh(e->a, scope);
+        prescan_compreh(e->b, scope);
+        for (int i = 0; i < e->clause_count; i++) {
+            prescan_compreh(e->clauses[i]->a, scope);
+            prescan_compreh(e->clauses[i]->b, scope);
+        }
+        return;
+    }
+    prescan_compreh(e->a, scope);
+    prescan_compreh(e->b, scope);
+    prescan_compreh(e->c, scope);
+    for (int i = 0; i < e->count; i++) {
+        if (e->items)
+            prescan_compreh(e->items[i], scope);
+        if (e->keys)
+            prescan_compreh(e->keys[i], scope);
+    }
+}
+
+static void prescan_block(const DSStmtNode *block, Scope *scope) {
+    /* Runs for both module and function scopes: at module level the forced names
+     * become slots of the module closure, inside functions they are ordinary
+     * locals discovered by `predeclare`. */
+    if (scope->is_function)
+        return;
+    for (const DSStmtNode *s = block; s; s = s->next) {
+        prescan_compreh(s->expr, scope);
+        prescan_compreh(s->cond, scope);
+        for (int i = 0; i < s->ntargets; i++)
+            prescan_compreh(s->targets[i], scope);
+        for (int i = 0; i < s->count; i++)
+            prescan_compreh(s->items[i], scope);
+        if (s->body)
+            prescan_block(s->body, scope);
+        if (s->orelse)
+            prescan_block(s->orelse, scope);
+        for (int i = 0; i < s->nbranches; i++)
+            if (s->bodies[i])
+                prescan_block(s->bodies[i], scope);
+    }
+}
+
+/* Bind every plain name in an assignment target as a local of `scope`. */
+static void declare_target_names(Scope *scope, DSExprNode *t) {
+    if (!t)
+        return;
+    if (t->kind == EX_COMPREH) {
+        /* A nested comprehension inside the body still needs its loop variables
+         * available to the expression that yields it. */
+        for (int i = 0; i < t->clause_count; i++) {
+            declare_target_names(scope, t->clauses[i]->target);
+            declare_target_names(scope, t->clauses[i]->a);
+            declare_target_names(scope, t->clauses[i]->b);
+        }
+        declare_target_names(scope, t->a);
+        declare_target_names(scope, t->b);
+        return;
+    }
+    if (t->kind == EX_NAME) {
+        if (!scope->is_function)
+            return; /* module-level names are plain globals */
+        if (t->str && scope_find(scope, t->str) < 0 && !scope_is_global(scope, t->str))
+            scope_add(scope, t->str);
+        return;
+    }
+    if (t->kind == EX_LIST) {
+        for (int i = 0; i < t->count; i++)
+            declare_target_names(scope, t->items[i]);
     }
 }
 
@@ -1137,6 +1449,8 @@ static void predeclare(Scope *scope, DSStmtNode *block) {
                 scope_add(scope, nm->b ? nm->b->str : nm->str);
             }
         }
+        if (s->kind == ST_PASS || s->kind == ST_GLOBAL)
+            continue;
         if (s->kind == ST_FOR && s->targets) {
             DSExprNode *t = s->targets[0];
             if (t && t->kind == EX_LIST) {
@@ -1147,6 +1461,8 @@ static void predeclare(Scope *scope, DSStmtNode *block) {
         }
     }
 }
+
+static void prescan_block(const DSStmtNode *block, Scope *scope);
 
 static void compile_block(DSVM *vm, Scope *scope, UpvalChain *chain, const DSStmtNode *cblock) {
     DSStmtNode *block = (DSStmtNode *)cblock;
@@ -1536,6 +1852,9 @@ DSFuncProto *ds_compile_module(DSVM *vm, DSModule *mod, const char *filename, co
     memset(&gscope, 0, sizeof(gscope));
     gscope.parent = NULL;
     gscope.is_function = 0; /* top-level assignments are globals */
+    /* Keep slot 0 free for the module closure itself, mirroring function scopes,
+     * so comprehension loop variables can use the same slot numbering. */
+    scope_add(&gscope, NULL);
 
     UpvalChain up;
     memset(&up, 0, sizeof(up));

@@ -22,6 +22,7 @@ struct DSParser {
 
 static DSExprNode *parse_expr(DSParser *p);
 static DSExprNode *parse_testlist(DSParser *p);
+static void parse_comprehension_clauses(DSParser *p, DSExprNode *e);
 static DSStmtNode *parse_block_after_colon(DSParser *p);
 static DSFuncProto *parse_lambda(DSParser *p, int line);
 
@@ -214,12 +215,26 @@ static DSExprNode *parse_atom(DSParser *p) {
     }
     case TOK_LBRACKET: {
         advance(p);
+        if (check(p, TOK_RBRACKET)) { /* [] */
+            advance(p);
+            return ex_new(p, EX_LIST, line);
+        }
+        DSExprNode *first = parse_expr(p);
+        if (check(p, TOK_FOR)) {
+            /* list comprehension */
+            DSExprNode *e = ex_new(p, EX_COMPREH, line);
+            e->a = first;
+            parse_comprehension_clauses(p, e);
+            expect(p, TOK_RBRACKET, "']'");
+            return e;
+        }
         DSExprNode *e = ex_new(p, EX_LIST, line);
-        while (!check(p, TOK_RBRACKET) && !p->failed) {
-            push_item(p, &e->items, &e->count, parse_expr(p));
-            if (!match(p, TOK_COMMA))
-                break;
+        push_item(p, &e->items, &e->count, first);
+        while (match(p, TOK_COMMA)) {
             skip_newlines(p);
+            if (check(p, TOK_RBRACKET))
+                break;
+            push_item(p, &e->items, &e->count, parse_expr(p));
         }
         expect(p, TOK_RBRACKET, "']'");
         return e;
@@ -239,6 +254,16 @@ static DSExprNode *parse_atom(DSParser *p) {
                 push_item(p, &e->keys, &kc, first);
                 push_item(p, &e->items, &vc, v);
                 e->count = base + 1;
+                if (check(p, TOK_FOR)) {
+                    /* dict comprehension: {k: v for ...} */
+                    DSExprNode *ce = ex_new(p, EX_COMPREH, line);
+                    ce->is_dict_comprehension = 1;
+                    ce->a = first;
+                    ce->b = v;
+                    parse_comprehension_clauses(p, ce);
+                    expect(p, TOK_RBRACE, "'}'");
+                    return ce;
+                }
             } else {
                 perr(p, line, "ожидалось ':' в словаре");
                 return e;
@@ -449,6 +474,49 @@ static DSExprNode *parse_ternary(DSParser *p) {
         return e;
     }
     return value;
+}
+
+/* Clauses of a comprehension: one or more `for target in iterable`, each
+ * optionally followed by `if condition`. Stored outermost-first. A clause whose
+ * `cond` is set is a filter, otherwise it is a loop binding. */
+static void parse_comprehension_clauses(DSParser *p, DSExprNode *e) {
+    while (check(p, TOK_FOR)) {
+        int fline = tok_line(p);
+        advance(p);
+        DSExprNode *clause = ex_new(p, EX_COMPR_LOOP, fline);
+        int tline = tok_line(p);
+        DSExprNode *first = parse_unary(p);
+        if (check(p, TOK_COMMA)) {
+            DSExprNode *lst = ex_new(p, EX_LIST, tline);
+            push_item(p, &lst->items, &lst->count, first);
+            while (match(p, TOK_COMMA)) {
+                if (check(p, TOK_IN) || !check(p, TOK_IDENT))
+                    break;
+                push_item(p, &lst->items, &lst->count, parse_unary(p));
+            }
+            first = lst;
+        }
+        clause->target = first;
+        if (!expect(p, TOK_IN, "'in'"))
+            return;
+        /* `parse_bin`, not `parse_expr`: the ternary operator would swallow the
+         * `if` that starts the next filter clause. */
+        clause->b = parse_bin(p, 1);
+        push_item(p, &e->clauses, &e->clause_count, clause);
+        for (;;) {
+            if (check(p, TOK_IF)) {
+                int iline = tok_line(p);
+                advance(p);
+                DSExprNode *cond = ex_new(p, EX_COMPR_IF, iline);
+                cond->a = parse_bin(p, 1);
+                push_item(p, &e->clauses, &e->clause_count, cond);
+            } else if (check(p, TOK_FOR)) {
+                break;
+            } else {
+                break;
+            }
+        }
+    }
 }
 
 static DSExprNode *parse_expr(DSParser *p) { return parse_ternary(p); }

@@ -1,0 +1,40 @@
+# List and dict comprehensions, filters, multiple clauses and nesting.
+
+print([i * i for i in range(6)])
+print([x for x in range(10) if x % 2 == 0])
+print([(x, y) for x in range(3) for y in range(3)])
+print([(x, y) for x in range(4) for y in range(4) if x < y])
+print([w.upper() for w in ["alpha", "beta", "gamma"]])
+print(len([c for c in "hello"]))
+
+# dict comprehensions
+print({str(i): i * i for i in range(4)})
+print({k: 1 for k in range(3) if k != 1})
+
+# nesting
+print([[j for j in range(i)] for i in range(4)])
+
+# comprehensions inside functions must not leak their loop variable
+def squares(n):
+    return [i * i for i in range(n)]
+
+def cross(a, b):
+    return [(x, y) for x in range(a) for y in range(b) if x != y]
+
+print(squares(5))
+print(cross(3, 3))
+
+def keep_x():
+    x = 99
+    r = [x for x in range(3)]
+    return [r, x]
+
+print(keep_x())
+
+# empty results
+print([], [i for i in range(0)], {k: 1 for k in range(0)})
+
+# a comprehension over a dict's items
+d = {"a": 1, "b": 2}
+print([k for k in d])
+print(sorted([v for k, v in d.items()]))
