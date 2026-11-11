@@ -76,7 +76,6 @@ void ds_set_activity(void *activity);
 /* Local wall clock in seconds since 1970, for the New Year countdown badge.
  * 0 means the platform cannot read a clock. */
 long ds_wall_clock(void);
-void bye_notice_show(const char *text);
 void keyboard_show(void);
 void keyboard_hide(void);
 void keyboard_get_text_to(char *dst, size_t cap);

@@ -735,5 +735,4 @@ void android_main(struct android_app *app) {
 }
 #include "engine/graphics.c"
 #include "engine/network.c"
-#include "platform/android/presence_job.inc"
 #include "engine/audio.c"

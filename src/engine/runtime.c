@@ -7,4 +7,3 @@
 #else
 #include "platform/android/keyboard.inc"
 #endif
-#include "platform/android/bye_notice.inc"
