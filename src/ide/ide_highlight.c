@@ -37,8 +37,12 @@ static int in_list(const char *const *list, const char *s, size_t n) {
     return 0;
 }
 
+/* Writes one token. The returned count never exceeds `max`, so a caller that
+ * passes a bounded buffer can index [0, count) safely. */
 static int push(IDEToken *out, int max, int count, size_t start, size_t end, int kind) {
-    if (out && count < max)
+    if (count >= max)
+        return count;
+    if (out)
         out[count].start = start, out[count].end = end, out[count].kind = (unsigned char)kind;
     return count + 1;
 }

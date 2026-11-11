@@ -243,7 +243,9 @@ static void pc_resolve_assets(const char *given, char *out, size_t cap) {
         snprintf(out, cap, "%s", given);
         return;
     }
-    snprintf(marker, sizeof(marker), "%s/grass.png", given);
+    /* Relative path: accept it as-is when it looks like an asset tree. Probe
+     * for a file the editor actually ships rather than a game texture. */
+    snprintf(marker, sizeof(marker), "%s/fonts/DejaVuSansMono.ttf", given);
     probe = fopen(marker, "rb");
     if (probe) {
         fclose(probe);

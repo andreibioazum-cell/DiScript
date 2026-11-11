@@ -37,9 +37,9 @@
 #define C_ERR       ARGB(255, 224, 108, 117)
 #define C_OK        ARGB(255, 152, 195, 121)
 
-#define GUTTER_W 58.0f
+#define GUTTER_W 66.0f
 #define BAR_H 34.0f
-#define PAD_X 10.0f
+#define PAD_X 14.0f
 #define CONS_H 150.0f
 
 static float line_h_of(const IDEView *v) {
@@ -304,12 +304,40 @@ void ide_view_draw(IDEView *v, int width, int height) {
     rect(0, code_top, GUTTER_W, code_bottom - code_top, C_GUTTER);
 
     /* ---- tokens for the visible span ------------------------------------ */
-    static IDEToken toks[20000];
     size_t span_start = ide_line_begin(b, first_line);
     size_t span_end = ide_line_end(b, last_line > 0 ? last_line - 1 : 0);
     if (span_end > b->len)
         span_end = b->len;
-    int ntoks = ide_highlight(b->text + span_start, span_end - span_start, toks, 20000);
+    /* The token buffer grows to fit the visible span. A token covers at least
+     * one byte, so the span length is a safe upper bound; keeping it generous
+     * means scrolling does not re-tokenise from scratch every frame. */
+    static IDEToken *toks;
+    static size_t toks_cap;
+    size_t toks_want = span_end > span_start ? span_end - span_start + 1 : 1;
+    if (toks_want > toks_cap) {
+        IDEToken *grown = (IDEToken *)realloc(toks, toks_want * sizeof(IDEToken));
+        if (!grown)
+            return;
+        toks = grown;
+        toks_cap = toks_want;
+    }
+    int ntoks = ide_highlight(b->text + span_start, span_end - span_start, toks, (int)toks_cap);
+
+    /* Gutter numbers: drawn before the code scissor so numbers are never
+     * clipped, and the code starts to the right of them. */
+    {
+        float gy = code_top + 2.0f;
+        for (int line = first_line; line < last_line; line++) {
+            char num[16];
+            snprintf(num, sizeof(num), "%d", line + 1);
+            float nw = text_width_scaled(num, scale * 0.8f);
+            text_scaled(num, GUTTER_W - nw - 10.0f, gy + 2.0f,
+                        line == caret_line ? C_ACCENT : C_GUTTER_TX, scale * 0.8f);
+            gy += lh;
+            if (gy > code_bottom)
+                break;
+        }
+    }
 
     ds_gfx_scissor(GUTTER_W, code_top, width - GUTTER_W, code_bottom - code_top);
 
@@ -319,13 +347,6 @@ void ide_view_draw(IDEView *v, int width, int height) {
 
     for (int line = first_line; line < last_line; line++) {
         size_t ls = ide_line_begin(b, line), le = ide_line_end(b, line);
-
-        /* Line number. */
-        char num[16];
-        snprintf(num, sizeof(num), "%d", line + 1);
-        float nw = text_width_scaled(num, scale * 0.8f);
-        text_scaled(num, GUTTER_W - nw - 10.0f, y + 2.0f, line == caret_line ? C_ACCENT : C_GUTTER_TX,
-                    scale * 0.8f);
 
         float x = GUTTER_W + PAD_X - (float)t->scroll_x;
 

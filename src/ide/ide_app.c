@@ -331,8 +331,8 @@ void ide_app_special_key(IDEApp *app, const char *name) {
 /* Hit-boxes are recomputed here exactly as ide_view_draw() lays them out, so a
  * tap lands on the same button it looks like it is hitting. */
 #define BAR_H 34.0f
-#define GUTTER_W 58.0f
-#define PAD_X 10.0f
+#define GUTTER_W 66.0f
+#define PAD_X 14.0f
 #define CONS_H 150.0f
 
 static float app_char_w(const IDEView *v, IDETab *t) {
