@@ -979,11 +979,6 @@ typedef struct Scope {
     /* The upvalue chain of this function, so a deeply nested closure can insert
      * forwarding entries into every function between itself and the owner. */
     struct UpvalChain *chain;
-    /* Module scope only: comprehension variables that had to become slots so a
-     * nested comprehension could resolve them. */
-    DSString **forced_names;
-    int forced_count;
-    int forced_cap;
 } Scope;
 
 typedef struct UpvalChain {
@@ -1058,9 +1053,6 @@ static void compile_stmt(DSVM *vm, Scope *scope, UpvalChain *chain, DSStmtNode *
 static void compile_block(DSVM *vm, Scope *scope, UpvalChain *chain, const DSStmtNode *block);
 
 static void declare_target_names(Scope *scope, DSExprNode *t);
-static int contains_compreh(const DSExprNode *e);
-static int scope_is_forced(Scope *s, DSString *name);
-static void force_local_target(Scope *scope, DSExprNode *t);
 static void compile_target(DSVM *vm, Scope *scope, UpvalChain *chain, DSExprNode *t);
 static void assign_to(DSVM *vm, DSValue *slots, DSExprNode *target, DSValue value, int line);
 
@@ -1279,113 +1271,6 @@ static void compile_target(DSVM *vm, Scope *scope, UpvalChain *chain, DSExprNode
     }
 }
 
-/* Does this expression contain a comprehension? Used to decide whether a
- * module-level comprehension's variables must live in slots (so that a nested
- * comprehension can resolve them). */
-static int contains_compreh(const DSExprNode *e) {
-    if (!e)
-        return 0;
-    if (e->kind == EX_COMPREH)
-        return 1;
-    return contains_compreh(e->a) || contains_compreh(e->b) || contains_compreh(e->c);
-}
-
-/* Register a target name as a slot even in a module scope. */
-static int scope_is_forced(Scope *s, DSString *name) {
-    for (int i = 0; i < s->forced_count; i++)
-        if (s->forced_names[i] == name)
-            return 1;
-    return 0;
-}
-
-static void force_local_target(Scope *scope, DSExprNode *t) {
-    if (!t)
-        return;
-    if (t->kind == EX_COMPREH) {
-        for (int i = 0; i < t->clause_count; i++)
-            force_local_target(scope, t->clauses[i]->target);
-        force_local_target(scope, t->a);
-        force_local_target(scope, t->b);
-        return;
-    }
-    if (t->kind == EX_NAME) {
-        if (!t->str)
-            return;
-        if (scope_find(scope, t->str) < 0)
-            scope_add(scope, t->str);
-        if (!scope_is_forced(scope, t->str)) {
-            if (scope->forced_count == scope->forced_cap) {
-                int nc = scope->forced_cap ? scope->forced_cap * 2 : 8;
-                DSString **nn = (DSString **)realloc(scope->forced_names, (size_t)nc * sizeof(DSString *));
-                if (nn) {
-                    scope->forced_names = nn;
-                    scope->forced_cap = nc;
-                }
-            }
-            if (scope->forced_count < scope->forced_cap)
-                scope->forced_names[scope->forced_count++] = t->str;
-        }
-        return;
-    }
-    if (t->kind == EX_LIST) {
-        for (int i = 0; i < t->count; i++)
-            force_local_target(scope, t->items[i]);
-    }
-}
-
-
-/* Collect the loop variables of every module-level comprehension in a statement
- * list (recursively into nested blocks) so that ordinary assignments to the same
- * name compile to the same slot. Without this, `x = 1` would write the global
- * while `[x for x in ...]` reads the slot. */
-static void prescan_compreh(DSExprNode *e, Scope *scope) {
-    if (!e || scope->is_function)
-        return;
-    if (e->kind == EX_COMPREH) {
-        for (int i = 0; i < e->clause_count; i++)
-            force_local_target(scope, e->clauses[i]->target);
-        prescan_compreh(e->a, scope);
-        prescan_compreh(e->b, scope);
-        for (int i = 0; i < e->clause_count; i++) {
-            prescan_compreh(e->clauses[i]->a, scope);
-            prescan_compreh(e->clauses[i]->b, scope);
-        }
-        return;
-    }
-    prescan_compreh(e->a, scope);
-    prescan_compreh(e->b, scope);
-    prescan_compreh(e->c, scope);
-    for (int i = 0; i < e->count; i++) {
-        if (e->items)
-            prescan_compreh(e->items[i], scope);
-        if (e->keys)
-            prescan_compreh(e->keys[i], scope);
-    }
-}
-
-static void prescan_block(const DSStmtNode *block, Scope *scope) {
-    /* Runs for both module and function scopes: at module level the forced names
-     * become slots of the module closure, inside functions they are ordinary
-     * locals discovered by `predeclare`. */
-    if (scope->is_function)
-        return;
-    for (const DSStmtNode *s = block; s; s = s->next) {
-        prescan_compreh(s->expr, scope);
-        prescan_compreh(s->cond, scope);
-        for (int i = 0; i < s->ntargets; i++)
-            prescan_compreh(s->targets[i], scope);
-        for (int i = 0; i < s->count; i++)
-            prescan_compreh(s->items[i], scope);
-        if (s->body)
-            prescan_block(s->body, scope);
-        if (s->orelse)
-            prescan_block(s->orelse, scope);
-        for (int i = 0; i < s->nbranches; i++)
-            if (s->bodies[i])
-                prescan_block(s->bodies[i], scope);
-    }
-}
-
 /* Bind every plain name in an assignment target as a local of `scope`. */
 static void declare_target_names(Scope *scope, DSExprNode *t) {
     if (!t)
@@ -1461,8 +1346,6 @@ static void predeclare(Scope *scope, DSStmtNode *block) {
         }
     }
 }
-
-static void prescan_block(const DSStmtNode *block, Scope *scope);
 
 static void compile_block(DSVM *vm, Scope *scope, UpvalChain *chain, const DSStmtNode *cblock) {
     DSStmtNode *block = (DSStmtNode *)cblock;
