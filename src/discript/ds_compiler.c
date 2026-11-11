@@ -841,6 +841,9 @@ typedef struct Scope {
     DSString **globals;
     int global_count;
     int global_cap;
+    /* The upvalue chain of this function, so a deeply nested closure can insert
+     * forwarding entries into every function between itself and the owner. */
+    struct UpvalChain *chain;
 } Scope;
 
 typedef struct UpvalChain {
@@ -914,17 +917,54 @@ static void compile_function(DSVM *vm, Scope *outer, UpvalChain *outer_chain, DS
 static void compile_stmt(DSVM *vm, Scope *scope, UpvalChain *chain, DSStmtNode *s);
 static void compile_block(DSVM *vm, Scope *scope, UpvalChain *chain, const DSStmtNode *block);
 
-/* Find `name` in any enclosing function scope; produce chain entries for every
- * intermediate function so the value can bubble down. */
+/* Find `name` in an enclosing function and build the upvalue chain that carries
+ * it down to `scope`.
+ *
+ * A link with `is_local == 1` means "local slot `index` of the immediately
+ * enclosing function"; `is_local == 0` means "upvalue `index` of the immediately
+ * enclosing closure" (see the capture loop in `st_def`). Capturing a variable two
+ * or more functions up therefore has to insert a forwarding upvalue into every
+ * function in between — otherwise the innermost closure points at a slot of its
+ * own parent that means something else entirely, which made
+ * `def outer(): def middle(): def inner(): return x` evaluate to the function
+ * itself instead of `x`. */
 static int resolve_upval(Scope *scope, UpvalChain *chain, DSString *name) {
-    for (Scope *s = scope->parent; s && s->parent; s = s->parent) {
+    Scope *between[64];
+    int nbetween = 0;
+    Scope *owner = NULL;
+    int owner_slot = -1;
+
+    for (Scope *s = scope->parent; s; s = s->parent) {
         if (!s->is_function)
             continue;
         int idx = scope_find(s, name);
-        if (idx >= 0)
-            return chain_add(chain, 1, idx);
+        if (idx >= 0) {
+            owner = s;
+            owner_slot = idx;
+            break;
+        }
+        if (nbetween >= 64)
+            return -1;
+        between[nbetween++] = s;
     }
-    return -1;
+    if (!owner)
+        return -1;
+
+    /* Walk back outwards->inwards, so each step can point at the upvalue index
+     * that the previous (outer) step assigned. */
+    int parent_index = owner_slot;
+    int parent_is_local = 1;
+    int result = -1;
+    for (int i = nbetween; i >= 0; i--) {
+        Scope *fn = (i == 0) ? scope : between[i - 1];
+        UpvalChain *target = fn->chain ? fn->chain : chain;
+        int u = chain_add(target, parent_is_local, parent_index);
+        if (fn == scope)
+            result = u;
+        parent_index = u;
+        parent_is_local = 0;
+    }
+    return result;
 }
 
 /* Evaluate the binding decision for one NAME node. */
@@ -1118,16 +1158,18 @@ static void compile_block(DSVM *vm, Scope *scope, UpvalChain *chain, const DSStm
 static void compile_function(DSVM *vm, Scope *outer, UpvalChain *outer_chain, DSFuncProto *fn) {
     if (!fn)
         return;
+    UpvalChain fchain;
+    memset(&fchain, 0, sizeof(fchain));
+
     Scope fscope;
     memset(&fscope, 0, sizeof(fscope));
     fscope.parent = outer;
     fscope.is_function = 1;
+    fscope.chain = &fchain;
     scope_add(&fscope, NULL); /* slot 0: the closure itself */
     for (int i = 0; i < fn->arity; i++)
         scope_add(&fscope, fn->params ? fn->params[i] : NULL);
 
-    UpvalChain fchain;
-    memset(&fchain, 0, sizeof(fchain));
     compile_block(vm, &fscope, &fchain, fn->body);
     fn->num_upvalues = fchain.count;
     fn->upvals = fchain.descs;
