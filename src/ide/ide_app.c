@@ -224,9 +224,18 @@ void ide_app_toggle_console(IDEApp *app) {
 
 /* ---- input --------------------------------------------------------------- */
 
+/* The active tab, creating a scratch buffer on first keystroke so typing always
+ * has somewhere to land. */
 static IDETab *active_tab(IDEApp *app) {
-    int idx = app ? ide_view_active(&app->view) : -1;
-    return idx >= 0 ? &app->view.tabs[idx] : NULL;
+    if (!app)
+        return NULL;
+    int idx = ide_view_active(&app->view);
+    if (idx < 0 || app->view.tab_count == 0) {
+        idx = ide_view_open(&app->view, NULL, NULL, 0);
+        if (idx < 0)
+            return NULL;
+    }
+    return &app->view.tabs[idx];
 }
 
 void ide_app_text(IDEApp *app, const char *utf8) {
@@ -402,7 +411,15 @@ void ide_app_pointer_sized(IDEApp *app, float x, float y, int action, int width,
     int col = (int)((x - GUTTER_W - PAD_X + (float)t->scroll_x) / cwf);
     if (col < 0)
         col = 0;
-    size_t pos = ide_offset_at(b, line, (size_t)col);
+    /* The click gives a visual column; convert it to a byte offset by walking
+     * the line the same way the renderer does. */
+    size_t ls = ide_line_begin(b, line), le = ide_line_end(b, line);
+    size_t pos = ls;
+    int visual = 0;
+    while (pos < le && visual < col) {
+        visual = (b->text[pos] == '\t') ? (visual + 4) - (visual % 4) : visual + 1;
+        pos++;
+    }
     b->caret = pos;
     b->anchor = pos;
 }

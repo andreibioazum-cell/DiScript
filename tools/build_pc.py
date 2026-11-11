@@ -15,13 +15,27 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build" / "pc"
 C_SOURCES = (
     "src/engine/runtime.c",
+    # The language runtime that runs the scripts the editor edits.
+    "src/discript/ds_gc.c",
+    "src/discript/ds_lexer.c",
+    "src/discript/ds_parser.c",
+    "src/discript/ds_compiler.c",
+    "src/discript/ds_vm.c",
+    "src/discript/ds_stdlib.c",
+    "src/discript/ds_love.c",
     "src/platform/pc/pc_main.c",
     "src/ide/ide_buffer.c",
     "src/ide/ide_highlight.c",
     "src/ide/ide_view.c",
     "src/ide/ide_app.c",
 )
-CPP_SOURCES = ()
+CPP_SOURCES = (
+    # Language runtime support: the JIT, plus the noise/physics and
+    # colour/gradient/audio primitives the standard library exposes.
+    "src/cpp/native_jit.cpp",
+    "src/cpp/love_noise_physics.cpp",
+    "src/cpp/ui_fx.cpp",
+)
 INCLUDES = ("-I.", "-Isrc", "-Isrc/platform/pc/shim")
 COMMON_FLAGS = ("-std=c99", "-DCB_PC", "-O2")
 

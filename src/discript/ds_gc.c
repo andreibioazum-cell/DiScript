@@ -1,12 +1,41 @@
 /* Lua 5.4-grade Tri-Color Incremental & Generational Garbage Collector
  * with 64KB Segregated mmap Slabs, SSO Interned Strings, and Write Barriers. */
 
+/* mmap's MAP_ANONYMOUS is not visible under strict -std=c99 without this. */
+#ifndef _WIN32
+#ifndef _DEFAULT_SOURCE
+#define _DEFAULT_SOURCE
+#endif
+#endif
+
 #include "discript/ds_internal.h"
 #include "engine/runtime.h"
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+/* The collector allocates whole page-aligned slabs. Windows has no mmap(), so
+ * map the three calls it needs onto VirtualAlloc/VirtualFree, which give the
+ * same guarantees: zeroed, page-aligned, private memory. */
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#define PROT_READ 0x1
+#define PROT_WRITE 0x2
+#define MAP_PRIVATE 0x02
+#define MAP_ANONYMOUS 0x20
+#define MAP_FAILED ((void *)-1)
+static void *ds_mmap_win(size_t size) {
+    void *p = VirtualAlloc(NULL, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    return p ? p : MAP_FAILED;
+}
+#define mmap(addr, size, prot, flags, fd, off) ds_mmap_win(size)
+#define munmap(addr, size) (VirtualFree((addr), 0, MEM_RELEASE) != 0 ? 0 : -1)
+#else
 #include <sys/mman.h>
+#endif
 
 #define SLAB_PAGE_BYTES 65536u
 #define GC_INITIAL_MINOR (64u * 1024u)

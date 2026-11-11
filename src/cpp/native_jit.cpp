@@ -5,8 +5,39 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include <string.h>
+
+#ifdef _WIN32
+/* Windows has no mmap/mprotect. The JIT only needs page-aligned executable
+ * memory, which VirtualAlloc/VirtualProtect provide directly; both calls map
+ * one-to-one onto the W^X sequence below. */
+#ifndef WIN32_LEAN_AND_MEAN
+#define WIN32_LEAN_AND_MEAN
+#endif
+#include <windows.h>
+#define PROT_READ 0x1
+#define PROT_WRITE 0x2
+#define PROT_EXEC 0x4
+#define MAP_PRIVATE 0x02
+#define MAP_ANONYMOUS 0x20
+#define MAP_FAILED ((void *)-1)
+static void *jit_mmap(size_t size) {
+    void *p = VirtualAlloc(nullptr, size, MEM_COMMIT | MEM_RESERVE, PAGE_READWRITE);
+    return p ? p : MAP_FAILED;
+}
+static int jit_mprotect(void *addr, size_t size, int prot) {
+    DWORD flag = (prot & PROT_EXEC) ? PAGE_EXECUTE_READ : PAGE_READONLY;
+    DWORD old = 0;
+    return VirtualProtect(addr, size, flag, &old) ? 0 : -1;
+}
+static void jit_munmap(void *addr, size_t size) { VirtualFree(addr, 0, MEM_RELEASE); }
+#define mmap(addr, size, prot, flags, fd, off) jit_mmap(size)
+#define mprotect(addr, size, prot) jit_mprotect((addr), (size), (prot))
+#define munmap(addr, size) jit_munmap((addr), (size))
+#define getpagesize() 4096
+#else
 #include <sys/mman.h>
 #include <unistd.h>
+#endif
 
 struct DSJitFunc {
     void *mem;
@@ -57,8 +88,14 @@ public:
 };
 
 size_t page_align(size_t n) {
+#ifdef _WIN32
+    SYSTEM_INFO si;
+    GetSystemInfo(&si);
+    size_t page = si.dwPageSize ? static_cast<size_t>(si.dwPageSize) : 4096u;
+#else
     long ps = sysconf(_SC_PAGESIZE);
     size_t page = (ps > 0) ? static_cast<size_t>(ps) : 4096u;
+#endif
     return (n + page - 1u) & ~(page - 1u);
 }
 

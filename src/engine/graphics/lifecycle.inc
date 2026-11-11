@@ -333,6 +333,179 @@ void text(const char *s, float x, float y, uint32_t c) {
 
 /* Advance of a single monospaced column, used by the code editor to align the
  * caret and the selection bands with the glyphs. */
+/* Line pitch: how far the baseline advances between lines of text. */
+/* ---- composite shape helpers ------------------------------------------- *
+ * These used to live in the game and are part of the drawing API the language
+ * exposes. They are built from the primitives above rather than from new
+ * render commands, so they need no backend support. */
+
+/* Texture size in pixels, for scripts that lay out images themselves. */
+int tex_size(const char *name, int *out_w, int *out_h) {
+    if (out_w)
+        *out_w = 0;
+    if (out_h)
+        *out_h = 0;
+    if (!name || !*name)
+        return 0;
+    Texture *t = load_png(name);
+    if (!t)
+        return 0;
+    if (out_w)
+        *out_w = t->w;
+    if (out_h)
+        *out_h = t->h;
+    return 1;
+}
+
+/* Draw with an independent scale per axis and an explicit origin. Composed from
+ * tex_tint(), so it works on every backend without a new render command. */
+void tex_ex(const char *name, float x, float y, float angle_rad, float sx, float sy, float ox, float oy,
+            uint32_t tint) {
+    int w = 0, h = 0;
+    if (!name || !tex_size(name, &w, &h) || w <= 0 || h <= 0)
+        return;
+    /* Pull the image so (ox, oy) lands on (x, y), then scale uniformly by the
+     * dominant axis to stay on the existing single-scale path. */
+    float sc = (fabsf(sx) > fabsf(sy)) ? sx : sy;
+    if (sc == 0.0f)
+        return;
+    tex_tint(x - ox * sc, y - oy * sc, name, angle_rad, sc, tint);
+}
+
+void rect_line(float x, float y, float w, float h, float th, uint32_t c) {
+    if (w <= 0 || h <= 0 || th <= 0)
+        return;
+    if (th * 2.0f >= w || th * 2.0f >= h) {
+        rect(x, y, w, h, c);
+        return;
+    }
+    rect(x, y, w, th, c);
+    rect(x, y + h - th, w, th, c);
+    rect(x, y + th, th, h - 2.0f * th, c);
+    rect(x + w - th, y + th, th, h - 2.0f * th, c);
+}
+
+void ellipse_fill(float x, float y, float rx, float ry, uint32_t c) {
+    if (rx <= 0 || ry <= 0)
+        return;
+    /* Stacked horizontal spans: exact for the common sizes the UI uses and
+     * much cheaper than a per-pixel path. */
+    int steps = (int)(ry * 2.0f);
+    if (steps < 2)
+        steps = 2;
+    if (steps > 256)
+        steps = 256;
+    float band = (ry * 2.0f) / (float)steps;
+    for (int i = 0; i < steps; i++) {
+        float dy = -ry + band * ((float)i + 0.5f);
+        float k = 1.0f - (dy * dy) / (ry * ry);
+        if (k <= 0.0f)
+            continue;
+        float half = rx * sqrtf(k);
+        rect(x - half, y - ry + band * (float)i, half * 2.0f, band + 0.75f, c);
+    }
+}
+
+void ellipse_line(float x, float y, float rx, float ry, float thickness, uint32_t c) {
+    if (rx <= 0 || ry <= 0 || thickness <= 0)
+        return;
+    int steps = (int)((rx + ry) * 3.0f);
+    if (steps < 12)
+        steps = 12;
+    if (steps > 256)
+        steps = 256;
+    float prev_x = x + rx, prev_y = y;
+    for (int i = 1; i <= steps; i++) {
+        float a = 6.283185307179586f * (float)i / (float)steps;
+        float px = x + cosf(a) * rx, py = y + sinf(a) * ry;
+        line(prev_x, prev_y, px, py, thickness, c);
+        prev_x = px;
+        prev_y = py;
+    }
+}
+
+void arc_line(float x, float y, float r, float start_deg, float sweep_deg, float thickness, int closed_pie,
+              uint32_t c) {
+    if (r <= 0 || thickness <= 0 || sweep_deg == 0.0f)
+        return;
+    int steps = (int)(fabsf(sweep_deg) / 6.0f);
+    if (steps < 4)
+        steps = 4;
+    if (steps > 512)
+        steps = 512;
+    float a0 = start_deg * 0.017453292519943295f;
+    float prev_x = x + cosf(a0) * r, prev_y = y + sinf(a0) * r;
+    for (int i = 1; i <= steps; i++) {
+        float a = a0 + (sweep_deg * 0.017453292519943295f) * (float)i / (float)steps;
+        float px = x + cosf(a) * r, py = y + sinf(a) * r;
+        line(prev_x, prev_y, px, py, thickness, c);
+        prev_x = px;
+        prev_y = py;
+    }
+    if (closed_pie) {
+        float a1 = a0 + sweep_deg * 0.017453292519943295f;
+        line(x, y, x + cosf(a0) * r, y + sinf(a0) * r, thickness, c);
+        line(x, y, x + cosf(a1) * r, y + sinf(a1) * r, thickness, c);
+    }
+}
+
+void poly_line(const float *xy, int point_count, float thickness, int closed, uint32_t c) {
+    if (!xy || point_count < 2)
+        return;
+    for (int i = 1; i < point_count; i++)
+        line(xy[(i - 1) * 2], xy[(i - 1) * 2 + 1], xy[i * 2], xy[i * 2 + 1], thickness, c);
+    if (closed)
+        line(xy[(point_count - 1) * 2], xy[(point_count - 1) * 2 + 1], xy[0], xy[1], thickness, c);
+}
+
+void poly_fill(const float *xy, int point_count, uint32_t c) {
+    if (!xy || point_count < 3)
+        return;
+    /* Scanline fill: for every row, intersect the edges and fill the spans. */
+    float min_y = xy[1], max_y = xy[1];
+    for (int i = 0; i < point_count; i++) {
+        if (xy[i * 2 + 1] < min_y)
+            min_y = xy[i * 2 + 1];
+        if (xy[i * 2 + 1] > max_y)
+            max_y = xy[i * 2 + 1];
+    }
+    int rows = (int)(max_y - min_y);
+    if (rows <= 0)
+        return;
+    if (rows > 512)
+        rows = 512;
+    float step = (max_y - min_y) / (float)rows;
+    for (int r = 0; r < rows; r++) {
+        float y = min_y + step * ((float)r + 0.5f);
+        float left = 0.0f, right = 0.0f;
+        int found = 0;
+        for (int i = 0; i < point_count; i++) {
+            int j = (i + 1) % point_count;
+            float y1 = xy[i * 2 + 1], y2 = xy[j * 2 + 1];
+            if ((y1 <= y && y2 > y) || (y2 <= y && y1 > y)) {
+                float t = (y - y1) / (y2 - y1);
+                float x = xy[i * 2] + t * (xy[j * 2] - xy[i * 2]);
+                if (!found) {
+                    left = right = x;
+                    found = 1;
+                } else {
+                    if (x < left)
+                        left = x;
+                    if (x > right)
+                        right = x;
+                }
+            }
+        }
+        if (found && right > left)
+            rect(left, y - step * 0.5f, right - left, step + 0.75f, c);
+    }
+}
+
+float text_line_height(float scale) {
+    if (scale <= 0.0f || !ensure_font())
+        return 0.0f;
+    return ds_font_lineh(font) * scale;
+}
 float text_advance_of(const char *s, float scale) {
     if (!s || !*s || scale <= 0.0f || !ensure_font())
         return 0.0f;

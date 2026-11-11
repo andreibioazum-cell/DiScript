@@ -330,7 +330,6 @@ static void pc_shutdown(void) {
 #include "platform/pc/pc_screenshot.inc"
 
 #include "platform/pc/pc_assets.inc"
-#include "platform/pc/pc_controls.inc"
 
 #ifdef _WIN32
 #include "platform/pc/pc_headless.inc"

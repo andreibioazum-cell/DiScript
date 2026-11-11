@@ -28,6 +28,9 @@ void ide_app_draw(IDEApp *app, int width, int height);
 
 /* ---- actions --------------------------------------------------------- */
 void ide_app_new(IDEApp *app);
+/* Open/save a specific path (used by the platform layers and the harness). */
+int ide_app_open_path(IDEApp *app, const char *path);
+int ide_app_save_to(IDEApp *app, const char *path);
 void ide_app_open_dialog(IDEApp *app);  /* throws the platform file picker */
 void ide_app_save(IDEApp *app);         /* save to the current path, or prompt */
 void ide_app_save_as(IDEApp *app);

@@ -77,6 +77,8 @@ int ide_line_of(IDEBuffer *b, size_t pos);
 size_t ide_line_begin(IDEBuffer *b, int line);
 size_t ide_line_end(IDEBuffer *b, int line); /* offset of '\n' or len */
 int ide_column_of(IDEBuffer *b, size_t pos);  /* byte column within its line */
+/* Column as drawn: tabs are expanded to IDE_TAB_WIDTH stops. */
+int ide_visual_column_of(IDEBuffer *b, size_t pos);
 /* Byte offset for a (line, column) pair, clamped to the line and document. */
 size_t ide_offset_at(IDEBuffer *b, int line, size_t column);
 int ide_has_selection(const IDEBuffer *b);

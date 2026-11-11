@@ -4,6 +4,7 @@
 
 #include "ide/ide_editor.h"
 
+#include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
@@ -263,6 +264,24 @@ size_t ide_line_end(IDEBuffer *b, int line) {
     return next > 0 ? next - 1 : 0; /* drop the '\n' */
 }
 
+int ide_visual_column_of(IDEBuffer *b, size_t pos) {
+    if (!b)
+        return 0;
+    ide_lines_refresh(b);
+    int line = ide_line_of(b, pos);
+    if (line < 0 || line >= b->line_count)
+        return 0;
+    size_t begin = ide_line_begin(b, line);
+    if (pos > b->len)
+        pos = b->len;
+    if (pos < begin)
+        return 0;
+    int col = 0;
+    for (size_t i = begin; i < pos; i++)
+        col = (b->text[i] == '\t') ? (col + IDE_TAB_WIDTH) - (col % IDE_TAB_WIDTH) : col + 1;
+    return col;
+}
+
 size_t ide_offset_at(IDEBuffer *b, int line, size_t column) {
     if (!b)
         return 0;
@@ -380,6 +399,11 @@ void ide_newline(IDEBuffer *b) {
     }
 
     size_t extra = (tail == ':' ? IDE_TAB_WIDTH : 0);
+    /* Pressing Enter on a blank line drops back to column 0 instead of
+     * inheriting the previous block's indentation. */
+    int blank_line = (tail == 0);
+    if (blank_line)
+        indent = 0;
     char buf[256];
     size_t n = 0;
     buf[n++] = '\n';

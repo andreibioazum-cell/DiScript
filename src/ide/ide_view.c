@@ -134,7 +134,7 @@ int ide_view_open(IDEView *v, const char *path, const char *text, size_t len) {
     return i;
 }
 
-int ide_view_active(IDEView *v) { return v ? v->active : -1; }
+int ide_view_active(IDEView *v) { return (v && v->tab_count > 0 && v->active < v->tab_count) ? v->active : -1; }
 
 void ide_view_set_status(IDEView *v, const char *text) {
     if (!v || !text)
@@ -235,12 +235,25 @@ void ide_view_draw(IDEView *v, int width, int height) {
 
     /* ---- top bar with tabs and buttons ---------------------------------- */
     rect(0, 0, (float)width, BAR_H, C_BAR);
+    /* Buttons are measured first so the tab strip knows its real budget. */
+    const char *btn = v->running ? "STOP" : "RUN";
+    float btn_w = text_width_scaled(btn, scale * 0.9f) + 30.0f;
+    float btn_x = (float)width - btn_w - 12.0f;
+    const char *cbtn = v->show_console ? "HIDE" : "OUT";
+    float cbtn_w = text_width_scaled(cbtn, scale * 0.85f) + 22.0f;
+    float cbtn_x = btn_x - cbtn_w - 8.0f;
+    float tabs_limit = cbtn_x - 8.0f;
+
     float tx = 6.0f;
-    for (int i = 0; i < v->tab_count && tx < width - 200; i++) {
+    for (int i = 0; i < v->tab_count && tx < tabs_limit; i++) {
         const char *name = v->tabs[i].path[0] ? base_name(v->tabs[i].path) : "untitled.ds";
         char label[128];
         snprintf(label, sizeof(label), "%s%s", name, v->tabs[i].dirty ? " *" : "");
         float w = text_width_scaled(label, scale * 0.8f) + 26.0f;
+        if (tx + w > tabs_limit)
+            w = tabs_limit - tx;
+        if (w < 24.0f)
+            break;
         rect(tx, 4, w, BAR_H - 8, i == v->active ? C_TAB_ON : C_TAB_OFF);
         if (i == v->active)
             rect(tx, BAR_H - 3, w, 3, C_ACCENT);
@@ -248,19 +261,11 @@ void ide_view_draw(IDEView *v, int width, int height) {
         tx += w + 4.0f;
     }
 
-    /* Run / stop button on the right. */
-    const char *btn = v->running ? "STOP" : "RUN";
-    float bw = text_width_scaled(btn, scale * 0.9f) + 30.0f;
-    float bx = (float)width - bw - 12.0f;
-    rect(bx, 5, bw, BAR_H - 10, v->running ? C_ERR : C_OK);
-    text_scaled(btn, bx + 15, 11, C_BAR, scale * 0.9f);
-
-    /* Console toggle. */
-    const char *cbtn = v->show_console ? "HIDE" : "OUT";
-    float cw2 = text_width_scaled(cbtn, scale * 0.85f) + 22.0f;
-    float cbx = bx - cw2 - 8.0f;
-    rect(cbx, 5, cw2, BAR_H - 10, C_TAB_ON);
-    text_scaled(cbtn, cbx + 11, 11, C_TEXT, scale * 0.85f);
+    /* Run / stop and console toggle buttons. */
+    rect(btn_x, 5, btn_w, BAR_H - 10, v->running ? C_ERR : C_OK);
+    text_scaled(btn, btn_x + 15, 11, C_BAR, scale * 0.9f);
+    rect(cbtn_x, 5, cbtn_w, BAR_H - 10, C_TAB_ON);
+    text_scaled(cbtn, cbtn_x + 11, 11, C_TEXT, scale * 0.85f);
 
     if (v->virgin || v->tab_count == 0) {
         const char *title = "DiScript";
@@ -328,8 +333,10 @@ void ide_view_draw(IDEView *v, int width, int height) {
         if (has_sel && sel_e > ls && sel_s < le) {
             size_t a = sel_s > ls ? sel_s : ls;
             size_t e = sel_e < le ? sel_e : le;
-            float x1 = GUTTER_W + PAD_X - (float)t->scroll_x + (float)(a - ls) * cw;
-            float x2 = GUTTER_W + PAD_X - (float)t->scroll_x + (float)(e - ls) * cw;
+            float x1 = GUTTER_W + PAD_X - (float)t->scroll_x +
+                       (float)ide_visual_column_of(b, a) * cw;
+            float x2 = GUTTER_W + PAD_X - (float)t->scroll_x +
+                       (float)ide_visual_column_of(b, e) * cw;
             if (x2 > GUTTER_W)
                 rect(x1 < GUTTER_W ? GUTTER_W : x1, y, x2 - x1, lh, C_SEL);
         }
@@ -343,7 +350,7 @@ void ide_view_draw(IDEView *v, int width, int height) {
 
     /* Caret. */
     if (v->active >= 0 && !v->running) {
-        int cl = ide_column_of(b, b->caret);
+        int cl = ide_visual_column_of(b, b->caret);
         float cx = GUTTER_W + PAD_X - (float)t->scroll_x + (float)cl * cw;
         float cy = code_top + (float)(caret_line - first_line) * lh + 2.0f;
         if (cx > GUTTER_W && cx < width && cy >= code_top && cy < code_bottom)
@@ -357,18 +364,27 @@ void ide_view_draw(IDEView *v, int width, int height) {
         float top = code_bottom;
         rect(0, top, (float)width, (float)cons_h, C_BAR);
         rect(0, top, (float)width, 1.0f, C_TAB_ON);
-        int lines = (int)((cons_h - 8) / (lh * 0.85f));
+        /* Size rows from the scaled font itself, then anchor the newest line to
+         * the bottom of the pane so output grows upward as it arrives. */
+        float row = text_line_height(scale * 0.85f);
+        if (row <= 0.0f)
+            row = lh * 0.85f;
+        int lines = (int)((cons_h - 6) / row);
         if (lines < 1)
             lines = 1;
         int from = v->cons_count - lines - v->cons_scroll;
         if (from < 0)
             from = 0;
-        float cy = top + 5.0f;
+        float bottom = top + (float)cons_h - 3.0f;
+        float cy = bottom - (float)(v->cons_count - from) * row;
+        /* Leave room for the font's ascent so the last row is fully visible. */
+        float ascent = row;
+        cy = bottom - ascent - (float)(v->cons_count - from - 1) * row;
         for (int i = from; i < v->cons_count; i++) {
             const IDEConsoleLine *l = &v->console[i];
             text_scaled(l->text, 10.0f, cy, l->is_error ? C_ERR : C_TEXT, scale * 0.85f);
-            cy += lh * 0.85f;
-            if (cy > top + cons_h)
+            cy += row;
+            if (cy > bottom + row)
                 break;
         }
     }
