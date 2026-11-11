@@ -11,7 +11,9 @@ typedef void (*android_app_cmd)(struct android_app *app, int32_t cmd);
 typedef int32_t (*android_app_input)(struct android_app *app, AInputEvent *event);
 enum { APP_CMD_INIT_WINDOW = 5, APP_CMD_TERM_WINDOW = 6, APP_CMD_WINDOW_RESIZED = 7, APP_CMD_WINDOW_REDRAW_NEEDED = 8,
        APP_CMD_CONFIG_CHANGED = 9, APP_CMD_CONTENT_RECT_CHANGED = 10,
-       APP_CMD_GAINED_FOCUS = 12, APP_CMD_LOST_FOCUS = 13 };
+       APP_CMD_GAINED_FOCUS = 12, APP_CMD_LOST_FOCUS = 13,
+       APP_CMD_START = 2, APP_CMD_RESUME = 3, APP_CMD_PAUSE = 4,
+       APP_CMD_STOP = 14, APP_CMD_SAVE_STATE = 11, APP_CMD_DESTROY = 15 };
 void app_dummy(void);
 struct android_app {
     void *userData;

@@ -3,6 +3,7 @@
 #include <stdint.h>
 #include <stddef.h>
 typedef int32_t jint;
+typedef uint8_t jboolean;
 typedef int32_t jsize;
 typedef int8_t jbyte;
 typedef uint16_t jchar;
@@ -14,6 +15,13 @@ typedef jarray jbyteArray;
 typedef jarray jshortArray;
 typedef jobject jthrowable;
 typedef jobject jmethodID;
+/* Export/ABI markers: real JNI on Android, ordinary functions on the host. */
+#ifndef JNIEXPORT
+#define JNIEXPORT
+#endif
+#ifndef JNICALL
+#define JNICALL
+#endif
 #define JNI_OK 0
 #define JNI_ERR (-1)
 #define JNI_FALSE 0
