@@ -9,17 +9,16 @@ typedef struct {
 
 static GeoVert *geo_verts;
 static size_t geo_vn, geo_vcap;
-static uint16_t *geo_idx;
+static uint32_t *geo_idx;
 static size_t geo_in, geo_icap;
 
 static int geo_push_vert(float x, float y, float u, float v, uint32_t c) {
-
-    /* Apply screen-shake offset. */
-    x += gfx_shake_dx; y += gfx_shake_dy;
-    if (geo_vn >= 65535)
+    x += gfx_shake_dx;
+    y += gfx_shake_dy;
+    if (geo_vn >= 0x3FFFFFFFu)
         return 0;
     if (geo_vn == geo_vcap) {
-        size_t cap = geo_vcap ? geo_vcap * 2 : 1024;
+        size_t cap = geo_vcap ? geo_vcap * 2 : 2048;
         if (cap > SIZE_MAX / sizeof(*geo_verts))
             return 0;
         GeoVert *nv = (GeoVert *)realloc(geo_verts, cap * sizeof(*nv));
@@ -36,12 +35,13 @@ static int geo_push_vert(float x, float y, float u, float v, uint32_t c) {
     g->c = c;
     return 1;
 }
-static int geo_push_index(uint16_t i) {
+
+static int geo_push_index(uint32_t i) {
     if (geo_in == geo_icap) {
-        size_t cap = geo_icap ? geo_icap * 2 : 2048;
+        size_t cap = geo_icap ? geo_icap * 2 : 4096;
         if (cap > SIZE_MAX / sizeof(*geo_idx))
             return 0;
-        uint16_t *ni = (uint16_t *)realloc(geo_idx, cap * sizeof(*ni));
+        uint32_t *ni = (uint32_t *)realloc(geo_idx, cap * sizeof(*ni));
         if (!ni)
             return 0;
         geo_idx = ni;
@@ -52,16 +52,17 @@ static int geo_push_index(uint16_t i) {
 }
 
 static int geo_quad(const GeoVert q[4]) {
-    size_t base = geo_vn;
+    uint32_t base = (uint32_t)geo_vn;
     for (int i = 0; i < 4; i++)
         if (!geo_push_vert(q[i].x, q[i].y, q[i].u, q[i].v, q[i].c))
             return 0;
-    static const uint16_t order[6] = {0, 1, 2, 0, 2, 3};
+    static const uint32_t order[6] = {0, 1, 2, 0, 2, 3};
     for (int i = 0; i < 6; i++)
-        if (!geo_push_index((uint16_t)(base + order[i])))
+        if (!geo_push_index(base + order[i]))
             return 0;
     return 1;
 }
+
 static void geo_reset(void) {
     geo_vn = 0;
     geo_in = 0;
@@ -108,6 +109,7 @@ static const GeoTrig *geo_trig_table(int n, int mode) {
     t->mode = mode;
     return t;
 }
+
 static void geo_trig_free(void) {
     for (int i = 0; i < GEO_TRIG_SLOTS; i++) {
         free(geo_trig[i].cosv);
@@ -132,7 +134,7 @@ static int geo_rect(float x, float y, float w, float h, uint32_t c) {
 static int geo_circle_segs(float r) {
     if (r < 0)
         r = -r;
-    int n = (int)(r * 0.6f);
+    int n = (int)(r * 0.65f);
     if (n < 12)
         n = 12;
     if (n > 64)
@@ -144,7 +146,7 @@ static int geo_circle(float x, float y, float r, uint32_t c) {
     if (!isfinite(x + y + r) || r <= 0)
         return 1;
     int n = geo_circle_segs(r);
-    size_t base = geo_vn;
+    uint32_t base = (uint32_t)geo_vn;
     if (!geo_push_vert(x, y, 0.5f, 0.5f, c))
         return 0;
     const GeoTrig *tt = geo_trig_table(n, 0);
@@ -162,8 +164,29 @@ static int geo_circle(float x, float y, float r, uint32_t c) {
             return 0;
     }
     for (int i = 1; i <= n; i++)
-        if (!geo_push_index((uint16_t)base) || !geo_push_index((uint16_t)(base + i)) ||
-            !geo_push_index((uint16_t)(base + (i % n) + 1)))
+        if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+            !geo_push_index(base + (uint32_t)((i % n) + 1)))
+            return 0;
+    return 1;
+}
+
+static int geo_ellipse(float x, float y, float rx, float ry, uint32_t c) {
+    if (!isfinite(x + y + rx + ry) || rx <= 0 || ry <= 0)
+        return 1;
+    int n = geo_circle_segs(rx > ry ? rx : ry);
+    uint32_t base = (uint32_t)geo_vn;
+    if (!geo_push_vert(x, y, 0.5f, 0.5f, c))
+        return 0;
+    const GeoTrig *tt = geo_trig_table(n, 0);
+    for (int i = 0; i < n; i++) {
+        float ca = tt ? tt->cosv[i] : cosf((float)i * (float)(2.0 * M_PI) / (float)n);
+        float sa = tt ? tt->sinv[i] : sinf((float)i * (float)(2.0 * M_PI) / (float)n);
+        if (!geo_push_vert(x + ca * rx, y + sa * ry, 0, 0, c))
+            return 0;
+    }
+    for (int i = 1; i <= n; i++)
+        if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+            !geo_push_index(base + (uint32_t)((i % n) + 1)))
             return 0;
     return 1;
 }
@@ -180,7 +203,7 @@ static int geo_sector(float x, float y, float r, float start_deg, float sweep_de
         n = 1;
     if (n > 90)
         n = 90;
-    size_t base = geo_vn;
+    uint32_t base = (uint32_t)geo_vn;
     if (!geo_push_vert(x, y, 0.5f, 0.5f, c))
         return 0;
     for (int i = 0; i <= n; i++) {
@@ -189,8 +212,8 @@ static int geo_sector(float x, float y, float r, float start_deg, float sweep_de
             return 0;
     }
     for (int i = 1; i <= n; i++)
-        if (!geo_push_index((uint16_t)base) || !geo_push_index((uint16_t)(base + i)) ||
-            !geo_push_index((uint16_t)(base + i + 1)))
+        if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+            !geo_push_index(base + (uint32_t)(i + 1)))
             return 0;
     return 1;
 }
@@ -201,29 +224,21 @@ static int geo_ring(float x, float y, float r, float th, uint32_t c) {
     if (th >= r)
         return geo_circle(x, y, r, c);
     int n = geo_circle_segs(r);
-    size_t base = geo_vn;
+    uint32_t base = (uint32_t)geo_vn;
     const GeoTrig *tt = geo_trig_table(n, 1);
     for (int i = 0; i <= n; i++) {
-        float ca, sa;
-        if (tt) {
-            ca = tt->cosv[i];
-            sa = tt->sinv[i];
-        } else {
-            float a = (float)((double)i / n * 2.0 * M_PI);
-            ca = cosf(a);
-            sa = sinf(a);
-        }
+        float ca = tt ? tt->cosv[i] : cosf((float)((double)i / n * 2.0 * M_PI));
+        float sa = tt ? tt->sinv[i] : sinf((float)((double)i / n * 2.0 * M_PI));
         if (!geo_push_vert(x + ca * (r - th), y + sa * (r - th), 0, 0, c))
             return 0;
         if (!geo_push_vert(x + ca * r, y + sa * r, 0, 0, c))
             return 0;
     }
     for (int i = 0; i < n; i++) {
-        size_t b = base + (size_t)i * 2;
-        if (!geo_push_index((uint16_t)b) || !geo_push_index((uint16_t)(b + 1)) || !geo_push_index((uint16_t)(b + 2)))
+        uint32_t b = base + (uint32_t)i * 2;
+        if (!geo_push_index(b) || !geo_push_index(b + 1) || !geo_push_index(b + 2))
             return 0;
-        if (!geo_push_index((uint16_t)(b + 1)) || !geo_push_index((uint16_t)(b + 3)) ||
-            !geo_push_index((uint16_t)(b + 2)))
+        if (!geo_push_index(b + 1) || !geo_push_index(b + 3) || !geo_push_index(b + 2))
             return 0;
     }
     return 1;
@@ -246,25 +261,27 @@ static int geo_line(float x1, float y1, float x2, float y2, float th, uint32_t c
     };
     if (!geo_quad(q))
         return 0;
-    int n = geo_circle_segs(rad) / 2;
-    if (n < 6)
-        n = 6;
-    for (int cap = 0; cap < 2; cap++) {
-        float cx = cap ? x2 : x1, cy = cap ? y2 : y1;
-        float dir = cap ? -1.0f : 1.0f;
-        float base_ang = atan2f(dy, dx) + (float)M_PI * 0.5f;
-        size_t base = geo_vn;
-        if (!geo_push_vert(cx, cy, 0, 0, c))
-            return 0;
-        for (int i = 0; i <= n; i++) {
-            float a = base_ang + dir * (float)((double)i / n * M_PI);
-            if (!geo_push_vert(cx + cosf(a) * rad, cy + sinf(a) * rad, 0, 0, c))
+    if (th >= 2.5f) {
+        int n = geo_circle_segs(rad) / 2;
+        if (n < 5)
+            n = 5;
+        for (int cap = 0; cap < 2; cap++) {
+            float cx = cap ? x2 : x1, cy = cap ? y2 : y1;
+            float dir = cap ? -1.0f : 1.0f;
+            float base_ang = atan2f(dy, dx) + (float)M_PI * 0.5f;
+            uint32_t base = (uint32_t)geo_vn;
+            if (!geo_push_vert(cx, cy, 0, 0, c))
                 return 0;
+            for (int i = 0; i <= n; i++) {
+                float a = base_ang + dir * (float)((double)i / n * M_PI);
+                if (!geo_push_vert(cx + cosf(a) * rad, cy + sinf(a) * rad, 0, 0, c))
+                    return 0;
+            }
+            for (int i = 1; i <= n; i++)
+                if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+                    !geo_push_index(base + (uint32_t)(i + 1)))
+                    return 0;
         }
-        for (int i = 1; i <= n; i++)
-            if (!geo_push_index((uint16_t)base) || !geo_push_index((uint16_t)(base + i)) ||
-                !geo_push_index((uint16_t)(base + i + 1)))
-                return 0;
     }
     return 1;
 }
@@ -286,7 +303,6 @@ static int geo_roundrect(float x, float y, float w, float h, float rad, uint32_t
         return 0;
     if (!geo_rect(x + w - rad, y + rad, rad, h - rad * 2, c))
         return 0;
-
     int n = (int)ceilf(rad * 0.35f);
     if (n < 6)
         n = 6;
@@ -297,7 +313,7 @@ static int geo_roundrect(float x, float y, float w, float h, float rad, uint32_t
     for (int k = 0; k < 4; k++) {
         float cx = x + cxs[k] * (w - rad) + (cxs[k] ? 0 : rad);
         float cy = y + cys[k] * (h - rad) + (cys[k] ? 0 : rad);
-        size_t base = geo_vn;
+        uint32_t base = (uint32_t)geo_vn;
         if (!geo_push_vert(cx, cy, 0, 0, c))
             return 0;
         for (int i = 0; i <= n; i++) {
@@ -306,8 +322,8 @@ static int geo_roundrect(float x, float y, float w, float h, float rad, uint32_t
                 return 0;
         }
         for (int i = 1; i <= n; i++)
-            if (!geo_push_index((uint16_t)base) || !geo_push_index((uint16_t)(base + i)) ||
-                !geo_push_index((uint16_t)(base + i + 1)))
+            if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+                !geo_push_index(base + (uint32_t)(i + 1)))
                 return 0;
     }
     return 1;
@@ -316,7 +332,6 @@ static int geo_roundrect(float x, float y, float w, float h, float rad, uint32_t
 static int geo_rect_rot(float x, float y, float w, float h, float ang, uint32_t c) {
     if (!isfinite(x + y + w + h + ang) || w <= 0 || h <= 0)
         return 1;
-
     if (ang == 0.0f)
         return geo_rect(x, y, w, h, c);
     float hw = w * 0.5f, hh = h * 0.5f;
@@ -335,14 +350,88 @@ static int geo_rect_rot(float x, float y, float w, float h, float ang, uint32_t 
     return geo_quad(q);
 }
 
-static int geo_tex(float x, float y, float ang, float sc, float tw, float th_, uint32_t c) {
+static int geo_pt_in_tri(float px, float py, float ax, float ay, float bx, float by, float cx, float cy) {
+    float c1 = (bx - ax) * (py - ay) - (by - ay) * (px - ax);
+    float c2 = (cx - bx) * (py - by) - (cy - by) * (px - bx);
+    float c3 = (ax - cx) * (py - cy) - (ay - cy) * (px - cx);
+    return (c1 >= -1e-4f && c2 >= -1e-4f && c3 >= -1e-4f) || (c1 <= 1e-4f && c2 <= 1e-4f && c3 <= 1e-4f);
+}
 
+static int geo_poly(const float *xy, int count, uint32_t c) {
+    if (!xy || count < 3)
+        return 1;
+    uint32_t base = (uint32_t)geo_vn;
+    for (int i = 0; i < count; i++) {
+        if (!isfinite(xy[i * 2] + xy[i * 2 + 1]))
+            return 1;
+        if (!geo_push_vert(xy[i * 2], xy[i * 2 + 1], 0, 0, c))
+            return 0;
+    }
+    if (count == 3) {
+        return geo_push_index(base) && geo_push_index(base + 1) && geo_push_index(base + 2);
+    }
+    if (count <= 64) {
+        /* Ear-clipping triangulation supporting concave LÖVE2D polygons */
+        int V[64];
+        double area = 0.0;
+        for (int i = 0; i < count; i++) {
+            int j = (i + 1) % count;
+            area += (double)xy[i * 2] * xy[j * 2 + 1] - (double)xy[j * 2] * xy[i * 2 + 1];
+        }
+        if (area >= 0.0) {
+            for (int i = 0; i < count; i++) V[i] = i;
+        } else {
+            for (int i = 0; i < count; i++) V[i] = count - 1 - i;
+        }
+        int nv = count;
+        int guard = nv * 3 + 4;
+        int v = nv - 1;
+        while (nv > 2 && guard-- > 0) {
+            int u = v >= nv ? 0 : v;
+            v = u + 1 >= nv ? 0 : u + 1;
+            int w = v + 1 >= nv ? 0 : v + 1;
+            float ax = xy[V[u] * 2], ay = xy[V[u] * 2 + 1];
+            float bx = xy[V[v] * 2], by = xy[V[v] * 2 + 1];
+            float cx = xy[V[w] * 2], cy = xy[V[w] * 2 + 1];
+            float cross = (bx - ax) * (cy - ay) - (by - ay) * (cx - ax);
+            if (cross > 1e-5f) {
+                int ear = 1;
+                for (int p = 0; p < nv; p++) {
+                    if (p == u || p == v || p == w)
+                        continue;
+                    if (geo_pt_in_tri(xy[V[p] * 2], xy[V[p] * 2 + 1], ax, ay, bx, by, cx, cy)) {
+                        ear = 0;
+                        break;
+                    }
+                }
+                if (ear) {
+                    if (!geo_push_index(base + (uint32_t)V[u]) ||
+                        !geo_push_index(base + (uint32_t)V[v]) ||
+                        !geo_push_index(base + (uint32_t)V[w]))
+                        return 0;
+                    for (int s = v; s + 1 < nv; s++) V[s] = V[s + 1];
+                    nv--;
+                    guard = nv * 3 + 4;
+                }
+            }
+        }
+        if (nv <= 2)
+            return 1;
+    }
+    for (int i = 1; i + 1 < count; i++) {
+        if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+            !geo_push_index(base + (uint32_t)(i + 1)))
+            return 0;
+    }
+    return 1;
+}
+
+static int geo_tex(float x, float y, float ang, float sc, float tw, float th_, uint32_t c) {
     if (!isfinite(ang))
         ang = 0.0f;
     if (!isfinite(x + y + sc) || sc <= 0 || tw <= 0 || th_ <= 0)
         return 1;
     float hw = tw * 0.5f * sc, hh = th_ * 0.5f * sc;
-
     float ca = ang == 0.0f ? 1.0f : cosf(ang), sa = ang == 0.0f ? 0.0f : sinf(ang);
     float cx = x + hw, cy = y + hh;
     static const float sx[4] = {-1, 1, 1, -1}, sy[4] = {-1, -1, 1, 1};
@@ -359,7 +448,26 @@ static int geo_tex(float x, float y, float ang, float sc, float tw, float th_, u
     return geo_quad(q);
 }
 
-/* Emit rounded-rectangle geometry with UV coordinates for textured rendering. */
+static int geo_tex_ex(float x, float y, float ang_rad, float sx, float sy, float ox, float oy,
+                      float tw, float th_, uint32_t c) {
+    if (!isfinite(x + y + ang_rad + sx + sy + ox + oy) || tw <= 0 || th_ <= 0)
+        return 1;
+    float ca = ang_rad == 0.0f ? 1.0f : cosf(ang_rad);
+    float sa = ang_rad == 0.0f ? 0.0f : sinf(ang_rad);
+    float lx[4] = {-ox * sx, (tw - ox) * sx, (tw - ox) * sx, -ox * sx};
+    float ly[4] = {-oy * sy, -oy * sy, (th_ - oy) * sy, (th_ - oy) * sy};
+    static const float uu[4] = {0, 1, 1, 0}, vv[4] = {0, 0, 1, 1};
+    GeoVert q[4];
+    for (int i = 0; i < 4; i++) {
+        q[i].x = x + ca * lx[i] - sa * ly[i];
+        q[i].y = y + sa * lx[i] + ca * ly[i];
+        q[i].u = uu[i];
+        q[i].v = vv[i];
+        q[i].c = c;
+    }
+    return geo_quad(q);
+}
+
 static int geo_tex_round(float x, float y, float sc, float tw, float th_, float rad, uint32_t c) {
     if (!isfinite(x + y + sc) || sc <= 0 || tw <= 0 || th_ <= 0)
         return 1;
@@ -407,7 +515,6 @@ static int geo_tex_round(float x, float y, float sc, float tw, float th_, float 
     };
     if (!geo_quad(q3))
         return 0;
-
     int n = (int)ceilf(rad * 0.35f);
     if (n < 6)
         n = 6;
@@ -418,7 +525,7 @@ static int geo_tex_round(float x, float y, float sc, float tw, float th_, float 
     for (int k = 0; k < 4; k++) {
         float cx = x + cxs[k] * (w - rad) + (cxs[k] ? 0 : rad);
         float cy = y + cys[k] * (h - rad) + (cys[k] ? 0 : rad);
-        size_t base = geo_vn;
+        uint32_t base = (uint32_t)geo_vn;
         if (!geo_push_vert(cx, cy, GEO_TEX_RUV_X(cx), GEO_TEX_RUV_Y(cy), c))
             return 0;
         for (int i = 0; i <= n; i++) {
@@ -428,8 +535,8 @@ static int geo_tex_round(float x, float y, float sc, float tw, float th_, float 
                 return 0;
         }
         for (int i = 1; i <= n; i++)
-            if (!geo_push_index((uint16_t)base) || !geo_push_index((uint16_t)(base + i)) ||
-                !geo_push_index((uint16_t)(base + i + 1)))
+            if (!geo_push_index(base) || !geo_push_index(base + (uint32_t)i) ||
+                !geo_push_index(base + (uint32_t)(i + 1)))
                 return 0;
     }
 #undef GEO_TEX_RUV_X

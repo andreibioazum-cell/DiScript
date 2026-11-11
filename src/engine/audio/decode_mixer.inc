@@ -5,8 +5,8 @@
 #include <limits.h>
 
 #define SND_RATE 44100
-#define SND_MAX_SOUNDS 16
-#define SND_VOICES 8
+#define SND_MAX_SOUNDS 32
+#define SND_VOICES 16
 #define SND_MAX_BYTES (64u << 20)
 
 typedef struct {
@@ -36,7 +36,7 @@ static void snd_lock_drop(void) {
     pthread_mutex_unlock(&snd_lock);
 }
 
-#if defined(__ANDROID__) || defined(CB_PC)
+#if defined(__ANDROID__) || defined(DS_HOST_SOFT)
 static AAssetManager *snd_amgr = NULL;
 #endif
 

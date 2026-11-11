@@ -1,13 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
-    package="com.cb4"
-    android:versionCode="4"
-    android:versionName="1.2">
+    package="com.discript.ide"
+    android:versionCode="10"
+    android:versionName="1.0.0">
 
     <uses-sdk android:minSdkVersion="26" android:targetSdkVersion="35" />
-    <uses-permission android:name="android.permission.INTERNET" />
-    <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" />
-    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-feature
         android:name="android.hardware.vulkan.version"
         android:required="true"
@@ -17,29 +14,25 @@
         android:required="false" />
 
     <application
-        android:label="Cubic Battle 4"
+        android:label="DiScript IDE"
         android:icon="@mipmap/ic_launcher"
         android:hasCode="true"
         android:extractNativeLibs="true"
-        android:allowBackup="false"
+        android:allowBackup="true"
         android:usesCleartextTraffic="false">
         <activity
-            android:name="com.cb4.GameActivity"
+            android:name="com.discript.ide.DiScriptActivity"
             android:configChanges="orientation|keyboard|keyboardHidden|screenSize|smallestScreenSize|screenLayout|navigation|uiMode|density|fontScale|layoutDirection|locale"
-            android:screenOrientation="landscape"
+            android:screenOrientation="fullSensor"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <meta-data
                 android:name="android.app.lib_name"
-                android:value="cb_game" />
+                android:value="discript" />
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
-        <service
-            android:name="com.cb4.PresenceJobService"
-            android:permission="android.permission.BIND_JOB_SERVICE"
-            android:exported="false" />
     </application>
 </manifest>

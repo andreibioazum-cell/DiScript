@@ -105,7 +105,7 @@ typedef struct {
     VkBuffer vbuf, ibuf;
     VkDeviceMemory vmem, imem;
     GeoVert *vmap;
-    uint16_t *imap;
+    uint32_t *imap;
     size_t vcap, icap;
     int submitted;
 } DsVkFrame;

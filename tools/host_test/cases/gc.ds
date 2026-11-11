@@ -1,0 +1,17 @@
+# GC stress: short-lived lists/dicts/closures and strings churn through the
+# slab allocator + tri-color collector.
+total = 0
+for i in range(2000):
+    l = [i, i + 1, i + 2]
+    d = {"k": i, "v": str(i)}
+    f = lambda x: x + i
+    total += len(l) + d["k"] + f(1)
+    s = ""
+    for k in range(8):
+        s = s + "x"
+    total += len(s)
+print("gc churn total =", total)
+st = gc.stats()
+print("objects:", st["objects"] > 0, "peak KB:", st["peak"] / 1024 > 0)
+gc.collect()
+print("after collect ok")

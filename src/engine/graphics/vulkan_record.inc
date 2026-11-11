@@ -87,6 +87,12 @@ static int ds_vk_build_geometry(void) {
         case DS_CMD_CIRCLE:
             geo_circle(c->v.ci.x, c->v.ci.y, c->v.ci.r, c->v.ci.c);
             break;
+        case DS_CMD_ELLIPSE:
+            geo_ellipse(c->v.el.x, c->v.el.y, c->v.el.rx, c->v.el.ry, c->v.el.c);
+            break;
+        case DS_CMD_POLY:
+            geo_poly(c->v.poly.xy, c->v.poly.count, c->v.poly.c);
+            break;
         case DS_CMD_SECTOR:
             geo_sector(c->v.sec.x, c->v.sec.y, c->v.sec.r, c->v.sec.start_deg,
                        c->v.sec.sweep_deg, c->v.sec.c);
@@ -132,6 +138,16 @@ static int ds_vk_build_geometry(void) {
                 desc = (const void *)(uintptr_t)t->gpu.desc;
                 geo_tex_round(c->v.txr.x, c->v.txr.y, c->v.txr.sc, (float)t->w, (float)t->h, c->v.txr.r,
                               0xffffffffu);
+            }
+            break;
+        }
+        case DS_CMD_TEX_EX: {
+            Texture *t = c->v.txe.tx;
+            if (t && t->gpu.uploaded && t->gpu.desc) {
+                pipeline = 1;
+                desc = (const void *)(uintptr_t)t->gpu.desc;
+                geo_tex_ex(c->v.txe.x, c->v.txe.y, c->v.txe.ang_rad, c->v.txe.sx, c->v.txe.sy,
+                           c->v.txe.ox, c->v.txe.oy, (float)t->w, (float)t->h, c->v.txe.c);
             }
             break;
         }

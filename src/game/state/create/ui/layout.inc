@@ -1,1 +1,0 @@
-SETTINGS_ROWS = 8;

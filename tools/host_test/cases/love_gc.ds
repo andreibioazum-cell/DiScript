@@ -1,0 +1,21 @@
+# GC stress inside the LÖVE loop: allocates churn every frame, retains nothing.
+n = 0
+
+def load():
+    love.graphics.setBackgroundColor(10, 12, 16)
+    print("loaded")
+
+def update(dt):
+    global n
+    n = n + 1
+    tmp = []
+    for i in range(40):
+        tmp.append({"i": i, "s": "str" + str(i), "v": [i, i * 2, i * 3]})
+    total = 0
+    for d in tmp:
+        total = total + d["i"]
+    if n % 500 == 0:
+        print("frame", n, "total", total)
+
+def draw():
+    love.graphics.clear()
