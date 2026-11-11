@@ -1,0 +1,404 @@
+void net_publish_punch(double x, double y, double dx, double dy, double punch) {
+    lock();
+    if (net.me.punch != punch)
+        net.urgent = 1;
+    net.me.punch_x = x;
+    net.me.punch_y = y;
+    net.me.punch_dx = dx;
+    net.me.punch_dy = dy;
+    net.me.punch = punch;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_publish_snow(double x, double y, double dx, double dy, double snow) {
+    lock();
+    if (net.me.snow != snow)
+        net.urgent = 1;
+    net.me.snow_x = x;
+    net.me.snow_y = y;
+    net.me.snow_dx = dx;
+    net.me.snow_dy = dy;
+    net.me.snow = snow;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_publish_turrets(double x1, double y1, double hp1, double x2, double y2, double hp2, double x3, double y3,
+                         double hp3, double count) {
+    lock();
+    if (net.me.station != count || fabs(net.me.station_hp - hp1) > 0.01 || fabs(net.me.station2_hp - hp2) > 0.01 ||
+        fabs(net.me.station3_hp - hp3) > 0.01)
+        net.urgent = 1;
+    net.me.station_x = x1;
+    net.me.station_y = y1;
+    net.me.station_hp = hp1;
+    net.me.station2_x = x2;
+    net.me.station2_y = y2;
+    net.me.station2_hp = hp2;
+    net.me.station3_x = x3;
+    net.me.station3_y = y3;
+    net.me.station3_hp = hp3;
+    net.me.station = count;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_publish_dash(double x, double y, double dx, double dy, double dash) {
+    lock();
+    if (net.me.dash != dash)
+        net.urgent = 1;
+    net.me.dash_x = x;
+    net.me.dash_y = y;
+    net.me.dash_dx = dx;
+    net.me.dash_dy = dy;
+    net.me.dash = dash;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+
+void net_publish_grab(double x, double y, double dx, double dy, double grab) {
+    lock();
+    if (net.me.grab != grab)
+        net.urgent = 1;
+    net.me.grab_x = x;
+    net.me.grab_y = y;
+    net.me.grab_dx = dx;
+    net.me.grab_dy = dy;
+    net.me.grab = grab;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_publish_universe(double x, double y, double counter) {
+    lock();
+    if (net.me.universe != counter)
+        net.urgent = 1;
+    net.me.universe_x = x;
+    net.me.universe_y = y;
+    net.me.universe = counter;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+
+void net_publish_block(double on) {
+    double b = on ? 1 : 0;
+    lock();
+    if (net.me.block != b)
+        net.urgent = 1;
+    net.me.block = b;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_publish_brick(double x, double y, double dx, double dy, double shot) {
+    lock();
+    if (net.me.brick != shot)
+        net.urgent = 1;
+    net.me.brick_x = x;
+    net.me.brick_y = y;
+    net.me.brick_dx = dx;
+    net.me.brick_dy = dy;
+    net.me.brick = shot;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+
+/* Publish a Christmas snowball launch for the other clients to simulate. */
+void net_publish_xball(double x, double y, double dx, double dy, double shot) {
+    lock();
+    if (net.me.xball != shot)
+        net.urgent = 1;
+    net.me.xball_x = x;
+    net.me.xball_y = y;
+    net.me.xball_dx = dx;
+    net.me.xball_dy = dy;
+    net.me.xball = shot;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+
+void net_publish_codecracker_super(double on) {
+    double c = on ? 1 : 0;
+    lock();
+    if (net.me.ccu != c)
+        net.urgent = 1;
+    net.me.ccu = c;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_publish_thud(double counter) {
+    lock();
+    if (net.me.thud != counter)
+        net.urgent = 1;
+    net.me.thud = counter;
+    if (net.slot >= 0) {
+        net.players[net.slot] = net.me;
+        net.players[net.slot].online = 1;
+    }
+    unlock();
+}
+void net_chat_send(const char *text) {
+    if (!net.started || !text || !*text)
+        return;
+    if (!net.run)
+        return;
+    char url[URL], body[BODY * 2], esc[CHAT_TEXT_MAX * 2], enick[64];
+    const char *nick;
+    json_escape(text, esc, sizeof(esc));
+    lock();
+    nick = net.me.nick[0] ? net.me.nick : net.uid;
+    json_escape(nick, enick, sizeof(enick));
+    unlock();
+    snprintf(url, sizeof(url), "%s/rooms/%s/chat.json", net.base, net.room);
+    snprintf(body, sizeof(body), "{\"uid\":\"%s\",\"nick\":\"%s\",\"text\":\"%s\"}", net.uid, enick, esc);
+    http_post_async(url, body);
+    LOG("chat send %s", text);
+}
+void net_chat_trim(double keep) {
+    int k = (int)keep;
+    char extra[CHAT_MAX][28];
+    int nextra = 0, drop, i;
+    if (k < 1)
+        k = 1;
+    if (k > CHAT_MAX)
+        k = CHAT_MAX;
+    lock();
+    chat_keep = k;
+    if (net.chat_count > k) {
+        drop = net.chat_count - k;
+        for (i = 0; i < drop; i++) {
+            if (net.chats[i].key[0]) {
+                strncpy(extra[nextra], net.chats[i].key, sizeof(extra[0]) - 1);
+                extra[nextra][sizeof(extra[0]) - 1] = 0;
+                nextra++;
+            }
+        }
+        memmove(net.chats, net.chats + drop, (size_t)k * sizeof(net.chats[0]));
+        net.chat_count = k;
+        if (k < CHAT_MAX)
+            memset(net.chats + k, 0, (size_t)(CHAT_MAX - k) * sizeof(net.chats[0]));
+    }
+    unlock();
+    for (i = 0; i < nextra; i++) chat_delete_key_async(extra[i]);
+}
+double net_chat_count(void) {
+    double v;
+    lock();
+    v = net.chat_count;
+    unlock();
+    return v;
+}
+const char *net_chat_text(double idx) {
+    int i = (int)idx;
+    lock();
+    if (i >= 0 && i < net.chat_count && net.chats[i].valid) {
+        strncpy(s_chat_text_ret, net.chats[i].text, sizeof(s_chat_text_ret) - 1);
+        s_chat_text_ret[sizeof(s_chat_text_ret) - 1] = '\0';
+    } else {
+        s_chat_text_ret[0] = '\0';
+    }
+    unlock();
+    return s_chat_text_ret;
+}
+
+const char *net_chat_key(double idx) {
+    static char ret[28];
+    int i = (int)idx;
+    lock();
+    if (i >= 0 && i < net.chat_count && net.chats[i].valid) {
+        strncpy(ret, net.chats[i].key, sizeof(ret) - 1);
+        ret[sizeof(ret) - 1] = '\0';
+    } else {
+        ret[0] = '\0';
+    }
+    unlock();
+    return ret;
+}
+const char *net_chat_uid(double idx) {
+    int i = (int)idx;
+    lock();
+    if (i >= 0 && i < net.chat_count && net.chats[i].valid) {
+        const char *src = net.chats[i].nick[0] ? net.chats[i].nick : net.chats[i].uid;
+        strncpy(s_chat_uid_ret, src, sizeof(s_chat_uid_ret) - 1);
+        s_chat_uid_ret[sizeof(s_chat_uid_ret) - 1] = '\0';
+    } else {
+        s_chat_uid_ret[0] = '\0';
+    }
+    unlock();
+    return s_chat_uid_ret;
+}
+static int sidx(double slot) {
+    if (!isfinite(slot) || slot < 0 || slot >= NET_SLOTS)
+        return -1;
+    return (int)slot;
+}
+double net_status(void) {
+    double v;
+    lock();
+    v = net.status;
+    unlock();
+    return v;
+}
+double net_slot(void) {
+    double v;
+    lock();
+    v = net.slot;
+    unlock();
+    return v;
+}
+double net_event(void) {
+    double v;
+    lock();
+    v = net.event;
+    unlock();
+    return v;
+}
+
+double net_banner_ts(void) {
+    double v;
+    lock();
+    v = (double)net.banner_ts;
+    unlock();
+    return v;
+}
+const char *net_banner_text(void) {
+    lock();
+    snprintf(s_banner_text_ret, sizeof(s_banner_text_ret), "%s", net.banner_text);
+    unlock();
+    return s_banner_text_ret;
+}
+const char *net_banner_color(void) {
+    lock();
+    snprintf(s_banner_color_ret, sizeof(s_banner_color_ret), "%s", net.banner_color);
+    unlock();
+    return s_banner_color_ret;
+}
+const char *net_player_nick(double slot) {
+    int i = sidx(slot);
+    lock();
+    if (i >= 0 && net.players[i].nick[0]) {
+        strncpy(s_nick_ret, net.players[i].nick, sizeof(s_nick_ret) - 1);
+        s_nick_ret[sizeof(s_nick_ret) - 1] = '\0';
+    } else {
+        s_nick_ret[0] = '\0';
+    }
+    unlock();
+    return s_nick_ret;
+}
+#define READER(name, field)                                                                                            \
+    double name(double slot) {                                                                                         \
+        int i = sidx(slot);                                                                                            \
+        double v = 0;                                                                                                  \
+        if (i >= 0) {                                                                                                  \
+            lock();                                                                                                    \
+            v = field;                                                                                                 \
+            unlock();                                                                                                  \
+        }                                                                                                              \
+        return v;                                                                                                      \
+    }
+READER(net_player_online, net.players[i].online ? 1 : 0)
+READER(net_player_x, net.players[i].x)
+READER(net_player_y, net.players[i].y)
+READER(net_player_angle, net.players[i].a)
+READER(net_player_hp, net.players[i].hp)
+READER(net_player_alive, net.players[i].alive)
+READER(net_player_punch_x, net.players[i].punch_x)
+READER(net_player_punch_y, net.players[i].punch_y)
+READER(net_player_punch_dx, net.players[i].punch_dx)
+READER(net_player_punch_dy, net.players[i].punch_dy)
+READER(net_player_punch, net.players[i].punch)
+READER(net_player_snow_x, net.players[i].snow_x)
+READER(net_player_snow_y, net.players[i].snow_y)
+READER(net_player_snow_dx, net.players[i].snow_dx)
+READER(net_player_snow_dy, net.players[i].snow_dy)
+READER(net_player_snow, net.players[i].snow)
+READER(net_player_station_x, net.players[i].station_x)
+READER(net_player_station_y, net.players[i].station_y)
+READER(net_player_station_hp, net.players[i].station_hp)
+READER(net_player_station2_x, net.players[i].station2_x)
+READER(net_player_station2_y, net.players[i].station2_y)
+READER(net_player_station2_hp, net.players[i].station2_hp)
+READER(net_player_station3_x, net.players[i].station3_x)
+READER(net_player_station3_y, net.players[i].station3_y)
+READER(net_player_station3_hp, net.players[i].station3_hp)
+READER(net_player_dash_x, net.players[i].dash_x)
+READER(net_player_dash_y, net.players[i].dash_y)
+READER(net_player_dash, net.players[i].dash)
+READER(net_player_grab_x, net.players[i].grab_x)
+READER(net_player_grab_y, net.players[i].grab_y)
+READER(net_player_grab_dx, net.players[i].grab_dx)
+READER(net_player_grab_dy, net.players[i].grab_dy)
+READER(net_player_grab, net.players[i].grab)
+READER(net_player_universe_x, net.players[i].universe_x)
+READER(net_player_universe_y, net.players[i].universe_y)
+READER(net_player_universe, net.players[i].universe)
+READER(net_player_thud, net.players[i].thud)
+READER(net_player_block, net.players[i].block)
+READER(net_player_codecracker_super, net.players[i].ccu)
+READER(net_player_brick_x, net.players[i].brick_x)
+READER(net_player_brick_y, net.players[i].brick_y)
+READER(net_player_brick_dx, net.players[i].brick_dx)
+READER(net_player_brick_dy, net.players[i].brick_dy)
+READER(net_player_brick, net.players[i].brick)
+READER(net_player_xball_x, net.players[i].xball_x)
+READER(net_player_xball_y, net.players[i].xball_y)
+READER(net_player_xball_dx, net.players[i].xball_dx)
+READER(net_player_xball_dy, net.players[i].xball_dy)
+READER(net_player_xball, net.players[i].xball)
+READER(net_player_class, net.players[i].cls)
+#undef READER
+double net_player_level(double slot) {
+    int i = sidx(slot);
+    double v = 0;
+    if (i >= 0) {
+        lock();
+        v = net.players[i].level;
+        unlock();
+    }
+    if (v < 0)
+        v = 0;
+    if (v > LEVEL_MAX)
+        v = LEVEL_MAX;
+    return v;
+}
+
+double net_player_skin(double slot) {
+    int i = sidx(slot);
+    double v = 0;
+    if (i >= 0) {
+        lock();
+        v = net.players[i].skin;
+        unlock();
+    }
+    if (v < 0)
+        v = 0;
+    if (v > SKIN_MAX)
+        v = SKIN_MAX;
+    return v;
+}

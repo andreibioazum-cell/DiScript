@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <stdio.h>
 #include <string.h>
+#include <time.h>
 
 int __android_log_print(int prio, const char *tag, const char *fmt, ...) {
     (void)prio;
@@ -23,3 +24,6 @@ int __android_log_vprint(int prio, const char *tag, const char *fmt, va_list ap)
     fputc('\n', stderr);
     return 0;
 }
+
+/* Wall-clock hook used by the DiScript stdlib (time.wall). */
+long ds_wall_clock(void) { return (long)time(NULL); }

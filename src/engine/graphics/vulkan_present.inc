@@ -119,11 +119,11 @@ static void ds_vk_end_frame_backend(void) {
     DsVkFrame *f = &vk_frames[vk_frame_cur];
     if (ds_vk_build_geometry() && geo_in > 0 && ds_vk_frame_ensure_capacity(f, geo_vn, geo_in)) {
         memcpy(f->vmap, geo_verts, geo_vn * sizeof(GeoVert));
-        memcpy(f->imap, geo_idx, geo_in * sizeof(uint32_t));
+        memcpy(f->imap, geo_idx, geo_in * sizeof(uint16_t));
 
         VkDeviceSize zero = 0;
         vkCmdBindVertexBuffers(f->cmd, 0, 1, &f->vbuf, &zero);
-        vkCmdBindIndexBuffer(f->cmd, f->ibuf, 0, VK_INDEX_TYPE_UINT32);
+        vkCmdBindIndexBuffer(f->cmd, f->ibuf, 0, VK_INDEX_TYPE_UINT16);
         ds_vk_record_draws(f->cmd);
     }
     vkCmdEndRenderPass(f->cmd);

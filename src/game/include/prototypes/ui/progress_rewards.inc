@@ -1,0 +1,16 @@
+static double nick_is_dimasi229(const char *nick);
+static double has_achievement(double bit);
+static void show_achievement_toast(double bit);
+static double grant_achievement(double bit);
+static void check_achievements(void);
+static void check_meet_eax229(void);
+static void check_buk_elf_achievement(void);
+static void save_progress(void);
+static void wheel_award_win(void);
+static void progress_reset_on_signout(void);
+static double skin_flags(void);
+static void progress_push_to_net(void);
+static void progress_normalize(void);
+static void progress_from_storage(void);
+static void settings_from_storage(void);
+static void save_settings(void);

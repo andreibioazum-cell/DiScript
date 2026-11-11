@@ -21,7 +21,7 @@ if (!add_cp(f, cp))
 return 1;
 }
 
-#define DS_FONT_HCAP 2048
+#define DS_FONT_HCAP 512
 static unsigned ds_font_hash(uint32_t cp) {
     cp ^= cp >> 16;
     cp *= 0x7feb352du;
@@ -97,7 +97,7 @@ DSFont *ds_font_create(const uint8_t *data, size_t size, int ph) {
     add_cp(f, 0x0401);
     add_cp(f, 0x0451);
 
-    if (!add_utf8(f, "·«»--°±•✓✕←↑→↓▸▾▶■●◆★↶↷≡…—–≤≥≠≈π∞")) {
+    if (!add_utf8(f, "·«»--°±•✓")) {
         ds_font_destroy(f);
         return NULL;
     }
@@ -182,7 +182,7 @@ int ds_font_ah(const DSFont *f) {
     return f ? f->ah : 0;
 }
 const uint8_t *ds_font_alpha(const DSFont *f) {
-    return f ? f->alpha : (const uint8_t *)0;
+    return f ? f->alpha : NULL;
 }
 float ds_font_lineh(const DSFont *f) {
     return f ? f->line_h : 0;

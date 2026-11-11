@@ -25,9 +25,9 @@ static int ds_vk_init_backend(ANativeWindow *window) {
     }
 
     VkApplicationInfo app = {VK_STRUCTURE_TYPE_APPLICATION_INFO};
-    app.pApplicationName = "DiScript IDE";
+    app.pApplicationName = "Cubic Battle";
     app.applicationVersion = 1;
-    app.pEngineName = "DiScript Vulkan";
+    app.pEngineName = "Cubic Battle Vulkan";
     app.engineVersion = 1;
     app.apiVersion = VK_API_VERSION_1_0;
     const char *inst_exts[] = {"VK_KHR_surface", "VK_KHR_android_surface"};
@@ -161,8 +161,8 @@ static int ds_vk_init_backend(ANativeWindow *window) {
         return 0;
     }
     VkSamplerCreateInfo smi = {VK_STRUCTURE_TYPE_SAMPLER_CREATE_INFO};
-    smi.magFilter = VK_FILTER_LINEAR;
-    smi.minFilter = VK_FILTER_LINEAR;
+    smi.magFilter = VK_FILTER_NEAREST;
+    smi.minFilter = VK_FILTER_NEAREST;
     smi.mipmapMode = VK_SAMPLER_MIPMAP_MODE_NEAREST;
     smi.addressModeU = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;
     smi.addressModeV = VK_SAMPLER_ADDRESS_MODE_CLAMP_TO_EDGE;

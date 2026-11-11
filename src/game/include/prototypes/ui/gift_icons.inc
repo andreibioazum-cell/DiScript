@@ -1,0 +1,9 @@
+static const char *gift_tex(double id);
+static void gift_shimmer_tick(void);
+static void gift_icon(double id, double x, double y, double s);
+static double gift_rarity(double id);
+static const char *gift_rarity_name(double id);
+static uint32_t gift_rarity_color(double id);
+static void gift_text_rarity(const char *s, double x, double y, double w, double h, double id, double sc);
+static void gift_text_rarity_left(const char *s, double x, double y, double h, double id, double sc);
+static double gift_shimmer_time(void);

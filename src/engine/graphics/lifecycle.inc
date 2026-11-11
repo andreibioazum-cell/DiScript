@@ -18,6 +18,7 @@ int png_reset(const char *req) {
     return load_png(n) != NULL;
 }
 
+/* Reload every cached texture from the active pack (or the packaged asset). */
 int ds_assets_reload_textures(void) {
     Texture *t;
     int count = 0;
@@ -28,18 +29,31 @@ int ds_assets_reload_textures(void) {
     return count;
 }
 
-int rgba_load_memory(const char *req, const uint32_t *rgba_pixels, int w, int h) {
+/* Replace (or create) a texture from an in-memory PNG. Used by the mod loader:
+ * a mod ships ordinary.png and the game pushes it over the shipped asset
+ * without touching assets/ on disk. Returns 1 when the texture is live. */
+int png_load_memory(const char *req, const void *data, int size) {
     const char *n = norm_name(req);
-    if (!n || !rgba_pixels || w <= 0 || h <= 0 || w > 2048 || h > 2048)
+    if (!n || !data || size <= 0 || size > (16 * 1024 * 1024))
         return 0;
+    int w = 0, h = 0, ch = 0;
+    stbi_uc *dec = stbi_load_from_memory((const stbi_uc *)data, size, &w, &h, &ch, STBI_rgb_alpha);
+    if (!dec || w <= 0 || h <= 0 || w > 2048 || h > 2048) {
+        stbi_image_free(dec);
+        ds_log_err("mod texture refused: %s", n);
+        return 0;
+    }
     Texture *t = find_tx(n);
     if (!t) {
         t = (Texture *)calloc(1, sizeof(*t));
-        if (!t)
+        if (!t) {
+            stbi_image_free(dec);
             return 0;
+        }
         t->name = strdup_safe(n);
         if (!t->name) {
             free(t);
+            stbi_image_free(dec);
             return 0;
         }
         t->next = textures;
@@ -47,15 +61,19 @@ int rgba_load_memory(const char *req, const uint32_t *rgba_pixels, int w, int h)
     }
     size_t pc = (size_t)w * (size_t)h;
     uint32_t *px = (uint32_t *)malloc(pc * sizeof(*px));
-    if (!px)
+    if (!px) {
+        stbi_image_free(dec);
         return 0;
+    }
     int opaque = 1;
     for (size_t i = 0; i < pc; i++) {
-        uint32_t v = rgba_pixels[i];
-        px[i] = v;
-        if ((v >> 24) != 255u)
+        uint8_t a = dec[i * 4 + 3];
+        px[i] = dec[i * 4] | ((uint32_t)dec[i * 4 + 1] << 8) | ((uint32_t)dec[i * 4 + 2] << 16) |
+                ((uint32_t)a << 24);
+        if (a != 255)
             opaque = 0;
     }
+    stbi_image_free(dec);
     ds_vk_texture_gpu_release(t);
     free(t->gray_backup);
     t->gray_backup = NULL;
@@ -67,35 +85,12 @@ int rgba_load_memory(const char *req, const uint32_t *rgba_pixels, int w, int h)
     t->upload_tries = 0;
     texture_gray_apply(t);
     ds_vk_pending_texture(t);
+    ds_log("mod texture applied: %s (%dx%d)", n, w, h);
     return 1;
 }
 
-int png_load_memory(const char *req, const void *data, int size) {
-    const char *n = norm_name(req);
-    if (!n || !data || size <= 0 || size > (16 * 1024 * 1024))
-        return 0;
-    int w = 0, h = 0, ch = 0;
-    stbi_uc *dec = stbi_load_from_memory((const stbi_uc *)data, size, &w, &h, &ch, STBI_rgb_alpha);
-    if (!dec || w <= 0 || h <= 0 || w > 2048 || h > 2048) {
-        stbi_image_free(dec);
-        return 0;
-    }
-    size_t pc = (size_t)w * (size_t)h;
-    uint32_t *px = (uint32_t *)malloc(pc * sizeof(*px));
-    if (!px) {
-        stbi_image_free(dec);
-        return 0;
-    }
-    for (size_t i = 0; i < pc; i++) {
-        px[i] = dec[i * 4] | ((uint32_t)dec[i * 4 + 1] << 8) | ((uint32_t)dec[i * 4 + 2] << 16) |
-                ((uint32_t)dec[i * 4 + 3] << 24);
-    }
-    stbi_image_free(dec);
-    int ok = rgba_load_memory(n, px, w, h);
-    free(px);
-    return ok;
-}
-
+/* Read a whole packaged asset into a caller buffer (mod example zip, etc.). */
+/* Texture pack export needs the size before it allocates the buffer. */
 static int ensure_font(void) {
     if (font)
         return 1;
@@ -105,10 +100,8 @@ static int ensure_font(void) {
     uint8_t *data = NULL;
     size_t sz = 0;
     if (!open_asset(DS_FONT_ASSET, &data, &sz)) {
-        if (!open_asset("fonts/ComicRelief-Regular.ttf", &data, &sz)) {
-            ds_log_err("font not loaded: %s not found", DS_FONT_ASSET);
-            return 0;
-        }
+        ds_log_err("font not loaded: %s not found", DS_FONT_ASSET);
+        return 0;
     }
     font = ds_font_create(data, sz, DS_FONT_PIXEL_HEIGHT);
     free(data);
@@ -125,7 +118,7 @@ static DSCmd *push(DSCommand t) {
     if (!frame_open)
         return NULL;
     if (cmd_n == cmd_cap) {
-        size_t cap = cmd_cap ? cmd_cap * 2 : 512;
+        size_t cap = cmd_cap ? cmd_cap * 2 : 256;
         if (cap < cmd_n || cap > SIZE_MAX / sizeof(*cmds)) {
             ds_runtime_error("too many renderer commands");
             return NULL;
@@ -143,13 +136,21 @@ static DSCmd *push(DSCommand t) {
     c->t = t;
     return c;
 }
-
 static void discard_commands(void) {
+    for (size_t i = 0; i < cmd_n; i++) {
+        if (cmds[i].t == DS_CMD_TEXT) {
+            free(cmds[i].v.tt.s);
+            cmds[i].v.tt.s = NULL;
+        } else if (cmds[i].t == DS_CMD_TEXT_RAINBOW) {
+            free(cmds[i].v.tr.s);
+            cmds[i].v.tr.s = NULL;
+        }
+    }
     cmd_n = 0;
-    cmd_arena_reset();
 }
 
 void ds_release_assets(void) {
+
     for (Texture *t = textures; t; t = t->next) ds_vk_texture_gpu_release(t);
     ds_vk_pending_reset();
     ds_vk_font_gpu_release();
@@ -168,7 +169,6 @@ void ds_release_assets(void) {
     font_tried = 0;
     amgr = NULL;
 }
-
 void ds_set_asset_manager(AAssetManager *a) {
     if (amgr != a) {
         ds_release_assets();
@@ -177,23 +177,8 @@ void ds_set_asset_manager(AAssetManager *a) {
     if (!amgr)
         ds_runtime_error("Android asset manager is unavailable");
 }
-
-int png_load(const char *n) { return load_png(n) != NULL; }
-
-int tex_size(const char *name, int *out_w, int *out_h) {
-    const char *n = norm_name(name);
-    if (!n)
-        return 0;
-    Texture *t = find_tx(n);
-    if (!t)
-        t = load_png(n);
-    if (!t || !t->pixels)
-        return 0;
-    if (out_w)
-        *out_w = t->w;
-    if (out_h)
-        *out_h = t->h;
-    return 1;
+int png_load(const char *n) {
+    return load_png(n) != NULL;
 }
 
 int tex_ready(const char *name) {
@@ -201,6 +186,7 @@ int tex_ready(const char *name) {
     if (!n)
         return 0;
     Texture *t = find_tx(n);
+
     if (!t)
         t = load_png(n);
     if (!t || !t->pixels)
@@ -208,6 +194,7 @@ int tex_ready(const char *name) {
     if (t->gpu.uploaded)
         return 1;
     ds_vk_pending_texture(t);
+    /* Wait until GPU upload completes before marking drawable. */
     return 0;
 }
 
@@ -221,20 +208,6 @@ void rect(float x, float y, float w, float h, uint32_t c) {
     p->v.rc.h = h;
     p->v.rc.c = pack_c(c);
 }
-
-void rect_line(float x, float y, float w, float h, float th, uint32_t c) {
-    if (w <= 0 || h <= 0 || th <= 0)
-        return;
-    if (th * 2.0f >= w || th * 2.0f >= h) {
-        rect(x, y, w, h, c);
-        return;
-    }
-    rect(x, y, w, th, c);
-    rect(x, y + h - th, w, th, c);
-    rect(x, y + th, th, h - th * 2.0f, c);
-    rect(x + w - th, y + th, th, h - th * 2.0f, c);
-}
-
 void roundrect(float x, float y, float w, float h, float r, uint32_t c) {
     DSCmd *p = push(DS_CMD_ROUND);
     if (!p)
@@ -258,7 +231,6 @@ void rect_rot(float x, float y, float w, float h, float ang, uint32_t c) {
     p->v.rot.ang = ang;
     p->v.rot.c = pack_c(c);
 }
-
 void circle(float x, float y, float r, uint32_t c) {
     DSCmd *p = push(DS_CMD_CIRCLE);
     if (!p)
@@ -268,33 +240,6 @@ void circle(float x, float y, float r, uint32_t c) {
     p->v.ci.r = r;
     p->v.ci.c = pack_c(c);
 }
-
-void ellipse_fill(float x, float y, float rx, float ry, uint32_t c) {
-    DSCmd *p = push(DS_CMD_ELLIPSE);
-    if (!p)
-        return;
-    p->v.el.x = x;
-    p->v.el.y = y;
-    p->v.el.rx = rx;
-    p->v.el.ry = ry;
-    p->v.el.c = pack_c(c);
-}
-
-void ellipse_line(float x, float y, float rx, float ry, float thickness, uint32_t c) {
-    if (rx <= 0 || ry <= 0 || thickness <= 0)
-        return;
-    int segs = geo_circle_segs(rx > ry ? rx : ry);
-    float prev_x = x + rx, prev_y = y;
-    for (int i = 1; i <= segs; i++) {
-        float a = (float)i * (float)(2.0 * M_PI) / (float)segs;
-        float nx = x + cosf(a) * rx;
-        float ny = y + sinf(a) * ry;
-        line(prev_x, prev_y, nx, ny, thickness, c);
-        prev_x = nx;
-        prev_y = ny;
-    }
-}
-
 void sector(float x, float y, float r, float start_deg, float sweep_deg, uint32_t c) {
     DSCmd *p = push(DS_CMD_SECTOR);
     if (!p)
@@ -306,31 +251,6 @@ void sector(float x, float y, float r, float start_deg, float sweep_deg, uint32_
     p->v.sec.sweep_deg = sweep_deg;
     p->v.sec.c = pack_c(c);
 }
-
-void arc_line(float x, float y, float r, float start_deg, float sweep_deg, float thickness, int closed_pie, uint32_t c) {
-    if (r <= 0 || sweep_deg == 0 || thickness <= 0)
-        return;
-    int n = (int)ceilf(fabsf(sweep_deg) / 6.0f);
-    if (n < 2)
-        n = 2;
-    if (n > 72)
-        n = 72;
-    float a0 = start_deg * (float)(M_PI / 180.0);
-    float px = x + cosf(a0) * r, py = y + sinf(a0) * r;
-    float fx = px, fy = py;
-    for (int i = 1; i <= n; i++) {
-        float a = (start_deg + sweep_deg * ((float)i / (float)n)) * (float)(M_PI / 180.0);
-        float nx = x + cosf(a) * r, ny = y + sinf(a) * r;
-        line(px, py, nx, ny, thickness, c);
-        px = nx;
-        py = ny;
-    }
-    if (closed_pie) {
-        line(x, y, fx, fy, thickness, c);
-        line(px, py, x, y, thickness, c);
-    }
-}
-
 void ring(float x, float y, float r, float t, uint32_t c) {
     DSCmd *p = push(DS_CMD_RING);
     if (!p)
@@ -341,7 +261,6 @@ void ring(float x, float y, float r, float t, uint32_t c) {
     p->v.rg.th = t;
     p->v.rg.c = pack_c(c);
 }
-
 void line(float x1, float y1, float x2, float y2, float thickness, uint32_t c) {
     DSCmd *p = push(DS_CMD_LINE);
     if (!p)
@@ -353,32 +272,6 @@ void line(float x1, float y1, float x2, float y2, float thickness, uint32_t c) {
     p->v.ln.th = thickness;
     p->v.ln.c = pack_c(c);
 }
-
-void poly_fill(const float *xy, int point_count, uint32_t c) {
-    if (!frame_open || !xy || point_count < 3)
-        return;
-    size_t bytes = (size_t)point_count * 2 * sizeof(float);
-    float *copy = (float *)cmd_arena_alloc(bytes, sizeof(float));
-    if (!copy)
-        return;
-    memcpy(copy, xy, bytes);
-    DSCmd *p = push(DS_CMD_POLY);
-    if (!p)
-        return;
-    p->v.poly.xy = copy;
-    p->v.poly.count = point_count;
-    p->v.poly.c = pack_c(c);
-}
-
-void poly_line(const float *xy, int point_count, float thickness, int closed, uint32_t c) {
-    if (!xy || point_count < 2 || thickness <= 0)
-        return;
-    for (int i = 0; i + 1 < point_count; i++)
-        line(xy[i * 2], xy[i * 2 + 1], xy[(i + 1) * 2], xy[(i + 1) * 2 + 1], thickness, c);
-    if (closed && point_count >= 3)
-        line(xy[(point_count - 1) * 2], xy[(point_count - 1) * 2 + 1], xy[0], xy[1], thickness, c);
-}
-
 void tex(float x, float y, const char *name, float a, float s) {
     if (!frame_open)
         return;
@@ -390,11 +283,10 @@ void tex(float x, float y, const char *name, float a, float s) {
         return;
     p->v.tx.x = x;
     p->v.tx.y = y;
-    p->v.tx.a = a * (float)(M_PI / 180.0);
+    p->v.tx.a = a;
     p->v.tx.sc = s;
     p->v.tx.tx = t;
 }
-
 void tex_tint(float x, float y, const char *name, float a, float s, uint32_t c) {
     if (!frame_open)
         return;
@@ -406,103 +298,106 @@ void tex_tint(float x, float y, const char *name, float a, float s, uint32_t c) 
         return;
     p->v.tx2.x = x;
     p->v.tx2.y = y;
-    p->v.tx2.a = a * (float)(M_PI / 180.0);
+    p->v.tx2.a = a;
     p->v.tx2.sc = s;
     p->v.tx2.tx = t;
     p->v.tx2.c = pack_c(c);
 }
 
-void tex_ex(const char *name, float x, float y, float angle_rad, float sx, float sy, float ox, float oy, uint32_t tint) {
-    if (!frame_open || !name)
-        return;
-    const char *n = norm_name(name);
-    if (!n)
-        return;
-    Texture *t = find_tx(n);
-    if (!t)
-        t = load_png(n);
-    if (!t || !t->pixels)
-        return;
-    if (!t->gpu.uploaded)
-        ds_vk_pending_texture(t);
-    DSCmd *p = push(DS_CMD_TEX_EX);
-    if (!p)
-        return;
-    p->v.txe.x = x;
-    p->v.txe.y = y;
-    p->v.txe.ang_rad = angle_rad;
-    p->v.txe.sx = sx;
-    p->v.txe.sy = sy;
-    p->v.txe.ox = ox;
-    p->v.txe.oy = oy;
-    p->v.txe.tx = t;
-    p->v.txe.c = pack_c(tint);
-}
+static uint32_t text_force_white(uint32_t c) {
 
-void text_n(const char *s, size_t byte_len, float x, float y, uint32_t c, float sc) {
-    if (!frame_open || !s || byte_len == 0 || sc <= 0.0f || !ensure_font())
-        return;
-    char *copy = cmd_arena_str_n(s, byte_len);
-    if (!copy)
+    if (c == RGB(255,68,68) || c == RGB(79,195,247) || c == RGB(255,51,51) || c == RGB(51,168,255) || c == RGB(255,213,74) || c == RGB(255,221,51))
+        return c;
+
+    if ((c & 0x00ffffffu) == 0x00202020u)
+        return c;
+    return (c & 0xff000000u) | 0x00ffffffu;
+}
+void text_scaled(const char *s, float x, float y, uint32_t c, float sc) {
+    if (!frame_open || !s || !ensure_font())
         return;
     DSCmd *p = push(DS_CMD_TEXT);
     if (!p)
         return;
-    p->v.tt.s = copy;
+
+    p->v.tt.s = strdup_safe(s);
+    if (!p->v.tt.s) {
+                /* Drop text command on allocation failure. */
+                ds_log_err("renderer: no memory to copy text");
+        cmd_n = cmd_n - 1;
+        return;
+    }
     p->v.tt.x = x;
     p->v.tt.y = y;
     p->v.tt.sc = sc;
-    p->v.tt.c = pack_c(c);
+    p->v.tt.c = pack_c(text_force_white(c));
 }
-
-void text_scaled(const char *s, float x, float y, uint32_t c, float sc) {
-    if (!s || !*s)
-        return;
-    text_n(s, strlen(s), x, y, c, sc);
-}
-
 void text(const char *s, float x, float y, uint32_t c) {
     text_scaled(s, x, y, c, 1.0f);
 }
 
-float text_width_n(const char *s, size_t byte_len, float scale) {
-    if (!s || byte_len == 0 || scale <= 0.0f || !ensure_font())
-        return 0.0f;
-    const char *end = s + byte_len;
-    float cur = 0.0f, best = 0.0f;
-    const char *p = s;
-    while (p < end && *p) {
-        int cp = utf8_dec(&p);
-        if (p > end)
-            break;
-        if (cp == '\n') {
-            if (cur > best)
-                best = cur;
-            cur = 0.0f;
-            continue;
-        }
+int text_ink_width(const char *s) {
+    if (!s || !ensure_font())
+        return 0;
+    const DSFontGlyph *ref = ds_font_glyph(font, 'S');
+    float pen = -(ref ? ref->bearing_x : 0);
+    int first = 1;
+    float minL = 0, maxR = 0;
+    for (const char *c = s; *c;) {
+        int cp = utf8_dec(&c);
         const DSFontGlyph *g = ds_font_glyph(font, (uint32_t)cp);
-        if (g)
-            cur += g->advance * scale;
+        if (!g)
+            continue;
+        float dl = pen + g->bearing_x, dr = dl + g->width;
+        if (first || dl < minL)
+            minL = dl;
+        if (first || dr > maxR)
+            maxR = dr;
+        first = 0;
+        pen += g->advance;
     }
-    return cur > best ? cur : best;
+    return first ? 0 : (int)(maxR - minL + 0.5f);
 }
+int text_ink_height(const char *s) {
+    if (!s || !ensure_font())
+        return 0;
+    const DSFontGlyph *ref = ds_font_glyph(font, 'S');
+    float base = ref ? ref->bearing_top : 0;
+    int first = 1;
+    float minT = 0, maxB = 0;
+    for (const char *c = s; *c;) {
+        int cp = utf8_dec(&c);
+        const DSFontGlyph *g = ds_font_glyph(font, (uint32_t)cp);
+        if (!g)
+            continue;
+        float dt = base - g->bearing_top, db = dt + g->height;
 
-float text_width(const char *s, float scale) {
-    return s ? text_width_n(s, strlen(s), scale) : 0.0f;
+        if (db > base)
+            db = base;
+        if (first || dt < minT)
+            minT = dt;
+        if (first || db > maxB)
+            maxB = db;
+        first = 0;
+    }
+    return first ? 0 : (int)(maxB - minT + 0.5f);
 }
-
-float text_line_height(float scale) {
-    if (scale <= 0.0f || !ensure_font())
-        return (float)DS_FONT_PIXEL_HEIGHT * (scale > 0.0f ? scale : 1.0f);
-    return ds_font_lineh(font) * scale;
-}
-
-float text_mono_advance(float scale) {
-    if (scale <= 0.0f || !ensure_font())
-        return 14.0f * (scale > 0.0f ? scale : 1.0f);
-    const DSFontGlyph *g = ds_font_glyph(font, 'M');
-    if (!g)
-        g = ds_font_glyph(font, '0');
-    return g ? g->advance * scale : 14.0f * scale;
+int text_ink_top(const char *s) {
+    if (!s || !ensure_font())
+        return 0;
+    const DSFontGlyph *ref = ds_font_glyph(font, 'S');
+    float base = ref ? ref->bearing_top : 0;
+    int first = 1;
+    float minT = 0;
+    for (const char *c = s; *c;) {
+        int cp = utf8_dec(&c);
+        const DSFontGlyph *g = ds_font_glyph(font, (uint32_t)cp);
+        if (!g)
+            continue;
+        float dt = base - g->bearing_top;
+        if (first || dt < minT)
+            minT = dt;
+        first = 0;
+    }
+    return first ? 0 : (int)floorf(minT);
 }

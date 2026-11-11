@@ -30,7 +30,6 @@ typedef struct {
     int height;
     float u0, v0, u1, v1;
 } DSFontGlyph;
-
 DSFont *ds_font_create(const uint8_t *data, size_t size, int ph);
 void ds_font_destroy(DSFont *font);
 const DSFontGlyph *ds_font_glyph(const DSFont *font, uint32_t cp);
@@ -52,8 +51,10 @@ struct Texture {
     Texture *next;
     char *name;
     int w, h, opaque;
+
     int upload_tries;
     uint32_t *pixels;
+    /* Original pixels saved while grayscale filter is active. */
     uint32_t *gray_backup;
     TexGpu gpu;
 };
@@ -72,12 +73,8 @@ typedef enum {
     DS_CMD_TEX_FADE,
     DS_CMD_TEXT_RAINBOW,
     DS_CMD_SCISSOR,
-    DS_CMD_SECTOR,
-    DS_CMD_ELLIPSE,
-    DS_CMD_POLY,
-    DS_CMD_TEX_EX
+    DS_CMD_SECTOR
 } DSCommand;
-
 typedef struct {
     DSCommand t;
     union {
@@ -94,10 +91,6 @@ typedef struct {
             uint32_t c;
         } ci;
         struct {
-            float x, y, rx, ry;
-            uint32_t c;
-        } el;
-        struct {
             float x, y, r, th;
             uint32_t c;
         } rg;
@@ -109,11 +102,6 @@ typedef struct {
             float x, y, r, start_deg, sweep_deg;
             uint32_t c;
         } sec;
-        struct {
-            const float *xy;
-            int count;
-            uint32_t c;
-        } poly;
         struct {
             float x, y, a, sc;
             Texture *tx;
@@ -127,94 +115,26 @@ typedef struct {
             float x, y, sc, r;
             Texture *tx;
         } txr;
-        struct {
-            float x, y, ang_rad, sx, sy, ox, oy;
-            Texture *tx;
-            uint32_t c;
-        } txe;
+
         struct {
             float x, y, w, h, ang;
             uint32_t c;
         } rot;
         struct {
-            const char *s;
+            char *s;
             float x, y, sc;
             uint32_t c;
         } tt;
+        /* Rainbow or subtle base-color shimmer text command payload. */
         struct {
-            const char *s;
+            char *s;
             float x, y, sc, hue;
             uint32_t c;
         } tr;
     } v;
 } DSCmd;
 
-/* Per-frame scratch arena for zero-malloc text & polygon command payloads. */
-typedef struct CmdArenaBlock {
-    struct CmdArenaBlock *next;
-    size_t cap;
-    size_t used;
-    uint8_t data[];
-} CmdArenaBlock;
-
-static CmdArenaBlock *cmd_arena_head = NULL;
-
-static void *cmd_arena_alloc(size_t bytes, size_t align) {
-    if (align < 1)
-        align = 1;
-    for (CmdArenaBlock *b = cmd_arena_head; b; b = b->next) {
-        size_t off = (b->used + (align - 1)) & ~(align - 1);
-        if (off + bytes <= b->cap) {
-            b->used = off + bytes;
-            return b->data + off;
-        }
-    }
-    size_t bcap = bytes < 65536 ? 65536 : bytes * 2;
-    CmdArenaBlock *nb = (CmdArenaBlock *)malloc(sizeof(CmdArenaBlock) + bcap);
-    if (!nb)
-        return NULL;
-    nb->cap = bcap;
-    nb->used = bytes;
-    nb->next = cmd_arena_head;
-    cmd_arena_head = nb;
-    return nb->data;
-}
-
-static char *cmd_arena_str_n(const char *s, size_t len) {
-    char *dst = (char *)cmd_arena_alloc(len + 1, 1);
-    if (!dst)
-        return NULL;
-    if (len > 0 && s)
-        memcpy(dst, s, len);
-    dst[len] = '\0';
-    return dst;
-}
-
-static void cmd_arena_reset(void) {
-    /* Keep the largest first block, free any overflow blocks. */
-    if (!cmd_arena_head)
-        return;
-    CmdArenaBlock *keep = cmd_arena_head;
-    CmdArenaBlock *cur = keep->next;
-    keep->next = NULL;
-    keep->used = 0;
-    while (cur) {
-        CmdArenaBlock *nx = cur->next;
-        free(cur);
-        cur = nx;
-    }
-}
-
-static void cmd_arena_free_all(void) {
-    CmdArenaBlock *cur = cmd_arena_head;
-    cmd_arena_head = NULL;
-    while (cur) {
-        CmdArenaBlock *nx = cur->next;
-        free(cur);
-        cur = nx;
-    }
-}
-
+/* Shared grayscale filter and screen-shake state. */
 static int gfx_gray_on;
 static float gfx_shake_dx, gfx_shake_dy;
 static float gfx_shake_amp, gfx_shake_left, gfx_shake_dur;
@@ -224,22 +144,25 @@ static uint32_t pack_c(uint32_t c) {
     if (!a)
         a = 255;
     if (gfx_gray_on) {
+        /* Rec. 601 luma weights. */
         uint32_t y = (299 * r + 587 * g + 114 * b) / 1000;
         r = g = b = y;
     }
     return r | (g << 8) | (b << 16) | (a << 24);
 }
-
 static char *strdup_safe(const char *s) {
-    if (!s)
-        s = "";
+    if (!s) {
+        char *o = (char *)malloc(1);
+        if (o)
+            o[0] = '\0';
+        return o;
+    }
     size_t n = strlen(s) + 1;
     char *o = (char *)malloc(n);
     if (o)
         memcpy(o, s, n);
     return o;
 }
-
 static int utf8_dec(const char **c) {
     const uint8_t *p = (const uint8_t *)*c;
     int r;

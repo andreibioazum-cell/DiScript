@@ -1,0 +1,18 @@
+static double astra_zone_reach(double lv);
+static double astra_zone_width(double lv);
+static double astra_cd_for(double lv);
+static void astra_swing_now(void);
+static void tick_astra_poses(void);
+static void tick_grab_quiet(void);
+static double astra_zone_hits_enemy(double gx, double gy, double gdx, double gdy, double lv);
+static double astra_locked(void);
+static double astra_parry_active(void);
+static void start_astra_parry_now(void);
+static void astra_on_parry_block(void);
+static double player_grabbed(void);
+static void start_grab_now(void);
+static void astra_release(double landed);
+static void tick_player_throw(void);
+static void tick_enemy_throw(void);
+static double astra_strike_hit_check(double step_back);
+static void tick_astra(void);

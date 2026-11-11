@@ -1,0 +1,14 @@
+double columns_phase;
+double columns_t;
+double columns_shot_active;
+double columns_shot_x;
+double columns_shot_y;
+double columns_shot_cd;
+double columns_thrown;
+double columns_dy;
+double columns_shot_speed;
+double columns_shot_damage;
+double columns_shot_total;
+double columns_shot_interval;
+double columns_exit_speed;
+double columns_size;

@@ -1,0 +1,15 @@
+chat_bubble_time = 4;
+chat_bubble_fade = 0.6;
+chat_bubble_alpha = 235;
+chat_bubble_pad = 10;
+chat_bubble_h = 30;
+chat_bubble_ink = 0x00202020;
+chat_seen_key = "";
+bubble_msg0 = "";
+bubble_msg1 = "";
+bubble_msg2 = "";
+bubble_msg3 = "";
+bubble_t0 = 0;
+bubble_t1 = 0;
+bubble_t2 = 0;
+bubble_t3 = 0;

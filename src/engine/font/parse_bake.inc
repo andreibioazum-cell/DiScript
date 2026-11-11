@@ -7,7 +7,7 @@ void ds_font_destroy(DSFont *font);
 #define DS_FONT_ATLAS_W 1024
 #define DS_FONT_ATLAS_H 2048
 #define DS_FONT_SS 4
-#define DS_FONT_MAX 800
+#define DS_FONT_MAX 640
 #define ARG_WORDS 0x0001
 #define ARG_XY 0x0002
 #define HAVE_SCALE 0x0008

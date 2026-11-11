@@ -1,5 +1,6 @@
 /* Build glyph quads for solid, rainbow, and subtle shimmer text runs. */
 
+/* Map hue in [0, 1) to packed RGB. */
 static uint32_t rainbow_rgb(float hue) {
     hue = hue - floorf(hue);
     float r = fabsf(hue * 6.0f - 3.0f) - 1.0f;
@@ -8,10 +9,11 @@ static uint32_t rainbow_rgb(float hue) {
     r = r < 0 ? 0 : (r > 1 ? 1 : r);
     g = g < 0 ? 0 : (g > 1 ? 1 : g);
     b = b < 0 ? 0 : (b > 1 ? 1 : b);
-    return 0xFF000000u | ((uint32_t)(r * 255.0f) << 16) | ((uint32_t)(g * 255.0f) << 8) |
+    return RGB(0,0,0) | ((uint32_t)(r * 255.0f) << 16) | ((uint32_t)(g * 255.0f) << 8) |
            (uint32_t)(b * 255.0f);
 }
 
+/* Shift base color gently in hue and brightness for subtle per-glyph shimmer. */
 static uint32_t shimmer_rgb(uint32_t base, float w) {
     uint32_t a = (base >> 24) & 0xFFu;
     if (!a)
@@ -60,13 +62,18 @@ static int geo_text_shimmer(const char *s, float x, float y, uint32_t base_c, fl
                             const DSFont *fnt) {
     if (!s || !fnt || !isfinite(x + y + sc + phase) || sc <= 0)
         return 1;
-    float asc = ds_font_ascent(fnt);
-    float pen = x, base = y + asc * sc;
+    float asc = ds_font_ascent(fnt), lb = 0;
+    const DSFontGlyph *ref = ds_font_glyph(fnt, 'S');
+    if (ref) {
+        asc = ref->bearing_top;
+        lb = ref->bearing_x;
+    }
+    float pen = x - lb * sc, base = y + asc * sc;
     int idx = 0;
     for (const char *cur = s; *cur;) {
         int cp = utf8_dec(&cur);
         if (cp == '\n') {
-            pen = x;
+            pen = x - lb * sc;
             base += ds_font_lineh(fnt) * sc;
             idx = 0;
             continue;
@@ -94,13 +101,18 @@ static int geo_text_shimmer(const char *s, float x, float y, uint32_t base_c, fl
 static int geo_text_rainbow(const char *s, float x, float y, float sc, float hue, const DSFont *fnt) {
     if (!s || !fnt || !isfinite(x + y + sc + hue) || sc <= 0)
         return 1;
-    float asc = ds_font_ascent(fnt);
-    float pen = x, base = y + asc * sc;
+    float asc = ds_font_ascent(fnt), lb = 0;
+    const DSFontGlyph *ref = ds_font_glyph(fnt, 'S');
+    if (ref) {
+        asc = ref->bearing_top;
+        lb = ref->bearing_x;
+    }
+    float pen = x - lb * sc, base = y + asc * sc;
     int idx = 0;
     for (const char *cur = s; *cur;) {
         int cp = utf8_dec(&cur);
         if (cp == '\n') {
-            pen = x;
+            pen = x - lb * sc;
             base += ds_font_lineh(fnt) * sc;
             idx = 0;
             continue;
@@ -128,12 +140,17 @@ static int geo_text_rainbow(const char *s, float x, float y, float sc, float hue
 static int geo_text(const char *s, float x, float y, uint32_t c, float sc, const DSFont *fnt) {
     if (!s || !fnt || !isfinite(x + y + sc) || sc <= 0)
         return 1;
-    float asc = ds_font_ascent(fnt);
-    float pen = x, base = y + asc * sc;
+    float asc = ds_font_ascent(fnt), lb = 0;
+    const DSFontGlyph *ref = ds_font_glyph(fnt, 'S');
+    if (ref) {
+        asc = ref->bearing_top;
+        lb = ref->bearing_x;
+    }
+    float pen = x - lb * sc, base = y + asc * sc;
     for (const char *cur = s; *cur;) {
         int cp = utf8_dec(&cur);
         if (cp == '\n') {
-            pen = x;
+            pen = x - lb * sc;
             base += ds_font_lineh(fnt) * sc;
             continue;
         }

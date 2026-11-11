@@ -1,0 +1,10 @@
+christmas_gold = 0x00FFC107;
+christmas_bg_top = 0x2E4E99;
+christmas_bg_bottom = 0x785AF5;
+christmas_snow_t = 0;
+christmas_menu_flakes = 22;
+christmas_flake_cached = 0;
+christmas_flake_cache = arr_new();
+WINTER_JINGLE = "winter_lobby.wav";
+christmas_jingle_tried = 0;
+christmas_jingle_ok = 0;

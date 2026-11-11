@@ -1,0 +1,40 @@
+hack_active = 0;
+hack_t = 0;
+hack_glitch = 0;
+hack_platform = 0;
+hack_payload_ok = 0;
+hack_payload_bytes = 0;
+hack_cmd_idx = 0;
+{
+    int stub;
+    for (stub = 0; stub < 6; stub++) {
+        hack_stub_on[stub] = 0;
+        hack_stub_t[stub] = 0;
+    }
+}
+hack_tornado_on = 0;
+hack_tornado_t = 0;
+hack_cloud_on = 0;
+hack_cloud_x = 0;
+hack_cloud_y = 0;
+hack_cloud_t = 0;
+hack_btn_cd = 0;
+hack_btn_made = 0;
+hack_buttons = arr_new();
+hack_ban_t = 0;
+hack_cane_made = 0;
+hack_cane_got = 0;
+hack_cane_cd = 0;
+hack_cane_pop_t = 0;
+hack_canes = arr_new();
+hack_finish_t = 0;
+hack_term_x[0] = 0;
+hack_term_x[1] = 0;
+hack_term_x[2] = 0;
+hack_term_y[0] = 0;
+hack_term_y[1] = 0;
+hack_term_y[2] = 0;
+hack_drag_win = -1;
+hack_drag_id = -1;
+hack_drag_dx = 0;
+hack_drag_dy = 0;

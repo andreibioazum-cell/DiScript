@@ -1,0 +1,1516 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>CB4 - админ-панель Firebase</title>
+<style>
+  :root{
+    --bg:#0e1116; --panel:#161b22; --panel2:#1c2430; --line:#2a3441;
+    --txt:#e6edf3; --dim:#8b98a5; --acc:#4fc3f7; --red:#ff4444;
+    --grn:#3fb950; --yel:#d29922;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;background:var(--bg);color:var(--txt);
+       font:14px/1.45 system-ui,Segoe UI,Roboto,sans-serif}
+  header{padding:14px 18px;background:var(--panel);border-bottom:1px solid var(--line);
+         display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  h1{font-size:17px;margin:0 14px 0 0}
+  .tag{font-size:12px;color:var(--dim)}
+  main{padding:18px;max-width:1180px;margin:0 auto}
+  section{background:var(--panel);border:1px solid var(--line);border-radius:10px;
+          padding:14px 16px;margin-bottom:16px}
+  h2{font-size:14px;margin:0 0 10px;color:var(--acc);text-transform:uppercase;letter-spacing:.5px}
+  h3{font-size:13px;margin:14px 0 8px;color:var(--dim);text-transform:uppercase;letter-spacing:.4px}
+  input,button,select,textarea{font:inherit}
+  input,select,textarea{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+        border-radius:7px;padding:7px 10px}
+  input:focus,textarea:focus{outline:1px solid var(--acc)}
+  input[type=file]{padding:6px}
+  button{background:var(--panel2);color:var(--txt);border:1px solid var(--line);
+         border-radius:7px;padding:8px 14px;cursor:pointer}
+  button:active{transform:translateY(1px)}
+  button:disabled{opacity:.45;cursor:not-allowed}
+  button.primary{background:#1f6feb;border-color:#1f6feb}
+  button.danger{background:#7d1c1c;border-color:#a33}
+  button.ok{background:#1a5c2c;border-color:#2b7a41}
+  button.on{background:#1a5c2c;border-color:#2b7a41}
+  .row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+  .grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:10px}
+  .card{background:var(--panel2);border:1px solid var(--line);border-radius:8px;padding:10px 12px}
+  .card b{display:block;font-size:20px}
+  pre,#log{background:#0b0f14;border:1px solid var(--line);border-radius:8px;padding:10px;
+       max-height:320px;overflow:auto;font:12px/1.5 ui-monospace,Consolas,monospace;
+       white-space:pre-wrap;word-break:break-word}
+  .item{display:flex;gap:9px;align-items:flex-start;padding:6px 8px;border-bottom:1px solid var(--line)}
+  .item:last-child{border-bottom:0}
+  .item code{color:var(--yel);font:12px ui-monospace,monospace}
+  .why{color:var(--dim);font-size:12px}
+  .list{max-height:420px;overflow:auto;background:var(--panel2);border:1px solid var(--line);border-radius:8px}
+  .muted{color:var(--dim)}
+  .err{color:var(--red)} .good{color:var(--grn)} .warn{color:var(--yel)}
+  .hide{display:none}
+  label.chk{display:flex;gap:7px;align-items:center;font-size:13px}
+  .sp{flex:1}
+  /* Sticky error banner for uncaught script or handler failures. */
+  .fatal{position:sticky;top:0;z-index:99;margin:0;padding:12px 18px;background:#5c1414;
+         color:#fff;border-bottom:2px solid var(--red);font:13px/1.5 ui-monospace,Consolas,monospace;
+         white-space:pre-wrap}
+  .pill{font-size:11px;padding:2px 8px;border-radius:999px;border:1px solid var(--line);
+        background:var(--panel2);color:var(--dim)}
+  .pill.live{border-color:#2b7a41;color:var(--grn)}
+</style>
+</head>
+<body>
+<div id="fatal" class="hide"></div>
+<header>
+  <h1>CB4 - админ-панель Realtime Database</h1>
+  <span class="tag" id="who">Не авторизован</span>
+  <span class="pill" id="modePill">Боевая база</span>
+  <span class="sp"></span>
+  <button id="selftest" title="Проверить, что все кнопки страницы привязаны к обработчикам">Самопроверка</button>
+  <button id="logout" class="hide">Выйти</button>
+</header>
+
+<main>
+
+<section id="authBox">
+  <h2>Вход админа</h2>
+  <p class="muted">Ник и пароль от игры (аккаунт <code>&lt;ник&gt;@cb4.game</code>).
+     Мусор в корне и комнатах, <code>/event</code>, <code>/banner</code>, <code>/bans</code>,
+     <code>/AzumBuff</code>, <code>/FlashSale</code> и <code>/Christmas</code> пишут только админские аккаунты из
+     <code>firebase.rules.json</code>; чат и слоты можно чистить и обычным игрокам.</p>
+  <div class="row">
+    <input id="nick" placeholder="Ник" value="Dimasi4ek229" size="18">
+    <input id="pass" placeholder="Пароль" type="password" size="18" autocomplete="current-password">
+    <button id="login" class="primary">Войти</button>
+    <label class="chk"><input type="checkbox" id="showPass"> Показать пароль</label>
+  </div>
+  <p class="muted" id="emailHint" style="margin:8px 0 0"></p>
+  <details style="margin-top:10px">
+    <summary class="muted">Настройки проекта (URL базы / API-ключ)</summary>
+    <div class="row" style="margin-top:8px">
+      <input id="dbUrl" size="52" value="https://cubicbattleserver-19ae2-default-rtdb.firebaseio.com">
+      <input id="apiKey" size="42" value="AIzaSyDJEqopxP5EqEoxP_ehO3jFXbNztu3DgVs">
+      <button id="checkKey">Проверить ключ</button>
+    </div>
+    <div class="row" style="margin-top:8px">
+      <label class="chk"><input type="checkbox" id="passSuffix" checked> Добавлять внутренний суффикс к паролю</label>
+      <input id="suffix" size="36" value="|cb4v1" title="Хвост пароля Firebase">
+      <button id="suffixHelp">Откуда взять текущий хвост?</button>
+    </div>
+    <p class="muted" style="margin:8px 0 0" id="suffixWarn"></p>
+    <div class="row" style="margin-top:8px">
+      <button id="testMode">Тестовый режим: база на этом же сервере</button>
+      <button id="prodMode">Обратно на боевую базу</button>
+      <span class="muted" id="testHint">Тестовый режим - для <code>test/fake_firebase.py</code>: вход любой парой
+        «ник + пароль», аккаунт создаётся сам, ничего боевого не трогается</span>
+    </div>
+    <p class="muted" style="margin:8px 0 0">
+      Пароль для Firebase = игровой пароль + «хвост». <b>Хвост больше не постоянный:</b>
+      раньше это был <code>|cb4v1</code>, теперь игра берёт 32 случайных символа из
+      <code>NET_PASS_SECRET_*</code> в <code>src/engine/network.h</code>
+      (<code>net_pass_suffix()</code> в <code>src/engine/network/write_secret.inc</code>),
+      а <code>|cb4v1</code> оставлен одной ступенькой для старых аккаунтов: по нему
+      пускают ровно один раз и тут же переписывают пароль на новый хвост.
+      Поэтому с хвостом <code>|cb4v1</code> панель пустит только аккаунт, который
+      <b>ни разу не входил в игру</b> после ротации.
+    </p>
+    <p class="muted" style="margin:8px 0 0">
+      Текущий хвост печатает <code>python3 tools/rotate_db_secret.py --show</code>
+      (строка «хвост пароля аккаунта») - скопируй его в поле «суффикс» выше.
+      В файл панели он не вшивается нарочно: страница лежит в открытом репозитории,
+      а хвост - это половина секрета аккаунтов.
+    </p>
+  </details>
+</section>
+
+<section id="app" class="hide">
+  <h2>1. Снимок базы</h2>
+  <div class="row">
+    <button id="scan" class="primary">Сканировать базу</button>
+    <span id="scanInfo" class="muted"></span>
+  </div>
+  <div class="grid" id="stats" style="margin-top:12px"></div>
+</section>
+
+<section id="janitor" class="hide">
+  <h2>2. Что нашлось лишнего</h2>
+  <div class="row" style="margin-bottom:10px">
+    <label class="chk"><input type="checkbox" class="flt" data-k="unknown_root" checked> Лишние корневые узлы</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="unknown_field" checked> Левые поля в users/rooms</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="legacy" checked> Устаревшие поля из старых версий</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="bad_user" checked> Мусорные «игроки»</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="chat" checked> Чат: взлом/спам</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="chat_all"> Чат целиком</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="slot" checked> Мёртвые/битые слоты</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="stale"> Слоты-заглушки (нулевые)</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="meta"> Комнаты без правильных meta</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="empty_room"> Пустые старые комнаты</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="old_chat"> Старый чат (сверх лимита)</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="old_banner"> Устаревший баннер</label>
+    <label class="chk"><input type="checkbox" class="flt" data-k="bans"> Список банов</label>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <span class="muted">Оставлять в чате последних:</span>
+    <input id="cleanChatKeep" type="number" min="0" max="500" step="1" value="20" size="5" title="Сколько новых сообщений чата оставлять в каждой комнате">
+    <span class="muted">Баннер старый после (ч):</span>
+    <input id="cleanBannerHours" type="number" min="0" max="8760" step="1" value="24" size="5" title="Возраст баннера в часах, после которого он считается устаревшим">
+    <button id="markOld">Отметить старое и ненужное</button>
+    <button id="cleanOld" class="danger">Очистить старые и ненужные данные</button>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <button id="markLegacy">Найти устаревшие поля</button>
+    <button id="cleanLegacy" class="danger">Удалить устаревшие поля</button>
+    <span class="muted">Например, <code>gifts/emerald_hue</code> и <code>gifts/rose</code> - игра их больше не читает</span>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <span class="muted">Стоп-слова (через запятую):</span>
+    <input id="words" size="70">
+  </div>
+  <div class="list" id="found"></div>
+  <div class="row" style="margin-top:12px">
+    <button id="all">Выделить всё</button>
+    <button id="none">Снять всё</button>
+    <button id="invert">Инвертировать</button>
+    <span class="sp"></span>
+    <span id="selInfo" class="muted"></span>
+    <button id="wipe" class="danger">Удалить выбранное</button>
+  </div>
+  <p class="muted" style="margin:10px 0 0">
+    Никогда не трогается: <code>users/&lt;ник&gt;</code> с валидным прогрессом (включая
+    <code>gifts</code>, уровни всех классов, <code>bp/bpx</code>, <code>playtime</code>,
+    <code>pd_consent_*</code> и секрет записи <code>w</code>), живые слоты
+    <code>rooms/*/players</code>, <code>event</code>, <code>banner</code>,
+    <code>AzumBuff</code>, <code>FlashSale</code>, <code>Christmas</code>, структура комнат.
+    Список полей сверяется с <code>firebase.rules.json</code> тестом
+    <code>tools/test_admin_panel.py</code>.
+  </p>
+  <p class="muted" style="margin:8px 0 0">
+    Устаревшие поля из старых версий (<code>gifts/emerald_hue</code>,
+    <code>gifts/rose</code>) больше не используются игрой; <code>emerald_hue</code>
+    уже запрещён правилами, а <code>rose</code> оставлен только для старых профилей.
+    Панель находит их отдельным фильтром
+    «Устаревшие поля» и удаляет кнопкой «Удалить устаревшие поля», не трогая
+    живой прогресс, подарки и слоты.
+  </p>
+</section>
+
+<section id="tools" class="hide">
+  <h2>3. Точечные инструменты</h2>
+
+  <h3>Ивент боя (0..7 - как в игре)</h3>
+  <div class="row">
+    <button data-ev="0">0 · Выкл</button>
+    <button data-ev="1">1 · Диско</button>
+    <button data-ev="2">2 · Плиты (Конфеты)</button>
+    <button data-ev="3">3 · Дед Мороз</button>
+    <button data-ev="4">4 · Кубик</button>
+    <button data-ev="5">5 · Колонки</button>
+    <button data-ev="6">6 · Слабые удары (плиты)</button>
+    <button data-ev="7">7 · Взлом H4c4k0r</button>
+    <span class="muted" id="evNow"></span>
+  </div>
+
+  <h3>Флаги магазина</h3>
+  <div class="row">
+    <button data-flag="AzumBuff" data-v="1">AzumBuff: Вкл</button>
+    <button data-flag="AzumBuff" data-v="0">AzumBuff: Выкл</button>
+    <span class="sp"></span>
+    <button data-flag="FlashSale" data-v="1">FlashSale: Вкл</button>
+    <button data-flag="FlashSale" data-v="0">FlashSale: Выкл</button>
+    <span class="sp"></span>
+    <button data-flag="Christmas" data-v="1">Christmas: Вкл</button>
+    <button data-flag="Christmas" data-v="0">Christmas: Выкл</button>
+    <span class="muted" id="flagNow"></span>
+  </div>
+
+  <h3>Баннер в лобби</h3>
+  <div class="row">
+    <input id="bannerText" placeholder="Текст баннера (1-96 символов)" size="40">
+    <select id="bannerColor">
+      <option value="white">White</option>
+      <option value="red">Red</option>
+      <option value="green">Green</option>
+      <option value="blue">Blue</option>
+      <option value="yellow">Yellow</option>
+      <option value="pink">Pink</option>
+    </select>
+    <button id="setBanner" class="primary">Показать баннер</button>
+    <button id="clearBanner" class="danger">Снять баннер</button>
+  </div>
+
+  <h3>Баны</h3>
+  <div class="row">
+    <input id="banNick" placeholder="Ник" size="16">
+    <button id="ban" class="danger">Забанить</button>
+    <button id="unban" class="ok">Разбанить</button>
+  </div>
+
+  <h3>Комната</h3>
+  <div class="row">
+    <button id="clearChat">Очистить чат комнаты</button>
+    <button id="clearSlots">Сбросить слоты (кикнуть всех)</button>
+    <input id="room" value="main" size="10" title="Комната">
+    <span class="sp"></span>
+    <button id="dump">Скачать резервную копию (JSON)</button>
+    <button id="restore">Загрузить копию…</button>
+    <input id="restoreFile" type="file" accept="application/json,.json" class="hide">
+  </div>
+</section>
+
+<section id="logBox" class="hide">
+  <h2>Журнал</h2>
+  <div class="row" style="margin-bottom:8px">
+    <button id="clearLog">Очистить журнал</button>
+    <span class="muted">Здесь видно каждый запрос и каждую ошибку</span>
+  </div>
+  <div id="log"></div>
+</section>
+
+</main>
+
+<script>
+/* Global error and unhandled-rejection listener displayed in the top banner. */
+(function () {
+  "use strict";
+  function show(text) {
+    var box = document.getElementById("fatal");
+    if (!box) return;
+    box.className = "fatal";
+    box.textContent = text;
+  }
+  window.cb4Fatal = show;
+  window.cb4FatalClear = function () {
+    var box = document.getElementById("fatal");
+    if (box) { box.className = "hide"; box.textContent = ""; }
+  };
+  window.addEventListener("error", function (e) {
+    show("Панель не запустилась: " + (e.message || "Ошибка скрипта") +
+         (e.lineno ? " (строка " + e.lineno + ")" : "") +
+         "\nКнопки работать не будут, пока ошибка не исправлена. Подробности - консоль браузера (F12).");
+  });
+  window.addEventListener("unhandledrejection", function (e) {
+    var reason = e.reason;
+    show("Необработанная ошибка запроса: " + ((reason && reason.message) || String(reason)));
+  });
+})();
+</script>
+
+<script>
+"use strict";
+const $ = s => document.querySelector(s);
+const $$ = s => [...document.querySelectorAll(s)];
+
+/* Register DOM event handlers and record missing selectors. */
+const MISSING = [];
+const BOUND = [];
+function on(sel, fn, name){
+  const el = $(sel);
+  if(!el){ MISSING.push(sel); return null; }
+  el.addEventListener("click", ev => { ev.preventDefault(); run(fn, ev, el); });
+  BOUND.push({sel, name: name || sel, kind: "click"});
+  return el;
+}
+function onAll(sel, fn, name){
+  const els = $$(sel);
+  if(!els.length){ MISSING.push(sel); return 0; }
+  els.forEach(el => el.addEventListener("click", ev => { ev.preventDefault(); run(fn, ev, el); }));
+  BOUND.push({sel, name: name || sel, kind: "click ×" + els.length});
+  return els.length;
+}
+function onChange(sel, fn){
+  const el = $(sel);
+  if(!el){ MISSING.push(sel); return null; }
+  el.addEventListener("change", () => run(fn));
+  el.addEventListener("input", () => run(fn));
+  BOUND.push({sel, name: sel, kind: "change/input"});
+  return el;
+}
+/* Run event handler and report synchronous or async errors to the log and banner. */
+function run(fn, ev, el){
+  try{
+    const out = fn(ev, el);
+    if(out && typeof out.catch === "function")
+      out.catch(e => report(e));
+  }catch(e){ report(e); }
+}
+function report(e){
+  const msg = (e && e.message) ? e.message : String(e);
+  try{ log("Ошибка: " + msg, "err"); }catch(_){}
+  if(window.cb4Fatal) window.cb4Fatal("Действие не выполнено: " + msg);
+  console.error(e);
+}
+
+/* Default spam, cheat, and ad filter keywords. */
+const DEFAULT_WORDS = [
+ "взлом","взломан","взломал","взламыв","хак","hack","hacked","cheat","чит","читы",
+ "чiт","мод","mod menu","aimbot","aim bot","wallhack","script","скрипт","инжект","inject",
+ "free cups","бесплатн","накрутк","подпишись","подписывайтесь","subscribe",
+ "телеграм","телега","t.me","discord.gg","http://","https://","www.","youtube","ютуб",
+ "пиши в лс","куплю","продам","бот","spam","спам","реклама","идиот","лох","нуб",
+ "админ дай","dayn","give admin","sql","<script","drop table","null null","test test"
+].join(", ");
+
+/* Database schema matching firebase.rules.json (validated by tools/test_admin_panel.py). */
+const num  = (lo, hi) => ({t:"num", lo, hi});
+const flag = ()      => ({t:"num", lo:0, hi:1});
+const str  = (min, max) => ({t:"str", min, max});
+const secret = ()    => ({t:"str", min:1, max:64, note:"Секрет записи «w»"});
+
+/* Allowed root database keys and per-node fallback targets. */
+/* Fields from older game versions: firebase.rules.json still allows them for
+ * compatibility with old profiles, but the new game build neither writes nor
+ * reads them. Such values are junk that can be removed from the database.
+ * "*" in a path template means one segment (the player nick). */
+const LEGACY_FIELDS = {
+  "users/*/gifts/emerald_hue": "Устаревшее поле emerald_hue: игра больше не читает оттенок изумруда",
+  "users/*/gifts/rose": "Устаревшее поле rose: старый подарок заменён на poop"
+};
+/* Return the human-readable reason when the path is an obsolete field. */
+function legacyWhy(path){
+  const parts = String(path).split("/");
+  for(const [tpl, why] of Object.entries(LEGACY_FIELDS)){
+    const t = tpl.split("/");
+    if(t.length === parts.length && t.every((seg, i) => seg === "*" || seg === parts[i]))
+      return why;
+  }
+  return null;
+}
+
+const ROOT_OK   = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","Christmas"];
+const ROOT_PARTS = ["users","rooms","bans","event","banner","AzumBuff","FlashSale","Christmas"];
+
+const USER_REQ  = ["nick","cups","candies","cls","azum","santa","level","levels"];
+/* Per-user gift inventory counters under users/<nick>/gifts. */
+const GIFT_FIELDS = {
+  poop: num(0,999), cake: num(0,999), bear: num(0,999), rocket: num(0,999),
+  emerald: num(0,999),
+  /* Exclusive pumpkin cube is written only by the game admin. */
+  pumpkin_cube: num(0,999),
+  /* rose remains accepted for old profiles; emerald_hue is no longer a rule key. */
+  rose: num(0,999)
+};
+const USER_FIELDS = {
+  nick: str(1,16),
+  /* Write secret field validated by RTDB rules. */
+  w: secret(),
+  /* Plaintext password storage is forbidden by RTDB rules. */
+  pass: {t:"forbidden", why:"Пароль в базе - так больше нельзя"},
+  cups: num(0,10000000), candies: num(0,10000000),
+  cls: num(0,6), azum: flag(), santa: flag(), ebuc: flag(), astra: flag(), codecracker: flag(),
+  level: num(0,3), levels: num(0,3),
+  ordinary_level: num(0,3), ordinary_levels: num(0,3),
+  azum_level: num(0,3), azum_levels: num(0,3),
+  santa_level: num(0,3), santa_levels: num(0,3),
+  ebuc_level: num(0,3), ebuc_levels: num(0,3),
+  astra_level: num(0,3), astra_levels: num(0,3),
+  codecracker_level: num(0,3), codecracker_levels: num(0,3),
+  bp: num(0,7), bpx: num(0,1000000), azum_skin: num(0,63), wheel_spins: num(0,999), wheel_wins: num(0,5),
+  ach_flags: num(0,255), ach_revives: num(0,10000),
+  lang: flag(), hitboxes: flag(), musicvol: num(0,100), winter: flag(),
+  showfps: flag(), classic: flag(),
+  playtime: num(0,1000000000),
+  promo: str(4,24), promo_used: flag(),
+  pd_consent_ts: num(1500000000,4102444800), pd_consent_ver: num(1,1000),
+  gifts: {t:"obj", fields: GIFT_FIELDS}
+};
+
+const ROOM_OK   = ["meta","players","chat"];
+const META_REQ  = ["owner","ph","w"];
+const META_FIELDS = {owner: str(1,16), ph: str(0,8), w: secret()};
+
+const SLOT_REQ  = ["uid","nick","x","y","angle","hp","alive","seq"];
+const SLOT_FIELDS = {
+  uid: str(8,24), nick: str(1,16), w: secret(),
+  x: num(0,1), y: num(0,1), angle: num(-7,7), hp: num(0,1000),
+  alive: flag(), seq: num(0,1000000000000),
+  px: num(0,1), py: num(0,1), pdx: num(-1.001,1.001), pdy: num(-1.001,1.001),
+  punch: num(0,1000000000000),
+  sx: num(0,1), sy: num(0,1), sdx: num(-1.001,1.001), sdy: num(-1.001,1.001),
+  snow: num(0,1000000000000),
+  stx: num(0,1), sty: num(0,1), sthp: num(0,1000), station: num(0,1000000000000),
+  s2x: num(0,1), s2y: num(0,1), s2hp: num(0,1000),
+  s3x: num(0,1), s3y: num(0,1), s3hp: num(0,1000),
+  dax: num(0,1), day: num(0,1), dadx: num(-1.001,1.001), dady: num(-1.001,1.001),
+  dash: num(0,1000000000000),
+  gbx: num(0,1), gby: num(0,1), gbdx: num(-1.001,1.001), gbdy: num(-1.001,1.001),
+  grab: num(0,1000000000000),
+  uzx: num(0,1), uzy: num(0,1), universe: num(0,1000000000000),
+  thud: num(0,1000000000000), blk: flag(), ccu: flag(),
+  bkx: num(0,1), bky: num(0,1), bkdx: num(-1.001,1.001), bkdy: num(-1.001,1.001),
+  brick: num(0,1000000000000),
+  xbx: num(0,1), xby: num(0,1), xbdx: num(-1.001,1.001), xbdy: num(-1.001,1.001),
+  xball: num(0,1000000000000),
+  cls: num(0,6), level: num(0,3), skin: num(0,1)
+};
+
+const CHAT_REQ   = ["uid","nick","text"];
+const CHAT_FIELDS = {uid: str(8,24), nick: str(1,16), text: str(1,96), w: secret()};
+
+const BANNER_FIELDS = {ts: num(0,9000000000000), text: str(1,96), color: str(1,16)};
+const EVENT_MAX = 7;              /* 0 off, 1 disco, 2 plates, 3 Ded Moroz, 4 cube, 5 Columns, 6 weak-hit plates, 7 H4c4k0r raid */
+const EVENT_NAMES = ["Выкл","Диско","Плиты","Дед Мороз","Кубик","Колонки","Слабые удары (плиты)","Взлом H4c4k0r"];
+const NICK_RE   = /^[A-Za-z0-9_]{1,16}$/;
+const PROD_DB_RE = /firebaseio\.com|googleapis\.com/i;
+
+let TOKEN = null, REFRESH = null, EMAIL = "", EXP = 0, SNAP = null, FOUND = [];
+let SCOPED = false; /* true when root read is denied and snapshot is assembled per node */
+
+function log(msg, cls){
+  const box = $("#log");
+  if(!box) return;
+  const d = document.createElement("div");
+  if (cls) d.className = cls;
+  d.textContent = new Date().toLocaleTimeString() + "  " + msg;
+  box.appendChild(d);
+  box.scrollTop = 1e9;
+  $("#logBox").classList.remove("hide");
+}
+const dbUrl = () => ($("#dbUrl").value || "").trim().replace(/\/+$/,"");
+const key   = () => ($("#apiKey").value || "").trim();
+/* Route auth endpoints to dbUrl() when connected to fake_firebase.py. */
+const isTest = () => !!dbUrl() && !PROD_DB_RE.test(dbUrl());
+const authHost  = () => isTest() ? dbUrl() : "https://identitytoolkit.googleapis.com";
+const tokenHost = () => isTest() ? dbUrl() : "https://securetoken.googleapis.com";
+
+function updateMode(){
+  const pill = $("#modePill");
+  if(!pill) return;
+  const test = isTest();
+  pill.textContent = test ? "Тестовая база" : "Боевая база";
+  pill.className = "pill" + (test ? " live" : "");
+  const hint = $("#testHint");
+  if(hint) hint.innerHTML = test
+    ? "Сейчас панель смотрит на <b>этот же сервер</b> - можно нажимать всё подряд, боевая база не трогается"
+    : "Тестовый режим - для <code>test/fake_firebase.py</code>: " +
+      "Вход любой парой «ник + пароль», аккаунт создаётся сам, ничего боевого не трогается";
+  suffixWarn();
+}
+
+/* Persist panel settings in localStorage. */
+const LS = "cb4.admin.v3";
+function cfg(){ try{ return JSON.parse(localStorage.getItem(LS) || "{}") || {}; }catch(e){ return {}; } }
+function saveCfg(p){ try{ localStorage.setItem(LS, JSON.stringify({...cfg(), ...p})); }catch(e){} }
+function loadCfg(){
+  const c = cfg();
+  if(typeof c.nick   === "string") $("#nick").value   = c.nick;
+  if(typeof c.dbUrl  === "string") $("#dbUrl").value  = c.dbUrl;
+  if(typeof c.apiKey === "string") $("#apiKey").value = c.apiKey;
+  if(typeof c.suffix === "string") $("#suffix").value = c.suffix;
+  $("#passSuffix").checked = c.suffixOn !== false;
+  if(typeof c.room   === "string" && c.room) $("#room").value = c.room;
+  if(typeof c.bannerText === "string") $("#bannerText").value = c.bannerText;
+}
+function saveAll(){
+  saveCfg({nick: $("#nick").value.trim(), dbUrl: $("#dbUrl").value.trim(),
+           apiKey: $("#apiKey").value.trim(), suffix: $("#suffix").value,
+           suffixOn: $("#passSuffix").checked, room: $("#room").value.trim(),
+           bannerText: $("#bannerText").value});
+  updateMode();
+}
+function emailHint(){
+  const nick = $("#nick").value.trim() || "<ник>";
+  const sfx = $("#passSuffix").checked ? $("#suffix").value : "";
+  $("#emailHint").innerHTML =
+    "Вход как <code>" + esc(nick.toLowerCase() + "@cb4.game") + "</code>, пароль = «пароль» + «" +
+    esc(sfx) + "»" + (sfx ? "" : " (суффикс выключен)") +
+    (isTest() ? " · тестовая база: аккаунт создастся сам" : "");
+  suffixWarn();
+}
+
+/* Check whether password suffix matches current 32-char alphanumeric format. */
+function suffixLooksCurrent(s){
+  return /^[A-Za-z0-9]{32}$/.test(s || "");
+}
+function suffixWarn(){
+  const box = $("#suffixWarn");
+  if(!box) return;
+  const sfx = $("#passSuffix").checked ? $("#suffix").value : "";
+  if(isTest()){
+    box.innerHTML = "";
+    box.className = "muted";
+    return;
+  }
+  if(!sfx){
+    box.innerHTML = "Хвост выключен: боевая база так не пустит никому, кроме аккаунтов без хвоста.";
+    box.className = "muted warn";
+    return;
+  }
+  if(suffixLooksCurrent(sfx)){
+    box.innerHTML = "Хвост похож на текущий (32 символа) - хорошо.";
+    box.className = "muted good";
+    return;
+  }
+  box.innerHTML = "Хвост <code>" + esc(sfx) + "</code> не похож на текущий (32 символа A-Za-z0-9). " +
+                  "Получить текущий: <code>python3 tools/rotate_db_secret.py --show</code>. " +
+                  "Со старым хвостом войдёт только аккаунт, который не заходил в игру после ротации.";
+  box.className = "muted warn";
+}
+
+/* Firebase Auth helpers and legacy password suffix fallbacks. */
+/* Root admins. qwertyuiopaj1234 may do everything except hand out gifts:
+ * the DB rules block his writes into other players' gift counters and the
+ * game hides the CCP gift tab from him. */
+const ADMINS = ["dimasi4ek229@cb4.game", "qwertyuiopaj1234@cb4.game"];
+const KNOWN_SUFFIXES = ["|cb4v1", "#cb4", ""];
+
+const AUTH_ERR = {
+  EMAIL_NOT_FOUND:
+    "Аккаунта с таким e-mail нет в Firebase Auth. Один раз зайди в игру под этим ником - игра сама его создаст (accounts:signUp) с правильным хвостом пароля - и возвращайся сюда. Панель нарочно не создаёт аккаунты на боевой базе: созданный с чужим хвостом аккаунт потом не пустит и саму игру.",
+  INVALID_PASSWORD: "Неверный пароль",
+  INVALID_LOGIN_CREDENTIALS:
+    "Неверный пароль или такого аккаунта нет (Firebase намеренно не говорит, что именно). " +
+    "Чаще всего дело в хвосте пароля: он ротирован, и «|cb4v1» теперь работает только для аккаунтов, которые не входили в игру после ротации. " +
+    "Текущий хвост печатает " +
+    "`python3 tools/rotate_db_secret.py --show` - вставь его в «Настройки проекта» → поле суффикса. " +
+    "Панель перебирает известные варианты, так что если и это не помогло - проверь, что ник и пароль те же, что в игре.",
+  USER_DISABLED: "Аккаунт отключён - Firebase Console → Authentication → Users",
+  TOO_MANY_ATTEMPTS_TRY_LATER: "Слишком много попыток входа, подожди пару минут и попробуй снова",
+  OPERATION_NOT_ALLOWED: "Вход по e-mail/паролю выключён - Firebase Console → Authentication → Sign-in method → Email/Password",
+  WEAK_PASSWORD: "Пароль короче 6 символов - Firebase не принимает, как раз поэтому игра и добавляет суффикс",
+  API_KEY_INVALID: "API-ключ не подходит к этому проекту (или набран с опечаткой)",
+  PERMISSION_DENIED:
+    "API-ключ ограничен и из браузера не работает. В Google Cloud Console ограничения " +
+    "ставятся по HTTP-referrer / IP / Android-пакету (com.cb4); для этой панели нужен ключ " +
+    "с разрешённым referrer этой страницы либо вовсе без ограничений.",
+  REFERER_BLOCKED: "API-ключ ограничен по HTTP-referrer - добавь адрес этой страницы в список разрешённых",
+  NETWORK_ERROR:
+    "Запрос вообще не ушёл: нет сети, база недоступна или браузер заблокировал запрос (CORS/смешанный контент). " +
+    "Если страница открыта по https, адрес базы тоже должен быть https."
+};
+function explain(msg){
+  const m = String(msg || "");
+  if(/referrer|referer/i.test(m)) return AUTH_ERR.REFERER_BLOCKED;
+  if(/Failed to fetch|NetworkError|Load failed|ERR_/i.test(m)) return AUTH_ERR.NETWORK_ERROR;
+  const code = (m.match(/\b([A-Z][A-Z0-9_]{3,})\b/) || [])[1];
+  const text = AUTH_ERR[code];
+  return text ? text + (text.endsWith(".") ? "" : ".") + "  [ответ: " + m + "]" : m;
+}
+function jwt(tok){
+  try{
+    const p = tok.split(".")[1].replace(/-/g, "+").replace(/_/g, "/");
+    return JSON.parse(decodeURIComponent(escape(atob(p))));
+  }catch(e){ return null; }
+}
+async function idp(method, body){
+  const r = await fetch(`${authHost()}/v1/accounts:${method}?key=${encodeURIComponent(key())}`,
+    {method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({...body, returnSecureToken:true})});
+  let j = {};
+  try{ j = await r.json(); }catch(e){}
+  if(!r.ok){
+    const e = new Error((j && j.error && j.error.message) || ("HTTP " + r.status));
+    e.status = r.status;
+    throw e;
+  }
+  return j;
+}
+/* Refresh short-lived Firebase ID token using stored refreshToken. */
+async function refreshToken(){
+  if(!REFRESH) throw new Error("Нет refresh-токена - нужно войти заново");
+  const r = await fetch(`${tokenHost()}/v1/token?key=${encodeURIComponent(key())}`,
+    {method:"POST",headers:{"Content-Type":"application/json"},
+     body:JSON.stringify({grant_type:"refresh_token", refresh_token:REFRESH})});
+  let j = {};
+  try{ j = await r.json(); }catch(e){}
+  if(!r.ok || !j.id_token) throw new Error((j && j.error && j.error.message) || ("HTTP " + r.status));
+  TOKEN = j.id_token;
+  if(j.refresh_token) REFRESH = j.refresh_token;
+  EXP = Date.now() + (parseInt(j.expires_in || "3600", 10) * 1000) - 60000;
+  return TOKEN;
+}
+function suffixVariants(){
+  const out = [], push = s => { if(s != null && !out.includes(s)) out.push(s); };
+  const c = cfg();
+  if(typeof c.lastSuffix === "string") push(c.lastSuffix);          // last working suffix
+  push($("#passSuffix").checked ? $("#suffix").value : "");          // configured suffix
+  for(const s of KNOWN_SUFFIXES) push(s);
+  return out;
+}
+const RETRYABLE = /INVALID_LOGIN_CREDENTIALS|INVALID_PASSWORD|EMAIL_NOT_FOUND|WEAK_PASSWORD/;
+
+async function doLogin(){
+  if(window.cb4FatalClear) window.cb4FatalClear();
+  const nick = $("#nick").value.trim(), pass = $("#pass").value;
+  if(!nick || !pass){ alert("Введите ник и пароль"); return; }
+  if(!dbUrl()){ alert("В настройках проекта пустой URL базы"); return; }
+  const email = nick.toLowerCase() + "@cb4.game";
+  saveAll();
+  if(!isTest() && $("#passSuffix").checked && !suffixLooksCurrent($("#suffix").value))
+    log("Хвост в поле не похож на текущий (32 символа A-Za-z0-9). " +
+        "Если вход не удастся, возьми текущий командой python3 tools/rotate_db_secret.py --show", "warn");
+  $("#login").disabled = true;
+  $("#login").textContent = "Вхожу…";
+  const tried = [];
+  try{
+    let ok = null, last = null;
+    for(const sfx of suffixVariants()){
+      try{
+        const j = await idp("signInWithPassword", {email, password: pass + sfx});
+        ok = {j, sfx};
+        break;
+      }catch(e){
+        last = e;
+        tried.push((sfx ? "«" + sfx + "»" : "Без суффикса") + " → " + e.message);
+        if(!RETRYABLE.test(e.message)) break;   // stop on non-credential errors (rate limit, bad key, etc.)
+      }
+    }
+    if(!ok){
+      /* Auto-create test accounts only on fake_firebase.py; never signUp against production. */
+      if(isTest()){
+        const sfx = $("#passSuffix").checked ? $("#suffix").value : "";
+        try{
+          const j = await idp("signUp", {email, password: pass + sfx});
+          ok = {j, sfx, created: true};
+          log("Тестовая база: аккаунт создан - " + email, "good");
+        }catch(e){
+          if(/EMAIL_EXISTS/.test(e.message))
+            throw new Error("Аккаунт " + email + " существует, значит пароль (или хвост) не подошёл");
+          throw e;
+        }
+      }
+      if(!ok){
+        const detail = (last && last.message) || "Вход не удался";
+        throw new Error(detail + " · Панель не создаёт аккаунты на боевой базе. " +
+                        "Зайди один раз в игру под этим ником (игра создаст аккаунт с " +
+                        "Правильным хвостом) или вставь текущий хвост из " +
+                        "`python3 tools/rotate_db_secret.py --show` в поле суффикса");
+      }
+    }
+
+    const j = ok.j;
+    TOKEN = j.idToken; REFRESH = j.refreshToken; EMAIL = email;
+    EXP = Date.now() + (parseInt(j.expiresIn || "3600", 10) * 1000) - 60000;
+    saveCfg({lastSuffix: ok.sfx});
+
+    const p = jwt(TOKEN) || {};
+    const isAdmin = ADMINS.includes(String(p.email || email).toLowerCase());
+    $("#who").textContent = email + (isAdmin ? " · админ" : " · не админ");
+    $("#who").className = "tag " + (isAdmin ? "good" : "warn");
+    $("#authBox").classList.add("hide");
+    $("#app").classList.remove("hide");
+    $("#tools").classList.remove("hide");
+    $("#logout").classList.remove("hide");
+    log("Вход выполнен: " + email + (ok.sfx ? " (суффикс «" + ok.sfx + "»)" : " (без суффикса)"), "good");
+    log("База: " + dbUrl() + (isTest() ? " · тестовый режим" : ""), isTest() ? "warn" : "");
+    log("Токен: провайдер " + ((p.firebase || {}).sign_in_provider || "?") +
+        ", годен до " + new Date((p.exp || 0) * 1000).toLocaleTimeString(), "");
+    if(isAdmin) log("Права админа есть - правила пустят запись в event/banner/bans/флаги, полный снимок корня и чистку комнат" + (email.toLowerCase() === "qwertyuiopaj1234@cb4.game" ? " (кроме выдачи подарков - её правила оставляют Dimasi4ek229)" : ""), "good");
+    else{
+      log("Это не админский аккаунт: читаются игровые узлы, чат и слоты чистить можно, а event/banner/bans/флаги, чужие users и мусор в корне/комнатах - нет", "warn");
+      alert("Вход прошёл, но " + email + " нет в списке админов firebase.rules.json.\n\n" +
+            "Чат и слоты (в т.ч. целиком) чистить можно; /event, /banner, /bans, /AzumBuff, /FlashSale, /Christmas, " +
+            "чужие /users и мусор в корне/комнатах - нет. Корневой мусор виден и удаляется только админами.");
+    }
+    await scan();
+  }catch(e){
+    log("Вход не удался: " + e.message, "err");
+    log("Что это значит: " + explain(e.message), "warn");
+    alert("Не вышло войти как " + email + "\n\n" + e.message + "\n\n" + explain(e.message) +
+          (tried.length > 1 ? "\n\nПеребраны варианты суффикса:\n" + tried.join("\n") : ""));
+  }finally{
+    $("#login").disabled = false;
+    $("#login").textContent = "Войти";
+  }
+}
+
+/* Firebase RTDB REST client with shared token refresh lock. */
+let tokenBusy = null;
+function ensureToken(){
+  if(!REFRESH || Date.now() <= EXP) return Promise.resolve();
+  if(!tokenBusy) tokenBusy = refreshToken().finally(() => { tokenBusy = null; });
+  return tokenBusy;
+}
+async function rtdb(path, method = "GET", body, retried){
+  if(!TOKEN){
+    const e = new Error("Нет входа - сначала «Войти»");
+    e.noAuth = true;
+    throw e;
+  }
+  if(REFRESH && Date.now() > EXP){
+    try{ await ensureToken(); }
+    catch(e){ log("Не удалось обновить токен: " + e.message + " - " + explain(e.message), "warn"); }
+  }
+  const url = `${dbUrl()}/${path}.json?auth=${encodeURIComponent(TOKEN || "")}`;
+  const opt = {method};
+  if(body !== undefined){ opt.headers = {"Content-Type":"application/json"};
+                          opt.body = JSON.stringify(body); }
+  const r = await fetch(url, opt);
+  const txt = await r.text();
+  if(!r.ok){
+    const stale = r.status === 401 || /auth token|token expired|invalid_token|EXPIRED/i.test(txt);
+    if(stale && !retried && REFRESH){
+      try{
+        await ensureToken();
+        return rtdb(path, method, body, true);
+      }catch(e){ log("Обновление токена не помогло: " + e.message, "err"); }
+    }
+    let msg = `${method} /${path || "(корень)"} → ${r.status} ${txt.slice(0,160)}`;
+    if(r.status === 401 || r.status === 403)
+      msg += "  (401/403 = протухший токен либо правила базы; опубликуй свежие " +
+             "firebase.rules.json - мусор в корне и в комнатах пишут только админы. " +
+             "При запрете контейнера панель удаляет по детям)";
+    throw new Error(msg);
+  }
+  if(!txt) return null;
+  try{ return JSON.parse(txt); }
+  catch(e){ throw new Error(`${method} /${path || "(корень)"} → ответ не JSON: ${txt.slice(0,120)}`); }
+}
+
+/* Read full root snapshot for admins, or fall back to individual game nodes. */
+async function takeSnapshot(){
+  try{ return {data: (await rtdb("")) || {}, scoped: false}; }
+  catch(e){
+    if(!/(403|permission|denied|unauthorized)/i.test(e.message)) throw e;
+    const out = {};
+    let firstErr = null;
+    for(const p of ROOT_PARTS){
+      try{
+        const v = await rtdb(p);
+        if(v !== null && typeof v === "object") out[p] = v;
+        else if(v !== null && typeof v !== "object") out[p] = v;   // scalar flags (event, AzumBuff, FlashSale)
+      }catch(e2){ firstErr = firstErr || e2; }
+    }
+    if(Object.keys(out).length) return {data: out, scoped: true};
+    throw firstErr || e;
+  }
+}
+async function scan(){
+  $("#scan").disabled = true; $("#scanInfo").textContent = "Читаю…";
+  try{
+    const snap = await takeSnapshot();
+    SNAP = snap.data;
+    SCOPED = snap.scoped;
+    if(SCOPED)
+      log("Корень базы закрыт правилами - читаю игровые узлы по отдельности (корневой мусор виден только админам)", "warn");
+    analyze();
+    $("#scanInfo").textContent = "Снимок получен " + new Date().toLocaleTimeString() +
+                                 (SCOPED ? " · корень закрыт, по узлам" : "");
+    log("Снимок базы получен" + (SCOPED ? " (по узлам)" : ""), "good");
+  }catch(e){
+    $("#scanInfo").innerHTML = '<span class="err">ошибка</span>';
+    log("Скан: " + e.message, "err");
+    alert("Не удалось прочитать базу:\n" + e.message + "\n\n" + explain(e.message));
+  }finally{ $("#scan").disabled = false; }
+}
+
+const words = () => $("#words").value.split(",").map(s=>s.trim().toLowerCase()).filter(Boolean);
+function spamHit(text){
+  const t = String(text).toLowerCase();
+  for(const w of words()) if(w && t.includes(w)) return w;
+  if(/(.)\1{7,}/.test(t)) return "Повтор символов";
+  if(t.length > 96) return "Длина > 96";
+  if(/[\u0000-\u0008\u000b-\u001f]/.test(t)) return "Управляющие символы";
+  return null;
+}
+
+/* Validate field value against schema descriptor. */
+function badValue(spec, v){
+  if(!spec) return null;
+  if(spec.t === "forbidden") return spec.why || "Поле запрещено правилами";
+  if(spec.t === "num"){
+    if(typeof v !== "number" || !isFinite(v)) return "Значение не число (" + typeof v + ")";
+    if(spec.lo !== undefined && v < spec.lo) return "Меньше допустимого " + spec.lo;
+    if(spec.hi !== undefined && v > spec.hi) return "Больше допустимого " + spec.hi + " (накрутка?)";
+    return null;
+  }
+  if(spec.t === "str"){
+    if(typeof v !== "string") return "Значение не строка (" + typeof v + ")";
+    if(spec.min !== undefined && v.length < spec.min) return "Строка короче " + spec.min;
+    if(spec.max !== undefined && v.length > spec.max) return "Строка длиннее " + spec.max;
+    return null;
+  }
+  if(spec.t === "bool") return typeof v === "boolean" ? null : "Значение не true/false";
+  if(spec.t === "obj") return (v && typeof v === "object") ? null : "Ожидался узел-объект";
+  return null;
+}
+
+/* Filters that start unchecked (destructive or noisy categories). */
+const FILTER_OFF = new Set(["bans","chat_all","stale","meta","empty_room","old_chat","old_banner"]);
+/* Restore the default set of janitor filters after a one-off cleanup. */
+function resetJanitorFilters(){
+  $$(".flt").forEach(c => { c.checked = !FILTER_OFF.has(c.dataset.k); });
+  render();
+}
+
+const OLD_CLEAN_KINDS = [
+  "unknown_root","unknown_field","bad_user","chat","slot",
+  "stale","meta","empty_room","old_chat","old_banner","legacy"
+];
+function cleanChatKeep(){
+  const v = parseInt(($("#cleanChatKeep") && $("#cleanChatKeep").value) ?? "20", 10);
+  return isFinite(v) && v >= 0 ? v : 20;
+}
+function cleanBannerHours(){
+  const v = parseFloat(($("#cleanBannerHours") && $("#cleanBannerHours").value) ?? "24");
+  return isFinite(v) && v >= 0 ? v : 24;
+}
+
+function analyze(){
+  FOUND = [];
+  const nonDefault = new Set(["bans","chat_all","stale","meta","empty_room","old_chat","old_banner"]);
+  const add = (kind, path, why, extra) => {
+    const lw = legacyWhy(path);
+    const k = lw ? "legacy" : kind;
+    FOUND.push({kind: k, path, why: lw || why,
+                extra: extra || "", sel: !nonDefault.has(k)});
+  };
+  const d = SNAP || {};
+  const keepChat = cleanChatKeep();
+  const bannerMaxAgeMs = cleanBannerHours() * 3600000;
+
+  /* Root keys */
+  for(const k of Object.keys(d))
+    if(!ROOT_OK.includes(k))
+      add("unknown_root", k, "Корневого узла нет в игре (спам/мусор)", JSON.stringify(d[k]).slice(0,120));
+
+  /* Event, live flags, and banner */
+  if("event" in d){
+    const bad = badValue(num(0, EVENT_MAX), d.event);
+    if(bad) add("unknown_field", "event", "Значение ивента вне 0.." + EVENT_MAX + ": " + bad, JSON.stringify(d.event));
+  }
+  for(const f of ["AzumBuff","FlashSale","Christmas"])
+    if(f in d){
+      const bad = badValue(flag(), d[f]);
+      if(bad) add("unknown_field", f, "Флаг должен быть 0 или 1: " + bad, JSON.stringify(d[f]));
+    }
+  if(d.banner !== undefined){
+    if(!d.banner || typeof d.banner !== "object")
+      add("unknown_field", "banner", "Баннер должен быть узлом с ts/text/color", JSON.stringify(d.banner).slice(0,80));
+    else{
+      let bannerInvalid = false;
+      for(const k of Object.keys(d.banner))
+        if(!BANNER_FIELDS[k]){ bannerInvalid = true; add("unknown_field", "banner/" + k, "В баннере нет такого поля", JSON.stringify(d.banner[k]).slice(0,60)); }
+      for(const [k, spec] of Object.entries(BANNER_FIELDS))
+        if(k in d.banner){
+          const bad = badValue(spec, d.banner[k]);
+          if(bad){ bannerInvalid = true; add("unknown_field", "banner/" + k, bad, JSON.stringify(d.banner[k]).slice(0,60)); }
+        }
+      if(!bannerInvalid && typeof d.banner.ts === "number" && (Date.now() - d.banner.ts) >= bannerMaxAgeMs)
+        add("old_banner", "banner", "Устаревший баннер (> " + cleanBannerHours() + " ч)", String(d.banner.text || "").slice(0,80));
+    }
+  }
+
+  /* users */
+  const users = d.users || {};
+  for(const [nick, u] of Object.entries(users)){
+    if(!NICK_RE.test(nick)){ add("bad_user", `users/${nick}`, "Ник не проходит правила A-Za-z0-9_ (1-16)"); continue; }
+    if(typeof u !== "object" || u === null){ add("bad_user", `users/${nick}`, "Не объект - мусорная запись", String(u).slice(0,80)); continue; }
+    const miss = USER_REQ.filter(f => !(f in u));
+    if(miss.length === USER_REQ.length){ add("bad_user", `users/${nick}`, "Нет ни одного игрового поля"); continue; }
+    if(miss.length) add("bad_user", `users/${nick}`, "Нет обязательных полей: " + miss.join(", "));
+    const hit = spamHit(nick);
+    if(hit) add("bad_user", `users/${nick}`, "Ник похож на спам/взлом: " + hit);
+    for(const [f, v] of Object.entries(u)){
+      /* Fields from older versions are junk even though the rules still
+       * accept them - offer them for removal with their own reason. */
+      if(legacyWhy(`users/${nick}/${f}`)){
+        add("unknown_field", `users/${nick}/${f}`, legacyWhy(`users/${nick}/${f}`),
+            JSON.stringify(v).slice(0,80));
+        continue;
+      }
+      const spec = USER_FIELDS[f];
+      if(!spec){
+        add("unknown_field", `users/${nick}/${f}`, "Поле не используется игрой и не пускается правилами",
+            JSON.stringify(v).slice(0,80));
+        continue;
+      }
+      if(f === "nick" && typeof v === "string" && spamHit(v)){
+        add("unknown_field", `users/${nick}/nick`, "В нике спам-текст", String(v).slice(0,80));
+        continue;
+      }
+      if(spec.t === "obj"){
+        const bad = badValue(spec, v);
+        if(bad){ add("unknown_field", `users/${nick}/${f}`, bad, JSON.stringify(v).slice(0,80)); continue; }
+        for(const [gk, gv] of Object.entries(v)){
+          const gw = legacyWhy(`users/${nick}/${f}/${gk}`);
+          if(gw){
+            add("unknown_field", `users/${nick}/${f}/${gk}`, gw, JSON.stringify(gv).slice(0,60));
+            continue;
+          }
+          const gs = spec.fields[gk];
+          if(!gs) add("unknown_field", `users/${nick}/${f}/${gk}`, "Такого подарка нет в игре", JSON.stringify(gv).slice(0,60));
+          else{
+            const gbad = badValue(gs, gv);
+            if(gbad) add("unknown_field", `users/${nick}/${f}/${gk}`, gbad, JSON.stringify(gv).slice(0,60));
+          }
+        }
+        continue;
+      }
+      const why = badValue(spec, v);
+      if(why) add("unknown_field", `users/${nick}/${f}`, why + (spec.note ? " (" + spec.note + ")" : ""),
+                  JSON.stringify(v).slice(0,60));
+    }
+  }
+
+  /* rooms */
+  const rooms = d.rooms || {};
+  for(const [rn, room] of Object.entries(rooms)){
+    if(typeof room !== "object" || room === null){
+      add("unknown_root", `rooms/${rn}`, "Комната - не объект", String(room).slice(0,80)); continue;
+    }
+    for(const k of Object.keys(room))
+      if(!ROOM_OK.includes(k))
+        add("unknown_field", `rooms/${rn}/${k}`, "В комнате нет такого узла", JSON.stringify(room[k]).slice(0,100));
+
+    /* Optional room metadata node (owner, password hash, write secret). */
+    if("meta" in room){
+      const m = room.meta;
+      if(typeof m !== "object" || m === null)
+        add("meta", `rooms/${rn}/meta`, "Meta - не объект", String(m).slice(0,60));
+      else{
+        for(const k of Object.keys(m))
+          if(!META_FIELDS[k])
+            add("meta", `rooms/${rn}/meta/${k}`, "В meta нет такого поля (правила требуют owner/ph/w)",
+                JSON.stringify(m[k]).slice(0,60));
+        for(const k of META_REQ)
+          if(!(k in m)) add("meta", `rooms/${rn}/meta`, "В meta нет обязательного поля " + k);
+        for(const [k, spec] of Object.entries(META_FIELDS))
+          if(k in m){
+            const bad = badValue(spec, m[k]);
+            if(bad) add("meta", `rooms/${rn}/meta/${k}`, bad, JSON.stringify(m[k]).slice(0,60));
+          }
+      }
+    }
+
+    for(const [slot, p] of Object.entries(room.players || {})){
+      const base = `rooms/${rn}/players/${slot}`;
+      if(!/^[0-3]$/.test(slot)){ add("slot", base, "Слота с таким номером не бывает (0-3)"); continue; }
+      if(typeof p !== "object" || p === null){ add("slot", base, "Слот - не объект"); continue; }
+      const miss = SLOT_REQ.filter(f => !(f in p));
+      if(miss.length){ add("slot", base, "Битый слот, нет полей: " + miss.join(", ")); continue; }
+      if(typeof p.nick === "string" && spamHit(p.nick))
+        add("slot", base, "Ник в слоте - спам/взлом: " + spamHit(p.nick), p.nick);
+      for(const [f, v] of Object.entries(p)){
+        const spec = SLOT_FIELDS[f];
+        if(!spec){ add("unknown_field", `${base}/${f}`, "Поле слота не используется игрой", JSON.stringify(v).slice(0,60)); continue; }
+        const bad = badValue(spec, v);
+        if(bad) add("unknown_field", `${base}/${f}`, bad, JSON.stringify(v).slice(0,60));
+      }
+      /* Zeroed placeholder or dead slot; left unselected by default. */
+      if(p.hp === 0 && p.alive === 0)
+        add("stale", base, p.seq === 0 && p.x === 0 && p.y === 0
+            ? "Нулевой слот-заглушка (заявка без движения)"
+            : "Мёртвый неактивный слот (hp=0, alive=0)", p.nick || "");
+    }
+
+    /* Custom rooms without any live players are abandoned and safe to remove. */
+    if(rn !== "main"){
+      const livePlayers = Object.values(room.players || {}).filter(
+        p => p && typeof p === "object" && ((p.alive || 0) > 0 || (p.hp || 0) > 0)
+      );
+      if(livePlayers.length === 0)
+        add("empty_room", `rooms/${rn}`, "Пустая старая комната без живых игроков");
+    }
+
+    const validChatIds = [];
+    for(const [id, m] of Object.entries(room.chat || {})){
+      const base = `rooms/${rn}/chat/${id}`;
+      if(typeof m !== "object" || m === null){ add("chat", base, "Сообщение - не объект"); continue; }
+      const bad = CHAT_REQ.filter(f => !(f in m));
+      const extra = Object.keys(m).filter(f => !CHAT_FIELDS[f]);
+      const hit = typeof m.text === "string" ? spamHit(m.text) : "Нет текста";
+      const nickHit = typeof m.nick === "string" ? spamHit(m.nick) : null;
+      const label = `${m.nick ?? "?"}: ${String(m.text ?? "").slice(0,90)}`;
+      if(bad.length)        add("chat", base, "Битое сообщение (нет " + bad.join(", ") + ")", label);
+      else if(extra.length) add("chat", base, "Лишние поля: " + extra.join(", "), label);
+      else if(hit)          add("chat", base, "Стоп-слово: " + hit, label);
+      else if(nickHit)      add("chat", base, "Спам в нике: " + nickHit, label);
+      else{
+        let why = null;
+        for(const [f, spec] of Object.entries(CHAT_FIELDS))
+          if(f in m){ const b = badValue(spec, m[f]); if(b){ why = f + ": " + b; break; } }
+        if(why) add("chat", base, why, label);
+        else    validChatIds.push({id, base, label});
+      }
+    }
+    validChatIds.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+    const cutoff = Math.max(0, validChatIds.length - keepChat);
+    for(let i = 0; i < validChatIds.length; i++){
+      const c = validChatIds[i];
+      if(i < cutoff)
+        add("old_chat", c.base, "Старое сообщение чата (сверх последних " + keepChat + ")", c.label);
+      else
+        add("chat_all", c.base, "Обычное сообщение чата", c.label);
+    }
+  }
+
+  /* bans */
+  for(const [n, v] of Object.entries(d.bans || {})){
+    if(!NICK_RE.test(n) || typeof v !== "boolean")
+      add("unknown_field", `bans/${n}`, "Битая запись бана", JSON.stringify(v));
+    else if(v === false)
+      add("unknown_field", `bans/${n}`, "Бан снят (false) - запись лишняя");
+    else
+      add("bans", `bans/${n}`, "Активный бан");
+  }
+
+  stats();
+  render();
+  $("#janitor").classList.remove("hide");
+}
+
+function stats(){
+  const d = SNAP || {};
+  const rooms = Object.values(d.rooms || {});
+  const chat = rooms.reduce((a,r)=>a+Object.keys(r?.chat||{}).length,0);
+  const slots = rooms.reduce((a,r)=>a+Object.keys(r?.players||{}).length,0);
+  const gifts = Object.values(d.users||{}).reduce((a,u)=>
+    a + Object.keys((u && typeof u === "object" && u.gifts) || {})
+          .filter(k => !legacyWhy(`users/x/gifts/${k}`)).length, 0);
+  const junk = FOUND.filter(f=>f.kind!=="chat_all"&&f.kind!=="bans").length;
+  const c = [
+    ["Игроков (users)", Object.keys(d.users||{}).length],
+    ["Подарков у игроков", gifts],
+    ["Комнат", rooms.length],
+    ["Слотов занято", slots],
+    ["Сообщений в чате", chat],
+    ["Банов", Object.keys(d.bans||{}).length],
+    ["Ивент", (d.event ?? 0) + " · " + (EVENT_NAMES[d.event] || "?")],
+    ["AzumBuff / FlashSale", (d.AzumBuff ?? 0) + " / " + (d.FlashSale ?? 0)],
+    ["Новый год (Christmas)", (d.Christmas ?? 0) ? "Вкл" : "Выкл"],
+    ["Устаревших полей", FOUND.filter(f=>f.kind==="legacy").length],
+    ["Мусора найдено", junk]
+  ];
+  $("#stats").innerHTML = c.map(([k,v]) =>
+    `<div class="card"><span class="muted">${esc(String(k))}</span><b>${esc(String(v))}</b></div>`).join("");
+  const ev = $("#evNow");
+  if(ev) ev.textContent = "Сейчас в базе: " + (d.event ?? "?");
+  const fl = $("#flagNow");
+  if(fl) fl.textContent = "В базе: AzumBuff=" + (d.AzumBuff ?? "-") + ", FlashSale=" + (d.FlashSale ?? "-") + ", Christmas=" + (d.Christmas ?? "-");
+  const bt = $("#bannerText");
+  if(bt && d.banner && typeof d.banner === "object" && typeof d.banner.text === "string" && !bt.value)
+    bt.value = d.banner.text;
+}
+
+function render(){
+  const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
+  const list = FOUND.filter(f => on.has(f.kind));
+  $("#found").innerHTML = list.length ? list.map((f) => {
+    const i = FOUND.indexOf(f);
+    return `<label class="item"><input type="checkbox" data-i="${i}" ${f.sel?"checked":""}>
+      <span><code>${esc(f.path)}</code><br>
+      <span class="why">${esc(f.why)}${f.extra ? " - " + esc(f.extra) : ""}</span></span></label>`;
+  }).join("") : '<div class="item good">Ничего лишнего по выбранным фильтрам 🎉</div>';
+  $("#found").querySelectorAll("input").forEach(cb => cb.addEventListener("change", () => {
+    FOUND[+cb.dataset.i].sel = cb.checked; selInfo();
+  }));
+  selInfo();
+}
+function selInfo(){
+  const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
+  const n = FOUND.filter(f => on.has(f.kind) && f.sel).length;
+  $("#selInfo").textContent = "Выбрано к удалению: " + n;
+  $("#wipe").disabled = !n;
+}
+const esc = s => String(s).replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+
+/* Collapse selected paths into minimal parent DELETE requests (excluding root). */
+function wipePlan(paths){
+  if(!SNAP) return [...new Set(paths)];
+  const sel = new Set(paths);
+  const nodeAt = p => p ? p.split("/").reduce((n,k) =>
+        (n && typeof n === "object") ? n[k] : undefined, SNAP) : SNAP;
+  const keysAt = p => { const n = nodeAt(p);
+        return (n && typeof n === "object") ? Object.keys(n) : null; };
+  const memo = new Map();
+  const fully = p => {
+    if(sel.has(p)) return true;
+    if(memo.has(p)) return memo.get(p);
+    memo.set(p, false);
+    const ks = keysAt(p);
+    const r = !!ks && ks.length > 0 && ks.every(k => fully(p ? p + "/" + k : k));
+    memo.set(p, r);
+    return r;
+  };
+  const cand = new Set();
+  for(const p of paths){
+    let cur = p;
+    while(cur){ cand.add(cur); cur = cur.slice(0, cur.lastIndexOf("/")) || null; }
+  }
+  if(!cand.size) return [];
+  const plan = [];
+  for(const p of cand){
+    if(!fully(p)) continue;
+    const par = p ? p.slice(0, p.lastIndexOf("/")) : "";
+    if(!par || !fully(par)) plan.push(p);
+  }
+  if(plan.length === 1 && plan[0] === "")
+    return Object.keys(SNAP);
+  return plan;
+}
+
+/* Delete node directly, falling back to per-child DELETEs on HTTP 403. */
+async function wipeNode(p){
+  try{ await rtdb(p, "DELETE"); return; }
+  catch(e){
+    if(!/(403|permission|denied)/i.test(e.message)) throw e;
+    let cur = null;
+    if(SNAP) cur = p.split("/").reduce((o,k) => (o && typeof o === "object") ? o[k] : undefined, SNAP);
+    if(cur === null || typeof cur !== "object"){
+      try{ cur = await rtdb(p); }catch(e2){ throw e; }
+    }
+    if(cur === null || typeof cur !== "object") throw e;
+    const ks = Object.keys(cur);
+    if(!ks.length) throw e;
+    for(const k of ks) await rtdb(p + "/" + k, "DELETE");
+  }
+}
+
+/* Concurrent DELETE worker pool size. */
+const WIPE_CONC = 10;
+async function wipe(){
+  const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
+  const selected = FOUND.filter(f => on.has(f.kind) && f.sel);
+  if(!selected.length) return;
+  const plan = wipePlan(selected.map(f => f.path));
+  if(!plan.length) return;
+  if(!confirm(`Удалить ${selected.length} узлов?\nПакетом: ${plan.length} запрос(ов) к базе.\n\nПервые:\n` +
+              plan.slice(0,12).join("\n") + (plan.length>12?"\n…":"") +
+              (isTest() ? "" : "\n\nБаза БОЕВАЯ - отменить удаление будет нельзя."))) return;
+  const btn = $("#wipe"); btn.disabled = true;
+  let ok = 0, fail = 0, done = 0;
+  const total = plan.length, queue = [...plan];
+  const tick = () => { btn.textContent = `Удаляю ${done}/${total}…`; };
+  const worker = async () => {
+    while(queue.length){
+      const p = queue.shift();
+      try{ await wipeNode(p); ok++; log("Удалено: " + p); }
+      catch(e){ fail++; log("НЕ удалено " + p + " - " + e.message, "err"); }
+      done++; tick();
+    }
+  };
+  tick();
+  await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
+  btn.textContent = "Удалить выбранное"; btn.disabled = false;
+  log(`Готово: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
+  alert(`Удалено: ${ok}\nОшибок: ${fail}` + (fail ? "\n\nОшибки обычно = правила базы запрещают запись в этот узел (см. журнал)." : ""));
+  await scan();
+}
+
+/* Select all old and unneeded items across janitor filters for review. */
+async function markOldData(){
+  if(!SNAP) await scan();
+  else analyze();
+  const kinds = new Set(OLD_CLEAN_KINDS);
+  $$(".flt").forEach(c => { c.checked = kinds.has(c.dataset.k); });
+  FOUND.forEach(f => { f.sel = kinds.has(f.kind); });
+  render();
+  const n = FOUND.filter(f => f.sel).length;
+  log("Отмечено старых и ненужных узлов: " + n, n ? "good" : "");
+}
+
+/* Delete all old and unneeded database nodes in a single batch run. */
+async function cleanOldData(){
+  if(!SNAP) await scan();
+  else analyze();
+  const kinds = new Set(OLD_CLEAN_KINDS);
+  const targets = FOUND.filter(f => kinds.has(f.kind));
+  if(!targets.length){
+    log("Чистка старых и ненужных данных: ничего лишнего не найдено", "good");
+    alert("Старых или ненужных данных не найдено.");
+    return;
+  }
+  const plan = wipePlan(targets.map(f => f.path));
+  if(!plan.length) return;
+  if(!confirm(`Очистить старые и ненужные данные?\nНайдено узлов: ${targets.length}, запросов DELETE: ${plan.length}.\n\nПервые:\n` +
+              plan.slice(0,12).join("\n") + (plan.length>12?"\n…":"") +
+              (isTest() ? "" : "\n\nБаза БОЕВАЯ - отменить удаление будет нельзя."))) return;
+  const btn = $("#cleanOld"); btn.disabled = true;
+  let ok = 0, fail = 0, done = 0;
+  const total = plan.length, queue = [...plan];
+  const tick = () => { btn.textContent = `Чищу ${done}/${total}…`; };
+  const worker = async () => {
+    while(queue.length){
+      const p = queue.shift();
+      try{ await wipeNode(p); ok++; log("Очищено: " + p); }
+      catch(e){ fail++; log("НЕ очищено " + p + " - " + e.message, "err"); }
+      done++; tick();
+    }
+  };
+  tick();
+  await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
+  btn.textContent = "Очистить старые и ненужные данные"; btn.disabled = false;
+  log(`Чистка завершена: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`, fail ? "warn" : "good");
+  alert(`Чистка завершена.\nУдалено: ${ok}\nОшибок: ${fail}`);
+  await scan();
+}
+
+/* Show only fields left over from older game versions. */
+async function markLegacyData(){
+  if(!SNAP) await scan(); else analyze();
+  $$(".flt").forEach(c => { c.checked = c.dataset.k === "legacy"; });
+  FOUND.forEach(f => { f.sel = f.kind === "legacy"; });
+  render();
+  const n = FOUND.filter(f => f.sel).length;
+  log("Найдено устаревших полей из старых версий: " + n, n ? "good" : "");
+}
+
+/* Delete every obsolete field in one batch, keeping all live progress. */
+async function cleanLegacyData(){
+  if(!SNAP) await scan(); else analyze();
+  const targets = FOUND.filter(f => f.kind === "legacy");
+  if(!targets.length){
+    log("Чистка устаревших полей: мусора из старых версий не найдено", "good");
+    alert("Устаревших полей в базе нет.");
+    return;
+  }
+  const plan = wipePlan(targets.map(f => f.path));
+  if(!plan.length) return;
+  if(!confirm(`Удалить устаревшие поля из базы?\nНайдено полей: ${targets.length}, запросов DELETE: ${plan.length}.\n\nПервые:\n` +
+              plan.slice(0,12).join("\n") + (plan.length>12?"\n…":"") +
+              (isTest() ? "" : "\n\nБаза БОЕВАЯ - отменить удаление будет нельзя."))) return;
+  const btn = $("#cleanLegacy"); btn.disabled = true;
+  let ok = 0, fail = 0, done = 0;
+  const total = plan.length, queue = [...plan];
+  const tick = () => { btn.textContent = `Удаляю ${done}/${total}…`; };
+  const worker = async () => {
+    while(queue.length){
+      const p = queue.shift();
+      try{ await wipeNode(p); ok++; log("Удалено устаревшее поле: " + p); }
+      catch(e){ fail++; log("НЕ удалено " + p + " - " + e.message, "err"); }
+      done++; tick();
+    }
+  };
+  tick();
+  await Promise.all(Array.from({length: Math.min(WIPE_CONC, total)}, worker));
+  btn.textContent = "Удалить устаревшие поля"; btn.disabled = false;
+  log(`Чистка устаревших полей завершена: удалено ${ok}, ошибок ${fail} (из ${total} запросов)`,
+      fail ? "warn" : "good");
+  alert(`Устаревших полей удалено: ${ok}\nОшибок: ${fail}`);
+  await scan();
+  resetJanitorFilters();
+}
+
+/* Targeted moderation and maintenance helpers. */
+async function safe(fn, name){
+  if(window.cb4FatalClear) window.cb4FatalClear();
+  try{ await fn(); log(name + " - ок", "good"); await scan(); }
+  catch(e){
+    log(name + ": " + e.message, "err");
+    alert(name + " не вышло:\n" + e.message + "\n\n" + explain(e.message));
+  }
+}
+const nickOf = sel => {
+  const n = ($(sel).value || "").trim();
+  if(!n){ alert("Введи ник"); return null; }
+  if(!NICK_RE.test(n)){ alert("Ник должен быть A-Za-z0-9_, 1-16 символов"); return null; }
+  return n;
+};
+const roomName = () => ($("#room").value || "").trim() || "main";
+
+/* Report bound controls, missing selectors, and connection status. */
+function selfTest(){
+  const buttons = $$("button");
+  const inputs = $$("input,select,textarea");
+  const lines = [
+    "Кнопок на странице: " + buttons.length,
+    "Привязано обработчиков: " + BOUND.length,
+    "Полей ввода: " + inputs.length,
+    "Не найдено элементов: " + (MISSING.length ? MISSING.join(", ") : "Нет - всё на месте"),
+    "Адрес базы: " + (dbUrl() || "(пусто)") + (isTest() ? " · тестовый режим" : " · боевая база"),
+    "Вход: " + (TOKEN ? EMAIL : "Не выполнен"),
+    "Снимок: " + (SNAP ? Object.keys(SNAP).length + " корневых узлов" : "Не получен")
+  ];
+  buttons.forEach(b => { if(b.disabled) lines.push("Кнопка отключена: " + (b.id || b.textContent.trim())); });
+  log("Самопроверка:\n  " + lines.join("\n  "), MISSING.length ? "warn" : "good");
+  alert("Самопроверка\n\n" + lines.join("\n") +
+        (MISSING.length ? "\n\nСтраница собрана не полностью - эти элементы не найдены:\n" + MISSING.join("\n")
+                        : "\n\nВсе кнопки привязаны к обработчикам."));
+}
+
+/* Wire DOM event listeners and initialize panel state. */
+function boot(){
+  $("#words").value = DEFAULT_WORDS;
+  loadCfg();
+  emailHint();
+  updateMode();
+
+  /* Authentication */
+  on("#login", doLogin, "Войти");
+  $("#pass").addEventListener("keydown", e => { if(e.key === "Enter") run(doLogin); });
+  $("#nick").addEventListener("keydown", e => { if(e.key === "Enter") $("#pass").focus(); });
+  onChange("#nick", () => { emailHint(); saveAll(); });
+  onChange("#suffix", () => { emailHint(); saveAll(); });
+  onChange("#passSuffix", () => { emailHint(); saveAll(); });
+  onChange("#dbUrl", saveAll);
+  onChange("#apiKey", saveAll);
+  onChange("#room", saveAll);
+  onChange("#bannerText", saveAll);
+  onChange("#showPass", () => { $("#pass").type = $("#showPass").checked ? "text" : "password"; });
+  on("#checkKey", async () => {
+    const b = $("#checkKey"); b.disabled = true;
+    try{
+      await idp("signInWithPassword",
+                {email: "cb4-probe-" + Date.now() + "@cb4.game", password: "probe-probe-1"});
+      log("Проверка ключа: ответ без ошибки - странно, но ключ точно живой", "warn");
+    }catch(e){
+      if(RETRYABLE.test(e.message))
+        log("Проверка ключа: ключ работает - сервер ответил " + e.message +
+            " (значит запрос дошёл и не заблокирован); дело в паре «ник + пароль + суффикс»", "good");
+      else
+        log("Проверка ключа: " + e.message + " - " + explain(e.message), "err");
+      alert("Проверка ключа\n\n" + e.message + "\n\n" + explain(e.message));
+    }finally{ b.disabled = false; }
+  }, "Проверить ключ");
+  on("#suffixHelp", () => {
+    alert("Хвост пароля аккаунта\n\n" +
+      "Пароль в Firebase = игровой пароль + «хвост». Хвост ротирован: раньше это был\n" +
+      "«|cb4v1», теперь - 32 случайных символа из NET_PASS_SECRET_* (src/engine/network.h).\n\n" +
+      "Как получить текущий:\n" +
+      "    python3 tools/rotate_db_secret.py --show\n" +
+      "Строка «хвост пароля аккаунта» - скопируй её в поле «суффикс» выше.\n\n" +
+      "Почему хвоста нет в этой странице: index.html лежит в открытом репозитории,\n" +
+      "А хвост - половина секрета аккаунтов (вторая половина - знание пароля).\n\n" +
+      "Старый «|cb4v1» тоже пробуется автоматически. " +
+      "По нему пустит только аккаунт, который ни разу не входил в игру после ротации: " +
+      "Игра пускает его один раз и сразу переписывает пароль на новый хвост.");
+  }, "Откуда взять хвост");
+  on("#testMode", () => {
+    if(location.protocol === "file:"){
+      alert("Тестовый режим работает, когда страница открыта по http.\n\n" +
+            "Запусти:\n    python3 test/fake_firebase.py 8080\n" +
+            "И открой http://localhost:8080/ - этот сервер раздаёт и панель, и подставную базу.\n" +
+            "Один порт - поэтому ни CORS, ни смешанный контент не мешают.");
+      return;
+    }
+    $("#dbUrl").value = location.origin;
+    $("#apiKey").value = "cb4-test-key";
+    saveAll(); emailHint();
+    log("Тестовый режим: база = " + location.origin + " (нужен запущенный test/fake_firebase.py, который и раздаёт эту страницу)", "warn");
+    alert("Тестовый режим включён.\n\nБаза: " + location.origin +
+          "\nВход: любой ник и любой пароль (аккаунт создастся сам).\n" +
+          "Админские права в тестовой базе - у ников Dimasi4ek229 и qwertyuiopaj1234\n(второй - всё, кроме выдачи подарков).\n\nНичего боевого не трогается.");
+  }, "Тестовый режим");
+  on("#prodMode", () => {
+    $("#dbUrl").value = "https://cubicbattleserver-19ae2-default-rtdb.firebaseio.com";
+    $("#apiKey").value = "AIzaSyDJEqopxP5EqEoxP_ehO3jFXbNztu3DgVs";
+    saveAll(); emailHint();
+    log("Боевая база: " + dbUrl(), "");
+  }, "Боевая база");
+  on("#logout", () => location.reload(), "Выйти");
+  on("#selftest", selfTest, "Самопроверка");
+  on("#clearLog", () => { $("#log").innerHTML = ""; }, "Очистить журнал");
+
+  /* Snapshot and cleanup */
+  on("#scan", scan, "Сканировать базу");
+  $$(".flt").forEach(c => c.addEventListener("change", render));
+  $("#words").addEventListener("input", () => { if(SNAP) analyze(); });
+  onChange("#cleanChatKeep", () => { if(SNAP) analyze(); });
+  onChange("#cleanBannerHours", () => { if(SNAP) analyze(); });
+  on("#markOld", markOldData, "Отметить старое и ненужное");
+  on("#cleanOld", cleanOldData, "Очистить старые и ненужные данные");
+  on("#markLegacy", markLegacyData, "Найти устаревшие поля");
+  on("#cleanLegacy", cleanLegacyData, "Удалить устаревшие поля");
+  on("#all", () => { const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
+                     FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=true; }); render(); }, "Выделить всё");
+  on("#none", () => { FOUND.forEach(f=>f.sel=false); render(); }, "Снять всё");
+  on("#invert", () => { const on = new Set($$(".flt").filter(c=>c.checked).map(c=>c.dataset.k));
+                        FOUND.forEach(f=>{ if(on.has(f.kind)) f.sel=!f.sel; }); render(); }, "Инвертировать");
+  on("#wipe", wipe, "Удалить выбранное");
+
+  /* Live events 0..7 */
+  onAll("[data-ev]", (ev, b) => {
+    const v = +b.dataset.ev;
+    if(v < 0 || v > EVENT_MAX) throw new Error("Ивент должен быть 0.." + EVENT_MAX);
+    return safe(() => rtdb("event", "PUT", v), "Смена ивента на " + v + " (" + EVENT_NAMES[v] + ")");
+  }, "Ивент");
+
+  /* Shop flags */
+  onAll("[data-flag]", (ev, b) =>
+    safe(() => rtdb(b.dataset.flag, "PUT", +b.dataset.v), b.dataset.flag + " = " + b.dataset.v), "Флаги");
+
+  /* Lobby banner */
+  on("#setBanner", () => {
+    const text = $("#bannerText").value.trim();
+    const color = $("#bannerColor").value || "white";
+    if(!text){ alert("Введи текст баннера"); return; }
+    if(text.length > 96){ alert("Текст баннера длиннее 96 символов - правила не пустят"); return; }
+    return safe(() => rtdb("banner", "PUT", {ts: Date.now(), text, color}), "Баннер");
+  }, "Показать баннер");
+  on("#clearBanner", () => {
+    if(!confirm("Снять баннер из лобби?")) return;
+    return safe(() => rtdb("banner", "DELETE"), "Снятие баннера");
+  }, "Снять баннер");
+
+  /* Bans */
+  on("#ban", () => { const n = nickOf("#banNick");
+    if(n) return safe(() => rtdb("bans/" + n, "PUT", true), "Бан " + n); }, "Забанить");
+  on("#unban", () => { const n = nickOf("#banNick");
+    if(n) return safe(() => rtdb("bans/" + n, "DELETE"), "Разбан " + n); }, "Разбанить");
+
+  /* Room maintenance */
+  on("#clearChat", () => { const r = roomName();
+    if(confirm("Стереть весь чат комнаты " + r + "?"))
+      return safe(() => wipeNode(`rooms/${r}/chat`), "Очистка чата"); }, "Очистить чат");
+  on("#clearSlots", () => { const r = roomName();
+    if(confirm("Сбросить все слоты игроков в " + r + "? Все выпадут из боя."))
+      return safe(() => wipeNode(`rooms/${r}/players`), "Сброс слотов"); }, "Сбросить слоты");
+  on("#dump", () => {
+    if(!SNAP){ alert("Сначала отсканируй базу"); return; }
+    const b = new Blob([JSON.stringify(SNAP, null, 2)], {type:"application/json"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(b);
+    a.download = "cb4-backup-" + new Date().toISOString().replace(/[:.]/g,"-") + ".json";
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    log("Резервная копия скачана (" + Object.keys(SNAP).length + " корневых узлов)", "good");
+  }, "Скачать копию");
+  on("#restore", () => { $("#restoreFile").click(); }, "Загрузить копию");
+  onChange("#restoreFile", () => {
+    const f = $("#restoreFile").files && $("#restoreFile").files[0];
+    if(!f) return;
+    const rd = new FileReader();
+    rd.onload = () => run(async () => {
+      let data;
+      try{ data = JSON.parse(String(rd.result)); }
+      catch(e){ alert("Файл не JSON: " + e.message); return; }
+      if(!data || typeof data !== "object"){ alert("В файле не узел базы"); return; }
+      const keys = Object.keys(data);
+      if(!keys.length){ alert("Файл пустой"); return; }
+      const bad = keys.filter(k => !ROOT_OK.includes(k));
+      if(bad.length && !confirm("В копии есть неизвестные узлы: " + bad.join(", ") + "\n\nЗаписать их всё равно?"))
+        return;
+      if(!confirm("Записать в базу " + keys.length + " узлов из копии?\n\n" + keys.join("\n") +
+                  "\n\nТекущие значения этих узлов будут заменены.")) return;
+      let ok = 0, fail = 0;
+      for(const k of keys){
+        try{ await rtdb(k, "PUT", data[k]); ok++; log("Восстановлено: " + k, "good"); }
+        catch(e){ fail++; log("НЕ восстановлено " + k + " - " + e.message, "err"); }
+      }
+      alert("Восстановлено: " + ok + "\nОшибок: " + fail);
+      $("#restoreFile").value = "";
+      await scan();
+    });
+    rd.onerror = () => alert("Файл не прочитался");
+    rd.readAsText(f);
+  });
+
+  /* Startup missing-element check */
+  if(MISSING.length){
+    log("ВНИМАНИЕ: на странице не найдены элементы " + MISSING.join(", ") +
+        " - соответствующие кнопки работать не будут", "err");
+    if(window.cb4Fatal)
+      window.cb4Fatal("Страница собрана не полностью: не найдены " + MISSING.join(", ") +
+                      ". Часть кнопок не работает - нажми «Самопроверка».");
+  }else{
+    log("Панель загружена: " + BOUND.length + " обработчиков на " + $$("button").length + " кнопках - всё нажимается", "good");
+    log("База по умолчанию: " + dbUrl() + (isTest() ? " (тестовый режим)" : " (боевая)"), "");
+    log("Чтобы потренироваться без риска: запусти test/fake_firebase.py и нажми «Тестовый режим»", "");
+  }
+  selInfo();
+}
+
+try{
+  boot();
+}catch(e){
+  report(e);
+  if(window.cb4Fatal)
+    window.cb4Fatal("Панель не запустилась: " + e.message + "\nКнопки не будут работать, пока ошибка не исправлена.");
+  throw e;
+}
+</script>
+</body>
+</html>

@@ -1,0 +1,11 @@
+static double winter_theme_on(void);
+static const char *arena_ground_tex(void);
+static double arena_ground_rgb(void);
+static void draw_arena_background(void);
+static double snow_active(void);
+static void update_weather(void);
+static double hash01(double i);
+static double frac01(double v);
+static void flake_grow(double count);
+static void flake_refresh(double b, double i, double cyc);
+static void draw_snow(void);

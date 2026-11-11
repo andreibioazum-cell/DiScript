@@ -1,0 +1,12 @@
+static double disco_color(double phase);
+static void draw_disco(void);
+static void update_event(void);
+static double banner_named_color(const char *name);
+static double banner_color_now(const char *name);
+static void update_banner(void);
+static void draw_banner(void);
+static void draw_overhead_nick(const char *nick, double cx, double top_y, uint32_t col);
+static void draw_online(void);
+static void drop_joy(void);
+static void joy_touch(double x, double y, double action, double id);
+static void touch_game(double x, double y, double action, double id);

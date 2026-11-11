@@ -363,11 +363,11 @@ static int ds_vk_create_frame_resources(void) {
                                  &f->vmem, (void **)&f->vmap))
             return 0;
         f->vcap = 256 * 1024 / sizeof(GeoVert);
-        if (!ds_vk_create_buffer(512 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        if (!ds_vk_create_buffer(384 * 1024, VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &f->ibuf,
                                  &f->imem, (void **)&f->imap))
             return 0;
-        f->icap = 512 * 1024 / sizeof(uint32_t);
+        f->icap = 384 * 1024 / sizeof(uint16_t);
     }
     return 1;
 }
@@ -396,12 +396,12 @@ static int ds_vk_frame_ensure_capacity(DsVkFrame *f, size_t verts, size_t idx) {
         size_t cap = f->icap * 2;
         if (cap < idx)
             cap = idx;
-        if (cap > SIZE_MAX / sizeof(uint32_t))
+        if (cap > SIZE_MAX / sizeof(uint16_t))
             return 0;
         VkBuffer nb;
         VkDeviceMemory nm;
-        uint32_t *map;
-        if (!ds_vk_create_buffer((VkDeviceSize)cap * sizeof(uint32_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
+        uint16_t *map;
+        if (!ds_vk_create_buffer((VkDeviceSize)cap * sizeof(uint16_t), VK_BUFFER_USAGE_INDEX_BUFFER_BIT,
                                  VK_MEMORY_PROPERTY_HOST_VISIBLE_BIT | VK_MEMORY_PROPERTY_HOST_COHERENT_BIT, &nb, &nm,
                                  (void **)&map))
             return 0;
