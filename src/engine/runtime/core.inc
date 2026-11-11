@@ -65,8 +65,28 @@ static void console_add(const char *line, int is_error) {
     }
 }
 
+/* Installed by the platform: native file dialogs. */
+int (*ds_pick_open_hook)(char *dst, int cap) = 0;
+int (*ds_pick_save_hook)(const char *name, char *dst, int cap) = 0;
+
 void ds_console_raw(int is_error, const char *line) {
     console_add(line ? line : "", is_error);
+}
+
+/* Native "open file" / "save file" dialogs. The platform installs the hooks at
+ * start-up; without them the calls simply report "cancelled". */
+int ds_pick_open_file(char *dst, int cap) {
+    if (!ds_pick_open_hook || !dst || cap <= 0)
+        return 0;
+    dst[0] = 0;
+    return ds_pick_open_hook(dst, cap);
+}
+
+int ds_pick_save_file(const char *name, char *dst, int cap) {
+    if (!ds_pick_save_hook || !dst || cap <= 0)
+        return 0;
+    dst[0] = 0;
+    return ds_pick_save_hook(name, dst, cap);
 }
 
 void console_clear(void) {
