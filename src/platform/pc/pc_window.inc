@@ -13,7 +13,6 @@
 static HWND pc_hwnd = NULL;
 static int pc_win_w = 540, pc_win_h = 960;
 static int pc_mouse_down = 0;  /* Left mouse button held. */
-static int pc_mouse_punch = 0; /* Current press routed to combat punch. */
 static unsigned char pc_keys[256];
 static uint32_t *pc_conv = NULL;
 static int pc_conv_w = 0, pc_conv_h = 0;
@@ -60,30 +59,34 @@ static void pc_mouse_xy(LPARAM lp, float *ox, float *oy) {
 
 static int pc_key_down(int vk) { return pc_keys[vk & 0xff] != 0; }
 
-/* Return 1 when active battle maps left mouse clicks to punch attacks. */
-static int pc_mouse_combat(void) {
-    return game_pc_in_battle() && game_pc_finished() == 0.0 && !keyboard_visible();
-}
-
+/* Autorepeat for the keys that benefit from holding them down. */
 static void pc_apply_held_input(void) {
-    float dx = 0, dy = 0;
-    if (keyboard_visible()) {
-        pc_ctl_release_all();
+    static const struct {
+        int vk;
+        const char *name;
+    } repeatable[] = {
+        {VK_LEFT, "left"},   {VK_RIGHT, "right"}, {VK_UP, "up"},     {VK_DOWN, "down"},
+        {VK_BACK, "backspace"}, {VK_DELETE, "delete"},
+    };
+    static uint64_t next_repeat[6];
+    IDEApp *app = pc_ide_app();
+    uint64_t now = monotonic_ns();
+    if (!app)
         return;
+    for (size_t i = 0; i < sizeof(repeatable) / sizeof(repeatable[0]); i++) {
+        if (!pc_key_down(repeatable[i].vk)) {
+            next_repeat[i] = 0;
+            continue;
+        }
+        if (now < next_repeat[i])
+            continue;
+        /* ~30 keys per second once the initial delay has passed. */
+        next_repeat[i] = now + 33000000ull;
+        if (strcmp(repeatable[i].name, "backspace") == 0)
+            ide_app_backspace(app, 1);
+        else
+            ide_app_special_key(app, repeatable[i].name);
     }
-    if (pc_key_down('A') || pc_key_down(VK_LEFT))
-        dx -= 1.0f;
-    if (pc_key_down('D') || pc_key_down(VK_RIGHT))
-        dx += 1.0f;
-    if (pc_key_down('W') || pc_key_down(VK_UP))
-        dy -= 1.0f;
-    if (pc_key_down('S') || pc_key_down(VK_DOWN))
-        dy += 1.0f;
-    pc_ctl_stick(dx, dy);
-    pc_ctl_attack(pc_mouse_punch && pc_mouse_combat());
-    pc_ctl_block(pc_key_down('E'));
-    pc_ctl_super(pc_key_down('Q'));
-    pc_ctl_snowball(pc_key_down('C'));
 }
 
 static void pc_blit(void) {
@@ -160,7 +163,7 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
             pc_update_window_size((int)LOWORD(lp), (int)HIWORD(lp));
         return 0;
     case WM_MOUSEMOVE:
-        if (pc_mouse_down && !pc_mouse_punch) {
+        if (pc_mouse_down) {
             float mx, my;
             pc_mouse_xy(lp, &mx, &my);
             pc_touch(mx, my, 2, PC_TOUCH_MOUSE);
@@ -171,10 +174,7 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pc_mouse_xy(lp, &mx, &my);
         SetCapture(hwnd);
         pc_mouse_down = 1;
-        /* Route clicks outside battle chat controls to punch attacks during combat. */
-        pc_mouse_punch = pc_mouse_combat() && game_pc_battle_mouse_ui(mx, my) == 0;
-        if (!pc_mouse_punch)
-            pc_touch(mx, my, 0, PC_TOUCH_MOUSE);
+        pc_touch(mx, my, 0, PC_TOUCH_MOUSE);
         return 0;
     }
     case WM_LBUTTONUP: {
@@ -182,69 +182,141 @@ static LRESULT CALLBACK pc_wndproc(HWND hwnd, UINT msg, WPARAM wp, LPARAM lp) {
         pc_mouse_xy(lp, &mx, &my);
         pc_mouse_down = 0;
         ReleaseCapture();
-        if (!pc_mouse_punch)
-            pc_touch(mx, my, 1, PC_TOUCH_MOUSE);
-        pc_mouse_punch = 0;
+        pc_touch(mx, my, 1, PC_TOUCH_MOUSE);
         return 0;
     }
     case 0x020A: /* WM_MOUSEWHEEL */ {
         short z = (short)HIWORD(wp);
-        if (z != 0)
-            game_pc_wheel((float)z / 120.0f);
+        IDEApp *app = pc_ide_app();
+        if (z != 0 && app)
+            ide_app_scroll(app, -(float)z / 120.0f, g_frame.width, g_frame.height);
         return 0;
     }
     case WM_KEYDOWN:
-    case WM_SYSKEYDOWN:
+    case WM_SYSKEYDOWN: {
+        IDEApp *app = pc_ide_app();
+        int ctrl = (GetKeyState(VK_CONTROL) & 0x8000) != 0;
+        int shift = (GetKeyState(VK_SHIFT) & 0x8000) != 0;
         pc_keys[wp & 0xff] = 1;
         if (msg == WM_SYSKEYDOWN)
             return 0; /* Alt+Tab etc. stay with the system */
-        if (wp == VK_F12) {
-            (void)pc_write_bmp("cb4_shot.bmp", g_frame.pixels, g_frame.width, g_frame.height, g_frame.stride);
-            ds_log("screenshot saved to cb4_shot.bmp");
-        } else if (wp == VK_ESCAPE) {
-            if (keyboard_visible())
-                keyboard_hide();
-            else
-                (void)pc_back();
-        } else if (wp == VK_BACK) {
-            if (keyboard_visible())
-                keyboard_handle_key(67 /* AKEYCODE_DEL */, 0, 0);
-        } else if (wp == VK_RETURN) {
-            if (keyboard_visible())
-                pc_keyboard_enter();
+        if (!app)
+            return 0;
+        /* Shortcuts first: they are the only place Ctrl changes meaning. */
+        if (ctrl) {
+            switch (wp) {
+            case 'S':
+                if (shift)
+                    ide_app_save_as(app);
+                else
+                    ide_app_save(app);
+                return 0;
+            case 'O':
+                ide_app_open_dialog(app);
+                return 0;
+            case 'N':
+                ide_app_new(app);
+                return 0;
+            case 'R':
+                ide_app_run(app);
+                return 0;
+            case 'Z':
+                ide_app_special_key(app, "undo");
+                return 0;
+            case 'Y':
+                ide_app_special_key(app, "redo");
+                return 0;
+            case 'A':
+                ide_app_special_key(app, "select_all");
+                return 0;
+            case VK_LEFT:
+                ide_app_special_key(app, "word_left");
+                return 0;
+            case VK_RIGHT:
+                ide_app_special_key(app, "word_right");
+                return 0;
+            case VK_HOME:
+                ide_app_special_key(app, "doc_start");
+                return 0;
+            case VK_END:
+                ide_app_special_key(app, "doc_end");
+                return 0;
+            default:
+                return 0;
+            }
         }
-        return 0;
+        switch (wp) {
+        case VK_F12:
+            (void)pc_write_bmp("discript_shot.bmp", g_frame.pixels, g_frame.width, g_frame.height, g_frame.stride);
+            ds_log("screenshot saved to discript_shot.bmp");
+            return 0;
+        case VK_F5:
+            ide_app_run(app);
+            return 0;
+        case VK_ESCAPE:
+            keyboard_hide();
+            return 0;
+        case VK_BACK:
+            ide_app_backspace(app, 1);
+            return 0;
+        case VK_RETURN:
+            ide_app_enter(app);
+            return 0;
+        case VK_TAB:
+            ide_app_tab(app);
+            return 0;
+        case VK_LEFT:
+            ide_app_special_key(app, shift ? "left" : "left");
+            return 0;
+        case VK_RIGHT:
+            ide_app_special_key(app, "right");
+            return 0;
+        case VK_UP:
+            ide_app_special_key(app, "up");
+            return 0;
+        case VK_DOWN:
+            ide_app_special_key(app, "down");
+            return 0;
+        case VK_HOME:
+            ide_app_special_key(app, "home");
+            return 0;
+        case VK_END:
+            ide_app_special_key(app, "end");
+            return 0;
+        case VK_DELETE:
+            ide_app_special_key(app, "delete");
+            return 0;
+        default:
+            return 0;
+        }
+    }
     case WM_KEYUP:
     case WM_SYSKEYUP:
         pc_keys[wp & 0xff] = 0;
         if (msg == WM_SYSKEYUP)
             return 0;
-        if (wp == VK_BACK)
-            keyboard_handle_key(67 /* AKEYCODE_DEL */, 1, 0);
         return 0;
     case WM_CHAR: {
+        IDEApp *app = pc_ide_app();
         char utf8[8];
         pc_utf8_from_wchar((WCHAR)wp, utf8, sizeof(utf8));
-        if (utf8[0] && !(wp == '\r' || wp == '\n' || wp == '\b'))
-            keyboard_type(utf8);
+        /* Enter, Tab and Backspace arrive here too; they were handled above. */
+        if (app && utf8[0] && !(wp == '\r' || wp == '\n' || wp == '\b' || wp == '\t'))
+            ide_app_text(app, utf8);
         return 0;
     }
     case WM_CAPTURECHANGED:
         if (pc_mouse_down) {
             pc_mouse_down = 0;
-            if (!pc_mouse_punch)
-                pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
-            pc_mouse_punch = 0;
+            pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
         }
         return 0;
     case WM_KILLFOCUS:
         memset(pc_keys, 0, sizeof(pc_keys));
         keyboard_cancel_repeat();
-        if (pc_mouse_down && !pc_mouse_punch)
+        if (pc_mouse_down)
             pc_touch(0.0f, 0.0f, 3, PC_TOUCH_MOUSE);
         pc_mouse_down = 0;
-        pc_mouse_punch = 0;
-        pc_ctl_release_all();
         return 0;
     default:
         return DefWindowProcW(hwnd, msg, wp, lp);
@@ -273,7 +345,7 @@ static int pc_run_window(PcArgs *args) {
     rc.right = args->width;
     rc.bottom = args->height;
     AdjustWindowRect(&rc, WS_OVERLAPPEDWINDOW, FALSE);
-    pc_hwnd = CreateWindowExW(0, PC_WIN_CLASS, L"Cubic Battle 4", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
+    pc_hwnd = CreateWindowExW(0, PC_WIN_CLASS, L"DiScript", WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
                               rc.right - rc.left, rc.bottom - rc.top, NULL, NULL, inst, NULL);
     if (!pc_hwnd)
         return 2;
@@ -281,7 +353,7 @@ static int pc_run_window(PcArgs *args) {
     UpdateWindow(pc_hwnd);
     pc_boot(args);
     if (!init_done) {
-        MessageBoxA(pc_hwnd, ds_graphics_failure(), "Cubic Battle 4: renderer", MB_ICONERROR | MB_OK);
+        MessageBoxA(pc_hwnd, ds_graphics_failure(), "DiScript: renderer", MB_ICONERROR | MB_OK);
         return 2;
     }
     if (GetClientRect(pc_hwnd, &rc))

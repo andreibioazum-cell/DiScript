@@ -304,15 +304,10 @@ void tex_tint(float x, float y, const char *name, float a, float s, uint32_t c) 
     p->v.tx2.c = pack_c(c);
 }
 
-static uint32_t text_force_white(uint32_t c) {
-
-    if (c == RGB(255,68,68) || c == RGB(79,195,247) || c == RGB(255,51,51) || c == RGB(51,168,255) || c == RGB(255,213,74) || c == RGB(255,221,51))
-        return c;
-
-    if ((c & 0x00ffffffu) == 0x00202020u)
-        return c;
-    return (c & 0xff000000u) | 0x00ffffffu;
-}
+/* Kept for source compatibility with callers that predate real text colours.
+ * It used to flatten nearly every colour to white, which would erase syntax
+ * highlighting, so it now passes the colour straight through. */
+static uint32_t text_force_white(uint32_t c) { return c; }
 void text_scaled(const char *s, float x, float y, uint32_t c, float sc) {
     if (!frame_open || !s || !ensure_font())
         return;
@@ -336,6 +331,33 @@ void text(const char *s, float x, float y, uint32_t c) {
     text_scaled(s, x, y, c, 1.0f);
 }
 
+/* Advance of a single monospaced column, used by the code editor to align the
+ * caret and the selection bands with the glyphs. */
+float text_advance_of(const char *s, float scale) {
+    if (!s || !*s || scale <= 0.0f || !ensure_font())
+        return 0.0f;
+    const char *c = s;
+    int cp = utf8_dec(&c);
+    const DSFontGlyph *g = ds_font_glyph(font, (uint32_t)cp);
+    return g ? g->advance * scale : 0.0f;
+}
+float text_width_scaled(const char *s, float scale) {
+    if (!s || scale <= 0.0f || !ensure_font())
+        return 0.0f;
+    float pen = 0.0f;
+    for (const char *c = s; *c;) {
+        int cp = utf8_dec(&c);
+        if (cp == '\n') {
+            pen = 0.0f;
+            continue;
+        }
+        const DSFontGlyph *g = ds_font_glyph(font, (uint32_t)cp);
+        if (!g)
+            continue;
+        pen += g->advance * scale;
+    }
+    return pen;
+}
 int text_ink_width(const char *s) {
     if (!s || !ensure_font())
         return 0;

@@ -28,7 +28,8 @@ void text_scaled(const char *s,float x,float y,uint32_t c,float sc){(void)s;(voi
 void text_n(const char *s,size_t n,float x,float y,uint32_t c,float sc){(void)s;(void)n;(void)x;(void)y;(void)c;(void)sc;}
 void text_rainbow(const char *s,float x,float y,float sc,float h){(void)s;(void)x;(void)y;(void)sc;(void)h;}
 void text_shimmer(const char *s,float x,float y,uint32_t c,float sc,float p){(void)s;(void)x;(void)y;(void)c;(void)sc;(void)p;}
-float text_width(const char *s,float sc){int n=0;while(s&&s[n])n++;return (float)n*8.0f*(sc>0?sc:1.0f);}
+float text_width_scaled(const char *s,float sc){int n=0;while(s&&s[n])n++;return (float)n*8.0f*(sc>0?sc:1.0f);}
+float text_advance_of(const char *s,float sc){(void)s;return 8.0f*(sc>0?sc:1.0f);}
 float text_width_n(const char *s,size_t n,float sc){(void)s;return (float)n*8.0f*(sc>0?sc:1.0f);}
 float text_line_height(float sc){return 16.0f*(sc>0?sc:1.0f);}
 float text_mono_advance(float sc){return 8.0f*(sc>0?sc:1.0f);}

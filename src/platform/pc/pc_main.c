@@ -1,4 +1,4 @@
-/* Desktop and headless entry point for Cubic Battle 4. */
+/* Desktop and headless entry point for the DiScript code editor. */
 #ifndef _POSIX_C_SOURCE
 #define _POSIX_C_SOURCE 200809L
 #endif
@@ -10,7 +10,7 @@
 
 #include "engine/runtime.h"
 #include "engine/network.h"
-#include "game/game.h"
+#include "ide/ide_app.h"
 #include "platform/pc/pc_input.h"
 
 #ifdef _WIN32
@@ -27,10 +27,10 @@ static int pc_dialog_open(char *dst, int cap) {
     memset(&ofn, 0, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = GetActiveWindow();
-    ofn.lpstrFilter = "Cubic Battle 4 mod (*.zip)\0*.zip\0All files (*.*)\0*.*\0";
+    ofn.lpstrFilter = "DiScript (*.ds)\0*.ds\0All files (*.*)\0*.*\0";
     ofn.lpstrFile = file;
     ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrTitle = "Cubic Battle 4: open mod";
+    ofn.lpstrTitle = "Open script";
     ofn.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
     if (!GetOpenFileNameA(&ofn))
         return 0;
@@ -41,15 +41,15 @@ static int pc_dialog_open(char *dst, int cap) {
 static int pc_dialog_save(const char *name, char *dst, int cap) {
     OPENFILENAMEA ofn;
     char file[MAX_PATH];
-    snprintf(file, sizeof(file), "%s", name && name[0] ? name : "mod.zip");
+    snprintf(file, sizeof(file), "%s", name && name[0] ? name : "script.ds");
     memset(&ofn, 0, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = GetActiveWindow();
-    ofn.lpstrFilter = "Cubic Battle 4 mod (*.zip)\0*.zip\0";
+    ofn.lpstrFilter = "DiScript (*.ds)\0*.ds\0All files (*.*)\0*.*\0";
     ofn.lpstrFile = file;
     ofn.nMaxFile = MAX_PATH;
-    ofn.lpstrDefExt = "zip";
-    ofn.lpstrTitle = "Cubic Battle 4: save mod";
+    ofn.lpstrDefExt = "ds";
+    ofn.lpstrTitle = "Save script";
     ofn.Flags = OFN_OVERWRITEPROMPT | OFN_PATHMUSTEXIST | OFN_NOCHANGEDIR | OFN_EXPLORER;
     if (!GetSaveFileNameA(&ofn))
         return 0;
@@ -62,12 +62,6 @@ static int pc_dialog_save(const char *name, char *dst, int cap) {
 #endif
 
 static int init_done = 0;
-static int game_active = 0;
-static int game_started_once = 0;
-static AAssetManager *game_assets = NULL;
-static uint64_t restart_after_ns = 0;
-static unsigned int restart_failures = 0;
-static uint64_t prev_frame_ns = 0;
 static uint64_t prev_loop_ns = 0;
 static double frame_seconds = 0.0;
 static int phys_w = 0, phys_h = 0;
@@ -102,35 +96,29 @@ static void apply_screen_size(void) {
     screen_h = phys_h;
 }
 
-/* ---- game hooks, protected exactly like on Android ---------------------- */
-static void protected_game_init(void *userdata) { game_init((AAssetManager *)userdata); }
-static void protected_game_reset(void *userdata) {
-    (void)userdata;
-    game_reset();
-}
-static void protected_game_update(void *userdata) {
-    (void)userdata;
-    game_update();
-}
-static void protected_game_draw(void *userdata) { game_draw((Buffer *)userdata); }
-static void protected_game_bye(void *userdata) {
-    (void)userdata;
-    game_bye();
+/* ---- editor hooks, protected exactly like on Android -------------------- */
+static IDEApp g_ide;
+static int ide_ready = 0;
+
+/* Editor actions never touch VM state directly, but a bug in a script must not
+ * take the application down: everything the script side runs goes through the
+ * same protected-call wrapper the game used. */
+static void protected_ide_run(void *userdata) {
+    ide_app_run((IDEApp *)userdata);
 }
 
-typedef struct {
-    float x, y;
-    int action, id;
-} TouchCall;
-
-static void protected_game_touch(void *userdata) {
-    TouchCall *call = (TouchCall *)userdata;
-    game_touch(call->x, call->y, call->action, call->id);
+void pc_ide_init(void) {
+    if (ide_ready)
+        return;
+    ide_app_init(&g_ide, pc_asset_manager());
+    ide_ready = 1;
 }
+
+IDEApp *pc_ide_app(void) { return ide_ready ? &g_ide : NULL; }
 
 static void pc_touch(float x, float y, int action, int id) {
-    TouchCall call;
-    if (!game_active)
+    (void)id;
+    if (!ide_ready)
         return;
     if (screen_w > 0) {
         if (x < 0)
@@ -144,80 +132,19 @@ static void pc_touch(float x, float y, int action, int id) {
         if (y > (float)(screen_h - 1))
             y = (float)(screen_h - 1);
     }
-    call.x = x;
-    call.y = y;
-    call.action = action;
-    call.id = id;
-    if (!ds_call_protected(protected_game_touch, &call, "touch"))
-        ds_log_err("touch hook failed: %s", ds_runtime_error_message());
+    /* The editor only distinguishes press from everything else. */
+    ide_app_pointer_sized(&g_ide, x, y, action == 0 ? 0 : 1, screen_w, screen_h);
 }
 
 static int pc_back(void) {
-    if (!game_active)
-        return 0;
-    return game_back();
+    /* No back stack on the desktop build. */
+    return 0;
 }
 
-static void mark_game_failed(const char *hook) {
-    const char *message = ds_runtime_error_message();
-    unsigned int shift;
-    uint64_t delay;
-    ds_log_err("game hook '%s' stopped: %s; scheduling a restart", hook ? hook : "unknown", message);
-    ds_console_log(1, "game error: hook '%s' stopped: %s; restarting", hook ? hook : "unknown", message);
-    shift = restart_failures < 5 ? restart_failures : 5;
-    delay = 1000000000ull << shift;
-    game_active = 0;
-    ds_request_game_restart();
-    restart_after_ns = monotonic_ns() + delay;
-    ++restart_failures;
-}
-
-static int start_game(int reset_state) {
-    int ok;
-    ds_clear_runtime_error();
-    ds_clear_game_restart();
-    ds_string_pool_reset();
-    if (reset_state) {
-        ok = ds_call_protected(protected_game_reset, NULL, "reset");
-        if (!ok) {
-            mark_game_failed("reset");
-            return 0;
-        }
-    }
-    ds_clear_runtime_error();
-    ok = ds_call_protected(protected_game_init, game_assets, "init");
-    if (!ok) {
-        mark_game_failed("init");
-        return 0;
-    }
-    ds_clear_runtime_error();
-    restart_failures = 0;
-    game_active = 1;
-    game_started_once = 1;
-    return 1;
-}
-
-static void restart_game_if_due(void) {
-    uint64_t now;
-    if (game_active || !ds_game_restart_requested())
-        return;
-    now = monotonic_ns();
-    if (now < restart_after_ns)
-        return;
-    (void)start_game(1);
-}
-
-static void say_goodbye(void) {
-    if (!game_active)
-        return;
-    (void)ds_call_protected(protected_game_bye, NULL, "goodbye");
-}
-
-/* ---- one iteration of the game loop (shared by window and harness) ------ */
+/* ---- one iteration of the main loop (shared by window and harness) ------ */
 static int pc_step(void) {
-    uint64_t frame_start;
-    restart_game_if_due();
-    frame_start = monotonic_ns();
+    uint64_t frame_start = monotonic_ns();
+    double now;
     ds_string_pool_tick();
     if (prev_loop_ns && frame_start >= prev_loop_ns) {
         frame_seconds = (double)(frame_start - prev_loop_ns) / 1e9;
@@ -225,49 +152,18 @@ static int pc_step(void) {
     }
     prev_loop_ns = frame_start;
     apply_screen_size();
-    if (game_active) {
-        uint64_t now = frame_start;
-        if (pc_fixed_step_ms > 0)
-            dt = (double)pc_fixed_step_ms / 1000.0;
-        else
-            dt = prev_frame_ns ? (double)(now - prev_frame_ns) / 1000000000.0 : 0.0;
-        if (dt < 0.0)
-            dt = 0.0;
-        if (dt > 0.1)
-            dt = 0.1;
-        prev_frame_ns = now;
-        keyboard_tick(monotonic_ns() / 1000000ull);
-        if (!ds_call_protected(protected_game_update, NULL, "update"))
-            mark_game_failed("update");
-        else if (ds_game_restart_requested()) {
-            game_active = 0;
-            restart_after_ns = monotonic_ns();
-        }
-    }
+    now = (double)frame_start / 1e9;
+    if (!ide_ready)
+        pc_ide_init();
+    ide_app_update(&g_ide, now);
 
     g_frame.pixels = NULL;
     g_frame.width = screen_w;
     g_frame.height = screen_h;
     g_frame.stride = screen_w;
     if (g_frame.width > 0 && g_frame.height > 0 && ds_graphics_begin_frame(&g_frame)) {
-        int draw_failed = 0;
-        if (game_active) {
-            if (!ds_call_protected(protected_game_draw, &g_frame, "draw")) {
-                mark_game_failed("draw");
-                draw_failed = 1;
-            } else if (ds_game_restart_requested()) {
-                game_active = 0;
-                restart_after_ns = monotonic_ns();
-            }
-        }
-        if (!game_active) {
-            if (draw_failed || ds_game_has_error()) {
-                ds_graphics_error_screen(ds_runtime_error_message());
-                ds_graphics_end_frame();
-            } else
-                ds_graphics_cancel_frame();
-        } else
-            ds_graphics_end_frame();
+        ide_app_draw(&g_ide, g_frame.width, g_frame.height);
+        ds_graphics_end_frame();
     }
     return 1;
 }
@@ -405,27 +301,26 @@ static void pc_boot(const PcArgs *args) {
     phys_w = args->width;
     phys_h = args->height;
     apply_screen_size();
-    game_assets = pc_asset_manager();
-    ds_set_activity(NULL);
-    ds_sound_set_java_vm(NULL);
+    {
+        AAssetManager *assets = pc_asset_manager();
+        ds_set_activity(NULL);
+        ds_sound_set_java_vm(NULL);
 
-    if (!ds_graphics_init(game_assets, NULL)) {
-        ds_log_err("renderer failed: %s", ds_graphics_failure());
-        return;
+        if (!ds_graphics_init(assets, NULL)) {
+            ds_log_err("renderer failed: %s", ds_graphics_failure());
+            return;
+        }
+        ds_sound_init(assets);
+        ds_sound_resume();
     }
-    ds_sound_init(game_assets);
-    ds_sound_resume();
     init_done = 1;
-    prev_frame_ns = 0;
     prev_loop_ns = 0;
     frame_seconds = 0.0;
-    (void)start_game(0);
+    pc_ide_init();
 }
 
 static void pc_shutdown(void) {
-    say_goodbye();
     init_done = 0;
-    game_active = 0;
     keyboard_hide();
     net_disconnect();
     ds_graphics_shutdown();

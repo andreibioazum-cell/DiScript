@@ -300,12 +300,12 @@ static DSValue lg_printf(DSVM *vm, int argc, DSValue *argv) {
             chunk = sizeof(linebuf) - 1;
         memcpy(linebuf, p, chunk);
         linebuf[chunk] = '\0';
-        float w = text_width(linebuf, 1.0f);
+        float w = text_width_scaled(linebuf, 1.0f);
         if (limit > 0 && w > limit) {
             /* print accumulated buffer */
             if (out_len > 0) {
                 float ox = (float)x;
-                float ow = text_width(outbuf, 1.0f);
+                float ow = text_width_scaled(outbuf, 1.0f);
                 if (align == 1)
                     ox = (float)(x + (limit - ow) / 2);
                 else if (align == 2)
@@ -328,7 +328,7 @@ static DSValue lg_printf(DSVM *vm, int argc, DSValue *argv) {
             } else {
                 if (out_len > 0) {
                     float ox = (float)x;
-                    float ow = text_width(outbuf, 1.0f);
+                    float ow = text_width_scaled(outbuf, 1.0f);
                     if (align == 1)
                         ox = (float)(x + (limit - ow) / 2);
                     else if (align == 2)
@@ -347,7 +347,7 @@ static DSValue lg_printf(DSVM *vm, int argc, DSValue *argv) {
     }
     if (out_len > 0) {
         float ox = (float)x;
-        float ow = text_width(outbuf, 1.0f);
+        float ow = text_width_scaled(outbuf, 1.0f);
         if (align == 1)
             ox = (float)(x + (limit - ow) / 2);
         else if (align == 2)
@@ -359,7 +359,7 @@ static DSValue lg_printf(DSVM *vm, int argc, DSValue *argv) {
 
 static DSValue lg_getWidth(DSVM *vm, int argc, DSValue *argv) {
     const char *t = lstr(vm, argc, argv, 0, "");
-    return ds_num(text_width(t, 1.0f));
+    return ds_num(text_width_scaled(t, 1.0f));
 }
 static DSValue lg_getHeight(DSVM *vm, int argc, DSValue *argv) {
     (void)vm;

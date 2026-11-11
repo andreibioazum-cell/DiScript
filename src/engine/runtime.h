@@ -140,7 +140,7 @@ void ds_sound_pause(void);
 void ds_sound_resume(void);
 void ds_sound_set_java_vm(void *vm);
 
-#define DS_FONT_ASSET "fonts/ComicRelief-Regular.ttf"
+#define DS_FONT_ASSET "fonts/DejaVuSansMono.ttf"
 #define DS_FONT_PIXEL_HEIGHT 32
 void text(const char *string, float x, float y, uint32_t color);
 void text_scaled(const char *string, float x, float y, uint32_t color, float scale);
@@ -149,6 +149,8 @@ void text_rainbow(const char *string, float x, float y, float scale, float hue);
 /* Draw scaled text with subtle per-glyph shimmer around `color`. */
 void text_shimmer(const char *string, float x, float y, uint32_t color, float scale, float phase);
 
+float text_width_scaled(const char *string, float scale);
+float text_advance_of(const char *string, float scale);
 int text_ink_width(const char *string);
 int text_ink_height(const char *string);
 int text_ink_top(const char *string);

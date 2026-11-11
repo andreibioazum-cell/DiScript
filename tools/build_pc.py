@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
-"""Build script for Windows .exe and Linux headless harness targets."""
+"""Build script for the Windows .exe and the Linux headless harness. Builds the
+DiScript code editor, not a game."""
 
 from __future__ import annotations
 
@@ -13,11 +14,14 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build" / "pc"
 C_SOURCES = (
-    "src/game/game.c",
     "src/engine/runtime.c",
     "src/platform/pc/pc_main.c",
+    "src/ide/ide_buffer.c",
+    "src/ide/ide_highlight.c",
+    "src/ide/ide_view.c",
+    "src/ide/ide_app.c",
 )
-CPP_SOURCES = ("src/game/cpp/ui_fx.cpp",)
+CPP_SOURCES = ()
 INCLUDES = ("-I.", "-Isrc", "-Isrc/platform/pc/shim")
 COMMON_FLAGS = ("-std=c99", "-DCB_PC", "-O2")
 
@@ -97,7 +101,7 @@ def compile_linux(extra: list[str]) -> Path:
         obj = BUILD / (Path(source).stem + ".o")
         run([cxx, "-std=c++17", "-O2", "-g", *INCLUDES, "-c", source, "-o", str(obj)], f"компилирую {source}")
         objects.append(obj)
-    binary = BUILD / "cb4_headless"
+    binary = BUILD / "discript_headless"
     run([cxx, "-O2", "-g", *[str(obj) for obj in objects], "-o", str(binary), "-lm", "-lpthread"], "линкую")
     return binary
 
@@ -123,7 +127,7 @@ def compile_windows(extra: list[str]) -> tuple[Path, list[str]]:
         obj = BUILD / ("win_" + Path(source).stem + ".o")
         run([*driver, "c++", *target, "-std=c++17", "-O2", *INCLUDES, "-c", source, "-o", str(obj)], f"компилирую {source} для Windows")
         objects.append(obj)
-    binary = BUILD / "CubicBattle4.exe"
+    binary = BUILD / "DiScript.exe"
     link = [
         *driver,
         "c++",
@@ -136,8 +140,8 @@ def compile_windows(extra: list[str]) -> tuple[Path, list[str]]:
         "-luser32",
         "-lgdi32",
         "-lcomdlg32",
-        # GUI subsystem: windowed game, no console window. Logs still go to
-        # cb4.log next to the exe.
+        # GUI subsystem: windowed app, no console window. Logs still go to
+        # discript.log next to the exe.
         "-Wl,--subsystem,windows",
     ]
     run(link, "линкую")
@@ -210,10 +214,10 @@ def smoke(binary: Path) -> None:
 
 
 def main() -> int:
-    parser = argparse.ArgumentParser(description="Сборка ПК-версии Cubic Battle 4")
+    parser = argparse.ArgumentParser(description="Сборка ПК-версии редактора DiScript")
     parser.add_argument("--windows", action="store_true", help="собрать x86_64 .exe (zig)")
     parser.add_argument("--linux", action="store_true", help="собрать Linux-харнесс (gcc)")
-    parser.add_argument("--check", action="store_true", help="после сборки прогнать дымовой тест")
+    parser.add_argument("--check", action="store_true", help="после сборки прогнать дымовой тест редактора")
     parser.add_argument("--no-assets", action="store_true", help="не готовить папку ресурсов заново")
     parser.add_argument(
         "--embed-assets",
@@ -250,8 +254,8 @@ def main() -> int:
 
     if build_windows:
         binary, _driver = compile_windows(extra)
-        # One self-contained .exe: the whole asset tree is appended to the image,
-        # so the game has textures, font and music without an assets folder.
+        # One self-contained .exe: the asset tree (the editor font) is appended
+        # to the image, so no loose assets folder is needed next to it.
         run([sys.executable, "tools/embed_assets.py", str(assets), str(binary)], "встраиваю ресурсы в .exe")
         log(f"готово: {binary.relative_to(ROOT)} ({binary.stat().st_size} байт)")
     else:
