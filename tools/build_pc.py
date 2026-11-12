@@ -15,6 +15,7 @@ ROOT = Path(__file__).resolve().parent.parent
 BUILD = ROOT / "build" / "pc"
 C_SOURCES = (
     "src/engine/runtime.c",
+    "src/engine/anim.c",
     # The language runtime that runs the scripts the editor edits.
     "src/discript/ds_gc.c",
     "src/discript/ds_lexer.c",

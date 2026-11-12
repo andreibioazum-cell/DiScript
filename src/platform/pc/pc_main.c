@@ -64,6 +64,7 @@ static int pc_dialog_save(const char *name, char *dst, int cap) {
 static int init_done = 0;
 static uint64_t prev_loop_ns = 0;
 static double frame_seconds = 0.0;
+static uint64_t pc_virtual_ms = 0; /* headless synthetic clock */
 static int phys_w = 0, phys_h = 0;
 static Buffer g_frame = {0};
 static int pc_fixed_step_ms = 0; /* headless: deterministic 60 Hz */
@@ -152,7 +153,14 @@ static int pc_step(void) {
     }
     prev_loop_ns = frame_start;
     apply_screen_size();
-    now = (double)frame_start / 1e9;
+    if (pc_fixed_step_ms > 0) {
+        /* Headless runs advance a synthetic clock so animation state is
+         * reproducible: the same frames produce the same pixels every time. */
+        pc_virtual_ms += (uint64_t)pc_fixed_step_ms;
+        now = (double)pc_virtual_ms / 1000.0;
+    } else {
+        now = (double)frame_start / 1e9;
+    }
     if (!ide_ready)
         pc_ide_init();
     ide_app_update(&g_ide, now);

@@ -6,6 +6,7 @@
 #include "discript/discript.h"
 #include "engine/runtime.h"
 
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -68,10 +69,47 @@ static int write_whole_file(const char *path, const char *data, size_t len) {
 
 /* ---- script execution ---------------------------------------------------- */
 
+/* Running a script on a worker thread is what keeps the UI alive: the console
+ * slides, the RUN button breathes and STOP works even for an infinite loop. The
+ * VM is single-threaded, so the worker owns it exclusively between start and
+ * join; the frame thread only ever touches the output queue, under `lock`. */
+
+static void queue_line(const char *line, int is_error) {
+    if (!g_app || !line || !g_app->lock)
+        return;
+    pthread_mutex_lock((pthread_mutex_t *)g_app->lock);
+    int next = (g_app->out_head + 1) % IDE_OUT_QUEUE;
+    if (next != g_app->out_tail) { /* drop rather than block the VM */
+        snprintf(g_app->out_queue[g_app->out_head].text,
+                 sizeof(g_app->out_queue[g_app->out_head].text), "%s", line);
+        g_app->out_queue[g_app->out_head].is_error = is_error;
+        g_app->out_head = next;
+    }
+    pthread_mutex_unlock((pthread_mutex_t *)g_app->lock);
+}
+
 static void print_callback(const char *line, int is_error, void *userdata) {
     (void)userdata;
-    if (g_app && line)
-        ide_console_add(&g_app->view, line, is_error);
+    queue_line(line, is_error);
+}
+
+/* Moves queued console lines into the view. Called once per frame, on the frame
+ * thread, so the view itself never needs locking. */
+static void flush_output(IDEApp *app) {
+    if (!app || !app->lock)
+        return;
+    for (;;) {
+        IDEOutputLine line;
+        pthread_mutex_lock((pthread_mutex_t *)app->lock);
+        if (app->out_tail == app->out_head) {
+            pthread_mutex_unlock((pthread_mutex_t *)app->lock);
+            break;
+        }
+        line = app->out_queue[app->out_tail];
+        app->out_tail = (app->out_tail + 1) % IDE_OUT_QUEUE;
+        pthread_mutex_unlock((pthread_mutex_t *)app->lock);
+        ide_console_add(&app->view, line.text, line.is_error);
+    }
 }
 
 static DSVM *app_vm(IDEApp *app) {
@@ -81,6 +119,56 @@ static DSVM *app_vm(IDEApp *app) {
             ds_vm_set_print_callback((DSVM *)app->vm, print_callback, app);
     }
     return (DSVM *)app->vm;
+}
+
+typedef struct {
+    IDEApp *app;
+    DSVM *vm;
+    char *source;
+    char name[IDE_PATH_MAX];
+} RunJob;
+
+static void *run_thread(void *arg) {
+    RunJob *job = (RunJob *)arg;
+    IDEApp *app = job->app;
+    DSVM *vm = job->vm;
+
+    ds_vm_reset(vm);
+    ds_vm_set_print_callback(vm, print_callback, app);
+    int ok = ds_vm_run_source(vm, job->name, job->source, strlen(job->source));
+    if (app->stop_requested)
+        ok = 0;
+
+    if (!ok && !app->stop_requested) {
+        const char *err = ds_vm_last_error(vm);
+        int line = ds_vm_last_error_line(vm);
+        char msg[512];
+        if (line > 0)
+            snprintf(msg, sizeof(msg), "ERROR line %d: %s", line, err ? err : "unknown");
+        else
+            snprintf(msg, sizeof(msg), "ERROR: %s", err ? err : "unknown");
+        queue_line(msg, 1);
+    }
+    if (app->stop_requested) {
+        queue_line("--- stopped ---", 1);
+    } else {
+        DSVMStats st;
+        ds_vm_get_stats(vm, &st);
+        char tail[256];
+        if (st.jit_functions > 0)
+            snprintf(tail, sizeof(tail), "--- %s: %.1f ms (%d jit fn, %llu calls) ---",
+                     ok ? "finished" : "failed", st.exec_ms, st.jit_functions,
+                     (unsigned long long)st.jit_calls);
+        else
+            snprintf(tail, sizeof(tail), "--- %s: %.1f ms ---", ok ? "finished" : "failed",
+                     st.exec_ms);
+        queue_line(tail, ok ? 0 : 1);
+    }
+
+    free(job->source);
+    free(job);
+    app->finished = 1;
+    return NULL;
 }
 
 void ide_app_run(IDEApp *app) {
@@ -99,37 +187,47 @@ void ide_app_run(IDEApp *app) {
     }
 
     app->view.show_console = 1;
+    app->stop_requested = 0;
+    app->finished = 0;
     ide_console_add(&app->view, "--- run ---", 0);
 
-    ds_vm_reset(vm);
-    ds_vm_set_print_callback(vm, print_callback, app);
-    const char *name = t->path[0] ? t->path : "untitled.ds";
-    int ok = ds_vm_run_source(vm, name, t->buf.text, t->buf.len);
-    if (!ok) {
-        const char *err = ds_vm_last_error(vm);
-        int line = ds_vm_last_error_line(vm);
-        char msg[512];
-        if (line > 0)
-            snprintf(msg, sizeof(msg), "ERROR line %d: %s", line, err ? err : "unknown");
-        else
-            snprintf(msg, sizeof(msg), "ERROR: %s", err ? err : "unknown");
-        ide_console_add(&app->view, msg, 1);
+    RunJob *job = (RunJob *)calloc(1, sizeof(RunJob));
+    if (!job) {
+        ide_view_set_status(&app->view, "Out of memory");
+        return;
     }
-    DSVMStats st;
-    ds_vm_get_stats(vm, &st);
-    char tail[160];
-    snprintf(tail, sizeof(tail), "--- %s (%.1f ms) ---", ok ? "finished" : "failed", st.compile_ms);
-    ide_console_add(&app->view, tail, ok ? 0 : 1);
-    ide_view_set_status(&app->view, ok ? "Script finished" : "Script failed");
+    job->app = app;
+    job->vm = vm;
+    job->source = (char *)malloc(t->buf.len + 1);
+    if (!job->source) {
+        free(job);
+        ide_view_set_status(&app->view, "Out of memory");
+        return;
+    }
+    memcpy(job->source, t->buf.text, t->buf.len);
+    job->source[t->buf.len] = '\0';
+    snprintf(job->name, sizeof(job->name), "%s", t->path[0] ? t->path : "untitled.ds");
+
+    app->running = 1;
+    app->view.running = 1;
+    if (pthread_create(&app->worker, NULL, run_thread, job) != 0) {
+        free(job->source);
+        free(job);
+        app->running = 0;
+        app->view.running = 0;
+        ide_view_set_status(&app->view, "Cannot start thread");
+        return;
+    }
+    app->worker_live = 1;
 }
 
 void ide_app_stop(IDEApp *app) {
-    if (!app || !app->vm)
+    if (!app || !app->running)
         return;
-    ds_vm_request_stop((DSVM *)app->vm);
-    app->running = 0;
+    app->stop_requested = 1;
+    if (app->vm)
+        ds_vm_request_stop((DSVM *)app->vm);
     app->view.running = 0;
-    ide_console_add(&app->view, "--- stopped ---", 1);
 }
 
 /* ---- documents ----------------------------------------------------------- */
@@ -351,50 +449,60 @@ void ide_app_pointer_sized(IDEApp *app, float x, float y, int action, int width,
     g_app_height = height;
     if (!app)
         return;
-    /* Buttons live in the top bar and react on press. */
-    if (action == 0 && y < BAR_H) {
-        IDEView *v = &app->view;
-        float scale = (float)v->font_scale_px / 32.0f;
-        float bw = text_width_scaled(v->running ? "STOP" : "RUN", scale * 0.9f) + 30.0f;
-        float bx = (float)g_app_width - bw - 12.0f;
-        if (x >= bx && x <= bx + bw) {
-            if (v->running)
-                ide_app_stop(app);
-            else
-                ide_app_run(app);
-            return;
-        }
-        float cw2 = text_width_scaled(v->show_console ? "HIDE" : "OUT", scale * 0.85f) + 22.0f;
-        float cbx = bx - cw2 - 8.0f;
-        if (x >= cbx && x <= cbx + cw2) {
-            ide_app_toggle_console(app);
-            return;
-        }
-        /* Tab strip. */
-        float tx = 6.0f;
-        for (int i = 0; i < v->tab_count; i++) {
-            const char *name = v->tabs[i].path[0] ? strrchr(v->tabs[i].path, '/') : NULL;
-            name = name ? name + 1 : (v->tabs[i].path[0] ? v->tabs[i].path : "untitled.ds");
-            char label[160];
-            snprintf(label, sizeof(label), "%s%s", name, v->tabs[i].dirty ? " *" : "");
-            float w = text_width_scaled(label, scale * 0.8f) + 26.0f;
-            if (x >= tx && x <= tx + w) {
-                v->active = i;
-                return;
+    IDEView *v = &app->view;
+
+    /* ---- bottom toolbar: the primary controls, within thumb reach -------- */
+    if (action == 0 && y >= (float)height - 62.0f) { /* TOOLBAR_H */
+        for (int i = 0; i < IDE_BTN_COUNT; i++) {
+            float bx, by, bw, bh;
+            ide_view_button_rect(v, i, width, height, &bx, &by, &bw, &bh);
+            if (bw <= 0.0f)
+                continue;
+            if (x < bx || x > bx + bw || y < by || y > by + bh)
+                continue;
+            switch (i) {
+            case IDE_BTN_NEW: ide_app_new(app); break;
+            case IDE_BTN_OPEN: ide_app_open_dialog(app); break;
+            case IDE_BTN_SAVE: ide_app_save(app); break;
+            case IDE_BTN_UNDO: ide_app_special_key(app, "undo"); break;
+            case IDE_BTN_REDO: ide_app_special_key(app, "redo"); break;
+            case IDE_BTN_OUTPUT: ide_app_toggle_console(app); break;
+            case IDE_BTN_RUN:
+                if (v->running)
+                    ide_app_stop(app);
+                else
+                    ide_app_run(app);
+                break;
+            default: break;
             }
-            tx += w + 4.0f;
+            return;
         }
         return;
     }
 
-    /* Click in the code area places the caret. */
+    /* ---- top strip: tap a document dot to switch tabs -------------------- */
+    if (action == 0 && y < 46.0f) { /* TOP_H */
+        for (int i = 0; i < v->tab_count && i < IDE_MAX_TABS; i++) {
+            float dx = 14.0f + (float)i * 12.0f;
+            if (x >= dx - 4.0f && x <= dx + 24.0f) {
+                v->active = i;
+                return;
+            }
+        }
+        return;
+    }
+
+    /* ---- code area: place the caret -------------------------------------- */
     IDETab *t = active_tab(app);
     if (!t || action != 0 || app->running)
         return;
     IDEBuffer *b = &t->buf;
-    if (y < BAR_H || y > (float)g_app_height - (app->view.show_console ? CONS_H : 0.0f))
+
+    /* The console pane covers the bottom; taps there must not move the caret. */
+    float code_bottom = (float)height - 62.0f - 170.0f * v->cons_anim;
+    if (y < 46.0f || y > code_bottom)
         return;
-    if (x < GUTTER_W)
+    if (x < 66.0f) /* GUTTER_W */
         return;
 
     ide_lines_refresh(b);
@@ -403,12 +511,12 @@ void ide_app_pointer_sized(IDEApp *app, float x, float y, int action, int width,
     if (cwf <= 0.0f)
         cwf = 8.0f;
     int first_line = (int)(t->scroll_y / lh);
-    int line = first_line + (int)((y - BAR_H) / lh);
+    int line = first_line + (int)((y - 46.0f) / lh);
     if (line < 0)
         line = 0;
     if (line >= b->line_count)
         line = b->line_count > 0 ? b->line_count - 1 : 0;
-    int col = (int)((x - GUTTER_W - PAD_X + (float)t->scroll_x) / cwf);
+    int col = (int)((x - 66.0f - 14.0f + (float)t->scroll_x) / cwf);
     if (col < 0)
         col = 0;
     /* The click gives a visual column; convert it to a byte offset by walking
@@ -452,13 +560,48 @@ void ide_app_init(IDEApp *app, void *asset_manager) {
     app->view.virgin = 1;
     app->current_path[0] = '\0';
     (void)asset_manager;
+
+    pthread_mutex_t *m = (pthread_mutex_t *)calloc(1, sizeof(pthread_mutex_t));
+    if (m && pthread_mutex_init(m, NULL) == 0)
+        app->lock = m;
+    else if (m)
+        free(m);
+    app->out_head = app->out_tail = 0;
+    app->running = 0;
+    app->finished = 0;
+    app->stop_requested = 0;
+    app->worker_live = 0;
 }
 
 void ide_app_update(IDEApp *app, double now_seconds) {
-    (void)now_seconds;
     if (!app)
         return;
+    /* Drive the animations from the real frame delta so the motion feels the
+     * same at 60, 90 and 120 Hz. */
+    double dt = app->last_tick > 0.0 ? now_seconds - app->last_tick : 0.0;
+    app->last_tick = now_seconds;
+    if (dt < 0.0 || dt > 0.25)
+        dt = 0.0;
+    ide_view_tick(&app->view, dt);
+
+    /* Join a finished worker before the VM or the console is touched again. */
+    if (app->worker_live && app->finished) {
+        pthread_join(app->worker, NULL);
+        app->worker_live = 0;
+        app->running = 0;
+        app->finished = 0;
+        if (app->stop_requested) {
+            app->stop_requested = 0;
+            ide_view_set_status(&app->view, "Stopped");
+        } else {
+            ide_view_set_status(&app->view, "Done");
+        }
+    }
+    /* Console lines produced on the worker thread reach the view here, on the
+     * frame thread, so the view never needs locking. */
+    flush_output(app);
     app->view.running = app->running;
+
     /* Keep the dirty markers honest as the buffer changes. */
     for (int i = 0; i < app->view.tab_count; i++) {
         if (app->view.tabs[i].dirty)

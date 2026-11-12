@@ -2,18 +2,39 @@
 #define DISCRIPT_IDE_APP_H
 
 #include "ide/ide_view.h"
+#include <pthread.h>
 #include <stddef.h>
 
 #ifdef __cplusplus
 extern "C" {
 #endif
 
+/* Console lines buffered between the worker thread and the frame thread. */
+#define IDE_OUT_QUEUE 256
+
+typedef struct {
+    char text[1024];
+    int is_error;
+} IDEOutputLine;
+
 typedef struct IDEApp {
     IDEView view;
-    void *vm;             /* DSVM*, created lazily on the first Run */
+    void *vm;              /* DSVM*, created lazily on the first Run */
     char current_path[IDE_PATH_MAX];
-    int running;
-    double run_started_at;
+    volatile int running;  /* a script is executing right now */
+    volatile int finished; /* the worker returned and awaits joining */
+    volatile int stop_requested;
+    double last_tick; /* previous ide_app_update timestamp, for the UI delta */
+
+    /* Scripts run off the frame thread so the UI keeps animating and STOP stays
+     * responsive even for a long loop. The worker owns the VM; the frame thread
+     * only touches the queue below, under `lock`. */
+    pthread_t worker;
+    int worker_live;
+    void *lock; /* pthread_mutex_t* guarding the queue */
+    IDEOutputLine out_queue[IDE_OUT_QUEUE];
+    int out_head;
+    int out_tail;
 } IDEApp;
 
 /* One-time setup; safe to call every frame. `asset_manager` is the Android

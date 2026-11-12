@@ -112,7 +112,7 @@ static void pc_args_parse(const char *cmdline, PcArgs *a) {
         } else if (strcmp(k, "--touch") == 0 || strcmp(k, "--type") == 0 || strcmp(k, "--enter") == 0 ||
                    strcmp(k, "--tab") == 0 || strcmp(k, "--key") == 0 || strcmp(k, "--open") == 0 ||
                    strcmp(k, "--dump") == 0 || strcmp(k, "--report") == 0 || strcmp(k, "--run") == 0 ||
-                   strcmp(k, "--wheel") == 0) {
+                   strcmp(k, "--wheel") == 0 || strcmp(k, "--async") == 0) {
             pc_args_push_event(a, k + 2, v);
             i++;
         }

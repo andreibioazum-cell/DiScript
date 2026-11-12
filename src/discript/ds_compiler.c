@@ -1575,13 +1575,14 @@ static int jit_expr(JitBuild *jb, DSExprNode *e, int depth) {
             return r;
         }
     case EX_NAME:
-        if (e->scope != NAME_LOCAL || e->index <= 0 || e->index >= 12)
+        /* Only locals: slot 0 is the closure, the arguments follow it. */
+        if (e->scope != NAME_LOCAL || e->index <= 0 || e->index >= 64)
             return -1;
         if (jb->next_reg >= 14)
             return -1;
         {
             int r = jb->next_reg++;
-            jb_emit(jb, DS_JOP_LOAD_ARG, (uint8_t)r, 0, 0, e->index - 1, 0.0);
+            jb_emit(jb, DS_JOP_LOAD_SLOT, (uint8_t)r, 0, 0, e->index, 0.0);
             return r;
         }
     case EX_BINOP: {
@@ -1602,6 +1603,9 @@ static int jit_expr(JitBuild *jb, DSExprNode *e, int depth) {
         case OP_LE: op = DS_JOP_CMP_LE; break;
         case OP_GT: op = DS_JOP_CMP_GT; break;
         case OP_GE: op = DS_JOP_CMP_GE; break;
+        case OP_EQ: op = DS_JOP_CMP_EQ; break;
+        case OP_NE: op = DS_JOP_CMP_NE; break;
+        case OP_MOD: op = DS_JOP_MOD; break;
         default: return -1;
         }
         jb_emit(jb, op, (uint8_t)r, (uint8_t)a, (uint8_t)b, 0, 0.0);
@@ -1638,26 +1642,319 @@ static int jit_expr(JitBuild *jb, DSExprNode *e, int depth) {
     }
 }
 
+/* ----------------------------------------------------------------------------
+ * Statement lowering
+ *
+ * The IR is a flat list with instruction-index branches, so structured control
+ * flow maps onto it directly:
+ *
+ *   if c: A else: B       c; JZ else; A; JMP end; else: B; end:
+ *   while c: A            top: c; JZ end; A; JMP top; end:
+ *   for i in range(n)     i=0; top: cmp; JZ end; A; i+=1; JMP top; end:
+ *
+ * Only pure numeric code is accepted. Anything the lowering does not fully
+ * understand returns -1 and the whole function stays interpreted, so compiled
+ * code can never disagree with the VM. jit_diff_test.py checks that promise.
+ * ------------------------------------------------------------------------- */
+typedef struct JitCtl {
+    int break_patch[16];  /* instruction indices of pending `break` jumps */
+    int nbreak;
+    int continue_patch[16];
+    int ncont;
+} JitCtl;
+
+typedef struct JitScope {
+    JitBuild *jb;
+    JitCtl ctl;    /* the innermost loop, for break/continue */
+    int reg_floor; /* lowest register a statement may clobber */
+} JitScope;
+
+static int jit_stmt(JitScope *js, DSStmtNode *s);
+
+/* A value slot is a compiler-assigned local; arguments occupy 1..arity. */
+static int jit_slot_of(DSExprNode *e) {
+    if (!e || e->kind != EX_NAME || e->scope != NAME_LOCAL)
+        return -1;
+    if (e->index <= 0 || e->index > 4095)
+        return -1;
+    return e->index;
+}
+
+/* Lowers `target = expr` for a local slot. 1 = done, 0 = not a local store. */
+static int jit_assign_local(JitScope *js, DSStmtNode *s) {
+    if (!s || s->kind != ST_ASSIGN || s->ntargets != 1)
+        return 0;
+    int slot = jit_slot_of(s->targets[0]);
+    if (slot < 0)
+        return 0;
+    int r = jit_expr(js->jb, s->expr, 0);
+    if (r < 0)
+        return 0;
+    jb_emit(js->jb, DS_JOP_STORE_SLOT, 0, (uint8_t)r, 0, slot, 0.0);
+    return js->jb->failed ? -1 : 1;
+}
+
+static int jit_cond(JitScope *js, DSExprNode *cond, int invert) {
+    if (!cond)
+        return -1;
+    int r = jit_expr(js->jb, cond, 0);
+    if (r < 0)
+        return -1;
+    jb_emit(js->jb, invert ? DS_JOP_JMP_IF_NOT_ZERO : DS_JOP_JMP_IF_ZERO, (uint8_t)r, 0, 0, 0, 0.0);
+    return js->jb->count - 1;
+}
+
+static int jit_block_into(JitScope *js, DSStmtNode *block) {
+    for (DSStmtNode *s = block; s; s = s->next) {
+        if (jit_stmt(js, s) < 0 || js->jb->failed)
+            return -1;
+    }
+    return 0;
+}
+
+static int jit_stmt(JitScope *js, DSStmtNode *s) {
+    if (!s || js->jb->failed)
+        return -1;
+    /* Values never outlive one statement (everything is stored back to a slot),
+     * so the register allocator rewinds here. That is what lets a long body fit
+     * in the 14 available registers. */
+    if (s->kind == ST_ASSIGN || s->kind == ST_AUGASSIGN || s->kind == ST_EXPR ||
+        s->kind == ST_RETURN || s->kind == ST_IF)
+        js->jb->next_reg = js->reg_floor;
+
+    switch (s->kind) {
+    case ST_PASS:
+        return 0;
+    case ST_EXPR:
+        /* A bare expression statement only matters in the REPL, but a call
+         * could have side effects, so reject those. */
+        if (!s->expr)
+            return 0;
+        if (s->expr->kind == EX_CALL || s->expr->kind == EX_NAME)
+            return -1;
+        jb_emit(js->jb, DS_JOP_NOP, 0, 0, 0, 0, 0.0);
+        return 0;
+    case ST_ASSIGN: {
+        int r = jit_assign_local(js, s);
+        return r > 0 ? 0 : -1;
+    }
+    case ST_AUGASSIGN: {
+        if (s->ntargets != 1 || js->jb->next_reg >= 14)
+            return -1;
+        int slot = jit_slot_of(s->targets[0]);
+        if (slot < 0)
+            return -1;
+        int lhs = js->jb->next_reg++;
+        jb_emit(js->jb, DS_JOP_LOAD_SLOT, (uint8_t)lhs, 0, 0, slot, 0.0);
+        int rhs = jit_expr(js->jb, s->expr, 0);
+        if (rhs < 0 || js->jb->next_reg >= 14)
+            return -1;
+        int r = js->jb->next_reg++;
+        uint8_t op;
+        switch (s->op) {
+        case OP_ADD: op = DS_JOP_ADD; break;
+        case OP_SUB: op = DS_JOP_SUB; break;
+        case OP_MUL: op = DS_JOP_MUL; break;
+        case OP_DIV: op = DS_JOP_DIV; break;
+        default: return -1;
+        }
+        jb_emit(js->jb, op, (uint8_t)r, (uint8_t)lhs, (uint8_t)rhs, 0, 0.0);
+        jb_emit(js->jb, DS_JOP_STORE_SLOT, 0, (uint8_t)r, 0, slot, 0.0);
+        return 0;
+    }
+    case ST_IF: {
+        if (s->nbranches <= 0)
+            return -1;
+        /* Chained elifs become a cascade: each arm jumps past the rest. */
+        int end_jumps[16];
+        int nend = 0;
+        for (int i = 0; i < s->nbranches; i++) {
+            int jz = jit_cond(js, s->conds[i], 0);
+            if (jz < 0)
+                return -1;
+            if (jit_block_into(js, s->bodies[i]) < 0)
+                return -1;
+            if (i + 1 < s->nbranches || s->orelse) {
+                jb_emit(js->jb, DS_JOP_JMP, 0, 0, 0, 0, 0.0);
+                if (nend >= 16)
+                    return -1;
+                end_jumps[nend++] = js->jb->count - 1;
+            }
+            js->jb->insts[jz].imm = js->jb->count; /* false -> next arm */
+        }
+        if (s->orelse && jit_block_into(js, s->orelse) < 0)
+            return -1;
+        for (int i = 0; i < nend; i++)
+            js->jb->insts[end_jumps[i]].imm = js->jb->count;
+        return 0;
+    }
+    case ST_WHILE: {
+        int top = js->jb->count;
+        int jz = jit_cond(js, s->cond, 0);
+        if (jz < 0)
+            return -1;
+        JitCtl saved = js->ctl;
+        js->ctl.nbreak = 0;
+        js->ctl.ncont = 0;
+        if (jit_block_into(js, s->body) < 0) {
+            js->ctl = saved;
+            return -1;
+        }
+        for (int i = 0; i < js->ctl.ncont; i++) /* continue -> re-test */
+            js->jb->insts[js->ctl.continue_patch[i]].imm = top;
+        jb_emit(js->jb, DS_JOP_JMP, 0, 0, 0, top, 0.0);
+        int after = js->jb->count;
+        js->jb->insts[jz].imm = after;
+        for (int i = 0; i < js->ctl.nbreak; i++)
+            js->jb->insts[js->ctl.break_patch[i]].imm = after;
+        js->ctl = saved;
+        if (s->orelse && jit_block_into(js, s->orelse) < 0)
+            return -1;
+        return 0;
+    }
+    case ST_FOR: {
+        /* Only `for i in range(a, b)` with a numeric local target; explicit
+         * steps and general iterables stay interpreted. */
+        if (!s->targets || s->ntargets != 1)
+            return -1;
+        int slot = jit_slot_of(s->targets[0]);
+        if (slot < 0)
+            return -1;
+        if (!s->items || s->count != 3 || !s->items[1] || s->items[2])
+            return -1;
+        if (s->items[0]) {
+            int r = jit_expr(js->jb, s->items[0], 0);
+            if (r < 0)
+                return -1;
+            jb_emit(js->jb, DS_JOP_STORE_SLOT, 0, (uint8_t)r, 0, slot, 0.0);
+        } else {
+            jb_emit(js->jb, DS_JOP_MOV_CONST_SLOT, 0, 0, 0, slot, 0.0);
+        }
+        int stop = jit_expr(js->jb, s->items[1], 0);
+        if (stop < 0 || js->jb->next_reg >= 14)
+            return -1;
+        int saved_floor = js->reg_floor;
+        if (stop >= js->reg_floor)
+            js->reg_floor = stop + 1; /* `stop` stays live for the whole loop */
+        int top = js->jb->count;
+        int iv = js->jb->next_reg++;
+        if (iv >= 14)
+            return -1;
+        jb_emit(js->jb, DS_JOP_LOAD_SLOT, (uint8_t)iv, 0, 0, slot, 0.0);
+        int c = js->jb->next_reg++;
+        if (c >= 14)
+            return -1;
+        jb_emit(js->jb, DS_JOP_CMP_LT, (uint8_t)c, (uint8_t)iv, (uint8_t)stop, 0, 0.0);
+        jb_emit(js->jb, DS_JOP_JMP_IF_ZERO, (uint8_t)c, 0, 0, 0, 0.0);
+        int jz = js->jb->count - 1;
+        JitCtl saved = js->ctl;
+        js->ctl.nbreak = 0;
+        js->ctl.ncont = 0;
+        if (jit_block_into(js, s->body) < 0) {
+            js->ctl = saved;
+            js->reg_floor = saved_floor;
+            return -1;
+        }
+        int inc_begin = js->jb->count;
+        for (int i = 0; i < js->ctl.ncont; i++) /* continue -> increment */
+            js->jb->insts[js->ctl.continue_patch[i]].imm = inc_begin;
+        int cur = js->jb->next_reg++;
+        int one = js->jb->next_reg++;
+        int sum = js->jb->next_reg++;
+        if (cur >= 14 || one >= 14 || sum >= 14) {
+            js->ctl = saved;
+            js->reg_floor = saved_floor;
+            return -1;
+        }
+        jb_emit(js->jb, DS_JOP_LOAD_SLOT, (uint8_t)cur, 0, 0, slot, 0.0);
+        jb_emit(js->jb, DS_JOP_LOAD_CONST, (uint8_t)one, 0, 0, 0, 1.0);
+        jb_emit(js->jb, DS_JOP_ADD, (uint8_t)sum, (uint8_t)cur, (uint8_t)one, 0, 0.0);
+        jb_emit(js->jb, DS_JOP_STORE_SLOT, 0, (uint8_t)sum, 0, slot, 0.0);
+        jb_emit(js->jb, DS_JOP_JMP, 0, 0, 0, top, 0.0);
+        int after = js->jb->count;
+        js->jb->insts[jz].imm = after;
+        for (int i = 0; i < js->ctl.nbreak; i++)
+            js->jb->insts[js->ctl.break_patch[i]].imm = after;
+        js->ctl = saved;
+        js->reg_floor = saved_floor;
+        if (s->orelse && jit_block_into(js, s->orelse) < 0)
+            return -1;
+        return 0;
+    }
+    case ST_BREAK:
+        if (js->ctl.nbreak >= 16)
+            return -1;
+        jb_emit(js->jb, DS_JOP_JMP, 0, 0, 0, 0, 0.0);
+        js->ctl.break_patch[js->ctl.nbreak++] = js->jb->count - 1;
+        return 0;
+    case ST_CONTINUE:
+        if (js->ctl.ncont >= 16)
+            return -1;
+        jb_emit(js->jb, DS_JOP_JMP, 0, 0, 0, 0, 0.0);
+        js->ctl.continue_patch[js->ctl.ncont++] = js->jb->count - 1;
+        return 0;
+    case ST_RETURN: {
+        if (!s->expr)
+            return -1; /* a bare return yields nil, which the IR cannot express */
+        int r = jit_expr(js->jb, s->expr, 0);
+        if (r < 0)
+            return -1;
+        jb_emit(js->jb, DS_JOP_RET, 0, (uint8_t)r, 0, 0, 0.0);
+        return 0;
+    }
+    default:
+        return -1; /* calls, defs, imports, classes: leave those to the VM */
+    }
+}
+
+/* Compiles a whole numeric function body, or returns NULL if any part of it is
+ * outside the supported subset. */
 static DSJitFunc *jit_try_compile(DSFuncProto *fn) {
-    if (!fn || !ds_jit_supported())
-        return NULL;
-    if (!fn->body || fn->body->kind != ST_RETURN || fn->body->next || !fn->body->expr)
+    if (!fn || !ds_jit_supported() || !fn->body)
         return NULL;
     if (fn->has_varargs || fn->arity < 1 || fn->arity > 8)
+        return NULL;
+    if (fn->num_locals > 64)
         return NULL;
 
     JitBuild jb;
     memset(&jb, 0, sizeof(jb));
-    int r = jit_expr(&jb, fn->body->expr, 0);
-    if (r < 0 || jb.failed) {
+    JitScope js;
+    memset(&js, 0, sizeof(js));
+    js.jb = &jb;
+    js.reg_floor = 0;
+
+    if (jit_block_into(&js, (DSStmtNode *)fn->body) < 0 || jb.failed) {
+        if (getenv("DS_JIT_DEBUG"))
+            fprintf(stderr, "[jit] %s: lowering rejected (count=%d failed=%d)\n",
+                    fn->name && fn->name->chars ? fn->name->chars : "?", jb.count, jb.failed);
         free(jb.insts);
         return NULL;
     }
-    jb_emit(&jb, DS_JOP_RET, 0, (uint8_t)r, 0, 0, 0.0);
+    /* Falling off the end yields nil, which the IR cannot return. A NaN
+     * sentinel tells the call site to re-run the function interpreted; since a
+     * JIT-eligible body has no side effects, that is observationally identical. */
+    if (jb.next_reg < 14) {
+        int r = jb.next_reg++;
+        uint64_t nan_bits = 0x7FF8000000000000ULL;
+        double nan_val;
+        memcpy(&nan_val, &nan_bits, sizeof(nan_val));
+        jb_emit(&jb, DS_JOP_LOAD_CONST, (uint8_t)r, 0, 0, 0, nan_val);
+        jb_emit(&jb, DS_JOP_RET, 0, (uint8_t)r, 0, 0, 0.0);
+    }
+    if (jb.failed) {
+        free(jb.insts);
+        return NULL;
+    }
     int nregs = jb.max_reg;
     if (nregs < 1)
         nregs = 1;
+    if (nregs > 14)
+        nregs = 14;
     DSJitFunc *jit = ds_jit_compile(jb.insts, jb.count, nregs);
+    if (!jit && getenv("DS_JIT_DEBUG"))
+        fprintf(stderr, "[jit] %s: emitter rejected (%d insts)\n",
+                fn->name && fn->name->chars ? fn->name->chars : "?", jb.count);
     free(jb.insts);
     return jit;
 }
@@ -1665,7 +1962,7 @@ static DSJitFunc *jit_try_compile(DSFuncProto *fn) {
 static void jit_walk_protos(DSVM *vm, const DSStmtNode *block);
 
 static void jit_consider(DSVM *vm, DSFuncProto *fn) {
-    if (!fn)
+    if (!fn || !vm->jit_enabled)
         return;
     if (fn->jit_fn)
         return;

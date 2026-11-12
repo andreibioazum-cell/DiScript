@@ -1329,14 +1329,35 @@ DSValue ds_call_value(DSVM *vm, DSValue callee, int argc, DSValue *argv) {
     if (ds_obj_is(callee, DS_OBJ_CLOSURE)) {
         DSClosure *cl = AS_CLOSURE(callee);
         DSFuncProto *proto = cl->proto;
-        if (proto && proto->jit_fn) {
-            /* Native machine-code fast path for pure numeric functions */
-            DSJitEntryFn fn = ds_jit_entry(proto->jit_fn);
+        if (proto && proto->jit_fn && argc == proto->arity && !vm->has_error) {
+            /* Native machine-code fast path. Only entered when every argument
+             * is already a number: compiled code works on raw doubles and has
+             * no route back to the interpreter for a type error. */
+            int numeric = 1;
+            for (int i = 0; i < argc; i++) {
+                if (!ds_is_num(argv[i])) {
+                    numeric = 0;
+                    break;
+                }
+            }
+            DSJitEntryFn fn = numeric ? ds_jit_entry(proto->jit_fn) : NULL;
             if (fn) {
-                double slots[8];
-                for (int i = 0; i < proto->arity; i++)
-                    slots[i] = (i < argc && ds_is_num(argv[i])) ? ds_as_num(argv[i]) : 0.0;
-                return ds_num(fn(slots));
+                /* Mirrors an interpreter frame: slot 0 is the closure, then the
+                 * arguments, then the locals the compiler assigned slots to. */
+                DSValue slots[JIT_MAX_SLOTS];
+                int nslots = proto->num_locals > 0 ? proto->num_locals : proto->arity + 1;
+                if (nslots < 1 || nslots > JIT_MAX_SLOTS)
+                    return call_closure(vm, cl, argc, argv);
+                for (int i = 0; i < nslots; i++)
+                    slots[i] = DS_VAL_NIL;
+                slots[0] = callee;
+                for (int i = 0; i < argc; i++)
+                    slots[1 + i] = argv[i];
+                vm->jit_calls++;
+                double out = fn((const double *)slots);
+                if (isnan(out))
+                    return call_closure(vm, cl, argc, argv); /* fell off the end */
+                return ds_num(out);
             }
         }
         return call_closure(vm, cl, argc, argv);
@@ -1551,6 +1572,11 @@ DSValue ds_make_range(DSVM *vm, double start, double stop, double step) {
  * VM LIFECYCLE
  * ============================================================================ */
 
+/* The native JIT is on unless the host asks for the reference interpreter
+ * (DS_NOJIT=1). That is how jit_bench.py and jit_diff_test.py run both
+ * execution paths over identical input. */
+static void ds_vm_refresh_jit_flag(DSVM *vm);
+
 DSVM *ds_vm_create(void) {
     DSVM *vm = (DSVM *)calloc(1, sizeof(DSVM));
     if (!vm)
@@ -1561,6 +1587,7 @@ DSVM *ds_vm_create(void) {
     vm->return_reg = DS_VAL_NIL;
     vm->has_error = 0;
     vm->stop_requested = 0;
+    ds_vm_refresh_jit_flag(vm);
 
     vm->builtins = ds_dict_new(vm, 64);
     vm->modules = ds_dict_new(vm, 8);
@@ -1638,8 +1665,18 @@ void ds_vm_get_stats(const DSVM *vm, DSVMStats *out) {
     out->gc_last_pause_us = vm->gc.last_pause_us;
     out->gc_max_pause_us = vm->gc.max_pause_us;
     out->compile_ms = vm->last_compile_ms;
+    out->exec_ms = vm->exec_ms;
+    out->jit_calls = vm->jit_calls;
     out->jit_functions = vm->jit_fn_count;
     out->jit_available = ds_jit_supported();
+}
+
+/* The native JIT is on unless the host asks for the reference interpreter
+ * (DS_NOJIT=1). That is how jit_bench.py and jit_diff_test.py run both
+ * execution paths over identical input. */
+static void ds_vm_refresh_jit_flag(DSVM *vm) {
+    const char *nojit = getenv("DS_NOJIT");
+    vm->jit_enabled = !(nojit && nojit[0] && nojit[0] != '0');
 }
 
 void ds_vm_reset(DSVM *vm) {
@@ -1651,6 +1688,7 @@ void ds_vm_reset(DSVM *vm) {
     vm->open_upvalues = NULL;
     vm->has_error = 0;
     vm->stop_requested = 0;
+    ds_vm_refresh_jit_flag(vm);
     vm->err_msg[0] = '\0';
     vm->return_reg = DS_VAL_NIL;
     vm->temp_root_count = 0;
@@ -1694,7 +1732,9 @@ int ds_vm_run_source(DSVM *vm, const char *filename, const char *source, size_t 
         push_print(vm, msg, 1);
         return 0;
     }
+    uint64_t run_t0 = ds_monotonic_ns();
     int ok = run_block(vm, proto, 0);
+    vm->exec_ms = (double)(ds_monotonic_ns() - run_t0) * 1e-6;
     if (!ok) {
         char msg[1100];
         snprintf(msg, sizeof(msg), "%s:%d: %s", vm->err_file, vm->err_line, vm->err_msg);

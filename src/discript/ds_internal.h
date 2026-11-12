@@ -442,7 +442,10 @@ struct DSVM {
     int err_line;
 
     double last_compile_ms;
+    double exec_ms; /* time spent running the program, excluding compilation */
     int jit_fn_count;
+    int jit_enabled; /* DS_NOJIT=1 turns the native path off for A/B runs */
+    uint64_t jit_calls;
 
     DSValue repl_last_value;
     int repl_echo;

@@ -87,6 +87,9 @@ static void pc_event_parse(PcArgs *a) {
         } else if (strcmp(name, "run") == 0) {
             e->kind = 10;
             e->frame = atoi(rest);
+        } else if (strcmp(name, "async") == 0) {
+            e->kind = 11;
+            e->frame = atoi(rest);
         } else {
             continue;
         }
@@ -134,8 +137,37 @@ static void pc_report_state(int frame) {
     fflush(stdout);
 }
 
+/* Scripts run on a worker thread so the UI keeps animating. The harness is
+ * synchronous by default: let the run finish and pump the output queue before
+ * the next captured frame. `--async` leaves it in flight so a test can watch
+ * the live animations instead. */
+static int pc_async_run = 0;
+
+static void pc_wait_for_script(IDEApp *app) {
+    if (!app)
+        return;
+    for (int guard = 0; guard < 240000; guard++) {
+        ide_app_update(app, (double)(++pc_virtual_ms) / 1000.0);
+        /* The worker sets `finished`; the *next* update joins it and drains the
+         * queue, so only stop once both flags have cleared and one more update
+         * has run since. */
+        if (!app->running && !app->finished && !app->worker_live) {
+            ide_app_update(app, (double)(++pc_virtual_ms) / 1000.0);
+            return;
+        }
+        struct timespec ts;
+        ts.tv_sec = 0;
+        ts.tv_nsec = 1000000L; /* 1 ms */
+        nanosleep(&ts, NULL);
+    }
+}
+
 static void pc_apply_event(PcEvent *e, int frame) {
     IDEApp *app = pc_ide_app();
+    if (e->kind == 11) { /* --async is a harness flag, not a UI event */
+        pc_async_run = 1;
+        return;
+    }
     if (!app && e->kind != 5)
         return;
     switch (e->kind) {
@@ -159,6 +191,10 @@ static void pc_apply_event(PcEvent *e, int frame) {
             fprintf(stderr, "harness: no framebuffer for %s\n", e->path);
         break;
     case 6:
+        /* --run is asynchronous; give it a moment so the report sees the
+         * script's output and its final status line. */
+        if (!pc_async_run && app)
+            pc_wait_for_script(app);
         pc_report_state(frame);
         break;
     case 7:
@@ -172,6 +208,8 @@ static void pc_apply_event(PcEvent *e, int frame) {
         break;
     case 10:
         ide_app_run(app);
+        if (!pc_async_run)
+            pc_wait_for_script(app);
         break;
     }
 }

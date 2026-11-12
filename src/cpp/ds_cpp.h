@@ -30,7 +30,21 @@ typedef enum {
     DS_JOP_CMP_GT = 11,    /* dst_reg = (src_a > src_b) ? 1.0 : 0.0 */
     DS_JOP_CMP_GE = 12,    /* dst_reg = (src_a >= src_b) ? 1.0 : 0.0 */
     DS_JOP_SELECT = 13,    /* dst_reg = (cond_reg != 0.0) ? src_a : src_b */
-    DS_JOP_RET = 14        /* return src_a */
+    DS_JOP_RET = 14,       /* return src_a */
+    /* Control flow. Jumps use `imm` as an instruction index; `dst` is the
+     * predicate register (zero means false). */
+    DS_JOP_JMP = 15,             /* goto imm */
+    DS_JOP_JMP_IF_ZERO = 16,     /* if dst == 0.0 goto imm */
+    DS_JOP_JMP_IF_NOT_ZERO = 17, /* if dst != 0.0 goto imm */
+    /* Slots hold the arguments first, then every local the compiler assigned
+     * one to, so a `for` accumulator survives loop iterations. */
+    DS_JOP_LOAD_SLOT = 18,      /* dst = slots[imm] */
+    DS_JOP_STORE_SLOT = 19,     /* slots[imm] = a */
+    DS_JOP_MOV_CONST_SLOT = 20, /* slots[imm] = k */
+    DS_JOP_NOP = 21,
+    DS_JOP_CMP_EQ = 22, /* dst = (a == b) ? 1.0 : 0.0 */
+    DS_JOP_CMP_NE = 23, /* dst = (a != b) ? 1.0 : 0.0 */
+    DS_JOP_MOD = 24     /* dst = python-style a % b */
 } DSJitOpKind;
 
 typedef struct {
@@ -41,6 +55,10 @@ typedef struct {
     int32_t imm;
     double k;
 } DSJitInst;
+
+/* Upper bound on the slots array handed to compiled code; the VM allocates it
+ * on the stack per call. */
+#define JIT_MAX_SLOTS 96
 
 typedef struct DSJitFunc DSJitFunc;
 typedef double (*DSJitEntryFn)(const double *slots);

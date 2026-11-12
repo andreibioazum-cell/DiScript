@@ -24,7 +24,7 @@
         <activity
             android:name="com.discript.ide.DiScriptActivity"
             android:configChanges="orientation|keyboard|keyboardHidden|screenSize|smallestScreenSize|screenLayout|navigation|uiMode|density|fontScale|layoutDirection|locale"
-            android:screenOrientation="landscape"
+            android:screenOrientation="portrait"
             android:windowSoftInputMode="adjustResize"
             android:exported="true">
             <meta-data

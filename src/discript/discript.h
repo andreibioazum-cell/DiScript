@@ -21,6 +21,8 @@ typedef struct {
     double gc_last_pause_us;
     double gc_max_pause_us;
     double compile_ms;
+    double exec_ms;   /* execution only, so JIT and interpreter are comparable */
+    uint64_t jit_calls; /* calls that entered native code */
     int jit_functions;
     int jit_available;
 } DSVMStats;

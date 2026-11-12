@@ -42,6 +42,7 @@ add_library(discript SHARED
     "${CB_SOURCE_ROOT}/cpp/ui_fx.cpp"
     # Engine
     "${CB_SOURCE_ROOT}/engine/runtime.c"
+    "${CB_SOURCE_ROOT}/engine/anim.c"
     "${CB_SOURCE_ROOT}/platform/android/android_main.c"
     "${CB_ANDROID_GLUE}/android_native_app_glue.c"
 )
