@@ -794,10 +794,29 @@ int ds_vm_love_touch(DSVM *vm, int action, int pointer_id, float x, float y) {
         }
     }
     DSValue idv = ds_num(pointer_id), xv = ds_num(x), yv = ds_num(y);
+    /* LÖVE passes (id, x, y). A game that only wants the position writes
+     * touchpressed(x, y), and calling a 2-parameter function with 3 arguments
+     * is an error, so the count follows the function's own arity. */
     DSValue argv[3] = {idv, xv, yv};
     DSValue cb = action == 0 ? L->cb_touchpressed : (action == 1 ? L->cb_touchmoved : L->cb_touchreleased);
     if (!ds_is_nil(cb)) {
-        ds_call_value(vm, cb, 3, argv);
+        int n = 3;
+        if (ds_obj_is(cb, DS_OBJ_CLOSURE)) {
+            DSFuncProto *pr = AS_CLOSURE(cb)->proto;
+            if (pr && pr->arity >= 0 && pr->arity < 3 && !pr->has_varargs)
+                n = pr->arity;
+        }
+        /* With fewer than 3 arguments the id is dropped, so the values line up
+         * with (x, y) as the script expects. */
+        DSValue use[3];
+        if (n == 3) {
+            use[0] = argv[0]; use[1] = argv[1]; use[2] = argv[2];
+        } else if (n == 2) {
+            use[0] = argv[1]; use[1] = argv[2];
+        } else if (n == 1) {
+            use[0] = argv[1];
+        }
+        ds_call_value(vm, cb, n, use);
         if (vm->has_error)
             return 0;
     }

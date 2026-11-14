@@ -1,0 +1,118 @@
+# Лобби: пример игры на DiScript. Нажми RUN.
+#
+# Здесь есть всё, из чего собирается своя игра:
+#   * экран лобби с надписью и кнопкой
+#   * игрок, который идёт за пальцем
+#   * звёзды, которые надо собрать
+#   * фон плиткой, счёт и таймер
+#
+# Как это работает:
+#   update(dt)  считается каждый кадр, dt — секунды с прошлого кадра
+#   draw()      рисует один кадр
+#   touchpressed(x, y) — палец коснулся экрана
+#
+# global нужен, чтобы присваивание внутри функции меняло переменную снаружи.
+# Без него создаётся локальная копия и счётчик не растёт — это как в Python.
+
+w = sprite.window()
+W = w[0]
+H = w[1]
+
+# ---- картинки из проекта ------------------------------------------------
+bg = sprite.load("sprites/tile.png")
+player = sprite.load("sprites/player.png")
+star_img = sprite.load("sprites/star.png")
+
+player.center = true
+star_img.center = true
+
+# ---- состояние ----------------------------------------------------------
+# mode: 0 — лобби, 1 — игра
+mode = 0
+px = W * 0.5
+py = H * 0.62
+score = 0
+time_left = 30.0
+msg = "КОСНИСЬ ЭКРАНА"
+
+stars = []
+for i in range(5):
+    s = sprite.load("sprites/star.png")
+    s.center = true
+    s.x = W * (0.15 + 0.175 * i)
+    s.y = H * 0.25
+    s.z = 2
+    stars.append(s)
+
+def start_game():
+    global mode, msg, score, time_left
+    mode = 1
+    msg = ""
+    score = 0
+    time_left = 30.0
+
+def update(dt):
+    global time_left
+    if mode == 1:
+        time_left = time_left - dt
+        if time_left <= 0:
+            time_left = 0
+            end_game()
+
+def end_game():
+    global mode, msg
+    mode = 0
+    msg = "ВРЕМЯ ВЫШЛО. СЧЁТ " + str(score)
+
+def collect():
+    global score
+    for s in stars:
+        dx = s.x - px
+        dy = s.y - py
+        if dx * dx + dy * dy < 48 * 48:
+            score = score + 1
+            # звезда перескакивает в новое место, чтобы её было видно
+            s.x = W * (0.12 + 0.76 * ((score * 7) % 10) / 10.0)
+            s.y = H * (0.18 + 0.10 * (score % 3))
+
+def touchpressed(x, y):
+    global px, py
+    if mode == 0:
+        start_game()
+        return
+    px = x
+    py = y
+    collect()
+
+def draw():
+    sprite.begin_frame()
+
+    # фон плиткой, с запасом за краем экрана
+    bw = bg.width
+    bh = bg.height
+    if bw > 0:
+        cols = int(W / bw) + 2
+        rows = int(H / bh) + 2
+        for r in range(rows):
+            for c in range(cols):
+                bg.x = c * bw
+                bg.y = r * bh
+                bg.z = 0
+                sprite.add(bg)
+
+    if mode == 1:
+        for s in stars:
+            sprite.add(s)
+        player.x = px
+        player.y = py
+        player.z = 5
+        sprite.add(player)
+
+    sprite.draw_all()
+
+    # текст рисуется поверх спрайтов
+    if mode == 0:
+        sprite.text(msg, 24, H * 0.62, 255, 230, 110, 1.9)
+    else:
+        sprite.text("СЧЁТ " + str(score), 24, 30, 255, 230, 110, 1.7)
+        sprite.text("ВРЕМЯ " + str(int(time_left)), 24, 70, 215, 225, 245, 1.5)

@@ -222,6 +222,41 @@ static DSValue sp_add(DSVM *vm, int argc, DSValue *argv) {
     return ds_bool(1);
 }
 
+/* sprite.text(s, x, y, r, g, b, size) draws over the sprites. Text is needed by
+ * every game (score, timer, "press play"), and reaching for
+ * love.graphics.print with a colour table for a score label is more ceremony
+ * than a game script should carry. */
+static DSValue sp_text(DSVM *vm, int argc, DSValue *argv) {
+    const char *s = arg_str(vm, argc, argv, 0, NULL);
+    if (!s)
+        return DS_VAL_NIL;
+    float x = (float)ds_to_number(vm, argc > 1 ? argv[1] : DS_VAL_NIL);
+    float y = (float)ds_to_number(vm, argc > 2 ? argv[2] : DS_VAL_NIL);
+    int r = (int)ds_to_number(vm, argc > 3 ? argv[3] : 255.0);
+    int g = (int)ds_to_number(vm, argc > 4 ? argv[4] : 255.0);
+    int b = (int)ds_to_number(vm, argc > 5 ? argv[5] : 255.0);
+    float size = (float)ds_to_number(vm, argc > 6 ? argv[6] : 1.5);
+    if (r < 0) r = 0; if (r > 255) r = 255;
+    if (g < 0) g = 0; if (g > 255) g = 255;
+    if (b < 0) b = 0; if (b > 255) b = 255;
+    uint32_t col = ((uint32_t)255 << 24) | ((uint32_t)r << 16) | ((uint32_t)g << 8) | (uint32_t)b;
+    text_scaled(s, x, y, col, size);
+    return DS_VAL_NIL;
+}
+
+/* sprite.measure(s, size) -> (w, h), so a script can centre a label without
+ * guessing how wide the string is. */
+static DSValue sp_measure(DSVM *vm, int argc, DSValue *argv) {
+    const char *s = arg_str(vm, argc, argv, 0, NULL);
+    float size = (float)ds_to_number(vm, argc > 1 ? argv[1] : 1.5);
+    DSList *l = ds_list_new(vm, 2);
+    if (!l)
+        return DS_VAL_NIL;
+    ds_list_push(vm, l, ds_num(text_width_scaled(s ? s : "", size)));
+    ds_list_push(vm, l, ds_num(text_line_height(size)));
+    return ds_obj_val(l);
+}
+
 static DSValue sp_exists(DSVM *vm, int argc, DSValue *argv) {
     const char *path = arg_str(vm, argc, argv, 0, NULL);
     return ds_bool(path && tex_ready(path));
@@ -344,5 +379,7 @@ void ds_register_sprite(DSVM *vm) {
     reg_fn(vm, d, "clear", sp_clear);
     reg_fn(vm, d, "window", sp_window);
     reg_fn(vm, d, "add", sp_add);
+    reg_fn(vm, d, "text", sp_text);
+    reg_fn(vm, d, "measure", sp_measure);
     ds_pop_roots(vm, 1);
 }

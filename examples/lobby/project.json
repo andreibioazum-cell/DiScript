@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "name": "Lobby",
+  "script": "scripts/main.ds",
+  "sprites": [
+    {"name": "player", "file": "sprites/player.png"},
+    {"name": "star", "file": "sprites/star.png"},
+    {"name": "tile", "file": "sprites/tile.png"}
+  ]
+}
