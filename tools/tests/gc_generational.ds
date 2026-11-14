@@ -1,0 +1,12 @@
+keep = []
+for i in range(20000):
+    keep.append([i, str(i), {"n": i}])
+ok = 1
+for i in range(20000):
+    e = keep[i]
+    if e[0] != i: ok = 0
+    if e[1] != str(i): ok = 0
+    if e[2]["n"] != i: ok = 0
+print(ok)
+print(len(keep))
+print(keep[19999][1])

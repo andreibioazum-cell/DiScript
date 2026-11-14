@@ -1,0 +1,34 @@
+# LÖVE2D-style game loop test (runs headless on the host with the soft renderer)
+W, H = 480, 320
+balls = []
+t = 0
+
+def load():
+    love.graphics.setBackgroundColor(18, 22, 28)
+    for i in range(12):
+        balls.append({"x": random.float(0, 480), "y": random.float(0, 320),
+                      "vx": random.float(-120, 120), "vy": random.float(-120, 120),
+                      "r": random.float(6, 18)})
+    print("loaded", len(balls), "balls")
+
+def update(dt):
+    for b in balls:
+        b["x"] = b["x"] + b["vx"] * dt
+        b["y"] = b["y"] + b["vy"] * dt
+        if b["x"] < 0 or b["x"] > W:
+            b["vx"] = -b["vx"]
+        if b["y"] < 0 or b["y"] > H:
+            b["vy"] = -b["vy"]
+
+def draw():
+    love.graphics.clear()
+    for b in balls:
+        love.graphics.circle("fill", b["x"], b["y"], b["r"])
+    love.graphics.setColor(1, 1, 1, 1)
+    love.graphics.print("DiScript LÖVE2D", 10, 10)
+
+def touchpressed(id, x, y):
+    balls.append({"x": x, "y": y, "vx": 90, "vy": -60, "r": 12})
+
+print("timer delta ok:", love.timer.getDelta() >= 0)
+print("text width:", love.graphics.getWidth("DiScript"))

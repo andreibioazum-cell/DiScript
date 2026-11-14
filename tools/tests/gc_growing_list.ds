@@ -1,0 +1,4 @@
+keep = []
+for i in range(60000):
+    keep.append([i, i * 2])
+print(len(keep))

@@ -5,7 +5,7 @@
 #include <android_native_app_glue.h>
 #include "engine/runtime.h"
 #include "engine/network.h"
-#include "game/game.h"
+#include "ide/ide_app.h"
 #include <stdarg.h>
 #include <stdio.h>
 #include <time.h>
@@ -16,8 +16,19 @@
 #include <pthread.h>
 #include <unistd.h>
 static int init_done = 0;
-static int game_active = 0;
 static struct android_app *ui_app = NULL;
+static IDEApp g_ide;
+static int ide_ready = 0;
+/* Keyboard inset reported by the Java side, in physical pixels. */
+static int kb_inset_px = 0;
+static int kb_visible = 0;
+/* Pending file-open/save results from the SAF dialogs. */
+static volatile int open_result_ready = 0;
+static char open_result_path[512];
+static int open_result_fd = -1;
+static char open_result_name[256];
+static volatile int save_result_ready = 0;
+static int save_result_fd = -1;
 
 static JavaVM *fs_vm_ptr;
 static int fs_attached_now;
@@ -72,18 +83,6 @@ int net_fs_take_fd(int *kind) {
 }
 
 /* Called from the Java side once the document picker returns a descriptor. */
-JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativePickedFd(JNIEnv *env, jobject thiz, jint fd) {
-    (void)env;
-    (void)thiz;
-    fs_hand_fd(1, (int)fd);
-}
-
-JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeSavedFd(JNIEnv *env, jobject thiz, jint fd) {
-    (void)env;
-    (void)thiz;
-    fs_hand_fd(2, (int)fd);
-}
-
 static int fs_call_void(const char *name, const char *sig, const char *arg) {
     JNIEnv *env = fs_java_env();
     jobject self;
@@ -137,11 +136,7 @@ int net_fs_pick_export(const char *suggested) {
     return fs_call_void("saveModZip", "(Ljava/lang/String;)V", suggested ? suggested : "mod.zip");
 }
 
-static int game_started_once = 0;
-static AAssetManager *game_assets = NULL;
-static uint64_t restart_after_ns = 0;
-static unsigned int restart_failures = 0;
-static uint64_t prev_frame_ns = 0;
+static AAssetManager *app_assets = NULL;
 static uint64_t prev_loop_ns = 0;
 static double frame_seconds = 0.0;
 static uint64_t monotonic_ns(void) {
@@ -162,94 +157,16 @@ static void apply_screen_size(void) {
     screen_w = phys_w;
     screen_h = phys_h;
 }
-static void protected_game_init(void *userdata) {
-    game_init((AAssetManager *)userdata);
-}
-static void protected_game_reset(void *userdata) {
-    (void)userdata;
-    game_reset();
-}
-static void protected_game_update(void *userdata) {
-    (void)userdata;
-    game_update();
-}
-static void protected_game_draw(void *userdata) {
-    game_draw((Buffer *)userdata);
-}
-typedef struct {
-    float x;
-    float y;
-    int action;
-    int id;
-} TouchCall;
-static void protected_game_touch(void *userdata) {
-    TouchCall *call = (TouchCall *)userdata;
-    game_touch(call->x, call->y, call->action, call->id);
-}
-static int back_consumed = 0;
-typedef struct {
-    int handled;
-} BackCall;
-static void protected_game_bye(void *userdata) {
-    (void)userdata;
-    game_bye();
-}
-/* Invoke game shutdown hook on activity stop. */
-static void say_goodbye(void) {
-    if (!game_active) {
+
+/* The editor draws into the same logical surface the game used. */
+static void ide_init_once(AAssetManager *assets) {
+    if (ide_ready)
         return;
-    }
-    (void)ds_call_protected(protected_game_bye, NULL, "goodbye");
+    ide_app_init(&g_ide, assets);
+    ide_ready = 1;
 }
-static void protected_game_back(void *userdata) {
-    BackCall *call = (BackCall *)userdata;
-    call->handled = game_back();
-}
-static void mark_game_failed(const char *hook) {
-    const char *message = ds_runtime_error_message();
-    __android_log_print(ANDROID_LOG_ERROR, "CubicBattle", "game hook '%s' stopped: %s; scheduling a restart",
-                        hook ? hook : "unknown", message);
-    ds_console_log(1, "game error: hook '%s' stopped: %s; restarting", hook ? hook : "unknown", message);
-    unsigned int shift = restart_failures < 5 ? restart_failures : 5;
-    uint64_t delay = 1000000000ull << shift;
-    game_active = 0;
-    ds_request_game_restart();
-    restart_after_ns = monotonic_ns() + delay;
-    ++restart_failures;
-}
-static int start_game(int reset_state) {
-    int ok;
-    ds_clear_runtime_error();
-    ds_clear_game_restart();
-    ds_string_pool_reset();
-    if (reset_state) {
-        ok = ds_call_protected(protected_game_reset, NULL, "reset");
-        if (!ok) {
-            mark_game_failed("reset");
-            return 0;
-        }
-    }
-    ds_clear_runtime_error();
-    ok = ds_call_protected(protected_game_init, game_assets, "init");
-    if (!ok) {
-        mark_game_failed("init");
-        return 0;
-    }
-    ds_clear_runtime_error();
-    restart_failures = 0;
-    game_active = 1;
-    game_started_once = 1;
-    return 1;
-}
-static void restart_game_if_due(void) {
-    uint64_t now;
-    if (game_active || !ds_game_restart_requested())
-        return;
-    now = monotonic_ns();
-    if (now < restart_after_ns)
-        return;
-    (void)start_game(1);
-}
+
+static IDEApp *ide_app(void) { return ide_ready ? &g_ide : NULL; }
 
 #define GFX_START_TRIES 4
 static int gfx_start_tries = 0;
@@ -281,10 +198,10 @@ static void start_window(struct android_app *app) {
         return;
     }
     apply_screen_size();
-    game_assets = app->activity ? app->activity->assetManager : NULL;
+    app_assets = app->activity ? app->activity->assetManager : NULL;
     ds_set_activity(app->activity);
 
-    if (!ds_graphics_init(game_assets, app->window)) {
+    if (!ds_graphics_init(app_assets, app->window)) {
         gfx_start_failed(app, ds_graphics_failure());
         return;
     }
@@ -294,22 +211,15 @@ static void start_window(struct android_app *app) {
     gfx_retry_at_ns = 0;
     gfx_failure_shown = 0;
 
-    ds_sound_init(game_assets);
+    ds_sound_init(app_assets);
     ds_sound_resume();
     init_done = 1;
 
-    prev_frame_ns = 0;
     prev_loop_ns = 0;
-        /* The frame before minimising says nothing about the new window. */
+    /* The frame before minimising says nothing about the new window. */
     frame_seconds = 0.0;
-    if (game_active) {
-
-        ds_log("window is back (%dx%d): the game continues", phys_w, phys_h);
-        return;
-    }
-    restart_failures = 0;
-    ds_clear_game_restart();
-    (void)start_game(game_started_once);
+    ide_init_once(app_assets);
+    ds_log("window ready (%dx%d)", phys_w, phys_h);
 }
 static void handle_cmd(struct android_app *app, int32_t command) {
     if (!app) {
@@ -359,7 +269,6 @@ static void handle_cmd(struct android_app *app, int32_t command) {
         ds_sound_pause();
         break;
     case APP_CMD_STOP:
-        say_goodbye();
         break;
     default:
         break;
@@ -369,99 +278,379 @@ static int32_t handle_input(struct android_app *app, AInputEvent *event) {
     (void)app;
     if (!event)
         return 0;
+    IDEApp *ide = ide_app();
     int32_t type = AInputEvent_getType(event);
+
     if (type == AINPUT_EVENT_TYPE_MOTION) {
-        if (!game_active)
+        if (!ide)
             return 0;
-        TouchCall call;
-        size_t count, index, i;
-        int raw, action;
-        count = AMotionEvent_getPointerCount(event);
+        size_t count = AMotionEvent_getPointerCount(event);
         if (count == 0)
             return 0;
-        raw = AMotionEvent_getAction(event);
-        action = raw & AMOTION_EVENT_ACTION_MASK;
-        if (action == AMOTION_EVENT_ACTION_POINTER_DOWN)
-            action = AMOTION_EVENT_ACTION_DOWN;
-        else if (action == AMOTION_EVENT_ACTION_POINTER_UP)
-            action = AMOTION_EVENT_ACTION_UP;
-        index = (size_t)((raw & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >> AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT);
+        int raw = AMotionEvent_getAction(event);
+        int action = raw & AMOTION_EVENT_ACTION_MASK;
+        size_t index = (size_t)((raw & AMOTION_EVENT_ACTION_POINTER_INDEX_MASK) >>
+                                AMOTION_EVENT_ACTION_POINTER_INDEX_SHIFT);
         if (index >= count)
             index = 0;
-        i = (action == AMOTION_EVENT_ACTION_MOVE) ? 0 : index;
-        count = (action == AMOTION_EVENT_ACTION_MOVE) ? count : index + 1;
-        for (; i < count; i++) {
-
-            call.x = AMotionEvent_getX(event, i);
-            call.y = AMotionEvent_getY(event, i);
-
+        /* The editor is single-pointer: a drag is just the newest position. */
+        size_t i = (action == AMOTION_EVENT_ACTION_MOVE) ? 0 : index;
+        for (; action == AMOTION_EVENT_ACTION_MOVE ? i < count : i <= index; i++) {
+            float x = AMotionEvent_getX(event, i);
+            float y = AMotionEvent_getY(event, i);
             if (screen_w > 0) {
-                if (call.x < 0)
-                    call.x = 0;
-                if (call.x > (float)(screen_w - 1))
-                    call.x = (float)(screen_w - 1);
+                if (x < 0)
+                    x = 0;
+                if (x > (float)(screen_w - 1))
+                    x = (float)(screen_w - 1);
             }
             if (screen_h > 0) {
-                if (call.y < 0)
-                    call.y = 0;
-                if (call.y > (float)(screen_h - 1))
-                    call.y = (float)(screen_h - 1);
+                if (y < 0)
+                    y = 0;
+                if (y > (float)(screen_h - 1))
+                    y = (float)(screen_h - 1);
             }
-            call.action = action;
-            call.id = AMotionEvent_getPointerId(event, i);
-            if (!ds_call_protected(protected_game_touch, &call, "touch")) {
-                mark_game_failed("touch");
-                break;
+            if (action == AMOTION_EVENT_ACTION_DOWN || action == AMOTION_EVENT_ACTION_POINTER_DOWN) {
+                ide_app_pointer_sized(ide, x, y, 0, screen_w, screen_h);
+                /* Any tap in the code area asks the IME to show up. */
+                keyboard_show();
+            } else if (action == AMOTION_EVENT_ACTION_MOVE) {
+                ide_app_pointer_sized(ide, x, y, 2, screen_w, screen_h);
+            } else if (action == AMOTION_EVENT_ACTION_UP || action == AMOTION_EVENT_ACTION_POINTER_UP ||
+                       action == AMOTION_EVENT_ACTION_CANCEL) {
+                ide_app_pointer_sized(ide, x, y, 1, screen_w, screen_h);
             }
         }
         return 1;
-    } else if (type == AINPUT_EVENT_TYPE_KEY) {
+    }
+
+    if (type == AINPUT_EVENT_TYPE_KEY) {
+        if (!ide)
+            return 0;
         int32_t action = AKeyEvent_getAction(event);
         int32_t key = AKeyEvent_getKeyCode(event);
         int32_t meta = AKeyEvent_getMetaState(event);
-        if (key == AKEYCODE_BACK && action == AKEY_EVENT_ACTION_DOWN &&
-            (keyboard_visible() || keyboard_uses_editor())) {
+
+        if (key == AKEYCODE_BACK && action == AKEY_EVENT_ACTION_DOWN) {
+            if (keyboard_visible() || keyboard_uses_editor()) {
+                keyboard_hide();
+                return 1;
+            }
+            return 0;
+        }
+        if (action != AKEY_EVENT_ACTION_DOWN && action != AKEY_EVENT_ACTION_MULTIPLE)
+            return 1;
+
+        switch (key) {
+        case AKEYCODE_DEL:
+            ide_app_backspace(ide, 1);
+            return 1;
+        case AKEYCODE_FORWARD_DEL:
+            ide_app_special_key(ide, "delete");
+            return 1;
+        case AKEYCODE_ENTER:
+        case AKEYCODE_NUMPAD_ENTER:
+            ide_app_enter(ide);
+            return 1;
+        case AKEYCODE_TAB:
+            ide_app_tab(ide);
+            return 1;
+        case AKEYCODE_DPAD_LEFT:
+            ide_app_special_key(ide, "left");
+            return 1;
+        case AKEYCODE_DPAD_RIGHT:
+            ide_app_special_key(ide, "right");
+            return 1;
+        case AKEYCODE_DPAD_UP:
+            ide_app_special_key(ide, "up");
+            return 1;
+        case AKEYCODE_DPAD_DOWN:
+            ide_app_special_key(ide, "down");
+            return 1;
+        case AKEYCODE_MOVE_HOME:
+            ide_app_special_key(ide, (meta & AMETA_CTRL_ON) ? "doc_start" : "home");
+            return 1;
+        case AKEYCODE_MOVE_END:
+            ide_app_special_key(ide, (meta & AMETA_CTRL_ON) ? "doc_end" : "end");
+            return 1;
+        case AKEYCODE_Z:
+            if (meta & AMETA_CTRL_ON) {
+                ide_app_special_key(ide, (meta & AMETA_SHIFT_ON) ? "redo" : "undo");
+                return 1;
+            }
+            return 0;
+        case AKEYCODE_S:
+            if (meta & AMETA_CTRL_ON) {
+                ide_app_save(ide);
+                return 1;
+            }
+            return 0;
+        case AKEYCODE_R:
+            if (meta & AMETA_CTRL_ON) {
+                ide_app_run(ide);
+                return 1;
+            }
+            return 0;
+        case AKEYCODE_ESCAPE:
             keyboard_hide();
             return 1;
+        default:
+            return 0; /* let the IME turn it into text */
         }
-        /* Backspace UP must stop the native repeat even if the IME already
-         * hid itself; DOWN starts one immediate delete plus the 500 ms timer. */
-        if ((key == AKEYCODE_DEL || key == AKEYCODE_FORWARD_DEL) && action == AKEY_EVENT_ACTION_UP) {
-            keyboard_handle_key(key, action, meta);
-            return 1;
-        }
-        if (keyboard_visible() && (action == AKEY_EVENT_ACTION_DOWN || action == AKEY_EVENT_ACTION_MULTIPLE)) {
-            if (keyboard_handle_key(key, action, meta))
-                return 1;
-        }
-        if (key == AKEYCODE_BACK) {
-
-            if (action == AKEY_EVENT_ACTION_DOWN) {
-                BackCall call = {0};
-                back_consumed = 0;
-                if (!game_active)
-                    return 0;
-                if (!ds_call_protected(protected_game_back, &call, "back_pressed")) {
-                    mark_game_failed("back_pressed");
-                    return 1;
-                }
-                back_consumed = call.handled ? 1 : 0;
-                return back_consumed;
-            }
-            if (action == AKEY_EVENT_ACTION_UP) {
-                int c = back_consumed;
-                back_consumed = 0;
-                return c;
-            }
-            return back_consumed;
-        }
-
-        if (keyboard_uses_editor())
-            return 0;
-        return 1;
     }
     return 0;
 }
+
+/* ---- native file dialogs -------------------------------------------------
+ * The Java activity owns the Storage Access Framework UI, so the hook asks it
+ * to show a picker and then blocks the calling frame until the descriptor
+ * comes back. Reading and writing go through the same descriptor. */
+
+/* Called once per frame to retire finished dialog descriptors. */
+static void fs_drain_results(void) {
+    pthread_mutex_lock(&fs_fd_lock);
+    if (open_result_ready && open_result_fd >= 0) {
+        close(open_result_fd);
+        open_result_fd = -1;
+    }
+    if (save_result_ready && save_result_fd >= 0) {
+        close(save_result_fd);
+        save_result_fd = -1;
+    }
+    open_result_ready = 0;
+    save_result_ready = 0;
+    pthread_mutex_unlock(&fs_fd_lock);
+}
+
+static char *fs_read_all(int fd, size_t *out_len) {
+    size_t cap = 4096, len = 0;
+    char *buf = (char *)malloc(cap);
+    if (!buf)
+        return NULL;
+    for (;;) {
+        if (len + 2048 > cap) {
+            char *nb = (char *)realloc(buf, cap * 2);
+            if (!nb)
+                break;
+            buf = nb;
+            cap *= 2;
+        }
+        ssize_t got = read(fd, buf + len, cap - len - 1);
+        if (got < 0)
+            break;
+        if (got == 0)
+            break;
+        len += (size_t)got;
+        if (len > 8u * 1024u * 1024u)
+            break;
+    }
+    buf[len] = '\0';
+    if (out_len)
+        *out_len = len;
+    return buf;
+}
+
+/* Open picker: the activity writes the script through nativeEditorText, which
+ * is why this hook only has to wait for the descriptor to close it. */
+static int fs_open_dialog(char *dst, int cap) {
+    if (!ide_app() || cap <= 0)
+        return 0;
+    open_result_ready = 0;
+    if (!fs_call_void("pickScriptFile", "()V", NULL))
+        return 0;
+    /* Wait up to ~10 s for the picker; frames keep rendering in the meantime. */
+    for (int waited = 0; waited < 600; waited++) {
+        if (open_result_ready)
+            break;
+        struct timespec ts = {0, 16 * 1000 * 1000};
+        nanosleep(&ts, NULL);
+    }
+    pthread_mutex_lock(&fs_fd_lock);
+    int ready = open_result_ready;
+    int fd = open_result_fd;
+    char name[256];
+    snprintf(name, sizeof(name), "%s", open_result_name);
+    open_result_ready = 0;
+    open_result_fd = -1;
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (!ready || fd < 0)
+        return 0;
+    size_t len = 0;
+    char *text = fs_read_all(fd, &len);
+    close(fd);
+    if (!text)
+        return 0;
+    IDEApp *ide = ide_app();
+    int idx = ide_view_open(&ide->view, name, text, len);
+    free(text);
+    if (idx < 0)
+        return 0;
+    snprintf(ide->current_path, sizeof(ide->current_path), "%s", name);
+    ide_view_set_status(&ide->view, "Opened");
+    /* The SAF descriptor is already consumed, so the editor handles the load
+     * itself and reports success by copying the display name back. */
+    snprintf(dst, (size_t)cap, "%s", name);
+    return 1;
+}
+
+static int fs_save_dialog(const char *name, char *dst, int cap) {
+    if (!ide_app() || cap <= 0)
+        return 0;
+    save_result_ready = 0;
+    fs_call_void("saveScriptFile", "(Ljava/lang/String;)V", name && name[0] ? name : "script.ds");
+    for (int waited = 0; waited < 600; waited++) {
+        if (save_result_ready)
+            break;
+        struct timespec ts = {0, 16 * 1000 * 1000};
+        nanosleep(&ts, NULL);
+    }
+    pthread_mutex_lock(&fs_fd_lock);
+    int ready = save_result_ready;
+    int fd = save_result_fd;
+    save_result_ready = 0;
+    save_result_fd = -1;
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (!ready || fd < 0)
+        return 0;
+    IDEApp *ide = ide_app();
+    int idx = ide_view_active(&ide->view);
+    if (idx >= 0) {
+        IDEBuffer *b = &ide->view.tabs[idx].buf;
+        size_t off = 0;
+        while (off < b->len) {
+            ssize_t put = write(fd, b->text + off, b->len - off);
+            if (put <= 0)
+                break;
+            off += (size_t)put;
+        }
+        ide->view.tabs[idx].dirty = 0;
+        snprintf(ide->view.tabs[idx].path, sizeof(ide->view.tabs[idx].path), "%s",
+                 name && name[0] ? name : "script.ds");
+    }
+    close(fd);
+    ide_view_set_status(&ide->view, "Saved");
+    snprintf(dst, (size_t)cap, "%s", name && name[0] ? name : "script.ds");
+    return 1;
+}
+
+/* ---- JNI surface used by DiScriptActivity ------------------------------- */
+/* The Java side keeps a sentinel-padded EditText and mirrors every change
+ * here, because a native activity cannot host an editable view itself. */
+
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeEditorText(JNIEnv *env, jobject thiz,
+                                                                             jstring text) {
+    (void)thiz;
+    IDEApp *ide = ide_app();
+    if (!ide || !text)
+        return;
+    const char *utf = (*env)->GetStringUTFChars(env, text, NULL);
+    if (!utf)
+        return;
+    ide_app_text(ide, utf);
+    (*env)->ReleaseStringUTFChars(env, text, utf);
+}
+
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeEditorBackspace(JNIEnv *env, jobject thiz,
+                                                                                   jint count) {
+    (void)env;
+    (void)thiz;
+    IDEApp *ide = ide_app();
+    if (ide)
+        ide_app_backspace(ide, (int)count);
+}
+
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeEditorEnter(JNIEnv *env, jobject thiz) {
+    (void)env;
+    (void)thiz;
+    IDEApp *ide = ide_app();
+    if (ide)
+        ide_app_enter(ide);
+}
+
+JNIEXPORT jboolean JNICALL Java_com_discript_ide_DiScriptActivity_nativeEditorSpecialKey(JNIEnv *env, jobject thiz,
+                                                                                        jint keycode,
+                                                                                        jint meta) {
+    (void)env;
+    (void)thiz;
+    IDEApp *ide = ide_app();
+    if (!ide)
+        return JNI_FALSE;
+    switch (keycode) {
+    case AKEYCODE_DEL:
+        ide_app_backspace(ide, 1);
+        break;
+    case AKEYCODE_FORWARD_DEL:
+        ide_app_special_key(ide, "delete");
+        break;
+    case AKEYCODE_ENTER:
+    case AKEYCODE_NUMPAD_ENTER:
+        ide_app_enter(ide);
+        break;
+    case AKEYCODE_TAB:
+        ide_app_tab(ide);
+        break;
+    case AKEYCODE_DPAD_LEFT:
+        ide_app_special_key(ide, (meta & AMETA_CTRL_ON) ? "word_left" : "left");
+        break;
+    case AKEYCODE_DPAD_RIGHT:
+        ide_app_special_key(ide, (meta & AMETA_CTRL_ON) ? "word_right" : "right");
+        break;
+    case AKEYCODE_DPAD_UP:
+        ide_app_special_key(ide, "up");
+        break;
+    case AKEYCODE_DPAD_DOWN:
+        ide_app_special_key(ide, "down");
+        break;
+    case AKEYCODE_MOVE_HOME:
+        ide_app_special_key(ide, (meta & AMETA_CTRL_ON) ? "doc_start" : "home");
+        break;
+    case AKEYCODE_MOVE_END:
+        ide_app_special_key(ide, (meta & AMETA_CTRL_ON) ? "doc_end" : "end");
+        break;
+    case AKEYCODE_Z:
+        ide_app_special_key(ide, (meta & AMETA_SHIFT_ON) ? "redo" : "undo");
+        break;
+    default:
+        return JNI_FALSE;
+    }
+    return JNI_TRUE;
+}
+
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeKeyboardInset(JNIEnv *env, jobject thiz,
+                                                                                 jint bottom_inset_px,
+                                                                                 jint visible) {
+    (void)env;
+    (void)thiz;
+    kb_inset_px = (int)bottom_inset_px;
+    kb_visible = (int)visible;
+}
+
+/* The Java side already read the stream into the editor, so it only has to
+ * tell us the display name to show on the tab. */
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativePickedFd(JNIEnv *env, jobject thiz, jint fd,
+                                                                            jstring name) {
+    (void)thiz;
+    const char *nm = NULL;
+    if (name)
+        nm = (*env)->GetStringUTFChars(env, name, NULL);
+    pthread_mutex_lock(&fs_fd_lock);
+    open_result_fd = (int)fd;
+    snprintf(open_result_name, sizeof(open_result_name), "%s", nm ? nm : "script.ds");
+    open_result_ready = 1;
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (nm)
+        (*env)->ReleaseStringUTFChars(env, name, nm);
+}
+
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeSavedFd(JNIEnv *env, jobject thiz, jint fd) {
+    (void)env;
+    (void)thiz;
+    pthread_mutex_lock(&fs_fd_lock);
+    save_result_fd = (int)fd;
+    save_result_ready = 1;
+    pthread_mutex_unlock(&fs_fd_lock);
+}
+
 void android_main(struct android_app *app) {
     Buffer frame = {0};
     if (!app)
@@ -483,20 +672,20 @@ void android_main(struct android_app *app) {
         net_set_system_language(lang);
     }
     ds_set_activity(app->activity);
-    ds_log("Cubic Battle 4: C + Vulkan");
+    /* Let the language's file builtins reach the SAF pickers. */
+    ds_pick_open_hook = fs_open_dialog;
+    ds_pick_save_hook = fs_save_dialog;
+    ds_log("DiScript editor: C + Vulkan");
     for (;;) {
         struct android_poll_source *source = NULL;
         int ident;
-
         int drawing = app->window && init_done;
-        int timeout = drawing ? (game_active ? 0 : 10) : (gfx_retry_at_ns ? 50 : 250);
+        int timeout = drawing ? 0 : (gfx_retry_at_ns ? 50 : 250);
         while ((ident = ALooper_pollOnce(timeout, NULL, NULL, (void **)&source)) >= 0) {
             if (source && source->process)
                 source->process(app, source);
             if (app->destroyRequested) {
-
                 init_done = 0;
-                game_active = 0;
                 keyboard_hide();
                 net_disconnect();
                 ds_graphics_shutdown();
@@ -512,62 +701,38 @@ void android_main(struct android_app *app) {
         }
         if (!app->window || !init_done || app->destroyRequested)
             continue;
-        restart_game_if_due();
-        uint64_t frame_start = monotonic_ns();
-        /* Reclaim per-frame pooled strings before running game hooks. */
-        ds_string_pool_tick();
 
+        uint64_t frame_start = monotonic_ns();
+        /* Reclaim per-frame pooled strings before the editor runs. */
+        ds_string_pool_tick();
         if (prev_loop_ns && frame_start >= prev_loop_ns) {
             frame_seconds = (double)(frame_start - prev_loop_ns) / 1e9;
             ds_graphics_report_frame_interval(frame_seconds);
         }
         prev_loop_ns = frame_start;
         apply_screen_size();
-        if (game_active) {
-            uint64_t now = frame_start;
-            dt = prev_frame_ns ? (double)(now - prev_frame_ns) / 1000000000.0 : 0.0;
-            if (dt < 0.0)
-                dt = 0.0;
-            if (dt > 0.1)
-                dt = 0.1;
-            prev_frame_ns = now;
-            keyboard_tick(monotonic_ns() / 1000000ull);
-            if (!ds_call_protected(protected_game_update, NULL, "update"))
-                mark_game_failed("update");
-            else if (ds_game_restart_requested()) {
-                game_active = 0;
-                restart_after_ns = monotonic_ns();
-            }
-        }
+
+        ide_init_once(app_assets);
+        if (!ide_ready)
+            continue;
+        fs_drain_results();
+        ide_app_update(&g_ide, (double)frame_start / 1e9);
+        /* The IME covers the bottom of the screen: shrink the drawing area so
+         * the caret never hides behind it. */
+        int view_h = screen_h;
+        if (kb_visible && kb_inset_px > 0 && kb_inset_px < screen_h)
+            view_h = screen_h - kb_inset_px;
 
         frame.pixels = NULL;
         frame.width = screen_w;
         frame.height = screen_h;
         frame.stride = screen_w;
         if (frame.width > 0 && frame.height > 0 && ds_graphics_begin_frame(&frame)) {
-            int draw_failed = 0;
-            if (game_active) {
-                if (!ds_call_protected(protected_game_draw, &frame, "draw")) {
-                    mark_game_failed("draw");
-                    draw_failed = 1;
-                } else if (ds_game_restart_requested()) {
-                    game_active = 0;
-                    restart_after_ns = monotonic_ns();
-                }
-            }
-            if (!game_active) {
-                if (draw_failed || ds_game_has_error()) {
-
-                    ds_graphics_error_screen(ds_runtime_error_message());
-                    ds_graphics_end_frame();
-                } else
-                    ds_graphics_cancel_frame();
-            } else
-                ds_graphics_end_frame();
+            ide_app_draw(&g_ide, frame.width, view_h);
+            ds_graphics_end_frame();
         }
     }
 }
 #include "engine/graphics.c"
 #include "engine/network.c"
-#include "platform/android/presence_job.inc"
 #include "engine/audio.c"

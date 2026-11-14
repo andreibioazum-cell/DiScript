@@ -1,0 +1,62 @@
+print("Привет, DiScript!")
+
+def fib(n):
+    if n < 2:
+        return n
+    return fib(n - 1) + fib(n - 2)
+
+for i in range(10):
+    print(i, fib(i))
+
+x = [1, 2, 3]
+x.append(4)
+print(x, len(x))
+
+d = {"a": 1, "b": 2}
+print(d)
+for k in d:
+    print(k, d[k])
+
+name = "мир"
+print(f"Привет, {name}! 2+2={2+2:5.2f}")
+
+class Point:
+    def __init__(self, x, y):
+        self.x = x
+        self.y = y
+
+    def length(self):
+        return math.sqrt(self.x * self.x + self.y * self.y)
+
+p = Point(3, 4)
+print(p.length(), p.x, p.y)
+
+print(sorted([3, 1, 2]))
+print(json.encode({"ok": True, "v": [1, 2, 3]}))
+print("a,b,c".split(","))
+print("-".join(["x", "y"]))
+
+def adder(n):
+    def add(m):
+        return n + m
+    return add
+
+add5 = adder(5)
+print(add5(10))
+
+total = 0
+for i in range(1, 101):
+    total += i
+print("сумма 1..100 =", total)
+
+i = 0
+while i < 3:
+    i += 1
+    if i == 2:
+        continue
+print("while ok", i)
+
+pt = {"x": 1.5, "y": 2.5}
+print(pt["x"] * 2, len("привет"))
+print(reversed([1, 2, 3]), list("абв"))
+print(str(42), int("7"), float("2.5"), type(p), bool(0))

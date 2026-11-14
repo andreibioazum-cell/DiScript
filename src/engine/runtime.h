@@ -76,7 +76,6 @@ void ds_set_activity(void *activity);
 /* Local wall clock in seconds since 1970, for the New Year countdown badge.
  * 0 means the platform cannot read a clock. */
 long ds_wall_clock(void);
-void bye_notice_show(const char *text);
 void keyboard_show(void);
 void keyboard_hide(void);
 void keyboard_get_text_to(char *dst, size_t cap);
@@ -140,7 +139,7 @@ void ds_sound_pause(void);
 void ds_sound_resume(void);
 void ds_sound_set_java_vm(void *vm);
 
-#define DS_FONT_ASSET "fonts/ComicRelief-Regular.ttf"
+#define DS_FONT_ASSET "fonts/DejaVuSansMono.ttf"
 #define DS_FONT_PIXEL_HEIGHT 32
 void text(const char *string, float x, float y, uint32_t color);
 void text_scaled(const char *string, float x, float y, uint32_t color, float scale);
@@ -149,6 +148,8 @@ void text_rainbow(const char *string, float x, float y, float scale, float hue);
 /* Draw scaled text with subtle per-glyph shimmer around `color`. */
 void text_shimmer(const char *string, float x, float y, uint32_t color, float scale, float phase);
 
+float text_width_scaled(const char *string, float scale);
+float text_advance_of(const char *string, float scale);
 int text_ink_width(const char *string);
 int text_ink_height(const char *string);
 int text_ink_top(const char *string);
@@ -169,4 +170,84 @@ void ds_graphics_error_screen(const char *message);
 
 const char *ds_graphics_failure(void);
 int ds_graphics_show_failure(ANativeWindow *window, int attempts);
+
+/* ---- DiScript engine extensions ----------------------------------------- */
+void ds_console_raw(int is_error, const char *line);
+uint64_t ds_monotonic_ns(void);
+double ds_time_sec(void);
+int tex_size(const char *name, int *out_w, int *out_h);
+void rect_line(float x, float y, float w, float h, float thickness, uint32_t color);
+void ellipse_fill(float x, float y, float rx, float ry, uint32_t color);
+void ellipse_line(float x, float y, float rx, float ry, float thickness, uint32_t color);
+void arc_line(float x, float y, float r, float start_deg, float sweep_deg, float thickness, int closed_pie, uint32_t color);
+void poly_fill(const float *xy, int point_count, uint32_t color);
+void poly_line(const float *xy, int point_count, float thickness, int closed, uint32_t color);
+void tex_ex(const char *name, float x, float y, float angle_rad, float sx, float sy, float ox, float oy, uint32_t tint);
+float text_line_height(float scale);
+void snd_stop_all(void);
+int snd_synth_tone(double freq_hz, double duration_sec, const char *wave, double volume);
+int snd_synth_sfx(const char *preset, double volume);
+
+
+/* ---- Android Keyboard, Editor Event Stream & Clipboard ------------------ */
+typedef enum {
+    DS_ED_NONE = 0,
+    DS_ED_TEXT = 1,
+    DS_ED_BACKSPACE = 2,
+    DS_ED_ENTER = 3,
+    DS_ED_KEY = 4
+} DSEditorEventKind;
+
+/* Portable key codes forwarded from Android KeyEvent */
+#define DS_KEY_DPAD_UP      19
+#define DS_KEY_DPAD_DOWN    20
+#define DS_KEY_DPAD_LEFT    21
+#define DS_KEY_DPAD_RIGHT   22
+#define DS_KEY_A            29
+#define DS_KEY_C            31
+#define DS_KEY_F            34
+#define DS_KEY_R            46
+#define DS_KEY_S            47
+#define DS_KEY_V            50
+#define DS_KEY_X            52
+#define DS_KEY_Y            53
+#define DS_KEY_Z            54
+#define DS_KEY_TAB          61
+#define DS_KEY_ENTER        66
+#define DS_KEY_DEL          67
+#define DS_KEY_PAGE_UP      92
+#define DS_KEY_PAGE_DOWN    93
+#define DS_KEY_ESCAPE       111
+#define DS_KEY_FORWARD_DEL  112
+#define DS_KEY_MOVE_HOME    122
+#define DS_KEY_MOVE_END     123
+#define DS_KEY_F5           135
+
+#define DS_META_SHIFT       0x0001
+#define DS_META_ALT         0x0002
+#define DS_META_CTRL        0x1000
+
+typedef struct {
+    DSEditorEventKind kind;
+    int count;
+    int keycode;
+    int meta;
+    char text[128];
+} DSEditorEvent;
+
+void ds_set_activity(void *activity);
+void keyboard_show(void);
+void keyboard_hide(void);
+int keyboard_visible(void);
+int ds_keyboard_inset_px(void);
+
+void ds_editor_push_text(const char *utf8);
+void ds_editor_push_backspace(int count);
+void ds_editor_push_enter(void);
+void ds_editor_push_key(int keycode, int meta);
+int ds_editor_poll_event(DSEditorEvent *out);
+void ds_editor_clear_events(void);
+
+void keyboard_tick(uint64_t now_ms);
+
 #endif

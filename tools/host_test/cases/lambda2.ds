@@ -1,0 +1,4 @@
+def adder(n):
+    return lambda x: x + n
+g = adder(10)
+print(g(5))

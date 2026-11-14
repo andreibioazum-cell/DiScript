@@ -1,0 +1,11 @@
+def fma(a, b, c):
+    return a * b + c
+
+def clamp01(x):
+    return 0 if x < 0 else (1 if x > 1 else x)
+
+total = 0
+for i in range(200000):
+    total += fma(i, 2, 3)
+print(total)
+print(fma(1.5, 4, 2.25), clamp01(-3), clamp01(0.25), clamp01(9))
