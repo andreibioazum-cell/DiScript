@@ -37,6 +37,11 @@ typedef struct IDEView {
     int running;
     int font_scale_px; /* text pixel height */
     float char_w, line_h;
+    /* Height of the surface actually drawn into, when it differs from the size
+     * the platform gives the frame. Android shrinks the drawing area while the
+     * keyboard is up; without this the strip below it keeps the previous
+     * frame's pixels (stale line numbers showed up as digits over the keys). */
+    int occluded_h;
     int virgin; /* no file opened yet -> show welcome */
 
     char status[256];

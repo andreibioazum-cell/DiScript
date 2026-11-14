@@ -21,6 +21,9 @@ static IDEApp g_ide;
 static int ide_ready = 0;
 /* Keyboard inset reported by the Java side, in physical pixels. */
 static int kb_inset_px = 0;
+/* Display density (pixels per dp). The editor surface is in physical pixels,
+ * so the code font has to be scaled by this or it looks tiny on a phone. */
+static float display_density = 1.0f;
 static int kb_visible = 0;
 /* Pending file-open/save results from the SAF dialogs. */
 static volatile int open_result_ready = 0;
@@ -159,11 +162,30 @@ static void apply_screen_size(void) {
 }
 
 /* The editor draws into the same logical surface the game used. */
-static void ide_init_once(AAssetManager *assets) {
-    if (ide_ready)
+/* The code font is sized in surface pixels. 18px is right for a desktop
+ * surface; a phone reports physical pixels, where the same 18px is roughly a
+ * third of the apparent size. Scale the base size by the display density and
+ * keep it applied across rotation (init only runs once, the density call may
+ * arrive later). */
+static int applied_font_px = 0;
+static void apply_editor_font(void) {
+    if (!ide_ready)
         return;
-    ide_app_init(&g_ide, assets);
-    ide_ready = 1;
+    int px = (int)(18.0f * (display_density > 0.0f ? display_density : 1.0f) + 0.5f);
+    if (px < 14)
+        px = 14;
+    if (px == applied_font_px)
+        return;
+    applied_font_px = px;
+    ide_app_set_font_px(&g_ide, px);
+}
+
+static void ide_init_once(AAssetManager *assets) {
+    if (!ide_ready) {
+        ide_app_init(&g_ide, assets);
+        ide_ready = 1;
+    }
+    apply_editor_font();
 }
 
 static IDEApp *ide_app(void) { return ide_ready ? &g_ide : NULL; }
@@ -627,6 +649,14 @@ JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeKeyboardInse
 
 /* The Java side already read the stream into the editor, so it only has to
  * tell us the display name to show on the tab. */
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeDensity(JNIEnv *env, jobject thiz,
+                                                                         jfloat density) {
+    (void)env;
+    (void)thiz;
+    if (density > 0.25f && density < 8.0f)
+        display_density = (float)density;
+}
+
 JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativePickedFd(JNIEnv *env, jobject thiz, jint fd,
                                                                             jstring name) {
     (void)thiz;
@@ -723,12 +753,18 @@ void android_main(struct android_app *app) {
         if (kb_visible && kb_inset_px > 0 && kb_inset_px < screen_h)
             view_h = screen_h - kb_inset_px;
 
+        g_ide.view.occluded_h = view_h;
+
         frame.pixels = NULL;
         frame.width = screen_w;
         frame.height = screen_h;
         frame.stride = screen_w;
         if (frame.width > 0 && frame.height > 0 && ds_graphics_begin_frame(&frame)) {
-            ide_app_draw(&g_ide, frame.width, view_h);
+            /* Always draw the whole frame: the editor paints the keyboard-covered
+             * strip itself. Passing a short height with a tall buffer left that
+             * strip holding the previous frame's pixels, which read as stray
+             * digits sitting over the keyboard. */
+            ide_app_draw(&g_ide, frame.width, screen_h);
             ds_graphics_end_frame();
         }
     }

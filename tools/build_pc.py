@@ -25,7 +25,7 @@ C_SOURCES = (
     "src/discript/ds_compiler.c",
     "src/discript/ds_vm.c",
     "src/discript/ds_stdlib.c",
-    "src/discript/ds_scene_api.c",
+    "src/discript/ds_scene_api.c src/discript/ds_sprite_api.c",
     "src/discript/ds_love.c",
     "src/platform/pc/pc_main.c",
     "src/ide/ide_buffer.c",

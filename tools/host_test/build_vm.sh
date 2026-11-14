@@ -4,7 +4,7 @@ set -e
 cd "$(dirname "$0")/../.."
 CFILES="tools/host_test/ds_host_stubs.c tools/host_test/ds_soft_gfx.c src/engine/runtime.c \
 src/discript/ds_gc.c src/discript/ds_lexer.c src/discript/ds_parser.c src/discript/ds_compiler.c \
-src/discript/ds_vm.c src/discript/ds_stdlib.c src/discript/ds_love.c src/discript/ds_scene_api.c \
+src/discript/ds_vm.c src/discript/ds_stdlib.c src/discript/ds_love.c src/discript/ds_scene_api.c src/discript/ds_sprite_api.c \
 src/engine/scene/ds_scene.c tools/host_test/ds_run.c"
 CPPFILES="src/cpp/native_jit.cpp src/cpp/love_noise_physics.cpp src/cpp/ui_fx.cpp"
 mkdir -p build/vm build/vm-asan

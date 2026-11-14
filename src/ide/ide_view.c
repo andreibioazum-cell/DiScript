@@ -350,6 +350,10 @@ void ide_view_draw(IDEView *v, int width, int height) {
         code_bottom = code_top + lh;
 
     rect(0, 0, (float)width, (float)height, C_BG);
+    /* Anything below occluded_h is covered by the keyboard. Paint it with the
+     * background so no stale pixels survive there. */
+    if (v->occluded_h > 0 && height > v->occluded_h)
+        rect(0, (float)v->occluded_h, (float)width, (float)(height - v->occluded_h), C_BG);
     draw_top_strip(v, width, scale);
 
     IDETab *t = v->active >= 0 && v->active < v->tab_count ? &v->tabs[v->active] : NULL;

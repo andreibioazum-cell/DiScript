@@ -38,6 +38,7 @@ void ds_gfx_shake(double a,double s){(void)a;(void)s;}
 void ds_gfx_scissor(double x,double y,double w,double h){(void)x;(void)y;(void)w;(void)h;}
 int png_load(const char *n){(void)n;return 0;}
 int tex_size(const char *n,int *w,int *h){(void)n;if(w)*w=0;if(h)*h=0;return 0;}
+int tex_ready(const char *n){(void)n;return 0;}
 int snd_play(const char *n){(void)n;return 0;}
 int snd_loop(const char *n){(void)n;return 0;}
 void snd_stop(const char *n){(void)n;}

@@ -611,6 +611,22 @@ void ide_app_update(IDEApp *app, double now_seconds) {
     }
 }
 
+void ide_app_set_font_px(IDEApp *app, int px) {
+    if (!app)
+        return;
+    if (px < 10)
+        px = 10;
+    if (px > 72)
+        px = 72;
+    if (px == app->view.font_scale_px)
+        return;
+    app->view.font_scale_px = px;
+    /* Force a re-measure on the next draw: the cached advance and line height
+     * belong to the old size. */
+    app->view.char_w = 0.0f;
+    app->view.line_h = 0.0f;
+}
+
 void ide_app_draw(IDEApp *app, int width, int height) {
     if (!app)
         return;

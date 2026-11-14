@@ -47,6 +47,11 @@ void ide_app_update(IDEApp *app, double now_seconds);
 /* Draw the editor for the current frame. */
 void ide_app_draw(IDEApp *app, int width, int height);
 
+/* Set the code font height in surface pixels and re-measure. The surface is in
+ * physical pixels on Android, so the platform layer scales this by the display
+ * density: 18px on a 3x screen is a third of the size it is on a desktop. */
+void ide_app_set_font_px(IDEApp *app, int px);
+
 /* ---- actions --------------------------------------------------------- */
 void ide_app_new(IDEApp *app);
 /* Open/save a specific path (used by the platform layers and the harness). */

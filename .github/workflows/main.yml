@@ -153,7 +153,7 @@ jobs:
                      src/ide/ide_viewport.c
                      src/discript/ds_gc.c src/discript/ds_lexer.c src/discript/ds_parser.c
                      src/discript/ds_compiler.c src/discript/ds_vm.c src/discript/ds_stdlib.c
-                     src/discript/ds_love.c src/discript/ds_scene_api.c
+                     src/discript/ds_love.c src/discript/ds_scene_api.c src/discript/ds_sprite_api.c
                      src/engine/runtime.c src/engine/anim.c
                      src/engine/scene/ds_scene.c src/engine/scene/ds_render3d.c
                      src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")

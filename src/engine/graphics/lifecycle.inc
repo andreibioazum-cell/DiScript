@@ -364,12 +364,16 @@ void tex_ex(const char *name, float x, float y, float angle_rad, float sx, float
     int w = 0, h = 0;
     if (!name || !tex_size(name, &w, &h) || w <= 0 || h <= 0)
         return;
-    /* Pull the image so (ox, oy) lands on (x, y), then scale uniformly by the
-     * dominant axis to stay on the existing single-scale path. */
+    /* geo_tex places the image centred on the point it is given, so shift by
+     * half the scaled size to make (x, y) the top-left corner, then move by the
+     * anchor. Passing x/y straight through drew every sprite half its width up
+     * and to the left of where the script asked for it. */
     float sc = (fabsf(sx) > fabsf(sy)) ? sx : sy;
     if (sc == 0.0f)
         return;
-    tex_tint(x - ox * sc, y - oy * sc, name, angle_rad, sc, tint);
+    float hw = (float)w * 0.5f * sc;
+    float hh = (float)h * 0.5f * sc;
+    tex_tint(x + hw - ox * sc, y + hh - oy * sc, name, angle_rad, sc, tint);
 }
 
 void rect_line(float x, float y, float w, float h, float th, uint32_t c) {

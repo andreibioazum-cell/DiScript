@@ -173,6 +173,15 @@ typedef struct DSCFunc {
 
 typedef void (*DSNativeFinalizer)(void *ptr);
 
+/* Native objects expose behaviour through `methods` and, optionally, through
+ * these two hooks for value-like properties. A sprite wants `ball.x = 10` to
+ * work, not `ball.set_x(10)`: a property hook keeps the script readable without
+ * making every native object allocate a dictionary. Both return 1 when they
+ * handled the name. */
+struct DSNativeObj;
+typedef int (*DSNativeGetProp)(DSVM *vm, struct DSNativeObj *self, const char *name, DSValue *out);
+typedef int (*DSNativeSetProp)(DSVM *vm, struct DSNativeObj *self, const char *name, DSValue val);
+
 typedef struct DSNativeObj {
     DSGCObject hdr;
     const char *type_tag;
@@ -180,6 +189,8 @@ typedef struct DSNativeObj {
     size_t mem_cost;
     DSNativeFinalizer finalizer;
     DSDict *methods;
+    DSNativeGetProp get_prop;
+    DSNativeSetProp set_prop;
 } DSNativeObj;
 
 /* Forward declarations for compiled function & OOP */
@@ -583,6 +594,8 @@ void ds_vm_set_draw_color(DSVM *vm, uint32_t argb);
 void ds_register_builtins(DSVM *vm);
 void ds_register_love(DSVM *vm);
 void ds_register_scene(DSVM *vm);
+/* The `sprite` global: 2D images for games written in DiScript. */
+void ds_register_sprite(DSVM *vm);
 void ds_scene_api_tick(DSVM *vm, double dt);
 DSScene *ds_scene_api_get(DSVM *vm);
 

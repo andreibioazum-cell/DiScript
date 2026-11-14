@@ -1131,6 +1131,16 @@ DSValue ds_get_property(DSVM *vm, DSValue obj, DSString *name, DSInlineCache *ic
         ds_error(vm, 0, "ключ '%s' не найден", name->chars);
         return DS_VAL_NIL;
     }
+    if (ds_obj_is(obj, DS_OBJ_NATIVE)) {
+        DSNativeObj *no = AS_NATIVE(obj);
+        /* Value-like properties first, so `ball.x` reads a number instead of
+         * resolving to a method. */
+        if (no->get_prop) {
+            DSValue out = DS_VAL_NIL;
+            if (no->get_prop(vm, no, name->chars, &out))
+                return out;
+        }
+    }
     DSValue fn;
     if (ds_lookup_method(vm, obj, name, &fn))
         return bind_method(vm, obj, fn);
@@ -1161,6 +1171,11 @@ void ds_set_property(DSVM *vm, DSValue obj, DSString *name, DSValue val) {
     if (ds_obj_is(obj, DS_OBJ_DICT)) {
         ds_dict_set(vm, AS_DICT(obj), ds_obj_val(name), val);
         return;
+    }
+    if (ds_obj_is(obj, DS_OBJ_NATIVE)) {
+        DSNativeObj *no = AS_NATIVE(obj);
+        if (no->set_prop && no->set_prop(vm, no, name->chars, val))
+            return;
     }
     ds_error(vm, 0, "нельзя задать атрибут '%s' у '%s'", name->chars, ds_type_name(obj));
 }
@@ -1605,6 +1620,7 @@ DSVM *ds_vm_create(void) {
     ds_register_builtins(vm);
     ds_register_love(vm);
     ds_register_scene(vm);
+    ds_register_sprite(vm);
 
     vm->love.cb_load = DS_VAL_NIL;
     vm->love.cb_update = DS_VAL_NIL;
