@@ -47,6 +47,7 @@ public final class DiScriptActivity extends NativeActivity {
 
     private static final int REQ_OPEN_SCRIPT = 5101;
     private static final int REQ_SAVE_SCRIPT = 5102;
+    private static final int REQ_PICK_IMAGE = 5103;
 
     private EditText codeProxy;
     private boolean mutatingSentinel;
@@ -60,6 +61,8 @@ public final class DiScriptActivity extends NativeActivity {
     private native void nativeEditorEnter();
     private native boolean nativeEditorSpecialKey(int keyCode, int metaState);
     private native void nativeKeyboardInset(int bottomInsetPx, int visible);
+    private native void nativeDensity(float density);
+    private native void nativePickedImage(int fd, String name);
     private native void nativePickedFd(int fd, String name);
     private native void nativeSavedFd(int fd);
 
@@ -182,6 +185,12 @@ public final class DiScriptActivity extends NativeActivity {
                 resetSentinel();
             }
         });
+
+        /* Tell the native side how many physical pixels one dp is: the code
+         * font is sized in surface pixels, and a fixed 18px is tiny on a phone. */
+        try {
+            nativeDensity(getResources().getDisplayMetrics().density);
+        } catch (UnsatisfiedLinkError ignored) { }
 
         codeProxy.getRootView().getViewTreeObserver().addOnGlobalLayoutListener(
                 new ViewTreeObserver.OnGlobalLayoutListener() {
@@ -356,6 +365,37 @@ public final class DiScriptActivity extends NativeActivity {
         });
     }
 
+    /** Open the system photo picker. ACTION_GET_CONTENT with an image type is
+     *  the one intent that lands in the user's gallery on every Android from 8
+     *  onwards; the newer photo picker is used when the platform has it. */
+    public void pickImageFile() {
+        runOnUiThread(new Runnable() {
+            @Override
+            public void run() {
+                try {
+                    Intent intent;
+                    if (android.os.Build.VERSION.SDK_INT >= 33) {
+                        intent = new Intent("android.provider.action.PICK_IMAGES");
+                        intent.setType("image/*");
+                    } else {
+                        intent = new Intent(Intent.ACTION_GET_CONTENT);
+                        intent.addCategory(Intent.CATEGORY_OPENABLE);
+                        intent.setType("image/*");
+                    }
+                    startActivityForResult(intent, REQ_PICK_IMAGE);
+                } catch (RuntimeException e) {
+                    /* No gallery app: fall back to any file the system can open. */
+                    try {
+                        Intent f = new Intent(Intent.ACTION_GET_CONTENT);
+                        f.addCategory(Intent.CATEGORY_OPENABLE);
+                        f.setType("*/*");
+                        startActivityForResult(f, REQ_PICK_IMAGE);
+                    } catch (RuntimeException ignored) { }
+                }
+            }
+        });
+    }
+
     public void saveScriptFile(final String name) {
         runOnUiThread(new Runnable() {
             @Override
@@ -394,6 +434,22 @@ public final class DiScriptActivity extends NativeActivity {
     protected void onActivityResult(int requestCode, int resultCode, Intent data) {
         super.onActivityResult(requestCode, resultCode, data);
         if (resultCode != RESULT_OK || data == null || data.getData() == null) return;
+        if (requestCode == REQ_PICK_IMAGE) {
+            /* The native side copies the bytes out of this descriptor into the
+             * project, so it needs the fd and a display name. */
+            Uri imgUri = data.getData();
+            try {
+                ParcelFileDescriptor pfd = getContentResolver().openFileDescriptor(imgUri, "r");
+                if (pfd == null) return;
+                int fd = pfd.detachFd();
+                if (!nativeReady) {
+                    ParcelFileDescriptor.adoptFd(fd).close();
+                    return;
+                }
+                nativePickedImage(fd, queryDisplayName(imgUri));
+            } catch (Exception ignored) { }
+            return;
+        }
         if (requestCode != REQ_OPEN_SCRIPT && requestCode != REQ_SAVE_SCRIPT) return;
         boolean saving = requestCode == REQ_SAVE_SCRIPT;
         Uri uri = data.getData();

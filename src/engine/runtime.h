@@ -31,9 +31,11 @@ extern int (*ds_pick_open_hook)(char *dst, int cap);
 extern int (*ds_pick_save_hook)(const char *name, char *dst, int cap);
 int ds_pick_open_file(char *dst, int cap);
 /* Pick an image file. Uses the platform image picker when one is installed
- * (the Android photo library) and the file dialog otherwise. */
-int ds_pick_image_file(char *dst, int cap);
-extern int (*ds_pick_image_hook)(char *dst, int cap);
+ * (the Android photo library) and the file dialog otherwise. `name`, when not
+ * NULL, receives the file name the user saw in the picker: the desktop dialog
+ * returns a real path, while Android hands over a temporary copy. */
+int ds_pick_image_file(char *dst, int cap, char *name, int name_cap);
+extern int (*ds_pick_image_hook)(char *dst, int cap, char *name, int name_cap);
 int ds_pick_save_file(const char *name, char *dst, int cap);
 int ds_asset_list(const char *dir, char *out, int cap);
 int ds_asset_extract(const char *name, void *buf, int cap);

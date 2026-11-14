@@ -23,6 +23,10 @@ typedef struct IDEApp {
     void *vm;              /* DSVM*, created lazily on the first Run */
     char current_path[IDE_PATH_MAX];
     volatile int running;  /* a script is executing right now */
+    /* Game mode: the script defines update(dt)/draw() and those run every
+     * frame. A plain script runs once and stops; a game has to keep going, so
+     * the two are separate states. 0 = off, 1 = running, 2 = wants to stop. */
+    volatile int game_mode;
     volatile int finished; /* the worker returned and awaits joining */
     volatile int stop_requested;
     double last_tick; /* previous ide_app_update timestamp, for the UI delta */

@@ -310,6 +310,14 @@ static DSValue sp_clear(DSVM *vm, int argc, DSValue *argv) {
     return DS_VAL_NIL;
 }
 
+/* Reset the per-frame "added" flags. The editor calls this before each draw so
+ * a script that only adds on some frames does not keep painting stale sprites. */
+void sprite_clear_frame(void) {
+    for (int i = 0; i < g_sprite_count; i++)
+        g_sprites[i]->in_frame = 0;
+    g_drawn = 0;
+}
+
 /* ---- registration ------------------------------------------------------ */
 
 static void reg_fn(DSVM *vm, DSDict *d, const char *name, DSNativeFn fn) {

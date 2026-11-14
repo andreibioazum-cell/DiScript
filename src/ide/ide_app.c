@@ -4,6 +4,9 @@
 #include "ide/ide_app.h"
 
 #include "discript/discript.h"
+/* The VM's own header: the editor drives the game loop directly, so it needs
+ * the state behind the opaque DSVM handle. */
+#include "discript/ds_internal.h"
 #include "engine/runtime.h"
 
 #include <pthread.h>
@@ -165,6 +168,17 @@ static void *run_thread(void *arg) {
         queue_line(tail, ok ? 0 : 1);
     }
 
+    /* A script that defines update(dt) or draw() is a game: keep it alive and
+     * drive those from the frame loop. Everything else has finished. */
+    if (ok && !app->stop_requested) {
+        ds_vm_love_refresh(vm);
+        if (ds_vm_has_love_loop(vm)) {
+            ds_vm_love_load(vm);
+            app->game_mode = 1;
+            queue_line("--- игра запущена: update/draw каждый кадр ---", 0);
+        }
+    }
+
     free(job->source);
     free(job);
     app->finished = 1;
@@ -172,7 +186,7 @@ static void *run_thread(void *arg) {
 }
 
 void ide_app_run(IDEApp *app) {
-    if (!app || app->running)
+    if (!app || app->running || app->game_mode == 1)
         return;
     int idx = ide_view_active(&app->view);
     if (idx < 0) {
@@ -222,7 +236,16 @@ void ide_app_run(IDEApp *app) {
 }
 
 void ide_app_stop(IDEApp *app) {
-    if (!app || !app->running)
+    if (!app)
+        return;
+    /* A game is stopped between frames, on the frame thread: the VM is being
+     * used there, so it cannot be interrupted from here. */
+    if (app->game_mode == 1) {
+        app->game_mode = 3;
+        app->view.running = 0;
+        return;
+    }
+    if (!app->running)
         return;
     app->stop_requested = 1;
     if (app->vm)
@@ -261,27 +284,36 @@ static void ide_project_sync_view(IDEApp *app) {
  * first picture the player adds and follow a finger. Better than an empty file,
  * which leaves no clue what the language looks like. */
 static const char *k_starter_script =
-    "# Лобби твоей игры. Нажми RUN — спрайты появятся на экране.\n"
+    "# Лобби твоей игры. Нажми RUN — оно оживёт.\n"
     "#\n"
-    "# Добавляй картинки кнопкой «+» наверху, они попадают в sprites/.\n"
-    "# Ниже — как их двигать и рисовать.\n"
+    "# Картинки добавляются кнопкой «+» наверху и лежат в sprites/.\n"
+    "# Эта игра работает сама: update(dt) вызывается каждый кадр,\n"
+    "# draw() рисует то, что нужно показать в этом кадре.\n"
     "\n"
-    "w = sprite.window()\n"
-    "print(\"экран \" + str(w[0]) + \"x\" + str(w[1]))\n"
-    "\n"
-    "# Игрок: картинка из проекта. Первая добавленная картинка называется по\n"
-    "# имени файла, например sprites/player.png.\n"
     "player = sprite.load(\"sprites/player.png\")\n"
-    "player.x = 100\n"
-    "player.y = 200\n"
     "player.center = true\n"
     "\n"
-    "sprite.begin_frame()\n"
-    "player.x = player.x + 1\n"
-    "if player.x > w[0]:\n"
-    "    player.x = 0\n"
-    "sprite.add(player)\n"
-    "sprite.draw_all()\n";
+    "w = sprite.window()\n"
+    "px = 80\n"
+    "py = w[1] * 0.5\n"
+    "speed = 3\n"
+    "\n"
+    "def update(dt):\n"
+    "    global px, py\n"
+    "    px = px + speed\n"
+    "    # у края — обратно, чтобы игрок не убегал за экран\n"
+    "    if px > w[0] - 40:\n"
+    "        speed = 0 - speed\n"
+    "    if px < 40:\n"
+    "        speed = 0 - speed\n"
+    "    py = w[1] * 0.5\n"
+    "\n"
+    "def draw():\n"
+    "    sprite.begin_frame()\n"
+    "    player.x = px\n"
+    "    player.y = py\n"
+    "    sprite.add(player)\n"
+    "    sprite.draw_all()\n";
 
 void ide_app_project_boot(IDEApp *app) {
     if (!app)
@@ -328,16 +360,22 @@ static void name_from_path(const char *path, char *out, size_t cap) {
 }
 
 int ide_app_project_pick_picture(IDEApp *app) {
-    char path[IDE_PATH_MAX];
+    char path[IDE_PATH_MAX], picked[128];
     if (!app || !app->project.dir[0])
         return 0;
     path[0] = '\0';
-    if (!ds_pick_image_file(path, (int)sizeof(path)) || !path[0]) {
+    picked[0] = '\0';
+    if (!ds_pick_image_file(path, (int)sizeof(path), picked, (int)sizeof(picked)) || !path[0]) {
         ide_view_set_status(&app->view, "Картинка не выбрана");
         return 0;
     }
     char name[64];
-    name_from_path(path, name, sizeof(name));
+    /* Prefer the name from the picker: on Android the path is a temp copy. */
+    if (picked[0]) {
+        name_from_path(picked, name, sizeof(name));
+    } else {
+        name_from_path(path, name, sizeof(name));
+    }
     return ide_app_project_add_picture(app, path, name);
 }
 
@@ -792,10 +830,30 @@ void ide_app_update(IDEApp *app, double now_seconds) {
             ide_view_set_status(&app->view, "Done");
         }
     }
+    /* Game mode: update and draw once per frame. The VM runs on this thread
+     * while a game is active, which is what lets a script draw: the renderer
+     * only accepts commands between begin and end of a frame. */
+    if (app->game_mode == 3) {
+        /* A stop was requested: close the loop before the next update. */
+        app->game_mode = 0;
+        app->view.running = 0;
+        ide_view_set_status(&app->view, "Игра остановлена");
+    } else if (app->game_mode == 1 && app->vm) {
+        DSVM *vm = (DSVM *)app->vm;
+        if (!ds_vm_love_update(vm, dt)) {
+            const char *err = ds_vm_last_error(vm);
+            char msg[512];
+            snprintf(msg, sizeof(msg), "ERROR: %s", err ? err : "unknown");
+            ide_console_add(&app->view, msg, 1);
+            app->game_mode = 0;
+            app->view.running = 0;
+        }
+    }
+
     /* Console lines produced on the worker thread reach the view here, on the
      * frame thread, so the view never needs locking. */
     flush_output(app);
-    app->view.running = app->running;
+    app->view.running = app->running || app->game_mode == 1;
 
     /* Keep the dirty markers honest as the buffer changes. */
     for (int i = 0; i < app->view.tab_count; i++) {
@@ -822,6 +880,24 @@ void ide_app_set_font_px(IDEApp *app, int px) {
     app->view.line_h = 0.0f;
 }
 
+/* Paint one game frame. Called from inside the render pass, so the drawing
+ * commands the script issues land in this frame. */
+static void draw_game_frame(IDEApp *app, int width, int height) {
+    if (!app || !app->vm || app->game_mode != 1)
+        return;
+    DSVM *vm = (DSVM *)app->vm;
+    sprite_clear_frame();
+    ds_vm_love_set_viewport(vm, 0.0f, 0.0f, (float)width, (float)height);
+    ds_vm_love_draw(vm);
+    if (vm->has_error) {
+        const char *err = ds_vm_last_error(vm);
+        char msg[512];
+        snprintf(msg, sizeof(msg), "ERROR: %s", err ? err : "unknown");
+        ide_console_add(&app->view, msg, 1);
+        app->game_mode = 0;
+    }
+}
+
 void ide_app_draw(IDEApp *app, int width, int height) {
     if (!app)
         return;
@@ -837,4 +913,7 @@ void ide_app_draw(IDEApp *app, int width, int height) {
         v->char_w = cw > 0.0f ? cw : (float)v->font_scale_px * 0.6f;
     }
     ide_view_draw(v, width, height);
+    /* The game paints over the editor while it runs. */
+    if (app->game_mode == 1)
+        draw_game_frame(app, width, height);
 }

@@ -32,6 +32,12 @@ static int open_result_fd = -1;
 static char open_result_name[256];
 static volatile int save_result_ready = 0;
 static int save_result_fd = -1;
+/* A picture chosen from the gallery, waiting for the editor thread to copy it
+ * into the project. Kept apart from the script descriptor: the two pickers can
+ * be open at different times and must not consume each other's result. */
+static volatile int image_result_ready = 0;
+static int image_result_fd = -1;
+static char image_result_name[256];
 
 static JavaVM *fs_vm_ptr;
 static int fs_attached_now;
@@ -515,6 +521,90 @@ static int fs_open_dialog(char *dst, int cap) {
     return 1;
 }
 
+/* Write the descriptor the gallery returned into a temp file and hand the path
+ * back. The editor copies it into the project and owns the copy; the temp file
+ * is removed right after, so a cancelled add leaves nothing behind. */
+static int fs_image_dialog(char *dst, int cap, char *name_out, int name_cap) {
+    if (!ide_app() || cap <= 0)
+        return 0;
+    pthread_mutex_lock(&fs_fd_lock);
+    image_result_ready = 0;
+    if (image_result_fd >= 0) {
+        close(image_result_fd);
+        image_result_fd = -1;
+    }
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (!fs_call_void("pickImageFile", "()V", NULL))
+        return 0;
+    for (int waited = 0; waited < 600; waited++) {
+        if (image_result_ready)
+            break;
+        struct timespec ts = {0, 16 * 1000 * 1000};
+        nanosleep(&ts, NULL);
+    }
+    pthread_mutex_lock(&fs_fd_lock);
+    int ready = image_result_ready;
+    int fd = image_result_fd;
+    char name[256];
+    snprintf(name, sizeof(name), "%s", image_result_name);
+    image_result_fd = -1;
+    image_result_ready = 0;
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (!ready || fd < 0)
+        return 0;
+
+    char *bytes = NULL;
+    size_t len = 0;
+    {
+        size_t cap2 = 65536, used = 0;
+        char *buf = (char *)malloc(cap2);
+        if (!buf) {
+            close(fd);
+            return 0;
+        }
+        for (;;) {
+            if (used + 16384 > cap2) {
+                char *nb = (char *)realloc(buf, cap2 * 2);
+                if (!nb)
+                    break;
+                buf = nb;
+                cap2 *= 2;
+            }
+            ssize_t got = read(fd, buf + used, cap2 - used);
+            if (got <= 0)
+                break;
+            used += (size_t)got;
+        }
+        close(fd);
+        bytes = buf;
+        len = used;
+    }
+    if (!bytes || len == 0) {
+        free(bytes);
+        return 0;
+    }
+
+    char tmp[512];
+    snprintf(tmp, sizeof(tmp), "%s/picked_%u.img", g_ide.project.dir[0] ? g_ide.project.dir : ".",
+             (unsigned)(ds_monotonic_ns() / 1000000ull));
+    FILE *f = fopen(tmp, "wb");
+    if (!f || fwrite(bytes, 1, len, f) != len) {
+        if (f)
+            fclose(f);
+        free(bytes);
+        remove(tmp);
+        return 0;
+    }
+    fclose(f);
+    free(bytes);
+    snprintf(dst, (size_t)cap, "%s", tmp);
+    /* The temp path is not the user's file name, so report the picked name
+     * separately: the sprite is labelled with what they saw in the gallery. */
+    if (name_out && name_cap > 0)
+        snprintf(name_out, (size_t)name_cap, "%s", name);
+    return 1;
+}
+
 static int fs_save_dialog(const char *name, char *dst, int cap) {
     if (!ide_app() || cap <= 0)
         return 0;
@@ -657,6 +747,25 @@ JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativeDensity(JNIE
         display_density = (float)density;
 }
 
+/* Gallery pick finished: park the descriptor and the display name. The picker
+ * hook below picks them up on the frame thread. */
+JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativePickedImage(JNIEnv *env, jobject thiz,
+                                                                              jint fd, jstring name) {
+    (void)thiz;
+    const char *nm = NULL;
+    if (name)
+        nm = (*env)->GetStringUTFChars(env, name, NULL);
+    pthread_mutex_lock(&fs_fd_lock);
+    if (image_result_fd >= 0)
+        close(image_result_fd);
+    image_result_fd = (int)fd;
+    snprintf(image_result_name, sizeof(image_result_name), "%s", nm ? nm : "picture.png");
+    image_result_ready = 1;
+    pthread_mutex_unlock(&fs_fd_lock);
+    if (nm)
+        (*env)->ReleaseStringUTFChars(env, name, nm);
+}
+
 JNIEXPORT void JNICALL Java_com_discript_ide_DiScriptActivity_nativePickedFd(JNIEnv *env, jobject thiz, jint fd,
                                                                             jstring name) {
     (void)thiz;
@@ -704,6 +813,7 @@ void android_main(struct android_app *app) {
     ds_set_activity(app->activity);
     /* Let the language's file builtins reach the SAF pickers. */
     ds_pick_open_hook = fs_open_dialog;
+    ds_pick_image_hook = fs_image_dialog;
     ds_pick_save_hook = fs_save_dialog;
     ds_log("DiScript editor: C + Vulkan");
     for (;;) {

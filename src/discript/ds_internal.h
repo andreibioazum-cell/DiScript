@@ -596,6 +596,8 @@ void ds_register_love(DSVM *vm);
 void ds_register_scene(DSVM *vm);
 /* The `sprite` global: 2D images for games written in DiScript. */
 void ds_register_sprite(DSVM *vm);
+/* Drop the per-frame draw list before a frame is rendered. */
+void sprite_clear_frame(void);
 void ds_scene_api_tick(DSVM *vm, double dt);
 DSScene *ds_scene_api_get(DSVM *vm);
 
