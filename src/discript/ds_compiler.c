@@ -306,9 +306,31 @@ static DSValue ex_call(DSVM *vm, DSValue *slots, const DSExprNode *n) {
         if (!argv)
             return DS_VAL_NIL;
     }
-    for (int i = 0; i < n->count; i++)
+    /* Evaluating an argument can allocate, and an allocation can run a
+     * collection. `callee` and the arguments already in `argv` live only in C
+     * locals at that moment, so they must be rooted or the collector is free to
+     * reclaim an object that is about to be called (which showed up as a
+     * segfault inside ds_call_value). The root stack is bounded, so only root
+     * what fits and never pop more than was pushed. */
+    int rooted = 0;
+    if (vm->temp_root_count < DS_MAX_ROOTS) {
+        ds_push_root(vm, callee);
+        rooted = 1;
+    }
+    int i = 0;
+    for (; i < n->count; i++) {
         argv[i] = n->items[i]->eval(vm, slots, n->items[i]);
-    DSValue r = ds_call_value(vm, callee, n->count, argv);
+        if (vm->has_error)
+            break;
+        if (vm->temp_root_count < DS_MAX_ROOTS) {
+            ds_push_root(vm, argv[i]);
+            rooted++;
+        }
+    }
+    DSValue r = DS_VAL_NIL;
+    if (!vm->has_error)
+        r = ds_call_value(vm, callee, n->count, argv);
+    ds_pop_roots(vm, rooted);
     if (argv != argv_buf)
         free(argv);
     return r;

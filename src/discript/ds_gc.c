@@ -280,6 +280,50 @@ static inline int is_young(const DSGCObject *o) {
     return o->age == GC_AGE_NEW || o->age == GC_AGE_SURVIVAL;
 }
 
+/* How many direct children of `o` are still young. A minor collection only has
+ * to re-walk containers that can reach the nursery; without this test every
+ * minor pause re-traced the whole module singleton table and every remembered
+ * list from end to end, which made collecting a growing list quadratic. */
+static int young_children_of(const DSGCObject *o) {
+    if (!o)
+        return 0;
+    switch (o->tt) {
+    case DS_OBJ_LIST: {
+        const DSList *l = (const DSList *)o;
+        int n = 0;
+        for (int i = 0; i < l->len; i++)
+            if (ds_is_obj(l->items[i]) && is_young(ds_as_obj(l->items[i])))
+                n++;
+        return n;
+    }
+    case DS_OBJ_DICT: {
+        const DSDict *d = (const DSDict *)o;
+        int n = 0;
+        for (int i = 0; i < d->cap; i++) {
+            if (d->entries[i].state != 1)
+                continue;
+            if (ds_is_obj(d->entries[i].key) && is_young(ds_as_obj(d->entries[i].key)))
+                n++;
+            if (ds_is_obj(d->entries[i].val) && is_young(ds_as_obj(d->entries[i].val)))
+                n++;
+        }
+        return n;
+    }
+    case DS_OBJ_MODULE: {
+        const DSModule *m = (const DSModule *)o;
+        int n = 0;
+        for (int i = 0; i < m->global_count; i++)
+            if (ds_is_obj(m->global_slots[i]) && is_young(ds_as_obj(m->global_slots[i])))
+                n++;
+        if (m->dict && is_young((DSGCObject *)m->dict))
+            n++;
+        return n;
+    }
+    default:
+        return 1; /* unknown shape: assume it can still reach the nursery */
+    }
+}
+
 static void mark_obj(DSGCState *gc, DSGCObject *o, int minor_only) {
     if (!o)
         return;
@@ -302,6 +346,50 @@ static inline void mark_val(DSGCState *gc, DSValue v, int minor_only) {
         mark_obj(gc, ds_as_obj(v), minor_only);
 }
 
+/* ---- Remembered set ------------------------------------------------------
+ * A container that lives in the old generation but points into the nursery is
+ * queued here so every minor collection traces it. `GC_AGE_TOUCHED` doubles as
+ * the "already queued" flag, which keeps insertion O(1).
+ *
+ * Every removal has to clear BOTH the flag and `touch_next`: leaving a stale
+ * `touch_next` behind lets a later push splice an old chain into the list,
+ * which shows up as an infinite loop (a cycle) or as a walk over freed slab
+ * memory. All unlinks therefore go through the helpers below. */
+static void gc_remember(DSGCState *gc, DSGCObject *parent) {
+    parent->age = GC_AGE_TOUCHED;
+    parent->touch_next = gc->touched_head;
+    gc->touched_head = parent;
+}
+
+/* Unlink one member: O(n), used only when a queued object is about to be
+ * freed or has aged out of the nursery. */
+static void gc_forget(DSGCState *gc, DSGCObject *o) {
+    DSGCObject **link = &gc->touched_head;
+    while (*link) {
+        if (*link == o) {
+            *link = o->touch_next;
+            break;
+        }
+        link = &(*link)->touch_next;
+    }
+    o->touch_next = NULL;
+    if (o->age == GC_AGE_TOUCHED)
+        o->age = GC_AGE_OLD;
+}
+
+/* Drop the whole set and clear every flag, so the next cycle starts clean. */
+static void gc_forget_all(DSGCState *gc) {
+    DSGCObject *t = gc->touched_head;
+    gc->touched_head = NULL;
+    while (t) {
+        DSGCObject *next = t->touch_next;
+        t->touch_next = NULL;
+        if (t->age == GC_AGE_TOUCHED)
+            t->age = GC_AGE_OLD;
+        t = next;
+    }
+}
+
 void ds_gc_write_barrier(DSVM *vm, DSGCObject *parent, DSValue child) {
     if (!parent || !ds_is_obj(child))
         return;
@@ -313,11 +401,8 @@ void ds_gc_write_barrier(DSVM *vm, DSGCObject *parent, DSValue child) {
     /* Remembered-set barrier: a non-young container that starts pointing at a
      * young object must be re-traced by *every* minor collection until the next
      * major cycle clears the set. GC_AGE_TOUCHED doubles as the "queued" flag. */
-    if (!is_young(parent) && is_young(co) && parent->age != GC_AGE_TOUCHED) {
-        parent->age = GC_AGE_TOUCHED;
-        parent->touch_next = gc->touched_head;
-        gc->touched_head = parent;
-    }
+    if (!is_young(parent) && is_young(co) && parent->age != GC_AGE_TOUCHED)
+        gc_remember(gc, parent);
 }
 
 void ds_gc_write_barrier_back(DSVM *vm, DSGCObject *container, DSValue stored) {
@@ -332,11 +417,8 @@ void ds_gc_write_barrier_back(DSVM *vm, DSGCObject *container, DSValue stored) {
         gc->gray_again_head = container;
     }
     /* Lua generational remembered-set barrier (kept across minor cycles) */
-    if (!is_young(container) && is_young(so) && container->age != GC_AGE_TOUCHED) {
-        container->age = GC_AGE_TOUCHED;
-        container->touch_next = gc->touched_head;
-        gc->touched_head = container;
-    }
+    if (!is_young(container) && is_young(so) && container->age != GC_AGE_TOUCHED)
+        gc_remember(gc, container);
 }
 
 static size_t trace_blacken(DSGCState *gc, DSGCObject *o, int minor_only) {
@@ -453,20 +535,29 @@ static void mark_roots(DSVM *vm, int minor_only) {
     mark_val(gc, vm->love.cb_keypressed, minor_only);
     mark_val(gc, vm->love.cb_keyreleased, minor_only);
 
-    /* In minor collection, trace root containers directly even if those containers are OLD! */
+    /* A minor collection has to descend from old roots only where they can
+     * still reach the nursery. Re-tracing unconditionally is correct but makes
+     * every pause proportional to the whole heap, so a list that keeps growing
+     * turns the run quadratic. */
     if (minor_only) {
-        if (vm->main_module && !is_young((DSGCObject *)vm->main_module))
-            trace_blacken(gc, (DSGCObject *)vm->main_module, 1);
-        if (vm->main_module && vm->main_module->dict && !is_young((DSGCObject *)vm->main_module->dict))
-            trace_blacken(gc, (DSGCObject *)vm->main_module->dict, 1);
-        if (vm->modules && !is_young((DSGCObject *)vm->modules))
+        DSGCObject *mod = (DSGCObject *)vm->main_module;
+        if (mod && !is_young(mod) && young_children_of(mod) != 0)
+            trace_blacken(gc, mod, 1);
+        DSGCObject *mod_dict = vm->main_module ? (DSGCObject *)vm->main_module->dict : NULL;
+        if (mod_dict && !is_young(mod_dict) && young_children_of(mod_dict) != 0)
+            trace_blacken(gc, mod_dict, 1);
+        if (vm->modules && !is_young((DSGCObject *)vm->modules) && young_children_of((DSGCObject *)vm->modules) != 0)
             trace_blacken(gc, (DSGCObject *)vm->modules, 1);
-        if (vm->love.love_mod_dict && !is_young((DSGCObject *)vm->love.love_mod_dict))
+        if (vm->love.love_mod_dict && !is_young((DSGCObject *)vm->love.love_mod_dict) &&
+            young_children_of((DSGCObject *)vm->love.love_mod_dict) != 0)
             trace_blacken(gc, (DSGCObject *)vm->love.love_mod_dict, 1);
         /* The remembered set persists until the next major cycle: a container
-         * may hold a NEW child now and a SURVIVAL child after this collection. */
+         * may hold a NEW child now and a SURVIVAL child after this collection.
+         * Recount first so all-old containers cost an O(n) scan, not a full
+         * blacken (which also re-queues their gray children). */
         for (DSGCObject *t = gc->touched_head; t; t = t->touch_next)
-            trace_blacken(gc, t, 1);
+            if (young_children_of(t) != 0)
+                trace_blacken(gc, t, 1);
     }
 }
 
@@ -579,12 +670,24 @@ void ds_gc_collect_minor(DSVM *vm) {
         }
         if (is_dead(gc, o, gc->collect_white)) {
             *link = o->gc_next;
+            /* A dead container may still sit in the remembered set; unlinking it
+             * here keeps the set from pointing at slab memory that is about to
+             * be recycled. */
+            if (o->age == GC_AGE_TOUCHED)
+                gc_forget(gc, o);
             free_single_obj(vm, o);
         } else {
             o->color = gc->current_white;
             if (o->age == GC_AGE_NEW) {
                 o->age = GC_AGE_SURVIVAL;
                 link = &o->gc_next;
+            } else if (o->age == GC_AGE_TOUCHED) {
+                /* Queued in the remembered set: move to the old list but keep the
+                 * flag, otherwise the next barrier push re-links an object that
+                 * is already on the list and splices a cycle into it. */
+                *link = o->gc_next;
+                o->gc_next = gc->old_head;
+                gc->old_head = o;
             } else {
                 /* Promote survival -> OLD */
                 *link = o->gc_next;
@@ -612,7 +715,7 @@ static void start_major_cycle(DSVM *vm) {
     DSGCState *gc = &vm->gc;
     gc->gray_head = NULL;
     gc->gray_again_head = NULL;
-    gc->touched_head = NULL;
+    gc_forget_all(gc); /* also clears GC_AGE_TOUCHED on every member */
     /* Freeze the "garbage" white for the whole cycle; the atomic phase later
      * flips current_white so freshly promoted objects are not mistaken for it. */
     gc->collect_white = gc->current_white;
@@ -660,10 +763,16 @@ static void finish_atomic_phase(DSVM *vm) {
         DSGCObject *nx = y->gc_next;
         int keep = (y->tt == DS_OBJ_STRING && ((DSString *)y)->pinned) || !is_dead(gc, y, gc->collect_white);
         if (!keep) {
+            if (y->age == GC_AGE_TOUCHED)
+                gc_forget(gc, y);
             free_single_obj(vm, y);
         } else {
             y->color = next_white;
-            y->age = GC_AGE_OLD;
+            /* Keep GC_AGE_TOUCHED: it is both an age and the remembered-set
+             * membership flag, and clearing it here would let the next barrier
+             * re-link an object that is still on the list. */
+            if (y->age != GC_AGE_TOUCHED)
+                y->age = GC_AGE_OLD;
             y->gc_next = gc->old_head;
             gc->old_head = y;
         }
@@ -685,11 +794,16 @@ static int sweep_old_slice(DSVM *vm, int max_count) {
         int pinned = (o->tt == DS_OBJ_STRING && ((DSString *)o)->pinned);
         if (!pinned && is_dead(gc, o, gc->collect_white)) {
             *gc->sweep_cursor = o->gc_next;
+            if (o->age == GC_AGE_TOUCHED)
+                gc_forget(gc, o);
             free_single_obj(vm, o);
         } else {
             o->color = gc->current_white;
-            if (o->age == GC_AGE_TOUCHED)
-                o->age = GC_AGE_OLD;
+            /* Do NOT downgrade GC_AGE_TOUCHED here: the object is still a member
+             * of the remembered set, and clearing the flag while it stays linked
+             * lets the next barrier push it again, pointing touch_next at itself
+             * (an infinite loop) or at whatever the head used to be. Membership
+             * is released in gc_forget/gc_forget_all only. */
             gc->sweep_cursor = &o->gc_next;
         }
         processed++;
