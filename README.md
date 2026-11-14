@@ -16,6 +16,10 @@
   что печатает `print`, попадает в панель вывода вместе с ошибками
   компиляции и их номерами строк.
 * **Файлы**: открытие и сохранение через системный диалог.
+* **3D как в Studio**: скрипт строит мир из деталей (`Part`), моделей и
+  групп, раскрашивает их, вкладывает друг в друга и анимирует. Сцена
+  рисуется рядом с кодом — камера наводится сама, мышью вращается и
+  приближается. Подробности и примеры: [docs/studio.md](docs/studio.md).
 
 ## Скачать
 
@@ -41,6 +45,29 @@
 
 На Android то же самое через системную клавиатуру, а файлы открываются и
 сохраняются через системный диалог.
+
+## Сцена за пять минут
+
+```ds
+base = scene.part("Base", "block")
+base.size(20, 1, 20)
+base.color(110, 130, 100)
+
+house = scene.model("House")
+wall = scene.part("Wall", "block")
+wall.parent(house)
+wall.size(4, 3, 4)
+
+roof = scene.part("Roof", "cone")
+roof.parent(house)
+roof.move(0, 2.4, 0)
+roof.spin(45)          # вертушка
+```
+
+Деталь умеет `move`, `rotate`, `size`, `color`, `transparency`, `visible`,
+`parent`, `remove`, `animate` и `spin`; `position()` отдаёт мировые
+координаты с учётом родителей. Готовый пример —
+[examples/studio_house.ds](examples/studio_house.ds).
 
 ## Сборка
 
