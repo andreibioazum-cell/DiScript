@@ -42,6 +42,7 @@ typedef struct SpriteObj {
     int tint;          // 0 = untouched, else 0xRRGGBB replaces brightness
     int center;        // 1: (x, y) is the middle of the image
     int loaded;
+    int in_frame; /* added to the current frame with sprite.add() */
 } SpriteObj;
 
 static SpriteObj *g_sprites[SPRITE_MAX];
@@ -197,6 +198,30 @@ static DSValue sp_size(DSVM *vm, int argc, DSValue *argv) {
     return ds_obj_val(l);
 }
 
+/* sprite.window() -> (width, height). Game code needs the screen size to place
+ * things relative to it, and hard-coding a phone size breaks on the next one. */
+static DSValue sp_window(DSVM *vm, int argc, DSValue *argv) {
+    (void)argc; (void)argv;
+    DSList *l = ds_list_new(vm, 2);
+    if (!l)
+        return DS_VAL_NIL;
+    ds_list_push(vm, l, ds_num(screen_w));
+    ds_list_push(vm, l, ds_num(screen_h));
+    return ds_obj_val(l);
+}
+
+/* sprite.add(obj): mark a sprite drawn this frame. draw_all() then paints
+ * everything that was added, in z order. Explicit, so a sprite created for a
+ * level but not active this frame is not painted by accident. */
+static DSValue sp_add(DSVM *vm, int argc, DSValue *argv) {
+    SpriteObj *s = argc > 0 ? sprite_of(vm, argv[0]) : NULL;
+    if (!s)
+        return ds_bool(0);
+    s->visible = 1;
+    s->in_frame = 1;
+    return ds_bool(1);
+}
+
 static DSValue sp_exists(DSVM *vm, int argc, DSValue *argv) {
     const char *path = arg_str(vm, argc, argv, 0, NULL);
     return ds_bool(path && tex_ready(path));
@@ -210,8 +235,12 @@ static int by_z(const void *a, const void *b) {
     return sa->z - sb->z;
 }
 
+/* Start a frame: everything added from here on is painted by draw_all(). The
+ * flags are reset here, which is why a sprite added last frame does not linger. */
 static DSValue sp_begin(DSVM *vm, int argc, DSValue *argv) {
     (void)vm; (void)argc; (void)argv;
+    for (int i = 0; i < g_sprite_count; i++)
+        g_sprites[i]->in_frame = 0;
     g_in_frame = 1;
     g_drawn = 0;
     return DS_VAL_NIL;
@@ -229,9 +258,18 @@ static DSValue sp_draw_all(DSVM *vm, int argc, DSValue *argv) {
         return ds_num(0);
     SpriteObj *order[SPRITE_MAX];
     int n = 0;
+    int any_added = 0;
+    for (int i = 0; i < g_sprite_count; i++)
+        if (g_sprites[i] && g_sprites[i]->in_frame)
+            any_added = 1;
     for (int i = 0; i < g_sprite_count; i++) {
         SpriteObj *s = g_sprites[i];
         if (!s || !s->visible || !s->loaded || s->opacity <= 0.001f)
+            continue;
+        /* Once the script starts using sprite.add(), only those are painted;
+         * before that every loaded sprite is, which keeps the simple case
+         * ("load it and it shows up") working. */
+        if (any_added && !s->in_frame)
             continue;
         order[n++] = s;
     }
@@ -266,6 +304,8 @@ static DSValue sp_count(DSVM *vm, int argc, DSValue *argv) {
  * collector, and freeing them here would leave the GC with dangling pointers. */
 static DSValue sp_clear(DSVM *vm, int argc, DSValue *argv) {
     (void)vm; (void)argc; (void)argv;
+    for (int i = 0; i < g_sprite_count; i++)
+        g_sprites[i]->in_frame = 0;
     g_sprite_count = 0;
     return DS_VAL_NIL;
 }
@@ -294,5 +334,7 @@ void ds_register_sprite(DSVM *vm) {
     reg_fn(vm, d, "draw_all", sp_draw_all);
     reg_fn(vm, d, "count", sp_count);
     reg_fn(vm, d, "clear", sp_clear);
+    reg_fn(vm, d, "window", sp_window);
+    reg_fn(vm, d, "add", sp_add);
     ds_pop_roots(vm, 1);
 }

@@ -24,6 +24,22 @@ typedef struct IDEConsoleLine {
     int is_error;
 } IDEConsoleLine;
 
+/* The "+" sheet, opened from the project bar. Adding things is the first
+ * action in a new project, so it gets its own always-visible control rather
+ * than hiding behind a menu. Entries are fixed so the hit boxes are stable. */
+enum {
+    IDE_ADD_SCRIPT = 0,
+    IDE_ADD_PICTURE,
+    IDE_ADD_SCRIPT_FOR_SPRITE,
+    IDE_ADD_COUNT
+};
+
+typedef struct IDEAddSheet {
+    int open;      /* 1 while the sheet is up */
+    float anim;    /* 0..1 slide-in, driven by ide_view_tick */
+    int hover;     /* -1 or the entry under the last pointer */
+} IDEAddSheet;
+
 typedef struct IDEView {
     IDETab tabs[IDE_MAX_TABS];
     int tab_count;
@@ -42,6 +58,14 @@ typedef struct IDEView {
      * keyboard is up; without this the strip below it keeps the previous
      * frame's pixels (stale line numbers showed up as digits over the keys). */
     int occluded_h;
+
+    /* ---- project -------------------------------------------------------- */
+    IDEAddSheet add;      /* the "+" sheet state */
+    char project_name[64]; /* empty when no project is open */
+    int project_sprites;
+    int project_scripts;
+    /* Height of the project bar drawn above the code, 0 when no project. */
+    float project_bar_h;
     int virgin; /* no file opened yet -> show welcome */
 
     char status[256];
@@ -69,6 +93,13 @@ void ide_view_draw(IDEView *v, int width, int height);
 /* Advance every animation by `dt` seconds. Call once per frame before drawing. */
 void ide_view_tick(IDEView *v, double dt);
 
+/* Rect of the "+" button in the project bar. Returns a zero-width rect when
+ * no project is open, so the input layer can test it unconditionally. */
+void ide_view_add_button_rect(const IDEView *v, int width, float *x, float *y, float *w, float *h);
+/* Rect of one entry in the open "+" sheet. */
+void ide_view_add_entry_rect(const IDEView *v, int entry, int width, int height, float *x, float *y,
+                             float *w, float *h);
+
 /* Toolbar geometry. Ids are IDE_BTN_*; returns a zero-width rect for a bad id.
  * The input layer uses this so a tap hits exactly the button that was drawn. */
 void ide_view_button_rect(const IDEView *v, int id, int width, int height, float *x, float *y,
@@ -84,6 +115,7 @@ enum {
     IDE_BTN_RUN,
     IDE_BTN_COUNT
 };
+
 
 /* Append a line to the output console (strips trailing newline). */
 void ide_console_add(IDEView *v, const char *text, int is_error);

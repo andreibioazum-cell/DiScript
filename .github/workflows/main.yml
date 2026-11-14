@@ -149,7 +149,7 @@ jobs:
           set -euo pipefail
           TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
           GLUE="$NDK_ROOT/sources/android/native_app_glue"
-          C_SOURCES=(src/ide/ide_buffer.c src/ide/ide_highlight.c src/ide/ide_view.c src/ide/ide_app.c
+          C_SOURCES=(src/ide/ide_buffer.c src/ide/ide_highlight.c src/ide/ide_view.c src/ide/ide_app.c src/ide/ide_project.c
                      src/ide/ide_viewport.c
                      src/discript/ds_gc.c src/discript/ds_lexer.c src/discript/ds_parser.c
                      src/discript/ds_compiler.c src/discript/ds_vm.c src/discript/ds_stdlib.c

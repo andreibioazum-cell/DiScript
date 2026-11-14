@@ -258,6 +258,93 @@ void ide_view_button_rect(const IDEView *v, int id, int width, int height, float
     *x = *y = *w = *h = 0.0f;
 }
 
+/* ---- project bar and the "+" sheet ------------------------------------- */
+
+#define PROJECT_BAR_H 40.0f
+#define ADD_BTN_W 52.0f
+#define ADD_ROW_H 46.0f
+
+static const char *const k_add_labels[IDE_ADD_COUNT] = {"Скрипт", "Картинка", "Скрипт для спрайта"};
+static const char *const k_add_hints[IDE_ADD_COUNT] = {
+    "новый .ds файл", "PNG или фото из галереи", "управление картинкой"};
+
+void ide_view_add_button_rect(const IDEView *v, int width, float *x, float *y, float *w, float *h) {
+    if (!v || v->project_name[0] == '\0') {
+        *x = *y = *w = *h = 0.0f;
+        return;
+    }
+    *w = ADD_BTN_W;
+    *h = PROJECT_BAR_H - 8.0f;
+    *x = (float)width - ADD_BTN_W - 8.0f;
+    *y = (TOP_H - PROJECT_BAR_H) * 0.0f + 4.0f; /* bar sits at the very top */
+}
+
+void ide_view_add_entry_rect(const IDEView *v, int entry, int width, int height, float *x, float *y,
+                             float *w, float *h) {
+    (void)v;
+    if (entry < 0 || entry >= IDE_ADD_COUNT) {
+        *x = *y = *w = *h = 0.0f;
+        return;
+    }
+    float sheet_w = (float)width - 24.0f;
+    if (sheet_w > 360.0f)
+        sheet_w = 360.0f;
+    *w = sheet_w;
+    *h = ADD_ROW_H;
+    *x = ((float)width - sheet_w) * 0.5f;
+    /* Slide down from the top strip, rows stack downward. */
+    *y = TOP_H + 10.0f + (float)entry * (ADD_ROW_H + 6.0f);
+}
+
+/* The bar along the top once a project is open: its name, how much is in it,
+ * and the "+" that adds more. Drawn instead of the plain document strip so the
+ * project is the thing on screen, not a file path. */
+static void draw_project_bar(IDEView *v, int width, float scale) {
+    float h = PROJECT_BAR_H;
+    v->project_bar_h = h;
+    rect(0, 0, (float)width, h, C_BAR);
+    rect(0, h - 1.0f, (float)width, 1.0f, C_TAB_ON);
+
+    const char *name = v->project_name[0] ? v->project_name : "проект";
+    text_scaled(name, 12.0f, 10.0f, C_ACCENT, scale * 0.9f);
+
+    char meta[96];
+    snprintf(meta, sizeof(meta), "%d спрайт(ов) · %d скрипт(ов)", v->project_sprites, v->project_scripts);
+    float nw = text_width_scaled(name, scale * 0.9f);
+    text_scaled(meta, 12.0f + nw + 14.0f, 12.0f, C_GUTTER_TX, scale * 0.72f);
+
+    float bx, by, bw, bh;
+    ide_view_add_button_rect(v, width, &bx, &by, &bw, &bh);
+    uint32_t bg = v->add.open ? C_ACCENT : C_TAB_ON;
+    uint32_t fg = v->add.open ? C_BAR : C_ACCENT;
+    rect(bx, by, bw, bh, bg);
+    /* A drawn plus rather than a glyph: the font's '+' is thin at this size and
+     * sits low. Two bars always read as a plus at any scale. */
+    float cx = bx + bw * 0.5f, cy = by + bh * 0.5f;
+    rect(cx - 8.0f, cy - 1.75f, 16.0f, 3.5f, fg);
+    rect(cx - 1.75f, cy - 8.0f, 3.5f, 16.0f, fg);
+
+    if (v->add.open) {
+        if (v->add.anim < 0.05f)
+            return;
+        float a = anim_ease_out_cubic(v->add.anim);
+        /* Dim the code so the sheet reads as a layer above it. */
+        float sh = h + 0.0f;
+        (void)sh;
+        for (int i = 0; i < IDE_ADD_COUNT; i++) {
+            float x, y, w, hh;
+            ide_view_add_entry_rect(v, i, width, 0, &x, &y, &w, &hh);
+            y = y - (1.0f - a) * 18.0f;
+            int hot = v->add.hover == i;
+            rect(x, y, w, hh, hot ? C_TAB_ON : ARGB(250, 30, 35, 45));
+            char row[128];
+            snprintf(row, sizeof(row), "%s", k_add_labels[i]);
+            text_scaled(row, x + 16.0f, y + 8.0f, hot ? C_ACCENT : C_TEXT, scale);
+            text_scaled(k_add_hints[i], x + 16.0f, y + 8.0f + scale * 24.0f, C_GUTTER_TX, scale * 0.7f);
+        }
+    }
+}
+
 /* Bottom toolbar: thumb-reachable primary actions. */
 static void draw_toolbar(IDEView *v, int width, int height, float scale) {
     float bar_y = (float)height - TOOLBAR_H;
@@ -344,7 +431,7 @@ void ide_view_draw(IDEView *v, int width, int height) {
 
     /* The console inset animates, so the code area grows and shrinks smoothly. */
     float cons_h = CONS_H * v->cons_anim;
-    float code_top = TOP_H;
+    float code_top = v->project_bar_h > 0.0f ? v->project_bar_h : TOP_H;
     float code_bottom = (float)height - TOOLBAR_H - cons_h;
     if (code_bottom < code_top + lh)
         code_bottom = code_top + lh;
@@ -354,7 +441,12 @@ void ide_view_draw(IDEView *v, int width, int height) {
      * background so no stale pixels survive there. */
     if (v->occluded_h > 0 && height > v->occluded_h)
         rect(0, (float)v->occluded_h, (float)width, (float)(height - v->occluded_h), C_BG);
-    draw_top_strip(v, width, scale);
+    if (v->project_name[0])
+        draw_project_bar(v, width, scale);
+    else {
+        v->project_bar_h = 0.0f;
+        draw_top_strip(v, width, scale);
+    }
 
     IDETab *t = v->active >= 0 && v->active < v->tab_count ? &v->tabs[v->active] : NULL;
     IDEBuffer *b = t ? &t->buf : NULL;
@@ -508,6 +600,22 @@ void ide_view_draw(IDEView *v, int width, int height) {
         text_scaled(v->status, ((float)width - sw) * 0.5f, ty + 5.0f, C_ACCENT, scale * 0.8f);
     }
 
+    /* The "+" sheet covers the code, so it is drawn after everything else. */
+    if (v->add.open && v->project_name[0]) {
+        float a = anim_ease_out_cubic(v->add.anim);
+        float sheet_bottom = TOP_H + 10.0f + (float)IDE_ADD_COUNT * (ADD_ROW_H + 6.0f);
+        rect(0, v->project_bar_h, (float)width, (float)height, ARGB((int)(120.0f * a), 0, 0, 0));
+        for (int i = 0; i < IDE_ADD_COUNT; i++) {
+            float x, y, w, hh;
+            ide_view_add_entry_rect(v, i, width, height, &x, &y, &w, &hh);
+            y = y - (1.0f - a) * 18.0f;
+            int hot = v->add.hover == i;
+            rect(x, y, w, hh, hot ? C_TAB_ON : ARGB(250, 30, 35, 45));
+            text_scaled(k_add_labels[i], x + 16.0f, y + 8.0f, hot ? C_ACCENT : C_TEXT, scale);
+            text_scaled(k_add_hints[i], x + 16.0f, y + 8.0f + scale * 24.0f, C_GUTTER_TX, scale * 0.7f);
+        }
+        (void)sheet_bottom;
+    }
     draw_toolbar(v, width, height, scale);
 }
 
@@ -516,6 +624,16 @@ void ide_view_tick(IDEView *v, double dt) {
         return;
     float fdt = dt > 0.0 ? (float)dt : 0.0f;
     v->now += (double)fdt;
+
+    /* The "+" sheet eases in and out. */
+    {
+        float t = v->add.open ? 1.0f : 0.0f;
+        float step = fdt * 9.0f;
+        if (v->add.anim < t)
+            v->add.anim = v->add.anim + step > t ? t : v->add.anim + step;
+        else if (v->add.anim > t)
+            v->add.anim = v->add.anim - step < t ? t : v->add.anim - step;
+    }
 
     /* The console slides in on a spring; the toolbar eases in once. Both are
      * driven by the frame delta, so the harness's fixed step reproduces the

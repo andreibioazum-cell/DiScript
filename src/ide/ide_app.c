@@ -244,6 +244,149 @@ void ide_app_new(IDEApp *app) {
     ide_view_set_status(&app->view, "New file");
 }
 
+/* ---- project ---------------------------------------------------------- */
+
+/* Mirror the open project into the view so the bars can draw it. The view does
+ * not know about files; it only needs what to show. */
+static void ide_project_sync_view(IDEApp *app) {
+    if (!app)
+        return;
+    snprintf(app->view.project_name, sizeof(app->view.project_name), "%s",
+             app->project.dir[0] ? app->project.name : "");
+    app->view.project_sprites = app->project.sprite_count;
+    app->view.project_scripts = app->project.script_count;
+}
+
+/* A new project's script. It is written to be run and seen working: load the
+ * first picture the player adds and follow a finger. Better than an empty file,
+ * which leaves no clue what the language looks like. */
+static const char *k_starter_script =
+    "# Лобби твоей игры. Нажми RUN — спрайты появятся на экране.\n"
+    "#\n"
+    "# Добавляй картинки кнопкой «+» наверху, они попадают в sprites/.\n"
+    "# Ниже — как их двигать и рисовать.\n"
+    "\n"
+    "w = sprite.window()\n"
+    "print(\"экран \" + str(w[0]) + \"x\" + str(w[1]))\n"
+    "\n"
+    "# Игрок: картинка из проекта. Первая добавленная картинка называется по\n"
+    "# имени файла, например sprites/player.png.\n"
+    "player = sprite.load(\"sprites/player.png\")\n"
+    "player.x = 100\n"
+    "player.y = 200\n"
+    "player.center = true\n"
+    "\n"
+    "sprite.begin_frame()\n"
+    "player.x = player.x + 1\n"
+    "if player.x > w[0]:\n"
+    "    player.x = 0\n"
+    "sprite.add(player)\n"
+    "sprite.draw_all()\n";
+
+void ide_app_project_boot(IDEApp *app) {
+    if (!app)
+        return;
+    char root[400], dir[600];
+    ide_project_default_root(root, sizeof(root));
+    snprintf(dir, sizeof(dir), "%s/MyGame", root);
+    if (ide_project_open(&app->project, dir)) {
+        ide_project_sync_view(app);
+        ide_app_open_path(app, NULL);
+        return;
+    }
+    ide_app_project_new(app, "MyGame");
+}
+
+int ide_app_project_new(IDEApp *app, const char *name) {
+    char root[400], dir[600];
+    if (!app)
+        return 0;
+    ide_project_default_root(root, sizeof(root));
+    ide_fs_mkdir(root);
+    snprintf(dir, sizeof(dir), "%s/%s", root, (name && *name) ? name : "MyGame");
+    if (!ide_project_create(&app->project, dir, name)) {
+        ide_view_set_status(&app->view, "Не удалось создать проект");
+        return 0;
+    }
+    ide_project_sync_view(app);
+    ide_view_set_status(&app->view, "Проект создан");
+    return 1;
+}
+
+/* Take the last path segment as the display name, minus the extension, so a
+ * photo called IMG_1234.jpg becomes sprite "img_1234" and reads sensibly in the
+ * project list. */
+static void name_from_path(const char *path, char *out, size_t cap) {
+    const char *base = path ? path : "";
+    const char *slash = strrchr(base, '/');
+    if (slash)
+        base = slash + 1;
+    snprintf(out, cap, "%s", *base ? base : "picture");
+    char *dot = strrchr(out, '.');
+    if (dot && dot != out)
+        *dot = '\0';
+}
+
+int ide_app_project_pick_picture(IDEApp *app) {
+    char path[IDE_PATH_MAX];
+    if (!app || !app->project.dir[0])
+        return 0;
+    path[0] = '\0';
+    if (!ds_pick_image_file(path, (int)sizeof(path)) || !path[0]) {
+        ide_view_set_status(&app->view, "Картинка не выбрана");
+        return 0;
+    }
+    char name[64];
+    name_from_path(path, name, sizeof(name));
+    return ide_app_project_add_picture(app, path, name);
+}
+
+const char *ide_app_project_dir(IDEApp *app) {
+    return app ? app->project.dir : "";
+}
+
+int ide_app_project_add_script(IDEApp *app, const char *name) {
+    if (!app || !app->project.dir[0])
+        return 0;
+    if (!ide_project_add_script(&app->project, name ? name : "script")) {
+        ide_view_set_status(&app->view, "Не удалось добавить скрипт");
+        return 0;
+    }
+    ide_project_sync_view(app);
+    int idx = app->project.script_count - 1;
+    char path[600];
+    snprintf(path, sizeof(path), "%s/%s", app->project.dir, app->project.scripts[idx].file);
+    ide_app_open_path(app, path);
+    ide_view_set_status(&app->view, "Скрипт добавлен");
+    return 1;
+}
+
+int ide_app_project_add_picture(IDEApp *app, const char *source_path, const char *display_name) {
+    if (!app || !app->project.dir[0] || !source_path)
+        return 0;
+    int first = app->project.sprite_count == 0;
+    if (!ide_project_add_sprite_file(&app->project, source_path, display_name)) {
+        /* Say why. "Could not add" with no reason leaves the user with no idea
+         * whether the file was missing, empty or unsupported. */
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Не удалось прочитать картинку: %s",
+                 strrchr(source_path, '/') ? strrchr(source_path, '/') + 1 : source_path);
+        ide_view_set_status(&app->view, msg);
+        return 0;
+    }
+    ide_project_sync_view(app);
+    /* First picture: put a working script in front of the player instead of
+     * leaving them with an empty file and no idea what to type. */
+    if (first) {
+        char path[600];
+        ide_project_script_path(&app->project, path, sizeof(path));
+        ide_fs_write_all(path, k_starter_script, strlen(k_starter_script));
+        ide_app_open_path(app, path);
+    }
+    ide_view_set_status(&app->view, "Картинка добавлена");
+    return 1;
+}
+
 int ide_app_open_path(IDEApp *app, const char *path) {
     if (!app || !path || !*path)
         return 0;
@@ -450,6 +593,58 @@ void ide_app_pointer_sized(IDEApp *app, float x, float y, int action, int width,
     if (!app)
         return;
     IDEView *v = &app->view;
+
+    /* ---- the "+" sheet: it sits above everything, so it eats the tap first */
+    if (v->add.open && v->project_name[0]) {
+        if (action == 1 || action == 2) {
+            /* Hover: light the row under the finger so the target is obvious. */
+            v->add.hover = -1;
+            for (int i = 0; i < IDE_ADD_COUNT; i++) {
+                float ex, ey, ew, eh;
+                ide_view_add_entry_rect(v, i, width, height, &ex, &ey, &ew, &eh);
+                if (x >= ex && x <= ex + ew && y >= ey && y <= ey + eh) {
+                    v->add.hover = i;
+                    break;
+                }
+            }
+        }
+        if (action == 0) {
+            int hit = -1;
+            for (int i = 0; i < IDE_ADD_COUNT; i++) {
+                float ex, ey, ew, eh;
+                ide_view_add_entry_rect(v, i, width, height, &ex, &ey, &ew, &eh);
+                if (x >= ex && x <= ex + ew && y >= ey && y <= ey + eh) {
+                    hit = i;
+                    break;
+                }
+            }
+            if (hit == IDE_ADD_SCRIPT)
+                ide_app_project_add_script(app, "script");
+            else if (hit == IDE_ADD_PICTURE)
+                ide_app_project_pick_picture(app);
+            else if (hit == IDE_ADD_SCRIPT_FOR_SPRITE)
+                ide_app_project_add_script(app, "sprite_script");
+            v->add.open = 0;
+            v->add.hover = -1;
+            return;
+        }
+    }
+
+    /* ---- "+" button in the project bar --------------------------------- */
+    if (action == 0) {
+        float ax, ay, aw, ah;
+        ide_view_add_button_rect(v, width, &ax, &ay, &aw, &ah);
+        if (aw > 0.0f && x >= ax && x <= ax + aw && y >= ay && y <= ay + ah) {
+            v->add.open = !v->add.open;
+            v->add.hover = -1;
+            return;
+        }
+        /* A tap anywhere else closes the sheet, the way a modal behaves. */
+        if (v->add.open) {
+            v->add.open = 0;
+            v->add.hover = -1;
+        }
+    }
 
     /* ---- bottom toolbar: the primary controls, within thumb reach -------- */
     if (action == 0 && y >= (float)height - 62.0f) { /* TOOLBAR_H */

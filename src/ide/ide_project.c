@@ -6,14 +6,13 @@
 // obvious (an unparsable manifest is reported, never silently overwritten).
 #include "ide/ide_project.h"
 
-#include "engine/network.h"
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 
 #ifdef _WIN32
 #include <direct.h>
+#include <windows.h>
 #define ide_mkdir(p) _mkdir(p)
 #else
 #include <sys/stat.h>
@@ -32,20 +31,12 @@ int ide_fs_mkdir(const char *path) {
 }
 
 int ide_fs_exists(const char *path) {
-#ifdef _WIN32
-    FILE *f;
     if (!path || !*path)
         return 0;
-    f = fopen(path, "rb");
-    if (f) {
-        fclose(f);
-        return 1;
-    }
-    return _mkdir(path) == 0 ? (RemoveDirShim(path), 0) : 1;
+#ifdef _WIN32
+    return GetFileAttributesA(path) != INVALID_FILE_ATTRIBUTES;
 #else
     struct stat st;
-    if (!path || !*path)
-        return 0;
     return stat(path, &st) == 0;
 #endif
 }
@@ -90,9 +81,16 @@ int ide_fs_read_all(const char *path, char **out, size_t *len) {
 }
 
 int ide_fs_write_all(const char *path, const void *data, size_t len) {
+    FILE *f;
+    size_t put;
     if (!path || (!data && len))
         return 0;
-    return net_fs_write(path, data, (int)len);
+    f = fopen(path, "wb");
+    if (!f)
+        return 0;
+    put = len ? fwrite(data, 1, len, f) : 0;
+    fclose(f);
+    return put == len;
 }
 
 /* ---- JSON, only as much as the manifest needs --------------------------- */
@@ -390,8 +388,12 @@ int ide_project_add_sprite_file(IDEProject *p, const char *source_path, const ch
     int ok;
     if (!p || !source_path)
         return 0;
-    if (!ide_fs_read_all(source_path, &data, &len))
+    /* An empty file is a read failure too, and a 0-byte sprite would be
+     * registered and then never draw, which looks like the feature is broken. */
+    if (!ide_fs_read_all(source_path, &data, &len) || len == 0) {
+        free(data);
         return 0;
+    }
     /* Keep the source extension: a photo saved as .jpg stays a .jpg so the
      * decoder is not asked to guess. */
     ok = ide_project_add_sprite_bytes(p, data, len, display_name, extension_of(source_path));
@@ -437,11 +439,26 @@ int ide_project_add_script(IDEProject *p, const char *name) {
     return 1;
 }
 
+/* Where projects live: next to the user's home directory when one is known,
+ * so a project survives an app update, and the working directory otherwise. */
 void ide_project_default_root(char *out, size_t cap) {
-    char home[320];
+    char home[320] = {0};
     if (!out || !cap)
         return;
-    if (net_fs_home(home, sizeof(home)) && home[0])
+#ifdef _WIN32
+    {
+        const char *up = getenv("USERPROFILE");
+        if (up && *up)
+            snprintf(home, sizeof(home), "%s", up);
+    }
+#else
+    {
+        const char *h = getenv("HOME");
+        if (h && *h)
+            snprintf(home, sizeof(home), "%s", h);
+    }
+#endif
+    if (home[0])
         snprintf(out, cap, "%s/DiScriptProjects", home);
     else
         snprintf(out, cap, "DiScriptProjects");

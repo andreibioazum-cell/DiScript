@@ -10,10 +10,10 @@ cd "$(dirname "$0")/../.."
 OUT=build/boot
 mkdir -p "$OUT"
 C_SOURCES="src/ide/ide_buffer.c src/ide/ide_highlight.c src/ide/ide_view.c \
-src/ide/ide_app.c src/ide/ide_viewport.c \
+src/ide/ide_app.c src/ide/ide_viewport.c src/ide/ide_project.c \
 src/discript/ds_gc.c src/discript/ds_lexer.c src/discript/ds_parser.c \
 src/discript/ds_compiler.c src/discript/ds_vm.c src/discript/ds_stdlib.c \
-src/discript/ds_love.c src/discript/ds_scene_api.c \
+src/discript/ds_love.c src/discript/ds_scene_api.c src/discript/ds_sprite_api.c \
 src/engine/runtime.c src/engine/anim.c \
 src/engine/scene/ds_scene.c src/engine/scene/ds_render3d.c \
 tools/host_test/ds_host_stubs.c tools/host_test/ds_soft_gfx.c"

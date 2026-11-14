@@ -1,5 +1,7 @@
 #include "engine/runtime.h"
-#define STBI_ONLY_PNG
+/* PNG for assets, JPEG because that is what a phone camera and the photo
+ * library produce: the editor copies pictures from the gallery into a project,
+ * so a JPEG has to load, not just PNG. */
 #define STBI_NO_STDIO
 #define STBI_NO_HDR
 #define STBI_NO_LINEAR

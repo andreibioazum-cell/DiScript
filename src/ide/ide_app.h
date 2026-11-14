@@ -1,6 +1,7 @@
 #ifndef DISCRIPT_IDE_APP_H
 #define DISCRIPT_IDE_APP_H
 
+#include "ide/ide_project.h"
 #include "ide/ide_view.h"
 #include <pthread.h>
 #include <stddef.h>
@@ -25,6 +26,9 @@ typedef struct IDEApp {
     volatile int finished; /* the worker returned and awaits joining */
     volatile int stop_requested;
     double last_tick; /* previous ide_app_update timestamp, for the UI delta */
+
+    /* The open project. `project.dir[0]` is empty until one is opened. */
+    IDEProject project;
 
     /* Scripts run off the frame thread so the UI keeps animating and STOP stays
      * responsive even for a long loop. The worker owns the VM; the frame thread
@@ -51,6 +55,24 @@ void ide_app_draw(IDEApp *app, int width, int height);
  * physical pixels on Android, so the platform layer scales this by the display
  * density: 18px on a 3x screen is a third of the size it is on a desktop. */
 void ide_app_set_font_px(IDEApp *app, int px);
+
+/* ---- project --------------------------------------------------------- */
+/* Open or create the project the editor starts with. Uses the saved project
+ * when one exists, otherwise creates a fresh one so a new user has something
+ * to add pictures to immediately. Safe to call repeatedly. */
+void ide_app_project_boot(IDEApp *app);
+/* Create a new project folder and switch to it. */
+int ide_app_project_new(IDEApp *app, const char *name);
+/* Add an image to the open project and, when it is the first one, a script
+ * that draws it. `source_path` is an image on disk. */
+int ide_app_project_add_picture(IDEApp *app, const char *source_path, const char *display_name);
+/* Ask the platform for a picture, then add it to the project. On Android this
+ * is the photo library; elsewhere a file dialog. */
+int ide_app_project_pick_picture(IDEApp *app);
+/* Add another script file and open it. */
+int ide_app_project_add_script(IDEApp *app, const char *name);
+/* Status of the open project, for the bars. */
+const char *ide_app_project_dir(IDEApp *app);
 
 /* ---- actions --------------------------------------------------------- */
 void ide_app_new(IDEApp *app);

@@ -29,6 +29,7 @@ add_library(discript SHARED
     "${CB_SOURCE_ROOT}/ide/ide_view.c"
     "${CB_SOURCE_ROOT}/ide/ide_viewport.c"
     "${CB_SOURCE_ROOT}/ide/ide_app.c"
+    "${CB_SOURCE_ROOT}/ide/ide_project.c"
     # Language runtime
     "${CB_SOURCE_ROOT}/discript/ds_gc.c"
     "${CB_SOURCE_ROOT}/discript/ds_lexer.c"

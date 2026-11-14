@@ -68,6 +68,9 @@ static void console_add(const char *line, int is_error) {
 /* Installed by the platform: native file dialogs. */
 int (*ds_pick_open_hook)(char *dst, int cap) = 0;
 int (*ds_pick_save_hook)(const char *name, char *dst, int cap) = 0;
+/* Separate from the script dialog: picking a picture opens the photo library
+ * with an image filter, which is a different intent and a different picker. */
+int (*ds_pick_image_hook)(char *dst, int cap) = 0;
 
 void ds_console_raw(int is_error, const char *line) {
     console_add(line ? line : "", is_error);
@@ -80,6 +83,17 @@ int ds_pick_open_file(char *dst, int cap) {
         return 0;
     dst[0] = 0;
     return ds_pick_open_hook(dst, cap);
+}
+
+/* Pick an image. Falls back to the plain file dialog when the platform has no
+ * image picker, so desktop keeps working without extra code. */
+int ds_pick_image_file(char *dst, int cap) {
+    if (!dst || cap <= 0)
+        return 0;
+    dst[0] = 0;
+    if (ds_pick_image_hook)
+        return ds_pick_image_hook(dst, cap);
+    return ds_pick_open_file(dst, cap);
 }
 
 int ds_pick_save_file(const char *name, char *dst, int cap) {
