@@ -1,4 +1,4 @@
-name: Build Cubic Battle 4 (APK + EXE)
+name: Build DiScript editor (APK + EXE)
 
 on:
   push:
@@ -30,28 +30,22 @@ jobs:
       - name: Install Zig
         run: pip install ziglang
 
-      - name: Build CubicBattle4.exe
+      - name: Build DiScript.exe
         run: python3 tools/build_pc.py --windows
 
       - name: Stage Windows package
         run: |
           set -euo pipefail
           mkdir -p build/pc/dist
-          cp build/pc/CubicBattle4.exe build/pc/dist/
+          cp build/pc/DiScript.exe build/pc/dist/
           cp -r build/pc/assets build/pc/dist/assets
-          test -f build/pc/dist/assets/grass.png
-          test -f build/pc/dist/assets/fonts/ComicRelief-Regular.ttf
-          test -f build/pc/dist/assets/sounds/tracks/lobby.wav
-          test -f build/pc/dist/assets/sounds/tracks/winter_lobby.wav
-          test -f build/pc/dist/assets/sounds/tracks/ambient_lobby.wav
-          test -f build/pc/dist/assets/sounds/tracks/ambient_winter.wav
-          test -f build/pc/dist/assets/sounds/tracks/disco_01_roller_rink_sunset.wav
-          test -f build/pc/dist/assets/sounds/sfx/punch.wav
+          # The editor only needs a monospaced font.
+          test -f build/pc/dist/assets/fonts/DejaVuSansMono.ttf
           # A bare .exe has to work on its own: the asset tree is appended to it.
-          python3 tools/embed_assets.py build/pc/assets build/pc/CubicBattle4.exe
-          python3 tools/check_embedded_assets.py build/pc/CubicBattle4.exe
-          cp build/pc/CubicBattle4.exe build/pc/dist/
-          (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/CubicBattle4-Windows.zip" CubicBattle4.exe assets)
+          python3 tools/embed_assets.py build/pc/assets build/pc/DiScript.exe
+          python3 tools/check_embedded_assets.py build/pc/DiScript.exe
+          cp build/pc/DiScript.exe build/pc/dist/
+          (cd build/pc/dist && zip -qr "$GITHUB_WORKSPACE/DiScript-Windows.zip" DiScript.exe assets)
 
       - name: Publish Windows .exe to Release
         env:
@@ -62,25 +56,25 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --target "${{ github.sha }}" \
-              --title "Latest Build (APK + EXE)" \
-              --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
+              --title "DiScript editor (APK + EXE)" \
+              --notes "Automated DiScript editor build (${{ github.sha }})." \
               --prerelease || true
           fi
-          sha256sum CubicBattle4-Windows.zip build/pc/CubicBattle4.exe > windows.sha256
+          sha256sum DiScript-Windows.zip build/pc/DiScript.exe > windows.sha256
           cat windows.sha256
           REPO="${{ github.repository }}"
-          ZIP_SIZE="$(stat -c%s CubicBattle4-Windows.zip)"
-          EXE_SIZE="$(stat -c%s build/pc/CubicBattle4.exe)"
+          ZIP_SIZE="$(stat -c%s DiScript-Windows.zip)"
+          EXE_SIZE="$(stat -c%s build/pc/DiScript.exe)"
           for attempt in 1 2 3 4 5; do
-            if gh release upload "$TAG" CubicBattle4-Windows.zip build/pc/CubicBattle4.exe windows.sha256 --clobber; then
-              ZIP_REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4-Windows.zip") | .size' 2>/dev/null || echo 0)"
-              EXE_REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4.exe") | .size' 2>/dev/null || echo 0)"
+            if gh release upload "$TAG" DiScript-Windows.zip build/pc/DiScript.exe windows.sha256 --clobber; then
+              ZIP_REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="DiScript-Windows.zip") | .size' 2>/dev/null || echo 0)"
+              EXE_REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="DiScript.exe") | .size' 2>/dev/null || echo 0)"
               if [ "$ZIP_REMOTE" = "$ZIP_SIZE" ] && [ "$EXE_REMOTE" = "$EXE_SIZE" ]; then
                 echo "windows assets match: $ZIP_REMOTE and $EXE_REMOTE bytes"
                 break
               fi
               echo "windows assets mismatch ($ZIP_REMOTE/$EXE_REMOTE), re-uploading"
-              for NAME in CubicBattle4-Windows.zip CubicBattle4.exe; do
+              for NAME in DiScript-Windows.zip DiScript.exe; do
                 ASSET_ID="$(gh api "repos/$REPO/releases/tags/$TAG" --jq ".assets[] | select(.name==\"$NAME\") | .id" 2>/dev/null || true)"
                 if [ -n "$ASSET_ID" ]; then
                   gh api -X DELETE "repos/$REPO/releases/assets/$ASSET_ID" || true
@@ -90,8 +84,8 @@ jobs:
             sleep 2
           done
           echo "### Windows Build Ready" >> "$GITHUB_STEP_SUMMARY"
-          echo "- [CubicBattle4-Windows.zip (EXE + assets)](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4-Windows.zip)" >> "$GITHUB_STEP_SUMMARY"
-          echo "- [CubicBattle4.exe](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.exe)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [DiScript-Windows.zip (EXE + assets)](https://github.com/${{ github.repository }}/releases/download/$TAG/DiScript-Windows.zip)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [DiScript.exe](https://github.com/${{ github.repository }}/releases/download/$TAG/DiScript.exe)" >> "$GITHUB_STEP_SUMMARY"
 
   build-android:
     name: Build Android APK (Android 8-15)
@@ -155,8 +149,12 @@ jobs:
           set -euo pipefail
           TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
           GLUE="$NDK_ROOT/sources/android/native_app_glue"
-          C_SOURCES=(src/game/game.c src/engine/runtime.c src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")
-          CPP_SOURCE=src/game/cpp/ui_fx.cpp
+          C_SOURCES=(src/ide/ide_buffer.c src/ide/ide_highlight.c src/ide/ide_view.c src/ide/ide_app.c
+                     src/discript/ds_gc.c src/discript/ds_lexer.c src/discript/ds_parser.c
+                     src/discript/ds_compiler.c src/discript/ds_vm.c src/discript/ds_stdlib.c
+                     src/discript/ds_love.c
+                     src/engine/runtime.c src/engine/anim.c src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")
+          CPP_SOURCES=(src/cpp/native_jit.cpp src/cpp/love_noise_physics.cpp src/cpp/ui_fx.cpp)
           C_OPTS=(-std=c99 -O3 -s -fPIC -shared -Isrc -I. -I"$GLUE" -landroid -llog -ldl -lm -lvulkan
                   -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384)
           CPP_OPTS=(-std=c++17 -fno-exceptions -fno-rtti -O3 -s -fPIC -Isrc)
@@ -169,9 +167,14 @@ jobs:
               x86_64) TRIPLE=x86_64-linux-android26;;
             esac
             (
-              "$TOOLCHAIN/$TRIPLE-clang++" "${CPP_OPTS[@]}" -c "$CPP_SOURCE" -o "staging/ui_fx_$ABI.o"
-              "$TOOLCHAIN/$TRIPLE-clang" "${C_OPTS[@]}" "${C_SOURCES[@]}" "staging/ui_fx_$ABI.o" \
-                -o "staging/lib/$ABI/libcb_game.so"
+              OBJS=()
+              for CPP_SRC in "${CPP_SOURCES[@]}"; do
+                OBJ="staging/$(basename "${CPP_SRC%.cpp}")_$ABI.o"
+                "$TOOLCHAIN/$TRIPLE-clang++" "${CPP_OPTS[@]}" -c "$CPP_SRC" -o "$OBJ"
+                OBJS+=("$OBJ")
+              done
+              "$TOOLCHAIN/$TRIPLE-clang" "${C_OPTS[@]}" "${C_SOURCES[@]}" "${OBJS[@]}" \
+                -o "staging/lib/$ABI/libdiscript.so"
             ) &
             pids+=("$!")
           done
@@ -184,9 +187,9 @@ jobs:
           set -euo pipefail
           BT="$ANDROID_HOME/build-tools/34.0.0"
           test -s staging/classes.dex
-          test -s staging/lib/arm64-v8a/libcb_game.so
-          test -s staging/lib/armeabi-v7a/libcb_game.so
-          test -s staging/lib/x86_64/libcb_game.so
+          test -s staging/lib/arm64-v8a/libdiscript.so
+          test -s staging/lib/armeabi-v7a/libdiscript.so
+          test -s staging/lib/x86_64/libdiscript.so
           "$BT/aapt" package -f \
             -M platform/android/AndroidManifest.xml \
             -S platform/android/res \
@@ -200,19 +203,15 @@ jobs:
           unzip -t unsigned.apk >/dev/null
           APK_FILES="$(unzip -Z1 unsigned.apk)"
           for required in \
-            assets/grass.png \
-            assets/ordinary_gold.png \
-            assets/astra_xastra_card.png \
-            assets/sounds/tracks/lobby.wav \
-            assets/fonts/ComicRelief-Regular.ttf \
+            assets/fonts/DejaVuSansMono.ttf \
             classes.dex \
-            lib/arm64-v8a/libcb_game.so \
-            lib/armeabi-v7a/libcb_game.so \
-            lib/x86_64/libcb_game.so; do
+            lib/arm64-v8a/libdiscript.so \
+            lib/armeabi-v7a/libdiscript.so \
+            lib/x86_64/libdiscript.so; do
             grep -Fxq "$required" <<< "$APK_FILES"
           done
           "$BT/aapt" dump badging unsigned.apk > unsigned.badging
-          grep -Fq "package: name='com.cb4'" unsigned.badging
+          grep -Fq "package: name='com.discript.ide'" unsigned.badging
           "$BT/zipalign" -v 4 unsigned.apk aligned.apk
           "$BT/apksigner" sign \
             --ks platform/android/debug.keystore --ks-type PKCS12 \
@@ -223,9 +222,9 @@ jobs:
           "$BT/apksigner" verify --verbose --print-certs --min-sdk-version 26 Game.apk
           unzip -Z1 Game.apk | grep -Eq "META-INF/.*\.(RSA|DSA|EC)$"
           "$BT/aapt" dump badging Game.apk > Game.badging
-          grep -Fq "package: name='com.cb4'" Game.badging
+          grep -Fq "package: name='com.discript.ide'" Game.badging
           unzip -t Game.apk >/dev/null
-          cp Game.apk CubicBattle4.apk
+          cp Game.apk DiScript.apk
 
       - name: Publish Android APK to Release
         env:
@@ -236,25 +235,25 @@ jobs:
           if ! gh release view "$TAG" >/dev/null 2>&1; then
             gh release create "$TAG" \
               --target "${{ github.sha }}" \
-              --title "Latest Build (APK + EXE)" \
-              --notes "Automated Android APK and Windows EXE build (${{ github.sha }})." \
+              --title "DiScript editor (APK + EXE)" \
+              --notes "Automated DiScript editor build (${{ github.sha }})." \
               --prerelease || true
           fi
-          SIZE="$(stat -c%s CubicBattle4.apk)"
-          SHA="$(sha256sum CubicBattle4.apk | cut -d' ' -f1)"
-          printf '%s  CubicBattle4.apk\n' "$SHA" > CubicBattle4.apk.sha256
+          SIZE="$(stat -c%s DiScript.apk)"
+          SHA="$(sha256sum DiScript.apk | cut -d' ' -f1)"
+          printf '%s  DiScript.apk\n' "$SHA" > DiScript.apk.sha256
           echo "local apk: $SIZE bytes, sha256 $SHA"
           REPO="${{ github.repository }}"
           REMOTE=""
           for attempt in 1 2 3 4 5; do
-            if gh release upload "$TAG" CubicBattle4.apk CubicBattle4.apk.sha256 --clobber; then
-              REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4.apk") | .size' 2>/dev/null || echo 0)"
+            if gh release upload "$TAG" DiScript.apk DiScript.apk.sha256 --clobber; then
+              REMOTE="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="DiScript.apk") | .size' 2>/dev/null || echo 0)"
               if [ "$REMOTE" = "$SIZE" ]; then
                 echo "release apk matches: $REMOTE bytes"
                 break
               fi
               echo "release apk size $REMOTE != $SIZE, dropping the asset and retrying"
-              ASSET_ID="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="CubicBattle4.apk") | .id' 2>/dev/null || true)"
+              ASSET_ID="$(gh api "repos/$REPO/releases/tags/$TAG" --jq '.assets[] | select(.name=="DiScript.apk") | .id' 2>/dev/null || true)"
               if [ -n "$ASSET_ID" ]; then
                 gh api -X DELETE "repos/$REPO/releases/assets/$ASSET_ID" || true
               fi
@@ -266,6 +265,6 @@ jobs:
             exit 1
           fi
           gh release edit "$TAG" \
-            --notes "$(printf 'Automated Android APK and Windows EXE build (%s).\n\nAPK: %s bytes\nsha256: %s\nThe same hash is in CubicBattle4.apk.sha256 next to the APK.' "${{ github.sha }}" "$SIZE" "$SHA")" >/dev/null 2>&1 || true
+            --notes "$(printf 'Automated Android APK and Windows EXE build (%s).\n\nAPK: %s bytes\nsha256: %s\nThe same hash is in DiScript.apk.sha256 next to the APK.' "${{ github.sha }}" "$SIZE" "$SHA")" >/dev/null 2>&1 || true
           echo "### Android APK Ready" >> "$GITHUB_STEP_SUMMARY"
-          echo "- [CubicBattle4.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/CubicBattle4.apk) ($SIZE bytes, sha256 $SHA)" >> "$GITHUB_STEP_SUMMARY"
+          echo "- [DiScript.apk](https://github.com/${{ github.repository }}/releases/download/$TAG/DiScript.apk) ($SIZE bytes, sha256 $SHA)" >> "$GITHUB_STEP_SUMMARY"
