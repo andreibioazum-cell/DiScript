@@ -188,17 +188,19 @@ jobs:
           # A shared library links happily with unresolved symbols and only
           # fails when Android dlopen()s it, which the user sees as the app
           # closing instantly with no window. Catch that here instead.
+          test -x "$TOOLCHAIN/llvm-nm" || { echo "llvm-nm missing"; exit 1; }
           for ABI in arm64-v8a armeabi-v7a x86_64; do
             LIB="staging/lib/$ABI/libdiscript.so"
-            HOLE=$("$TOOLCHAIN/llvm-nm" -D --undefined-only "$LIB" 2>/dev/null \
+            test -s "$LIB" || { echo "missing $LIB"; exit 1; }
+            HOLE=$("$TOOLCHAIN/llvm-nm" -D --undefined-only "$LIB" \
                    | grep -E "ds_(register_scene|scene_api_tick|scene_api_get)|scene_(build_mesh|tick|add)$" || true)
             if [ -n "$HOLE" ]; then
               echo "unresolved engine symbols in $LIB:"
               echo "$HOLE"
               exit 1
             fi
+            echo "link check $(basename "$(dirname "$LIB")"): ok"
           done
-          echo "link check: no unresolved scene symbols in any ABI"
 
       - name: Package and sign APK
         run: |
