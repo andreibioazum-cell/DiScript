@@ -632,6 +632,16 @@ void ide_app_pointer_sized(IDEApp *app, float x, float y, int action, int width,
         return;
     IDEView *v = &app->view;
 
+    /* ---- a running game gets the pointer instead of the editor -------- */
+    if (app->game_mode == 1 && app->vm) {
+        DSVM *vm = (DSVM *)app->vm;
+        if (action == 0)
+            ds_vm_love_touch(vm, 0, 0, x, y);
+        else if (action == 2)
+            ds_vm_love_touch(vm, 2, 0, x, y);
+        return;
+    }
+
     /* ---- the "+" sheet: it sits above everything, so it eats the tap first */
     if (v->add.open && v->project_name[0]) {
         if (action == 1 || action == 2) {
