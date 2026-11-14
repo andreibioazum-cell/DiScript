@@ -150,10 +150,13 @@ jobs:
           TOOLCHAIN="$NDK_ROOT/toolchains/llvm/prebuilt/linux-x86_64/bin"
           GLUE="$NDK_ROOT/sources/android/native_app_glue"
           C_SOURCES=(src/ide/ide_buffer.c src/ide/ide_highlight.c src/ide/ide_view.c src/ide/ide_app.c
+                     src/ide/ide_viewport.c
                      src/discript/ds_gc.c src/discript/ds_lexer.c src/discript/ds_parser.c
                      src/discript/ds_compiler.c src/discript/ds_vm.c src/discript/ds_stdlib.c
-                     src/discript/ds_love.c
-                     src/engine/runtime.c src/engine/anim.c src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")
+                     src/discript/ds_love.c src/discript/ds_scene_api.c
+                     src/engine/runtime.c src/engine/anim.c
+                     src/engine/scene/ds_scene.c src/engine/scene/ds_render3d.c
+                     src/platform/android/android_main.c "$GLUE/android_native_app_glue.c")
           CPP_SOURCES=(src/cpp/native_jit.cpp src/cpp/love_noise_physics.cpp src/cpp/ui_fx.cpp)
           C_OPTS=(-std=c99 -O3 -s -fPIC -shared -Isrc -I. -I"$GLUE" -landroid -llog -ldl -lm -lvulkan
                   -Wl,-z,max-page-size=16384 -Wl,-z,common-page-size=16384)
