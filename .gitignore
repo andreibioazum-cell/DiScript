@@ -32,3 +32,6 @@ cb4_data/
 
 ## Local secrets never go to git
 .env
+
+# local scratch scripts used while debugging
+scratch/
