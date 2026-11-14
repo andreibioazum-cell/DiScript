@@ -1,0 +1,7 @@
+def spin(n):
+    s = 0.0
+    for i in range(n):
+        s = s + i * 0.5
+    return s
+t = spin(90000000)
+print(t)

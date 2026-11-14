@@ -27,7 +27,7 @@ static void pc_args_default(PcArgs *a) {
     a->height = 960;
     a->headless = 0;
     snprintf(a->assets, sizeof(a->assets), "assets");
-    snprintf(a->data, sizeof(a->data), "cb4_data");
+    snprintf(a->data, sizeof(a->data), "discript_data");
 }
 
 static void pc_args_push_event(PcArgs *a, const char *name, const char *value) {
@@ -109,12 +109,10 @@ static void pc_args_parse(const char *cmdline, PcArgs *a) {
         } else if (strcmp(k, "--data") == 0) {
             snprintf(a->data, sizeof(a->data), "%s", v);
             i++;
-        } else if (strcmp(k, "--touch") == 0 || strcmp(k, "--goto") == 0 || strcmp(k, "--type") == 0 ||
-                   strcmp(k, "--enter") == 0 || strcmp(k, "--back") == 0 || strcmp(k, "--dump") == 0 ||
-                   strcmp(k, "--report") == 0 || strcmp(k, "--stick") == 0 || strcmp(k, "--atk") == 0 ||
-                   strcmp(k, "--blk") == 0 || strcmp(k, "--super") == 0 || strcmp(k, "--login") == 0 ||
-                   strcmp(k, "--class") == 0 || strcmp(k, "--room") == 0 || strcmp(k, "--wheel") == 0 ||
-                   strcmp(k, "--logininfo") == 0) {
+        } else if (strcmp(k, "--touch") == 0 || strcmp(k, "--type") == 0 || strcmp(k, "--enter") == 0 ||
+                   strcmp(k, "--tab") == 0 || strcmp(k, "--key") == 0 || strcmp(k, "--open") == 0 ||
+                   strcmp(k, "--dump") == 0 || strcmp(k, "--report") == 0 || strcmp(k, "--run") == 0 ||
+                   strcmp(k, "--wheel") == 0 || strcmp(k, "--async") == 0) {
             pc_args_push_event(a, k + 2, v);
             i++;
         }
@@ -130,14 +128,23 @@ static void pc_args_join(int argc, char **argv, char *dst, size_t cap) {
     if (!dst || cap < 2)
         return;
     dst[0] = '\0';
-    snprintf(dst, cap, "cb4_headless ");
+    snprintf(dst, cap, "discript_headless ");
     used = strlen(dst);
+    /* Re-quote anything containing whitespace: the parser splits the joined
+     * string on spaces, and scripted text like --type "5:print('a b')" has to
+     * survive as one token. */
     for (i = 1; i < argc; i++) {
-        size_t need = strlen(argv[i]) + 1;
-        if (need + 1 > cap - used)
+        size_t len = strlen(argv[i]);
+        int quote = strpbrk(argv[i], " \t") != NULL;
+        size_t need = len + (quote ? 3 : 1);
+        if (need > cap - used)
             break;
-        memcpy(dst + used, argv[i], need - 1);
-        used += need - 1;
+        if (quote)
+            dst[used++] = '"';
+        memcpy(dst + used, argv[i], len);
+        used += len;
+        if (quote)
+            dst[used++] = '"';
         dst[used++] = ' ';
         dst[used] = '\0';
     }

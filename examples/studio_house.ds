@@ -1,0 +1,58 @@
+# Studio-style demo: a small house and a rotating sign.
+#
+# Open this in the editor and press RUN. The 3D viewport frames it
+# automatically; drag to orbit, scroll to zoom.
+
+# --- ground ---------------------------------------------------------------
+base = scene.part("Base", "block")
+base.size(24, 1, 24)
+base.move(0, -0.5, 0)
+base.color(110, 132, 104)
+
+# --- house: everything below moves when the model moves -------------------
+house = scene.model("House")
+house.move(0, 0, 0)
+
+wall = scene.part("Wall", "block")
+wall.parent(house)
+wall.size(6, 4, 6)
+wall.move(0, 2, 0)
+wall.color(206, 178, 138)
+
+door = scene.part("Door", "block")
+door.parent(house)
+# The default view looks at the -z side of a model, so the door goes there.
+door.size(1.8, 2.8, 0.45)
+door.move(0, 1.4, -3.2)
+door.color(84, 56, 40)
+
+roof = scene.part("Roof", "cone")
+roof.parent(house)
+# The cone's base sits slightly inside the wall: if it sat exactly on the wall
+# top the two surfaces would be coplanar and flicker against each other.
+roof.size(7.4, 2.8, 7.4)
+roof.move(0, 5.2, 0)
+roof.color(176, 74, 66)
+
+# --- props ----------------------------------------------------------------
+ball = scene.part("Ball", "sphere")
+ball.size(2, 2, 2)
+ball.move(-5, 1, 4)
+ball.color(76, 143, 214)
+
+pillar = scene.part("Pillar", "cylinder")
+pillar.size(1.2, 5, 1.2)
+pillar.move(5, 2.5, 3)
+pillar.color(216, 210, 196)
+
+# --- animation ------------------------------------------------------------
+# The ball rolls up and over, easing into place.
+ball.animate(-5, 4, 4, 0, 0, 0, 1.2, "ease")
+
+# The roof turns slowly, like a weather vane.
+roof.spin(45)
+
+# Report where things ended up, which is also how a script checks its work.
+pos = ball.position()
+print("Ball at", pos["x"], pos["y"], pos["z"])
+print("Scene has", scene.count(), "objects")

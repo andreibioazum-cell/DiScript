@@ -181,10 +181,10 @@ static void kb_sync_editor(void) {
     pthread_mutex_lock(&kb_mutex);
     snprintf(copy, sizeof(copy), "%s", kb_text);
     pthread_mutex_unlock(&kb_mutex);
-    (void)kb_call_text_method("setGameKeyboardText", copy);
+    (void)kb_call_text_method("setClipboardText", copy);
 }
 
-int keyboard_uses_editor(void) { return kb_call_bool_method("gameKeyboardActive"); }
+int keyboard_uses_editor(void) { return kb_call_bool_method("isCodeKeyboardVisible"); }
 
 void keyboard_show(void) {
     char current[KB_BUF];
@@ -192,7 +192,8 @@ void keyboard_show(void) {
     snprintf(current, sizeof(current), "%s", kb_text);
     kb_show = 1;
     pthread_mutex_unlock(&kb_mutex);
-    if (!kb_call_text_method("showGameKeyboard", current) && kb_activity)
+    (void)current;
+    if (!kb_call_void_method("showCodeKeyboard") && kb_activity)
         ANativeActivity_showSoftInput(kb_activity, ANATIVEACTIVITY_SHOW_SOFT_INPUT_FORCED);
 }
 
@@ -201,7 +202,7 @@ void keyboard_hide(void) {
     kb_show = 0;
     pthread_mutex_unlock(&kb_mutex);
     keyboard_cancel_repeat();
-    if (!kb_call_void_method("hideGameKeyboard") && kb_activity)
+    if (!kb_call_void_method("hideCodeKeyboard") && kb_activity)
         ANativeActivity_hideSoftInput(kb_activity, ANATIVEACTIVITY_HIDE_SOFT_INPUT_IMPLICIT_ONLY);
 }
 
@@ -450,50 +451,8 @@ int keyboard_handle_key(int keycode, int action, int meta) {
     return 0;
 }
 
-JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeBackspaceKey(JNIEnv *env, jobject self, jint action) {
-    (void)env;
-    (void)self;
-    keyboard_handle_key(AKEYCODE_DEL, (int)action, 0);
-}
 
-JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeReplaceText(JNIEnv *env, jobject self, jstring value) {
-    (void)self;
-    pthread_mutex_lock(&kb_mutex);
-    kb_text[0] = '\0';
-    kb_len = 0;
-    if (value) {
-        jsize count = (*env)->GetStringLength(env, value);
-        const jchar *chars = (*env)->GetStringChars(env, value, NULL);
-        if (chars) {
-            for (jsize i = 0; i < count; i++) {
-                unsigned int cp = chars[i];
-                if (cp >= 0xD800 && cp <= 0xDBFF && i + 1 < count && chars[i + 1] >= 0xDC00 && chars[i + 1] <= 0xDFFF) {
-                    cp = 0x10000 + ((cp - 0xD800) << 10) + (chars[++i] - 0xDC00);
-                }
-                if (cp >= 0x20 && cp != 0x7F)
-                    kb_append_cp_locked(cp);
-            }
-            (*env)->ReleaseStringChars(env, value, chars);
-        }
-    }
-    pthread_mutex_unlock(&kb_mutex);
-}
 
-JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeSubmitText(JNIEnv *env, jobject self) {
-    (void)env;
-    (void)self;
-    pthread_mutex_lock(&kb_mutex);
-    kb_enter = 1;
-    pthread_mutex_unlock(&kb_mutex);
-}
 
-JNIEXPORT void JNICALL Java_com_cb4_GameActivity_nativeKeyboardHidden(JNIEnv *env, jobject self) {
-    (void)env;
-    (void)self;
-    pthread_mutex_lock(&kb_mutex);
-    kb_show = 0;
-    pthread_mutex_unlock(&kb_mutex);
-    keyboard_cancel_repeat();
-}
 
 #endif

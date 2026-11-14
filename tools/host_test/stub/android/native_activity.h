@@ -14,6 +14,10 @@ typedef struct ANativeActivity {
     const char *obbPath;
     AAssetManager *assetManager;
     const char *dataPath;
+    const char *externalDataPath;
     void *instance;
+    /* The glue keeps a strong reference to the Java activity object here; the
+     * host build mirrors that so the JNI call path type-checks. */
+    jobject clazz;
 } ANativeActivity;
 #endif

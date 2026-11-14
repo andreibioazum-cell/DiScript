@@ -1,0 +1,39 @@
+# `global x` inside a function must write the module slot, not a fresh local.
+counter = 0
+
+def bump():
+    global counter
+    counter = counter + 1
+
+def bump_twice():
+    global counter
+    counter = counter + 1
+    counter = counter + 1
+
+def shadow_ok():
+    # A plain local named `counter` must still work when not declared global.
+    counter = 99
+    return counter
+
+for i in range(5):
+    bump()
+print("after 5 bumps:", counter)
+
+bump_twice()
+print("after bump_twice:", counter)
+print("shadow returns:", shadow_ok(), "global untouched:", counter)
+
+# `global` with several names at once
+def multi():
+    global a, b
+    a = 1
+    b = 2
+
+multi()
+print("multi:", a, b)
+
+# A global declared in one function is visible in another
+def read_counter():
+    return counter
+
+print("read from other fn:", read_counter())

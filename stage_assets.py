@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Stages assets and the Android platform code for APK packaging."""
+"""Stages the editor assets and the Android platform code for APK packaging."""
 
 from __future__ import annotations
 
@@ -11,13 +11,9 @@ import sys
 from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent
+# The editor needs exactly one thing from assets/: a monospaced font.
 ASSET_GROUPS = (
-    ("textures", Path()),
     ("fonts", Path("fonts")),
-    # Music and sound effects live in their own folders inside the audio tree.
-    ("audio/tracks", Path("sounds/tracks")),
-    ("audio/sfx", Path("sounds/sfx")),
-    ("hack", Path("hack")),
 )
 
 
@@ -124,7 +120,7 @@ def build_android_activity(source: Path, apk_root: Path) -> Path | None:
 
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
-    parser = argparse.ArgumentParser(description="Подготовить ресурсы игры для APK.")
+    parser = argparse.ArgumentParser(description="Подготовить ресурсы редактора для APK.")
     parser.add_argument("source", nargs="?", default="assets")
     parser.add_argument("destination", nargs="?", default="staging/assets")
     return parser.parse_args(argv)

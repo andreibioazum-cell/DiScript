@@ -1,0 +1,4 @@
+k = []
+for i in range(8000):
+    k.append(str(i))
+print(len(k))

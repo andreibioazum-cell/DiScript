@@ -1,0 +1,3 @@
+def one(n):
+    return n * 2
+print(one(5))

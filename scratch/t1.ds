@@ -1,0 +1,21 @@
+def fact(n):
+    r = 1
+    i = 2
+    while i <= n:
+        r = r * i
+        i = i + 1
+    return r
+
+def sumrange(n):
+    s = 0
+    for i in range(n):
+        s = s + i
+    return s
+
+def branchy(x):
+    if x < 10:
+        return x * 2
+    else:
+        return x + 100
+
+print(fact(10), sumrange(100), branchy(5), branchy(50))
